@@ -1,0 +1,21 @@
+{
+  "name": "autonolas",
+  "license": "UNLICENSED",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "create-local": "graph create --node http://localhost:8020/ autonolas",
+    "remove-local": "graph remove --node http://localhost:8020/ autonolas",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 autonolas -l 0.1.0",
+    "deploy-staging": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech autonolas -l 0.1.0",
+    "bds": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech autonolas -l 0.1.0",
+    "test": "graph test"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.43.0",
+    "@graphprotocol/graph-ts": "0.29.1"
+  },
+  "devDependencies": {
+    "matchstick-as": "0.5.0"
+  }
+}
