@@ -40,7 +40,6 @@ function getMetadata(unitHash: string): Metadata | null {
 
   if (metadata_response) {
     let publicId: string, packageHash: string
-
     let metadata = json.fromString(metadata_response.toString()).toObject()
     let code_uri = metadata.get("code_uri")
     let name = metadata.get("name")
@@ -50,7 +49,6 @@ function getMetadata(unitHash: string): Metadata | null {
     }
 
     packageHash = code_uri.toString().replace("ipfs://", "")
-
     let name_parts = name.toString().split("/")
     if (name_parts.length == 3) {
       // COMPONENT_TYPE/AUTHOR/NAME:VERSION format
@@ -76,6 +74,10 @@ function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, component
     entity.metadataHash = unitHash
     entity.packageHash = metadata.packageHash
     entity.publicId = metadata.publicId
+    log.info(
+      "Storing record\n\tTokenID: {}\n\tPublicID: {}\n\tPackageHash: {}\n\tComponentType: {}\n\tMetadataHash: {}\n",
+      [entity.tokenId.toString(), entity.publicId, entity.packageHash, entity.componentType, entity.metadataHash],
+    )
     entity.save()
   } else {
     log.error("Could not retrieve metadata for {}", [unitHash])
@@ -88,6 +90,10 @@ export function handleCreateComponent(event: CreateComponentEvent): void {
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
+  log.info(
+    "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tComponentType: {}\n",
+    [event.params.unitId.toString(), unitHash, COMPONENT_TYPE],
+  )
   createEntity(entity, unitHash, event.params.unitId, COMPONENT_TYPE)
 }
 
@@ -97,6 +103,10 @@ export function handleCreateAgent(event: CreateAgentEvent): void {
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
+  log.info(
+    "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tComponentType: {}\n",
+    [event.params.unitId.toString(), unitHash, AGENT_TYPE],
+  )
   createEntity(entity, unitHash, event.params.unitId, AGENT_TYPE)
 }
 
@@ -106,5 +116,9 @@ export function handleCreateService(event: CreateServiceEvent): void {
   )
   let service_metadata_uri_parts = ServiceRegistry.bind(event.address).tokenURI(event.params.serviceId).split("/")
   let unitHash = service_metadata_uri_parts.at(-1);
+  log.info(
+    "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tComponentType: {}\n",
+    [event.params.serviceId.toString(), unitHash, SERVICE_TYPE],
+  )
   createEntity(entity, unitHash, event.params.serviceId, SERVICE_TYPE)
 }
