@@ -8,7 +8,6 @@
     "remove-local": "graph remove --node http://localhost:8020/ autonolas",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 autonolas -l 0.1.0",
     "deploy-staging": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech autonolas -l 0.1.0",
-    "bds": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech autonolas -l 0.1.0",
     "test": "graph test"
   },
   "dependencies": {
