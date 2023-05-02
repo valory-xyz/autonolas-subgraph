@@ -1,5 +1,14 @@
 # Autonolas Subgraph
 
+## Dependencies
+- yarn
+- node
+- npm
+
+## Install
+```bash
+yarn install
+```
 
 ## Environment variables
 
@@ -15,6 +24,10 @@
 1. Local deployment
 
 **Note**: Make sure you have a local hardhat instance running. (Preferebally `valory/autonolas-registries`)
+```bash
+docker run -it -p 8545:8545 valory/autonolas-registries
+```
+
 
 ### Environment variables
 

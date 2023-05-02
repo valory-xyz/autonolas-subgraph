@@ -41,3 +41,11 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+
+  autonolas-subgraph:
+    build: .
+    restart: on-failure
+    environment:
+      CHAIN: "staging"
+      IPFS_REGISTRY: "https://registry.autonolas.tech"
+      SUBGRAPH_NODE: "http://graph-node:8020"
