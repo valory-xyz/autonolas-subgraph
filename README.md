@@ -55,3 +55,51 @@ export ETHEREUM_POLLING_INTERVAL=12000
 ```
 
 Run the deployment using `make node` and deploy `make deploy-prod`
+
+
+## Example queries
+
+1. Query all available records
+
+```graphql
+{
+    units{
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```
+
+2. Query by package hash
+
+```graphql
+{
+    units(where:{packageHash:<package_hash>}){
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```
+
+3. Query by public id and package type
+
+```graphql
+{
+    units(where:{publicId:<public_id>,packageType:<package_type>}){
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```
