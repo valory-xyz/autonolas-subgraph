@@ -13,8 +13,8 @@ echo "Registry: $IPFS_REGISTRY"
 if [ "$CHAIN" = "mainnet" ]; then
   echo "Starting mainnet"
   cp profiles/subgraph-prod.yaml subgraph.yaml
-elif [ "$CHAIN" = "goerli" ]; then
-  echo "Starting "goerli"
+elif [ "$CHAIN" = "staging" ]; then
+  echo "Starting goerli"
   cp profiles/subgraph-staging.yaml subgraph.yaml
 else
   echo "Invalid param"
@@ -22,6 +22,6 @@ fi
 
 yarn graph codegen &&  yarn graph build
 
-yarn graph remove --node "$SUBGRAPH_NODE" autonolas || echo "Not Found!" 
-yarn graph create --node "$SUBGRAPH_NODE" autonolas
-yarn graph deploy --node "$SUBGRAPH_NODE" --ipfs "$IPFS_REGISTRY" autonolas -l 0.1.0
+yarn graph remove --node $SUBGRAPH_NODE autonolas || echo "Not Found!" 
+yarn graph create --node $SUBGRAPH_NODE autonolas
+yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas -l 0.1.0
