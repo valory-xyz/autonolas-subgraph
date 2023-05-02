@@ -46,6 +46,6 @@ services:
     build: .
     restart: on-failure
     environment:
-      CHAIN: "staging"
-      IPFS_REGISTRY: "https://registry.autonolas.tech"
+      CHAIN: ${CHAIN:-staging}
+      IPFS_REGISTRY: ${IPFS_URL:-https://registry.autonolas.tech}
       SUBGRAPH_NODE: "http://graph-node:8020"
