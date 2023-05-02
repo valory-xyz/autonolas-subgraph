@@ -18,11 +18,13 @@
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`http://host.docker.internal:8545`
-`GRAPH_START_BLOCK`=`0`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`0`
-`ETHEREUM_POLLING_INTERVAL`=`1000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=http://host.docker.internal:8545
+export GRAPH_START_BLOCK=0
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=0
+export ETHEREUM_POLLING_INTERVAL=1000
+```
 
 Run the deployment using `make node` and deploy the subgraph using `make deploy-local`
 
@@ -30,11 +32,13 @@ Run the deployment using `make node` and deploy the subgraph using `make deploy-
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`GOERLI_RPC_URL`
-`GRAPH_START_BLOCK`=`7344700`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`7344700`
-`ETHEREUM_POLLING_INTERVAL`=`12000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=GOERLI_RPC_URL
+export GRAPH_START_BLOCK=7344700
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=7344700
+export ETHEREUM_POLLING_INTERVAL=12000
+```
 
 Run the deployment using `make node` and deploy `make deploy-staging`
 
@@ -42,10 +46,12 @@ Run the deployment using `make node` and deploy `make deploy-staging`
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`MAINNET_RPC_URL`
-`GRAPH_START_BLOCK`=`15178253`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`15178253`
-`ETHEREUM_POLLING_INTERVAL`=`12000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=MAINNET_RPC_URL
+export GRAPH_START_BLOCK=15178253
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=15178253
+export ETHEREUM_POLLING_INTERVAL=12000
+```
 
 Run the deployment using `make node` and deploy `make deploy-prod`
