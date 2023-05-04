@@ -1,13 +1,17 @@
-enum ComponentType {
-  COMPONENT
+enum packageType {
+  PROTOCOL
+  CONNECTION
+  CONTRACT
+  SKILL
   AGENT
   SERVICE
+  UNKNOWN
 }
 
 type Unit @entity(immutable: true) {
   id: Bytes! # Unique ID for the record
   tokenId: BigInt! # Token ID of the minted component
-  componentType: ComponentType! # Component type
+  packageType: packageType! # Component type
   metadataHash: String! # Metadata file hash
   packageHash: String! # IPFS hash of the package
   publicId: String! # Public ID of the package

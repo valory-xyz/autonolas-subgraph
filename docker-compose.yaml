@@ -17,11 +17,13 @@ services:
       postgres_user: graph-node
       postgres_pass: let-me-in
       postgres_db: graph-node
-      ipfs: 'https://registry.autonolas.tech'
-      ethereum: 'mainnet:http://host.docker.internal:8545'
-      GRAPH_LOG: info
-      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: true
-      ETHEREUM_POLLING_INTERVAL: 500 
+      ipfs: ${IPFS_URL:-https://registry.autonolas.tech}
+      ethereum: 'mainnet:${RPC_URL:-http://host.docker.internal:8545}'
+      GRAPH_LOG: ${GRAPH_LOG:-debug}
+      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: 'true'
+      GRAPH_START_BLOCK: ${GRAPH_START_BLOCK:-0}
+      GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER: ${GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER:-0}
+      ETHEREUM_POLLING_INTERVAL: ${ETHEREUM_POLLING_INTERVAL:-1000}
   postgres:
     image: postgres
     ports:
