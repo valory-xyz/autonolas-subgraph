@@ -20,7 +20,7 @@ services:
       ipfs: 'https://registry.autonolas.tech'
       ethereum: 'mainnet:http://host.docker.internal:8545'
       GRAPH_LOG: info
-      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: true
+      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: "true"
       ETHEREUM_POLLING_INTERVAL: 500 
   postgres:
     image: postgres
