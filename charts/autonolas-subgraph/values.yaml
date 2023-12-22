@@ -7,7 +7,7 @@ replicaCount: 1
 images:
   graphNode:
     repository: graphprotocol/graph-node
-    tag: 583cf71
+    tag: latest
     pullPolicy: IfNotPresent
   postgres:
     repository: postgres
@@ -95,11 +95,11 @@ affinity: {}
 
 
 ethereum:
+  url: mainnet:https://eth.llamarpc.com
   pollingInterval: "1000"
+  genesisBlockNumber: "0"
 graph:
   allowNonDeterministicIpfs: true
-  ethereum:
-    genesisBlockNumber: "0"
   log: debug
   startBlock: "0"
 

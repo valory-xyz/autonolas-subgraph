@@ -16,7 +16,9 @@ spec:
         io.kompose.service: graph-node
     spec:
       containers:
-        - env:
+        - name: graph-node
+          image: {{ .Values.images.graphNode.repository }}:{{ .Values.images.graphNode.tag }}
+          env:
             - name: ETHEREUM_POLLING_INTERVAL
               value: "{{.Values.ethereum.pollingInterval}}"
             - name: GRAPH_ALLOW_NON_DETERMINISTIC_IPFS
@@ -28,7 +30,7 @@ spec:
             - name: GRAPH_START_BLOCK
               value: "{{.Values.graph.startBlock}}"
             - name: ethereum
-              value: "{{ .Values.ethereum }}"
+              value: "{{ .Values.ethereum.url }}"
             - name: ipfs
               value: "{{ .Values.ipfs.url }}"
             - name: postgres_db
@@ -39,14 +41,23 @@ spec:
               value: "{{ .Values.postgres.pass}}"
             - name: postgres_user
               value: "{{ .Values.postgres.user }}"
-          image: {{ .Values.images.graphNode.repository }}:{{ .Values.images.graphNode.tag }}
-          name: graph-node
           ports:
             - containerPort: 8000
             - containerPort: 8001
             - containerPort: 8020
             - containerPort: 8030
             - containerPort: 8040
+          resources: {}
+        - name: autonolas-subgraph
+          image: {{ .Values.images.subgraph.repository }}:{{ .Values.images.subgraph.tag }}
+          imagePullPolicy: Never
+          env:
+            - name: CHAIN
+              value: staging
+            - name: IPFS_REGISTRY
+              value: "{{ .Values.ipfs.url }}"
+            - name: SUBGRAPH_NODE
+              value: http://localhost:8020
           resources: {}
       restartPolicy: Always
 status: {}
