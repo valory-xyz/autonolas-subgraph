@@ -1,5 +1,6 @@
 version: '3'
 services:
+  
   graph-node:
     image: graphprotocol/graph-node
     ports:
@@ -24,6 +25,7 @@ services:
       GRAPH_START_BLOCK: ${GRAPH_START_BLOCK:-0}
       GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER: ${GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER:-0}
       ETHEREUM_POLLING_INTERVAL: ${ETHEREUM_POLLING_INTERVAL:-1000}
+  
   postgres:
     image: postgres
     ports:
@@ -49,3 +51,5 @@ services:
       CHAIN: ${CHAIN:-staging}
       IPFS_REGISTRY: ${IPFS_URL:-https://registry.autonolas.tech}
       SUBGRAPH_NODE: "http://graph-node:8020"
+    depends_on:
+      - graph-node
