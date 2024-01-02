@@ -7,7 +7,7 @@ replicaCount: 1
 images:
   graphNode:
     repository: graphprotocol/graph-node
-    tag: latest
+    tag: 583cf71
     pullPolicy: IfNotPresent
   postgres:
     repository: postgres
