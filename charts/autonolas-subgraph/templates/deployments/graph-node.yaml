@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.service: {{ .Values.name }}
+  name: {{ .Values.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.service: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        io.service: {{ .Values.name }}
+    spec:
+      containers:
+        - name: graph-node
+          image: "{{ .Values.images.graphNode }}"
+          env:         
+            - name: ethereum
+              value: "{{ .Values.ethereum.url }}"
+            - name: ipfs
+              value: "{{ .Values.ipfs.url }}"
+            - name: postgres_db
+              value: "{{ .Values.postgres.name }}"
+            - name: postgres_host
+              value: "$(AUTONOLAS_SUBGRAPH_DB_SERVICE_SERVICE_HOST)"
+            - name: postgres_pass
+              value: "{{ .Values.postgres.pass }}"
+            - name: postgres_user
+              value: "{{ .Values.postgres.user }}"
+            - name: postgres_port
+              value: "5432"
+        - name: autonolas-subgraph
+          image: "{{ .Values.images.subgraph }}"
+          env:
+            - name: CHAIN
+              value: staging
+            - name: IPFS_REGISTRY
+              value: "{{ .Values.ipfs.url }}"
+            - name: SUBGRAPH_NODE
+              value: http://$(AUTONOLAS_SUBGRAPH_SERVICE_SERVICE_HOST):8020
