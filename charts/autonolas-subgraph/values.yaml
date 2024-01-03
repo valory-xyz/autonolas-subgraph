@@ -13,10 +13,10 @@ images:
     repository: postgres
     tag: 12.3-alpine
     pullPolicy: IfNotPresent
-  # repository: nginx
-  # pullPolicy: IfNotPresent
-  # # Overrides the image tag whose default is the chart appVersion.
-  # tag: ""
+  subgraph:
+    repository: autonolas-subgraph
+    tag: latest
+    pullPolicy: IfNotPresent
 
 storageClass: "local"
 

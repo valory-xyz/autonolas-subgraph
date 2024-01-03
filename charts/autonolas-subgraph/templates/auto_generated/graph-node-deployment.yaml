@@ -58,6 +58,3 @@ spec:
               value: "{{ .Values.ipfs.url }}"
             - name: SUBGRAPH_NODE
               value: http://localhost:8020
-          resources: {}
-      restartPolicy: Always
-status: {}

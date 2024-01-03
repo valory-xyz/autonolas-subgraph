@@ -19,6 +19,6 @@ COPY schema.graphql /app/schema.graphql
 ENV IPFS_REGISTRY=https://registry.autonolas.tech
 ENV SUBGRAPH_NODE=http://graph-node:8020
 ENV CHAIN=staging
-# or goerli   
+
 ENTRYPOINT ["/bin/bash"]
-CMD ["/app/scripts/entrypoint.sh", "$CHAIN"]
+CMD ["/app/scripts/entrypoint.sh"]
