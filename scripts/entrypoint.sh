@@ -17,8 +17,11 @@ echo "Starting $CHAIN"
 
 yarn graph codegen &&  yarn graph build
 
-yarn graph remove --node $SUBGRAPH_NODE autonolas || echo "Not Found!" 
-yarn graph create --node $SUBGRAPH_NODE autonolas
+until yarn graph create --node $SUBGRAPH_NODE autonolas
+do
+  echo "graph-node not ready..."
+  sleep 10
+done
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas -l 0.1.0
 
 echo "Deployment completed!"
