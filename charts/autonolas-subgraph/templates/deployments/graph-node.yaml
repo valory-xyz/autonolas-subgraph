@@ -36,7 +36,7 @@ spec:
           image: "{{ .Values.images.subgraph }}"
           env:
             - name: CHAIN
-              value: staging
+              value: {{ .Values.chain }}
             - name: IPFS_REGISTRY
               value: "{{ .Values.ipfs.url }}"
             - name: SUBGRAPH_NODE

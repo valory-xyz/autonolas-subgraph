@@ -1,5 +1,6 @@
 name: autonolas-subgraph
 host: subgraph.autonolas.tech
+chain: mainnet
 
 images:
   graphNode: graphprotocol/graph-node:583cf71    
