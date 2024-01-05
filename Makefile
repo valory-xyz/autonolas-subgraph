@@ -1,3 +1,9 @@
+.PHONY: clean
+clean:
+	rm -rf data
+	rm -rf build
+	rm -rf generated
+
 .PHONY: build
 build:
 	yarn graph codegen && \

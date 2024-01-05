@@ -1,11 +1,11 @@
 enum packageType {
-  PROTOCOL
-  CONNECTION
-  CONTRACT
-  SKILL
-  AGENT
-  SERVICE
-  UNKNOWN
+  protocol
+  connection
+  contract
+  skill
+  agent
+  service
+  unknown
 }
 
 type Unit @entity(immutable: true) {

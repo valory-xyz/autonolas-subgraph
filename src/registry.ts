@@ -27,15 +27,15 @@ class Metadata implements MetadataInterface {
 function tryGetPackageType(packageHash: string, packageName: string): string {
   let baseURI = packageHash + "/" + packageName + "/";
   if (ipfs.cat(baseURI + "protocol.yaml")) {
-    return "PROTOCOL"
+    return "protocol"
   } else if (ipfs.cat(baseURI + "connection.yaml")) {
-    return "CONNECTION"
+    return "connection"
   } else if (ipfs.cat(baseURI + "contract.yaml")) {
-    return "CONTRACT"
+    return "contract"
   } else if (ipfs.cat(baseURI + "skill.yaml")) {
-    return "SKILL"
+    return "skill"
   } else {
-    return "UNKNOWN"
+    return "unknown"
   }
 }
 
@@ -75,9 +75,9 @@ function getMetadata(unitHash: string): Metadata | null {
     } else {
       log.warning("Invalid package name found {}", [name.toString()])
       publicId = name.toString();
-      packageType = "UNKNOWN"
+      packageType = "unknown"
     }
-    return { "packageHash": packageHash, "publicId": publicId, "pakageType": packageType }
+    return { "packageHash": packageHash, "publicId": publicId, "pakageType": packageType.toLowerCase() }
   }
   return null
 }
@@ -127,9 +127,9 @@ export function handleCreateAgent(event: CreateAgentEvent): void {
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
   log.info(
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
-    [event.params.unitId.toString(), unitHash, "AGENT", event.block.number.toString()],
+    [event.params.unitId.toString(), unitHash, "agent", event.block.number.toString()],
   )
-  createEntity(entity, unitHash, event.params.unitId, "AGENT")
+  createEntity(entity, unitHash, event.params.unitId, "agent")
 }
 
 export function handleCreateService(event: CreateServiceEvent): void {
@@ -140,7 +140,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   let unitHash = service_metadata_uri_parts.at(-1);
   log.info(
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
-    [event.params.serviceId.toString(), unitHash, "SERVICE", event.block.number.toString()],
+    [event.params.serviceId.toString(), unitHash, "service", event.block.number.toString()],
   )
-  createEntity(entity, unitHash, event.params.serviceId, "SERVICE")
+  createEntity(entity, unitHash, event.params.serviceId, "service")
 }
