@@ -9,13 +9,13 @@ images:
 
 ethereum:
   url: mainnet:https://eth.llamarpc.com
-  pollingInterval: "1000"
-  genesisBlockNumber: "0"
+  pollingInterval: "12000"
+  genesisBlockNumber: "15178253"
 
 graph:
   allowNonDeterministicIpfs: true
   log: debug
-  startBlock: "0"
+  startBlock: "15178253"
 
 ipfs:
   url: https://registry.autonolas.tech

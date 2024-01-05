@@ -32,6 +32,16 @@ spec:
               value: "{{ .Values.postgres.user }}"
             - name: postgres_port
               value: "5432"
+            - name: GRAPH_LOG
+              value: "{{ .Values.graph.log }}"
+            - name: GRAPH_ALLOW_NON_DETERMINISTIC_IPFS
+              value: "{{ .Values.graph.allowNonDeterministicIpfs }}"
+            - name: GRAPH_START_BLOCK
+              value: "{{ .Values.graph.startBlock }}"
+            - name: GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER
+              value: "{{ .Values.ethereum.genesisBlockNumber }}"
+            - name: ETHEREUM_POLLING_INTERVAL
+              value: "{{ .Values.ethereum.pollingInterval }}"
         - name: autonolas-subgraph
           image: "{{ .Values.images.subgraph }}"
           env:
