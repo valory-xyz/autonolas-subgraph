@@ -31,11 +31,13 @@ docker run -it -p 8545:8545 valory/autonolas-registries
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`http://host.docker.internal:8545`
-`GRAPH_START_BLOCK`=`0`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`0`
-`ETHEREUM_POLLING_INTERVAL`=`1000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=http://host.docker.internal:8545
+export GRAPH_START_BLOCK=0
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=0
+export ETHEREUM_POLLING_INTERVAL=1000
+```
 
 Run the deployment using `make node` and deploy the subgraph using `make deploy-local`
 
@@ -43,11 +45,13 @@ Run the deployment using `make node` and deploy the subgraph using `make deploy-
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`GOERLI_RPC_URL`
-`GRAPH_START_BLOCK`=`7344700`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`7344700`
-`ETHEREUM_POLLING_INTERVAL`=`12000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=GOERLI_RPC_URL
+export GRAPH_START_BLOCK=7344700
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=7344700
+export ETHEREUM_POLLING_INTERVAL=12000
+```
 
 Run the deployment using `make node` and deploy `make deploy-staging`
 
@@ -55,10 +59,60 @@ Run the deployment using `make node` and deploy `make deploy-staging`
 
 ### Environment variables
 
-`IPFS_URL`=`https://registry.autonolas.tech`
-`RPC_URL`=`MAINNET_RPC_URL`
-`GRAPH_START_BLOCK`=`15178253`
-`GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER`=`15178253`
-`ETHEREUM_POLLING_INTERVAL`=`12000`
+```bash
+export IPFS_URL=https://registry.autonolas.tech
+export RPC_URL=MAINNET_RPC_URL
+export GRAPH_START_BLOCK=15178253
+export GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=15178253
+export ETHEREUM_POLLING_INTERVAL=12000
+```
 
 Run the deployment using `make node` and deploy `make deploy-prod`
+
+
+## Example queries
+
+1. Query all available records
+
+```graphql
+{
+    units{
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```
+
+2. Query by package hash
+
+```graphql
+{
+    units(where:{packageHash:<package_hash>}){
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```
+
+3. Query by public id and package type
+
+```graphql
+{
+    units(where:{publicId:<public_id>,packageType:<package_type>}){
+        id,
+        tokenId,
+        packageType,
+        metadataHash,
+        packageHash,
+        publicId
+    }
+}
+```

@@ -119,7 +119,6 @@ export function handleCreateComponent(event: CreateComponentEvent): void {
   createEntity(entity, unitHash, event.params.unitId)
 }
 
-
 export function handleCreateAgent(event: CreateAgentEvent): void {
   let entity = new Unit(
     event.transaction.hash.concatI32(event.logIndex.toI32())
