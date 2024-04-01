@@ -1,0 +1,23 @@
+name: Release Flow
+on:
+  release:
+    types: [published]
+jobs:
+  publish-image:
+    name: Publish valory/autonolas-subgraph image
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Docker login
+      env:
+        DOCKER_USER: ${{secrets.DOCKER_USER}}
+        DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+      run: |
+        docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+    - name: Build version tagged images
+      run: |
+        docker build -t valory/autonolas-subgraph:latest . --push

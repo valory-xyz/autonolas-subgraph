@@ -1,0 +1,27 @@
+name: autonolas-subgraph
+host: subgraph.autonolas.tech
+chain: mainnet
+
+images:
+  graphNode: graphprotocol/graph-node:583cf71    
+  subgraph: valory/autonolas-subgraph:latest
+  postgres: postgres:12.3-alpine    
+
+ethereum:
+  url: mainnet:https://eth.llamarpc.com
+  pollingInterval: "12000"
+  genesisBlockNumber: "15178253"
+
+graph:
+  allowNonDeterministicIpfs: true
+  log: debug
+  startBlock: "15178253"
+
+ipfs:
+  url: https://registry.autonolas.tech
+
+postgres:
+  user: graph-node
+  pass: let-me-in
+  name: graph-node
+  storageClass: nfs-client
