@@ -1,4 +1,4 @@
-import { BigInt, ipfs, json, log } from "@graphprotocol/graph-ts"
+import { Address, BigInt, Bytes, ipfs, json, log } from "@graphprotocol/graph-ts"
 import {
   CreateUnit as CreateComponentEvent, ComponentRegistry
 } from "../generated/ComponentRegistry/ComponentRegistry"
@@ -6,10 +6,17 @@ import {
   CreateUnit as CreateAgentEvent, AgentRegistry
 } from "../generated/AgentRegistry/AgentRegistry"
 import {
-  CreateService as CreateServiceEvent, ServiceRegistry
+  CreateService as CreateServiceEvent,
+  ActivateRegistration as ActivateRegistrationEvent,
+  RegisterInstance as RegisterInstanceEvent,
+  DeployService as DeployServiceEvent,
+  TerminateService as TerminateServiceEvent,
+  OperatorUnbond as OperatorUnbondEvent,
+  ServiceRegistry
 } from "../generated/ServiceRegistry/ServiceRegistry"
 import {
-  Unit
+  Unit,
+  Service
 } from "../generated/schema"
 
 let BASE16_HASH_PREFIX = "f01701220"
@@ -166,4 +173,68 @@ export function handleCreateService(event: CreateServiceEvent): void {
     [event.params.serviceId.toString(), unitHash, "service", event.block.number.toString()],
   )
   createEntity(entity, unitHash, event.params.serviceId, owner, "service")
+  handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryAddress: Address): void {
+  let serviceInfo = ServiceRegistry.bind(serviceRegistryAddress).getService(serviceId)
+  entity.serviceId = serviceId
+  entity.state = BigInt.fromI32((serviceInfo.state))
+  entity.agentIds = serviceInfo.agentIds
+  entity.configHash = serviceInfo.configHash.toHexString()
+  entity.threshold = serviceInfo.threshold
+  entity.securityDeposit = serviceInfo.securityDeposit
+  entity.numberOfInstances = serviceInfo.numAgentInstances
+  entity.maxNumberOfInstances = serviceInfo.maxNumAgentInstances
+  entity.multisig = serviceInfo.multisig.toHexString()
+  entity.instances = (
+    ServiceRegistry
+      .bind(serviceRegistryAddress)
+      .getAgentInstances(serviceId)
+      .getAgentInstances()
+      .map<string>(function (addr: Address): string {
+        return addr.toHexString()
+      })
+  )
+  log.info("Storing service \nServiceId: {}\nState: {}\nAgentIds: {}\nConfigHash: {}\nThreshold: {}\nSecurityDeposit: {}\nNumberOfInstances: {}\nMaxNumberOfInstances: {}\nMultisig: {}", [
+    serviceId.toString(),
+    serviceInfo.state.toString(),
+    serviceInfo.agentIds.toString(),
+    serviceInfo.configHash.toHexString(),
+    serviceInfo.threshold.toString(),
+    serviceInfo.securityDeposit.toString(),
+    serviceInfo.numAgentInstances.toString(),
+    serviceInfo.maxNumAgentInstances.toString(),
+    serviceInfo.multisig.toHexString(),
+  ])
+}
+
+function handleServiceUpdate(serviceId: BigInt, serviceRegistryAddress: Address): void {
+  let id: Bytes = Bytes.fromByteArray(Bytes.fromBigInt(serviceId))
+  let entity = Service.load(id)
+  if (entity === null) {
+    entity = new Service(id)
+  }
+  updateServiceState(entity, serviceId, serviceRegistryAddress)
+  entity.save()
+}
+
+export function handleActivateRegistration(event: ActivateRegistrationEvent): void {
+  handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+export function handleDeployService(event: DeployServiceEvent): void {
+  handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+export function handleRegisterInstance(event: RegisterInstanceEvent): void {
+  handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+export function handleTerminateService(event: TerminateServiceEvent): void {
+  handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+export function handleOperatorUnbond(event: OperatorUnbondEvent): void {
+  handleServiceUpdate(event.params.serviceId, event.address)
 }
