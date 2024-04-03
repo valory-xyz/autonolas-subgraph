@@ -60,12 +60,27 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateService
+        - ActivateRegistration
+        - RegisterInstance
+        - DeployService
+        - TerminateService
+        - OperatorUnbond
       abis:
         - name: ServiceRegistry
           file: ./abis/ServiceRegistry.json
       eventHandlers:
         - event: CreateService(indexed uint256)
           handler: handleCreateService
+        - event: ActivateRegistration(indexed uint256)
+          handler: handleActivateRegistration
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+        - event: DeployService(indexed uint256)
+          handler: handleDeployService
+        - event: TerminateService(indexed uint256)
+          handler: handleTerminateService
+        - event: OperatorUnbond(indexed address,indexed uint256)
+          handler: handleOperatorUnbond
       file: ./src/registry.ts
 features:
   - fullTextSearch
