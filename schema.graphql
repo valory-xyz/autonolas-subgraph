@@ -19,3 +19,17 @@ type Unit @entity(immutable: true) {
   metadataHash: String! # Metadata file hash
   publicId: String! # Public ID of the package
 }
+
+type Service @entity {
+  id: Bytes! # Unique ID for the record
+  state: BigInt! # Current state of the service
+  serviceId: BigInt! # Service ID
+  agentIds: [BigInt!] # List of agent IDs
+  configHash: String! # Config hash for the service
+  threshold: BigInt! # Threshold value
+  securityDeposit: BigInt! # Security deposit
+  numberOfInstances: BigInt! # Number of instances
+  maxNumberOfInstances: BigInt! # Number of instances
+  multisig: String! # Multisig address
+  instances: [String!] # List of agent instances
+}
