@@ -2,9 +2,13 @@
 
 ## Using Helm bash tool
 
-You can install the Helm chart by executing:
+You can install the Helm chart by executing (remember to use a valid Ethereum RCP):
 ```bash
-helm install --create-namespace --namespace prod autonolas-subgraph ~/.../autonolas-subgraph/charts/autonolas-subgraph/
+helm install \
+  --create-namespace \
+  --namespace prod \
+  --set ethereum.url=mainnet:https://your-eth-rpc.example.com \
+  autonolas-subgraph ~/.../autonolas-subgraph/charts/autonolas-subgraph/
 ```
 
 You can uninstall the Helm chart by executing:
