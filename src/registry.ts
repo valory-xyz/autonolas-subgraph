@@ -104,9 +104,18 @@ function getMetadata(unitHash: string): Metadata | null {
   return null
 }
 
-function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, owner: string, packageType: string | null = null): void {
+function getId(ptype: string, token: BigInt): Bytes {
+  let id = `${ptype}-${token.toI32()}`
+  if (id.length % 2 != 0) {
+    id = ` ${id}`
+  }
+  return Bytes.fromHexString(id)
+}
+
+function createEntity(unitHash: string, tokenId: BigInt, owner: string, packageType: string | null = null): void {
   let metadata = getMetadata(unitHash)
   if (metadata) {
+    let entity = new Unit(getId(metadata.pakageType, tokenId))
     entity.tokenId = tokenId
     entity.metadataHash = unitHash
     entity.packageHash = metadata.packageHash
@@ -133,9 +142,6 @@ function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, owner: st
 }
 
 export function handleCreateComponent(event: CreateComponentEvent): void {
-  let entity = new Unit(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
   let owner = ComponentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
 
@@ -143,13 +149,10 @@ export function handleCreateComponent(event: CreateComponentEvent): void {
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.unitId.toString(), unitHash, "COMPONENT", event.block.number.toString()],
   )
-  createEntity(entity, unitHash, event.params.unitId, owner)
+  createEntity(unitHash, event.params.unitId, owner)
 }
 
 export function handleCreateAgent(event: CreateAgentEvent): void {
-  let entity = new Unit(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
   let owner = AgentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
 
@@ -157,13 +160,10 @@ export function handleCreateAgent(event: CreateAgentEvent): void {
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.unitId.toString(), unitHash, "agent", event.block.number.toString()],
   )
-  createEntity(entity, unitHash, event.params.unitId, owner, "agent")
+  createEntity(unitHash, event.params.unitId, owner, "agent")
 }
 
 export function handleCreateService(event: CreateServiceEvent): void {
-  let entity = new Unit(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
   let service_metadata_uri_parts = ServiceRegistry.bind(event.address).tokenURI(event.params.serviceId).split("/")
   let owner = ServiceRegistry.bind(event.address).ownerOf(event.params.serviceId).toHexString()
 
@@ -172,7 +172,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.serviceId.toString(), unitHash, "service", event.block.number.toString()],
   )
-  createEntity(entity, unitHash, event.params.serviceId, owner, "service")
+  createEntity(unitHash, event.params.serviceId, owner, "service")
   handleServiceUpdate(event.params.serviceId, event.address)
 }
 
@@ -181,7 +181,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
   entity.serviceId = serviceId
   entity.state = BigInt.fromI32((serviceInfo.state))
   entity.agentIds = serviceInfo.agentIds
-  entity.configHash = serviceInfo.configHash.toHexString()
+  entity.configHash = serviceInfo.configHash.toHexString().slice(2)
   entity.threshold = serviceInfo.threshold
   entity.securityDeposit = serviceInfo.securityDeposit
   entity.numberOfInstances = serviceInfo.numAgentInstances
@@ -196,6 +196,18 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
         return addr.toHexString()
       })
   )
+
+  let metadata = getMetadata(ServiceRegistry.bind(serviceRegistryAddress).tokenURI(serviceId).split("/").at(-1))
+  if (metadata) {
+    entity.publicId = metadata.publicId
+    entity.packageHash = metadata.packageHash
+    entity.metadataHash = entity.configHash
+  } else {
+    entity.publicId = "n/a"
+    entity.packageHash = "n/a"
+    entity.metadataHash = entity.configHash
+  }
+
   log.info("Storing service \nServiceId: {}\nState: {}\nAgentIds: {}\nConfigHash: {}\nThreshold: {}\nSecurityDeposit: {}\nNumberOfInstances: {}\nMaxNumberOfInstances: {}\nMultisig: {}", [
     serviceId.toString(),
     serviceInfo.state.toString(),
@@ -210,7 +222,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
 }
 
 function handleServiceUpdate(serviceId: BigInt, serviceRegistryAddress: Address): void {
-  let id: Bytes = Bytes.fromByteArray(Bytes.fromBigInt(serviceId))
+  let id: Bytes = getId("service", serviceId)
   let entity = Service.load(id)
   if (entity === null) {
     entity = new Service(id)
