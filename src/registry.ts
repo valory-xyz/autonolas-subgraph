@@ -107,7 +107,7 @@ function getMetadata(unitHash: string): Metadata | null {
 function getId(ptype: string, token: BigInt): Bytes {
   let id = `${ptype}-${token.toI32()}`
   if (id.length % 2 != 0) {
-    id = ` ${id}`
+    id = `${id}x`
   }
   return Bytes.fromHexString(id)
 }
