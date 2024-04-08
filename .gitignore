@@ -2,5 +2,7 @@ node_modules
 data/
 build/
 generated/
+temp/
 
 subgraph.yaml
+.env
