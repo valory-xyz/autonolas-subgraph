@@ -1,4 +1,5 @@
 enum packageType {
+  custom
   protocol
   connection
   contract
@@ -35,4 +36,5 @@ type Service @entity {
   instances: [String!] # List of agent instances
   packageHash: String! # IPFS hash of the package
   metadataHash: String! # Metadata file hash
+  owner: String! # Owner string
 }

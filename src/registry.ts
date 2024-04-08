@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, ipfs, json, log } from "@graphprotocol/graph-ts"
+import { Address, BigInt, ByteArray, Bytes, ipfs, json, log } from "@graphprotocol/graph-ts"
 import {
   CreateUnit as CreateComponentEvent, ComponentRegistry
 } from "../generated/ComponentRegistry/ComponentRegistry"
@@ -104,18 +104,11 @@ function getMetadata(unitHash: string): Metadata | null {
   return null
 }
 
-function getId(ptype: string, token: BigInt): Bytes {
-  let id = `${ptype}-${token.toI32()}`
-  if (id.length % 2 != 0) {
-    id = `${id}x`
-  }
-  return Bytes.fromHexString(id)
-}
 
-function createEntity(unitHash: string, tokenId: BigInt, owner: string, packageType: string | null = null): void {
+
+function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, owner: string, packageType: string | null = null): void {
   let metadata = getMetadata(unitHash)
   if (metadata) {
-    let entity = new Unit(getId(metadata.pakageType, tokenId))
     entity.tokenId = tokenId
     entity.metadataHash = unitHash
     entity.packageHash = metadata.packageHash
@@ -144,35 +137,38 @@ function createEntity(unitHash: string, tokenId: BigInt, owner: string, packageT
 export function handleCreateComponent(event: CreateComponentEvent): void {
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
   let owner = ComponentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
+  let entity = new Unit(event.transaction.hash.concatI32(event.logIndex.toI32()))
 
   log.info(
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.unitId.toString(), unitHash, "COMPONENT", event.block.number.toString()],
   )
-  createEntity(unitHash, event.params.unitId, owner)
+  createEntity(entity, unitHash, event.params.unitId, owner)
 }
 
 export function handleCreateAgent(event: CreateAgentEvent): void {
   let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
   let owner = AgentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
+  let entity = new Unit(event.transaction.hash.concatI32(event.logIndex.toI32()))
 
   log.info(
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.unitId.toString(), unitHash, "agent", event.block.number.toString()],
   )
-  createEntity(unitHash, event.params.unitId, owner, "agent")
+  createEntity(entity, unitHash, event.params.unitId, owner, "agent")
 }
 
 export function handleCreateService(event: CreateServiceEvent): void {
   let service_metadata_uri_parts = ServiceRegistry.bind(event.address).tokenURI(event.params.serviceId).split("/")
   let owner = ServiceRegistry.bind(event.address).ownerOf(event.params.serviceId).toHexString()
+  let entity = new Unit(event.transaction.hash.concatI32(event.logIndex.toI32()))
 
   let unitHash = service_metadata_uri_parts.at(-1);
   log.info(
     "Trying to create record for\n\tTokenID: {}\n\tMetadataHash: {}\n\tpackageType: {}\n\tBlockNumber: {}\n",
     [event.params.serviceId.toString(), unitHash, "service", event.block.number.toString()],
   )
-  createEntity(unitHash, event.params.serviceId, owner, "service")
+  createEntity(entity, unitHash, event.params.serviceId, owner, "service")
   handleServiceUpdate(event.params.serviceId, event.address)
 }
 
@@ -181,7 +177,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
   entity.serviceId = serviceId
   entity.state = BigInt.fromI32((serviceInfo.state))
   entity.agentIds = serviceInfo.agentIds
-  entity.configHash = serviceInfo.configHash.toHexString().slice(2)
+  entity.configHash = BASE16_HASH_PREFIX + serviceInfo.configHash.toHexString().slice(2)
   entity.threshold = serviceInfo.threshold
   entity.securityDeposit = serviceInfo.securityDeposit
   entity.numberOfInstances = serviceInfo.numAgentInstances
@@ -196,6 +192,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
         return addr.toHexString()
       })
   )
+  entity.owner = ServiceRegistry.bind(serviceRegistryAddress).ownerOf(serviceId).toHexString()
 
   let metadata = getMetadata(ServiceRegistry.bind(serviceRegistryAddress).tokenURI(serviceId).split("/").at(-1))
   if (metadata) {
@@ -222,7 +219,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
 }
 
 function handleServiceUpdate(serviceId: BigInt, serviceRegistryAddress: Address): void {
-  let id: Bytes = getId("service", serviceId)
+  let id: Bytes = Bytes.fromByteArray(Bytes.fromBigInt(serviceId))
   let entity = Service.load(id)
   if (entity === null) {
     entity = new Service(id)
