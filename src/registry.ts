@@ -1,4 +1,4 @@
-import { Address, BigInt, ByteArray, Bytes, ipfs, json, log } from "@graphprotocol/graph-ts"
+import { Address, BigInt, ByteArray, Bytes, JSONValue, ipfs, json, log } from "@graphprotocol/graph-ts"
 import {
   CreateUnit as CreateComponentEvent, ComponentRegistry
 } from "../generated/ComponentRegistry/ComponentRegistry"
@@ -19,18 +19,22 @@ import {
   Service
 } from "../generated/schema"
 
-let BASE16_HASH_PREFIX = "f01701220"
-interface MetadataInterface {
-  packageHash: string;
-  publicId: string;
-}
-
-class Metadata implements MetadataInterface {
+class Metadata {
   packageHash: string
   publicId: string
   pakageType: string
   image: string
   description: string
+}
+
+const Base16HashPrefix = "f01701220"
+
+const MetadataNotFound: Metadata = {
+  packageHash: "n/a",
+  publicId: "n/a",
+  pakageType: "unknown",
+  image: "n/a",
+  description: "n/a"
 }
 
 function tryGetPackageType(packageHash: string, packageName: string): string {
@@ -56,16 +60,14 @@ function removePackageVersion(name: string): string {
   return name
 }
 
-function getMetadata(unitHash: string): Metadata | null {
+function getMetadata(unitHash: string): Metadata {
   let metadata_response = ipfs.cat(unitHash)
   if (metadata_response) {
     let publicId: string, packageHash: string, packageType: string
     let metadata = json.fromString(metadata_response.toString()).toObject()
-    let code_uri = metadata.get("code_uri")
-    let name = metadata.get("name")
-    if (!code_uri || !name) {
-      return null
-    }
+    let code_uri = metadata.get("code_uri") as JSONValue
+    let name = metadata.get("name") as JSONValue
+
     packageHash = code_uri.toString().replace("ipfs://", "")
     let name_parts = name.toString().split("/")
     if (name_parts.length == 4) {
@@ -87,24 +89,30 @@ function getMetadata(unitHash: string): Metadata | null {
       packageType = "unknown"
     }
 
-    let image = metadata.get("image")
-    let description = metadata.get("description")
-    if (!image || !description) {
-      return null
+    let image: string, imageValue = metadata.get("image")
+    if (!imageValue) {
+      image = "n/a"
+    } else {
+      image = imageValue.toString().replace("ipfs://", "")
+    }
+
+    let description: string, descriptionValue = metadata.get("description")
+    if (!descriptionValue) {
+      description = "n/a"
+    } else {
+      description = descriptionValue.toString()
     }
 
     return {
       "packageHash": packageHash,
       "publicId": publicId,
       "pakageType": packageType.toLowerCase(),
-      "image": image.toString().replace("ipfs://", ""),
-      "description": description.toString()
+      "image": image,
+      "description": description
     }
   }
-  return null
+  return MetadataNotFound
 }
-
-
 
 function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, owner: string, packageType: string | null = null): void {
   let metadata = getMetadata(unitHash)
@@ -135,7 +143,7 @@ function createEntity(entity: Unit, unitHash: string, tokenId: BigInt, owner: st
 }
 
 export function handleCreateComponent(event: CreateComponentEvent): void {
-  let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
+  let unitHash = Base16HashPrefix + event.params.unitHash.toHexString().slice(2)
   let owner = ComponentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
   let entity = new Unit(event.transaction.hash.concatI32(event.logIndex.toI32()))
 
@@ -147,7 +155,7 @@ export function handleCreateComponent(event: CreateComponentEvent): void {
 }
 
 export function handleCreateAgent(event: CreateAgentEvent): void {
-  let unitHash = BASE16_HASH_PREFIX + event.params.unitHash.toHexString().slice(2)
+  let unitHash = Base16HashPrefix + event.params.unitHash.toHexString().slice(2)
   let owner = AgentRegistry.bind(event.address).ownerOf(event.params.unitId).toHexString()
   let entity = new Unit(event.transaction.hash.concatI32(event.logIndex.toI32()))
 
@@ -177,7 +185,7 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
   entity.serviceId = serviceId
   entity.state = BigInt.fromI32((serviceInfo.state))
   entity.agentIds = serviceInfo.agentIds
-  entity.configHash = BASE16_HASH_PREFIX + serviceInfo.configHash.toHexString().slice(2)
+  entity.metadataHash = Base16HashPrefix + serviceInfo.configHash.toHexString().slice(2)
   entity.threshold = serviceInfo.threshold
   entity.securityDeposit = serviceInfo.securityDeposit
   entity.numberOfInstances = serviceInfo.numAgentInstances
@@ -192,17 +200,23 @@ function updateServiceState(entity: Service, serviceId: BigInt, serviceRegistryA
         return addr.toHexString()
       })
   )
-  entity.owner = ServiceRegistry.bind(serviceRegistryAddress).ownerOf(serviceId).toHexString()
+
+  let ownerValue = ServiceRegistry.bind(serviceRegistryAddress).try_ownerOf(serviceId)
+  if (ownerValue.reverted) {
+    entity.owner = "n/a"
+  } else {
+    entity.owner = ownerValue.value.toHexString()
+  }
 
   let metadata = getMetadata(ServiceRegistry.bind(serviceRegistryAddress).tokenURI(serviceId).split("/").at(-1))
   if (metadata) {
     entity.publicId = metadata.publicId
     entity.packageHash = metadata.packageHash
-    entity.metadataHash = entity.configHash
+    entity.description = metadata.description
   } else {
     entity.publicId = "n/a"
     entity.packageHash = "n/a"
-    entity.metadataHash = entity.configHash
+    entity.description = "n/a"
   }
 
   log.info("Storing service \nServiceId: {}\nState: {}\nAgentIds: {}\nConfigHash: {}\nThreshold: {}\nSecurityDeposit: {}\nNumberOfInstances: {}\nMaxNumberOfInstances: {}\nMultisig: {}", [
