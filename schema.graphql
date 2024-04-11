@@ -1,21 +1,40 @@
 enum packageType {
-  protocol
-  connection
-  contract
-  skill
-  agent
-  service
-  unknown
+  custom,
+  protocol,
+  connection,
+  contract,
+  skill,
+  agent,
+  service,
+  unknown,
 }
 
 type Unit @entity(immutable: true) {
   id: Bytes! # Unique ID for the record
   tokenId: BigInt! # Token ID of the minted component
+  publicId: String! # Public ID of the package
   packageType: packageType! # Component type
   packageHash: String! # IPFS hash of the package
-  description: String! # Package description
   image: String! # Image hash
-  owner: String! # Owner address
+  description: String! # Package description
   metadataHash: String! # Metadata file hash
+  owner: String! # Owner address
+}
+
+type Service @entity {
+  id: Bytes! # Unique ID for the record
+  serviceId: BigInt! # Service ID
   publicId: String! # Public ID of the package
+  state: BigInt! # Current state of the service
+  agentIds: [BigInt!] # List of agent IDs
+  threshold: BigInt! # Threshold value
+  securityDeposit: BigInt! # Security deposit
+  numberOfInstances: BigInt! # Number of instances
+  maxNumberOfInstances: BigInt! # Number of instances
+  multisig: String! # Multisig address
+  instances: [String!] # List of agent instances
+  packageHash: String! # IPFS hash of the package
+  metadataHash: String! # Metadata file hash
+  description: String! # Package description
+  owner: String! # Owner string
 }

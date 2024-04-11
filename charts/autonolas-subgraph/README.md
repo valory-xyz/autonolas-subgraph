@@ -2,7 +2,17 @@
 
 ## Using Helm bash tool
 
-You can install the Helm chart by executing (remember to use a valid Ethereum RCP):
+First, if you do not have the `subgraph-basic-auth` Kubernetes secret or you do not remember the password, you have to generate the authentication file for the Subgraph RPC:
+```bash
+# Generate a random password
+openssl rand -base64 12
+# Generate the auth file using the random password
+htpasswd -B auth admin
+# Generate a Kubernetes secret using the auth file
+kubectl create secret generic subgraph-basic-auth --from-file=auth -n prod
+```
+
+You can install the Helm chart by executing:
 ```bash
 helm install \
   --create-namespace \

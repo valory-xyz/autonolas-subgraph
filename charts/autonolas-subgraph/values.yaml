@@ -13,6 +13,9 @@ ethereum:
   genesisBlockNumber: "15178253"
 
 graph:
+  storeWriteBatch:
+    duration: 0
+    size: 0
   allowNonDeterministicIpfs: true
   log: debug
   startBlock: "15178253"

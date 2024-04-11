@@ -42,6 +42,10 @@ spec:
               value: "{{ .Values.ethereum.genesisBlockNumber }}"
             - name: ETHEREUM_POLLING_INTERVAL
               value: "{{ .Values.ethereum.pollingInterval }}"
+            - name: GRAPH_STORE_WRITE_BATCH_DURATION
+              value: "{{ .Values.graph.storeWriteBatch.duration }}"
+            - name: GRAPH_STORE_WRITE_BATCH_SIZE
+              value: "{{ .Values.graph.storeWriteBatch.size }}"
         - name: autonolas-subgraph
           image: "{{ .Values.images.subgraph }}"
           env:
@@ -51,3 +55,5 @@ spec:
               value: "{{ .Values.ipfs.url }}"
             - name: SUBGRAPH_NODE
               value: http://$(AUTONOLAS_SUBGRAPH_SERVICE_SERVICE_HOST):8020
+          ports:
+            - containerPort: 8020
