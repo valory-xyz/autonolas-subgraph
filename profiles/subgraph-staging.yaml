@@ -16,12 +16,15 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateUnit
+        - UpdateUnitHash
       abis:
         - name: ComponentRegistry
           file: ./abis/ComponentRegistry.json
       eventHandlers:
         - event: CreateUnit(uint256,uint8,bytes32)
           handler: handleCreateComponent
+        - event: UpdateUnitHash(uint256,uint8,bytes32)
+          handler: handleUpdateComponent
       file: ./src/registry.ts
 
   # Agent Registry
@@ -38,12 +41,15 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateUnit
+        - UpdateUnitHash
       abis:
         - name: AgentRegistry
           file: ./abis/AgentRegistry.json
       eventHandlers:
         - event: CreateUnit(uint256,uint8,bytes32)
           handler: handleCreateAgent
+        - event: UpdateUnitHash(uint256,uint8,bytes32)
+          handler: handleUpdateAgent
       file: ./src/registry.ts
  
   # Service Registry
@@ -60,6 +66,7 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateService
+        - UpdateService
         - ActivateRegistration
         - RegisterInstance
         - DeployService
@@ -71,6 +78,8 @@ dataSources:
       eventHandlers:
         - event: CreateService(indexed uint256)
           handler: handleCreateService
+        - event: UpdateService(indexed uint256,bytes32)
+          handler: handleUpdateService
         - event: ActivateRegistration(indexed uint256)
           handler: handleActivateRegistration
         - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
