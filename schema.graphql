@@ -1,15 +1,15 @@
 enum packageType {
-  custom,
-  protocol,
-  connection,
-  contract,
-  skill,
-  agent,
-  service,
-  unknown,
+  custom
+  protocol
+  connection
+  contract
+  skill
+  agent
+  service
+  unknown
 }
 
-type Unit @entity(immutable: true) {
+type Unit @entity {
   id: Bytes! # Unique ID for the record
   tokenId: BigInt! # Token ID of the minted component
   publicId: String! # Public ID of the package
@@ -19,6 +19,8 @@ type Unit @entity(immutable: true) {
   description: String! # Package description
   metadataHash: String! # Metadata file hash
   owner: String! # Owner address
+  block: BigInt! # Block number
+  txHash: String! # Transaction hash
 }
 
 type Service @entity {
