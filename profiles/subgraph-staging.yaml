@@ -17,6 +17,7 @@ dataSources:
       entities:
         - CreateUnit
         - UpdateUnitHash
+        - Transfer
       abis:
         - name: ComponentRegistry
           file: ./abis/ComponentRegistry.json
@@ -25,6 +26,8 @@ dataSources:
           handler: handleCreateComponent
         - event: UpdateUnitHash(uint256,uint8,bytes32)
           handler: handleUpdateComponent
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleComponentTransfer
       file: ./src/registry.ts
 
   # Agent Registry
@@ -42,6 +45,7 @@ dataSources:
       entities:
         - CreateUnit
         - UpdateUnitHash
+        - Transfer
       abis:
         - name: AgentRegistry
           file: ./abis/AgentRegistry.json
@@ -49,6 +53,8 @@ dataSources:
         - event: CreateUnit(uint256,uint8,bytes32)
           handler: handleCreateAgent
         - event: UpdateUnitHash(uint256,uint8,bytes32)
+          handler: handleUpdateAgent
+        - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleUpdateAgent
       file: ./src/registry.ts
  
@@ -67,6 +73,7 @@ dataSources:
       entities:
         - CreateService
         - UpdateService
+        - Transfer
         - ActivateRegistration
         - RegisterInstance
         - DeployService
@@ -80,6 +87,8 @@ dataSources:
           handler: handleCreateService
         - event: UpdateService(indexed uint256,bytes32)
           handler: handleUpdateService
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleServiceTransfer
         - event: ActivateRegistration(indexed uint256)
           handler: handleActivateRegistration
         - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
