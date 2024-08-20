@@ -27,6 +27,8 @@ done
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas -l 0.1.0
 
 # Install the "autonolas-staging" Subgraph
+# We are deploying autonolas-staging for backward compatibility (there are some applications using it)
+# It has a different startBlock to be indexed separately from “autonolas” Subgraph
 
 sed -i 's/startBlock: 15178253/startBlock: 15178252/g' subgraph.yaml
 
