@@ -4,5 +4,11 @@
       "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "startBlock": 0
     }
+  },
+  "base": {
+    "ServiceRegistryL2": {
+      "address": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
+      "startBlock": 10827670
+    }
   }
 }
