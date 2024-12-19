@@ -31,7 +31,7 @@ dataSources:
         - event: UpdateService(indexed uint256,bytes32)
           handler: handleUpdateService
         - event: Transfer(indexed address,indexed address,indexed uint256)
-          handler: handleTransfer
+          handler: handleServiceTransfer
         - event: ActivateRegistration(indexed uint256)
           handler: handleActivateRegistration
         - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
