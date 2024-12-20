@@ -1,6 +1,6 @@
 specVersion: 0.0.5
 schema:
-  file: ../../schema.graphql
+  file: ./schema.graphql
 dataSources:
   - kind: ethereum
     name: ServiceRegistryL2
@@ -24,7 +24,7 @@ dataSources:
         - OperatorUnbond
       abis:
         - name: ServiceRegistryL2
-          file: ../../abis/ServiceRegistryL2.json
+          file: ./abis/ServiceRegistryL2.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -42,7 +42,7 @@ dataSources:
           handler: handleTerminateService
         - event: OperatorUnbond(indexed address,indexed uint256)
           handler: handleOperatorUnbond
-      file: ../../src/registryL2.ts
+      file: ./src/registryL2.ts
 features:
   - fullTextSearch
   - ipfsOnEthereumContracts
