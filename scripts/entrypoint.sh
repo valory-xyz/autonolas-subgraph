@@ -1,22 +1,11 @@
 #! /bin/bash -e
 
 echo "Starting entrypoint.sh"
-echo "Network: $CHAIN"
 echo "Subgraph node: $SUBGRAPH_NODE"
 echo "Registry: $IPFS_REGISTRY"
 
-# Install the "autonolas" subgraph
-
-if [ "$CHAIN" == "mainnet" ]; then 
-  cp profiles/subgraph-prod.yaml subgraph.yaml
-elif [ "$CHAIN" == "staging" ]; then 
-  cp profiles/subgraph-staging.yaml subgraph.yaml
-else
-  echo "Invalid param"
-  exit 1
-fi
-echo "Starting $CHAIN"
-
+# Install the "autonolas" Subgraph
+cp profiles/subgraph-prod.yaml subgraph.yaml
 yarn graph codegen &&  yarn graph build
 
 until yarn graph create --node $SUBGRAPH_NODE autonolas
@@ -35,6 +24,14 @@ sed -i 's/startBlock: 15178253/startBlock: 15178252/g' subgraph.yaml
 yarn graph codegen &&  yarn graph build
 yarn graph create --node $SUBGRAPH_NODE autonolas-staging
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-staging -l 0.1.0
+
+# Install the "autonolas-base" Subgraph
+cp profiles/l2/subgraph.base.yaml subgraph.yaml
+
+yarn graph codegen &&  yarn graph build
+yarn graph create --node $SUBGRAPH_NODE autonolas-base
+yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-base -l 0.1.0
+
 
 echo "Deployment completed!"
 sleep infinity
