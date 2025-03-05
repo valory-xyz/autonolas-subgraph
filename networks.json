@@ -1,0 +1,12 @@
+{
+  "gnosis": {
+    "MechMarketplace": {
+      "address": "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB",
+      "startBlock": 38662386
+    },
+    "ServiceRegistryL2": {
+      "address": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
+      "startBlock": 27871084
+    }
+  }
+}

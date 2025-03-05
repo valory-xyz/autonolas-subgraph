@@ -1,0 +1,128 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: MechMarketplace
+    network: gnosis
+    source:
+      address: "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB"
+      abi: MechMarketplace
+      startBlock: 27871084
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CreateMech
+        # - Deliver
+        # - ImplementationUpdated
+        # - MarketplaceDelivery
+        # - MarketplaceDeliveryWithSignatures
+        # - MarketplaceParamsUpdated
+        # - MarketplaceRequest
+        # - OwnerUpdated
+        # - SetMechFactoryStatuses
+        # - SetPaymentTypeBalanceTrackers
+      abis:
+        - name: MechMarketplace
+          file: ./abis/MechMarketplace.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,indexed address)
+          handler: handleCreateMech
+        # - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
+        #   handler: handleDeliver
+        # - event: ImplementationUpdated(indexed address)
+        #   handler: handleImplementationUpdated
+        # - event: MarketplaceDelivery(indexed address,address[],uint256,bytes32[],bool[])
+        #   handler: handleMarketplaceDelivery
+        # - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
+        #     address,uint256,bytes32[])
+        #   handler: handleMarketplaceDeliveryWithSignatures
+        # - event: MarketplaceParamsUpdated(uint256,uint256,uint256)
+        #   handler: handleMarketplaceParamsUpdated
+        # - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
+        #   handler: handleMarketplaceRequest
+        # - event: OwnerUpdated(indexed address)
+        #   handler: handleOwnerUpdated
+        # - event: SetMechFactoryStatuses(address[],bool[])
+        #   handler: handleSetMechFactoryStatuses
+        # - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
+        #   handler: handleSetPaymentTypeBalanceTrackers
+      file: ./src/mech-marketplace.ts
+  - kind: ethereum
+    name: ServiceRegistryL2
+    network: gnosis
+    source:
+      address: "0x9338b5153AE39BB89f50468E608eD9d764B755fD"
+      abi: ServiceRegistryL2
+      startBlock: 38524016
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        # - ActivateRegistration
+        # - Approval
+        # - ApprovalForAll
+        # - BaseURIChanged
+        # - CreateMultisigWithAgents
+        - CreateService
+        # - DeployService
+        # - Deposit
+        # - Drain
+        # - DrainerUpdated
+        # - ManagerUpdated
+        # - OperatorSlashed
+        # - OperatorUnbond
+        # - ServiceRegistryL2OwnerUpdated
+        # - Refund
+        # - RegisterInstance
+        # - TerminateService
+        - Transfer
+        - UpdateService
+      abis:
+        - name: ServiceRegistryL2
+          file: ./abis/ServiceRegistryL2.json
+      eventHandlers:
+        # - event: ActivateRegistration(indexed uint256)
+        #   handler: handleActivateRegistration
+        # - event: Approval(indexed address,indexed address,indexed uint256)
+        #   handler: handleApproval
+        # - event: ApprovalForAll(indexed address,indexed address,bool)
+        #   handler: handleApprovalForAll
+        # - event: BaseURIChanged(string)
+        #   handler: handleBaseURIChanged
+        # - event: CreateMultisigWithAgents(indexed uint256,indexed address)
+        #   handler: handleCreateMultisigWithAgents
+        - event: CreateService(indexed uint256,bytes32)
+          handler: handleCreateService
+        # - event: DeployService(indexed uint256)
+        #   handler: handleDeployService
+        # - event: Deposit(indexed address,uint256)
+        #   handler: handleDeposit
+        # - event: Drain(indexed address,uint256)
+        #   handler: handleDrain
+        # - event: DrainerUpdated(indexed address)
+        #   handler: handleDrainerUpdated
+        # - event: ManagerUpdated(indexed address)
+        #   handler: handleManagerUpdated
+        # - event: OperatorSlashed(uint256,indexed address,indexed uint256)
+        #   handler: handleOperatorSlashed
+        # - event: OperatorUnbond(indexed address,indexed uint256)
+        #   handler: handleOperatorUnbond
+        # - event: OwnerUpdated(indexed address)
+        #   handler: handleOwnerUpdated
+        # - event: Refund(indexed address,uint256)
+        #   handler: handleRefund
+        # - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+        #   handler: handleRegisterInstance
+        # - event: TerminateService(indexed uint256)
+        #   handler: handleTerminateService
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: UpdateService(indexed uint256,bytes32)
+          handler: handleUpdateService
+      file: ./src/service-registry-l-2.ts
