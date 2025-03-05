@@ -8,5 +8,15 @@
       "address": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
       "startBlock": 27871084
     }
+  },
+  "base": {
+    "MechMarketplace": {
+      "address": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
+      "startBlock": 26642705
+    },
+    "ServiceRegistryL2": {
+      "address": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
+      "startBlock": 10827380
+    }
   }
 }
