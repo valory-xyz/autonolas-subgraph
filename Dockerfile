@@ -9,10 +9,8 @@ WORKDIR /app
 RUN yarn install
 
 COPY abis /app/abis
-COPY profiles /app/profiles
+COPY subgraphs /app/subgraphs
 COPY scripts /app/scripts
-COPY src /app/src
-COPY schema.graphql /app/schema.graphql
 
 # yarn graph codegen && yarn graph build
 
