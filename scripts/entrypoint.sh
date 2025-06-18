@@ -5,9 +5,12 @@ echo "Subgraph node: $SUBGRAPH_NODE"
 echo "Registry: $IPFS_REGISTRY"
 
 # Install the "autonolas" Subgraph
-cp profiles/subgraph-prod.yaml subgraph.yaml
-yarn graph codegen &&  yarn graph build
+cp subgraphs/autonolas/profiles/subgraph-prod.yaml subgraph.yaml
+cp subgraphs/autonolas/schema.graphql schema.graphql
+rm -rf src/
+cp -r subgraphs/autonolas/src/ src/
 
+yarn graph codegen &&  yarn graph build
 until yarn graph create --node $SUBGRAPH_NODE autonolas
 do
   echo "graph-node not ready..."
@@ -26,7 +29,10 @@ yarn graph create --node $SUBGRAPH_NODE autonolas-staging
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-staging -l 0.1.0
 
 # Install the "autonolas-base" Subgraph
-cp profiles/l2/subgraph.base.yaml subgraph.yaml
+cp subgraphs/autonolas/profiles/l2/subgraph.base.yaml subgraph.yaml
+cp subgraphs/autonolas/schema.graphql schema.graphql
+rm -rf src/
+cp -r subgraphs/autonolas/src/ src/
 
 yarn graph codegen &&  yarn graph build
 yarn graph create --node $SUBGRAPH_NODE autonolas-base
