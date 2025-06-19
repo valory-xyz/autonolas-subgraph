@@ -6,6 +6,7 @@ echo "Registry: $IPFS_REGISTRY"
 
 # Install the "autonolas" Subgraph
 cd /subgraphs/autonolas
+
 yarn graph codegen &&  yarn graph build
 
 until yarn graph create --node $SUBGRAPH_NODE autonolas

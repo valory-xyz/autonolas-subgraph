@@ -7,8 +7,8 @@ import {
   afterAll
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
-import { Approval } from "../generated/schema"
-import { Approval as ApprovalEvent } from "../generated/ComponentRegistry/ComponentRegistry"
+import { Approval } from "../../../generated/schema"
+import { Approval as ApprovalEvent } from "../../../generated/ComponentRegistry/ComponentRegistry"
 import { handleApproval } from "../src/component-registry"
 import { createApprovalEvent } from "./component-registry-utils"
 

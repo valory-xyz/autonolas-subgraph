@@ -9,7 +9,7 @@ import {
   OwnerUpdated,
   Transfer,
   UpdateUnitHash
-} from "../generated/ComponentRegistry/ComponentRegistry"
+} from "../../../generated/ComponentRegistry/ComponentRegistry"
 
 export function createApprovalEvent(
   owner: Address,
