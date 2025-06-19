@@ -1,14 +1,17 @@
-version: '3'
 services:
-  
   graph-node:
     image: graphprotocol/graph-node
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 8000"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
     ports:
-      - '8000:8000'
-      - '8001:8001'
-      - '8020:8020'
-      - '8030:8030'
-      - '8040:8040'
+      - "8000:8000"
+      - "8001:8001"
+      - "8020:8020"
+      - "8030:8030"
+      - "8040:8040"
     depends_on:
       - postgres
     extra_hosts:
@@ -18,25 +21,21 @@ services:
       postgres_user: graph-node
       postgres_pass: let-me-in
       postgres_db: graph-node
+      ethereum: "mainnet:https://rpc-gate.autonolas.tech/ethereum-rpc/ --ethereum-rpc base:https://rpc-gate.autonolas.tech/base-rpc/ --ethereum-rpc gnosis:https://rpc-gate.autonolas.tech/gnosis-rpc/"
       ipfs: ${IPFS_URL:-https://registry.autonolas.tech}
-      ethereum: 'mainnet:${RPC_URL:-http://host.docker.internal:8545}'
       GRAPH_LOG: ${GRAPH_LOG:-debug}
-      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: 'true'
+      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: "true"
       GRAPH_START_BLOCK: ${GRAPH_START_BLOCK:-0}
       GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER: ${GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER:-0}
       GRAPH_STORE_WRITE_BATCH_DURATION: 0
       GRAPH_STORE_WRITE_BATCH_SIZE: 0
       ETHEREUM_POLLING_INTERVAL: ${ETHEREUM_POLLING_INTERVAL:-1000}
-  
+
   postgres:
     image: postgres
     ports:
-      - '5432:5432'
-    command:
-      [
-        "postgres",
-        "-cshared_preload_libraries=pg_stat_statements"
-      ]
+      - "5432:5432"
+    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
@@ -54,4 +53,5 @@ services:
       IPFS_REGISTRY: ${IPFS_URL:-https://registry.autonolas.tech}
       SUBGRAPH_NODE: "http://graph-node:8020"
     depends_on:
-      - graph-node
+      graph-node:
+        condition: service_healthy
