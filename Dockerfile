@@ -7,7 +7,7 @@ COPY subgraphs /subgraphs
 WORKDIR /subgraphs
 
 RUN cd /subgraphs/autonolas && yarn install
-RUN cd /subgraphs/base && yarn install
+RUN cd /subgraphs/autonolas-base && yarn install
 
 COPY scripts /scripts
 

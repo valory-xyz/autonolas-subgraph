@@ -26,7 +26,7 @@ yarn graph create --node $SUBGRAPH_NODE autonolas-staging
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-staging -l 0.1.0
 
 # Install the "autonolas-base" Subgraph
-cd /subgraphs/base
+cd /subgraphs/autonolas-base
 
 yarn graph codegen &&  yarn graph build
 yarn graph create --node $SUBGRAPH_NODE autonolas-base
