@@ -6,13 +6,13 @@ import {
 import { Request, Deliver, Sender } from "../generated/schema";
 
 class Metadata {
-  prompt: string;
   tool: string;
+  prompt: string;
 }
 
 const MetadataNotFound: Metadata = {
-  prompt: "",
   tool: "",
+  prompt: "",
 };
 
 function getIpfsHash(data: Bytes): string {
@@ -37,8 +37,8 @@ function getMetadata(requestHash: string): Metadata {
       let tool = metadata.get("tool") as JSONValue;
 
       return {
-        prompt: prompt.toString();
-        tool: tool.toString();
+        prompt: prompt.toString(),
+        tool: tool.toString(),
       };
     }
 
