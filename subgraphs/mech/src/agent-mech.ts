@@ -1,4 +1,4 @@
-import { json, ipfs, Bytes, JSONValue, BigInt, log } from "@graphprotocol/graph-ts";
+import { json, ipfs, Bytes, JSONValue, JSONValueKind, log } from "@graphprotocol/graph-ts";
 import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
@@ -29,18 +29,41 @@ function tryGetIpfsResponse(requestHash: string): Bytes | null {
 }
 
 function getMetadata(requestHash: string): Metadata {
-    let response = tryGetIpfsResponse(requestHash);
+  let response = tryGetIpfsResponse(requestHash);
 
-    if (response) {
-      let metadata = json.fromString(response.toString()).toObject();
-      let prompt = metadata.get("prompt") as JSONValue;
-      let tool = metadata.get("tool") as JSONValue;
+  if (response) {
+    let promptStr = "";
+    let toolStr = "";
 
-      return {
-        prompt: prompt.toString(),
-        tool: tool.toString(),
-      };
+    let metadata = json.fromString(response.toString()).toObject();
+    let promptJson = metadata.get("prompt") as JSONValue;
+    let toolJson = metadata.get("tool") as JSONValue;
+
+    if (promptJson) {
+      promptStr = promptJson.toString();
     }
+
+    if (toolJson && toolJson.kind === JSONValueKind.ARRAY) {
+      let toolsArray = toolJson.toArray();
+      let tools: string[] = [];
+
+      for (let i = 0; i < toolsArray.length; i++) {
+        let item = toolsArray[i];
+        if (item.kind === JSONValueKind.STRING) {
+          tools.push(item.toString());
+        }
+      }
+
+      toolStr = tools.join(", "); // or whatever format you want
+    } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
+      toolStr = toolJson.toString();
+    }
+
+    return {
+      prompt: promptStr,
+      tool: toolStr,
+    };
+  }
 
   log.error("Could not retrieve metadata for {}", [requestHash]);
   return MetadataNotFound;
@@ -76,26 +99,25 @@ export function handleRequest(event: RequestEvent): void {
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
-  let metadata = getMetadata(ipfsHash)
-  let prompt = ""
-  let tool = ""
-  let questionTitle = ""
+  let metadata = getMetadata(ipfsHash);
+  let prompt = "";
+  let tool = "";
+  let questionTitle = "";
 
-  log.info("METADATA RESULT, {}", [metadata.tool, metadata.prompt])
   if (metadata) {
-    prompt = metadata.prompt
-    tool = metadata.tool
+    prompt = metadata.prompt;
+    tool = metadata.tool;
     if (metadata.prompt) {
-      const extractedQuestionTitle = extractQuestionTitle(metadata.prompt)
+      const extractedQuestionTitle = extractQuestionTitle(metadata.prompt);
       if (extractedQuestionTitle) {
-        questionTitle = extractedQuestionTitle
+        questionTitle = extractedQuestionTitle;
       }
     }
   }
 
-  entity.prompt = prompt
-  entity.tool = tool
-  entity.questionTitle = questionTitle
+  entity.prompt = prompt;
+  entity.tool = tool;
+  entity.questionTitle = questionTitle;
   entity.sender = event.params.sender.toHexString();
   entity.mech = event.address;
   entity.requestId = event.params.requestId;
