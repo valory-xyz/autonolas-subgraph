@@ -19,5 +19,7 @@ jobs:
       run: |
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
     - name: Build version tagged images
+      env:
+          RELEASE: ${{ github.event.release.tag_name }}
       run: |
-        docker build -t valory/autonolas-subgraph:latest . --push
+        docker build -t valory/autonolas-subgraph:$RELEASE . --push
