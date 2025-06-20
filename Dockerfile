@@ -1,18 +1,16 @@
 FROM node:18-alpine
 
 RUN apk add --no-cache git bash
-COPY package.json /app/package.json
-COPY yarn.lock /app/yarn.lock
 
-WORKDIR /app
+COPY subgraphs /subgraphs
 
-RUN yarn install
+WORKDIR /subgraphs
 
-COPY abis /app/abis
-COPY profiles /app/profiles
-COPY scripts /app/scripts
-COPY src /app/src
-COPY schema.graphql /app/schema.graphql
+RUN cd /subgraphs/autonolas && yarn install
+RUN cd /subgraphs/autonolas-base && yarn install
+RUN cd /subgraphs/mech && yarn install
+
+COPY scripts /scripts
 
 # yarn graph codegen && yarn graph build
 
@@ -21,4 +19,4 @@ ENV SUBGRAPH_NODE=http://graph-node:8020
 ENV CHAIN=staging
 
 ENTRYPOINT ["/bin/bash"]
-CMD ["/app/scripts/entrypoint.sh"]
+CMD ["/scripts/entrypoint.sh"]

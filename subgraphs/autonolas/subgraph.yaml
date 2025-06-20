@@ -1,0 +1,105 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  # Component Registry
+  - kind: ethereum
+    name: ComponentRegistry
+    network: mainnet
+    source:
+      address: "0x15bd56669F57192a97dF41A2aa8f4403e9491776"
+      abi: ComponentRegistry
+      startBlock: 15178253
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CreateUnit
+        - UpdateUnitHash
+        - Transfer
+      abis:
+        - name: ComponentRegistry
+          file: ./abis/ComponentRegistry.json
+      eventHandlers:
+        - event: CreateUnit(uint256,uint8,bytes32)
+          handler: handleCreateComponent
+        - event: UpdateUnitHash(uint256,uint8,bytes32)
+          handler: handleUpdateComponent
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleComponentTransfer
+      file: ./src/registry.ts
+
+  # Agent Registry
+  - kind: ethereum
+    name: AgentRegistry
+    network: mainnet
+    source:
+      address: "0x2F1f7D38e4772884b88f3eCd8B6b9faCdC319112"
+      abi: AgentRegistry
+      startBlock: 15178253
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CreateUnit
+        - UpdateUnitHash
+        - Transfer
+      abis:
+        - name: AgentRegistry
+          file: ./abis/AgentRegistry.json
+      eventHandlers:
+        - event: CreateUnit(uint256,uint8,bytes32)
+          handler: handleCreateAgent
+        - event: UpdateUnitHash(uint256,uint8,bytes32)
+          handler: handleUpdateAgent
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleAgentTransfer
+      file: ./src/registry.ts
+
+  # Service Registry
+  - kind: ethereum
+    name: ServiceRegistry
+    network: mainnet
+    source:
+      address: "0x48b6af7B12C71f09e2fC8aF4855De4Ff54e775cA"
+      abi: ServiceRegistry
+      startBlock: 15178253
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CreateService
+        - UpdateService
+        - Transfer
+        - ActivateRegistration
+        - RegisterInstance
+        - DeployService
+        - TerminateService
+        - OperatorUnbond
+      abis:
+        - name: ServiceRegistry
+          file: ./abis/ServiceRegistry.json
+      eventHandlers:
+        - event: CreateService(indexed uint256)
+          handler: handleCreateService
+        - event: UpdateService(indexed uint256,bytes32)
+          handler: handleUpdateService
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleServiceTransfer
+        - event: ActivateRegistration(indexed uint256)
+          handler: handleActivateRegistration
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+        - event: DeployService(indexed uint256)
+          handler: handleDeployService
+        - event: TerminateService(indexed uint256)
+          handler: handleTerminateService
+        - event: OperatorUnbond(indexed address,indexed uint256)
+          handler: handleOperatorUnbond
+      file: ./src/registry.ts
+features:
+  - fullTextSearch
+  - ipfsOnEthereumContracts

@@ -4,5 +4,4 @@ build/
 generated/
 temp/
 
-subgraph.yaml
 .env
