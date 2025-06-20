@@ -24,7 +24,7 @@ dataSources:
         - OperatorUnbond
       abis:
         - name: ServiceRegistryL2
-          file: ../abis/ServiceRegistryL2.json
+          file: ./abis/ServiceRegistryL2.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
