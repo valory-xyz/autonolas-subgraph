@@ -68,8 +68,11 @@ export function handleRequest(event: RequestEvent): void {
   let sender = Sender.load(event.params.sender.toHexString());
   if (!sender) {
     sender = new Sender(event.params.sender.toHexString());
-    sender.save();
+    sender.totalRequests = 0;
   }
+
+  sender.totalRequests += 1;
+  sender.save();
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);

@@ -139,5 +139,6 @@ type MechAgent @entity(immutable: false) {
 
 type Sender @entity(immutable: false) {
   id: ID! # uint256
+  totalRequests: Int!
   requests: [Request!] @derivedFrom(field: "sender")
 }
