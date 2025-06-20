@@ -39,8 +39,10 @@ function getMetadata(requestHash: string): Metadata {
     let promptJson = metadata.get("prompt") as JSONValue;
     let toolJson = metadata.get("tool") as JSONValue;
 
-    if (promptJson) {
+    if (promptJson && promptJson.kind === JSONValueKind.STRING) {
       promptStr = promptJson.toString();
+    } else {
+      promptStr = "[unhandled type]";
     }
 
     if (toolJson && toolJson.kind === JSONValueKind.ARRAY) {
@@ -57,6 +59,8 @@ function getMetadata(requestHash: string): Metadata {
       toolStr = tools.join(", "); // or whatever format you want
     } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
       toolStr = toolJson.toString();
+    } else {
+      toolStr = "[unhandled type]";
     }
 
     return {
