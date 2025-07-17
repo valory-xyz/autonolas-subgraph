@@ -4,6 +4,7 @@ import {
   Deliver as DeliverEvent,
 } from "../generated/templates/AgentMech/AgentMech";
 import { Request, Deliver, Sender } from "../generated/schema";
+import { getGlobal } from "./utils";
 
 class Metadata {
   tool: string;
@@ -97,14 +98,18 @@ export function handleRequest(event: RequestEvent): void {
   let entity = new Request(event.params.requestId.toHexString());
 
   // Create Sender entity to track all requests made by an address
-  let sender = Sender.load(event.params.sender.toHexString());
+  let sender = Sender.load(event.params.sender);
   if (!sender) {
-    sender = new Sender(event.params.sender.toHexString());
+    sender = new Sender(event.params.sender);
     sender.totalRequests = 0;
   }
 
   sender.totalRequests += 1;
   sender.save();
+
+  let global = getGlobal();
+  global.totalRequests += 1;
+  global.save()
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
@@ -128,7 +133,7 @@ export function handleRequest(event: RequestEvent): void {
   entity.prompt = prompt;
   entity.tool = tool;
   entity.questionTitle = questionTitle;
-  entity.sender = event.params.sender.toHexString();
+  entity.sender = event.params.sender;
   entity.mech = event.address;
   entity.requestId = event.params.requestId;
   entity.ipfsHash = ipfsHash;
