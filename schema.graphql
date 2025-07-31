@@ -31,7 +31,7 @@ type ImplementationUpdated @entity(immutable: true) {
 type MarketplaceDelivery @entity(immutable: true) {
   id: Bytes!
   deliveryMech: Bytes! # address
-  requesters: [Bytes!]! # address[]
+  requesters: Bytes! # indexed address[] (hashed)
   numDeliveries: BigInt! # uint256
   requestIds: [Bytes!]! # bytes32[]
   deliveredRequests: [Boolean!]! # bool[]
@@ -65,6 +65,7 @@ type MarketplaceRequest @entity(immutable: true) {
   id: Bytes!
   priorityMech: Bytes! # address
   requester: Bytes! # address
+  sender: Sender! # relationship to Sender entity
   numRequests: BigInt! # uint256
   requestIds: [Bytes!]! # bytes32[]
   blockNumber: BigInt!
@@ -280,7 +281,22 @@ type Service @entity {
   configHash: Bytes!
 }
 
+type Sender @entity {
+  id: Bytes! # address
+  requests: [MarketplaceRequest!]! @derivedFrom(field: "sender")
+  totalMarketplaceRequests: Int!
+  totalOffChainRequests: Int! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
+  totalRequests: Int!
+  totalTransactions: Int!
+}
+
 type Global @entity {
   id: ID!
   totalMechs: Int!
+  totalMarketplaceRequests: Int!
+  totalMarketplaceDeliveries: Int!
+  totalMarketplaceDeliveriesWithSignatures: Int!
+  totalRequests: Int!
+  totalDeliveries: Int!
+  totalTransactions: Int!
 }

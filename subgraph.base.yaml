@@ -17,12 +17,34 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateMech
+        - Deliver
+        - ImplementationUpdated
+        - MarketplaceDelivery
+        - MarketplaceDeliveryWithSignatures
+        - MarketplaceRequest
+        - Mech
+        - Sender
+        - Global
+        - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplace
           file: ./abis/MechMarketplace.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
+        - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
+          handler: handleDeliver
+        - event: ImplementationUpdated(indexed address)
+          handler: handleImplementationUpdated
+        - event: MarketplaceDelivery(indexed address,indexed address[],uint256,bytes32[],bool[])
+          handler: handleMarketplaceDelivery
+        - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
+            address,uint256,bytes32[])
+          handler: handleMarketplaceDeliveryWithSignatures
+        - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
+          handler: handleMarketplaceRequest
+        - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
+          handler: handleSetPaymentTypeBalanceTrackers
       file: ./src/mech-marketplace.ts
   - kind: ethereum
     name: ServiceRegistryL2

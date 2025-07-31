@@ -25,7 +25,7 @@ import {
   SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers
 } from "../generated/schema"
-import { getGlobal } from "./utils"
+import { createOrGetSender, getGlobal } from "./utils"
 
 export function handleCreateMech(event: CreateMechEvent): void {
   let entity = new CreateMech(
@@ -100,15 +100,7 @@ export function handleMarketplaceDelivery(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
   entity.deliveryMech = event.params.deliveryMech
-  
-  // Convert Address[] to Bytes[]
-  let requesters: Bytes[] = event.params.requesters.map<Bytes>(
-    (address: Address): Bytes => {
-      return address as Bytes;
-    }
-  );
-  entity.requesters = requesters
-  
+  entity.requesters = event.params.requesters
   entity.numDeliveries = event.params.numDeliveries
   entity.requestIds = event.params.requestIds
   entity.deliveredRequests = event.params.deliveredRequests
@@ -118,6 +110,12 @@ export function handleMarketplaceDelivery(
   entity.transactionHash = event.transaction.hash
 
   entity.save()
+
+  let global = getGlobal();
+  global.totalDeliveries += event.params.numDeliveries.toI32();
+  global.totalMarketplaceDeliveries += 1
+  global.totalTransactions += 1;
+  global.save()
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -134,8 +132,27 @@ export function handleMarketplaceDeliveryWithSignatures(
   entity.blockNumber = event.block.number
   entity.blockTimestamp = event.block.timestamp
   entity.transactionHash = event.transaction.hash
+  entity.save();
 
-  entity.save()
+  let sender = createOrGetSender(event.params.requester);
+  /* As these requests are made off-chain we assume that the number of requests 
+  is the same as number of deliveries, and add the same to `totalRequests` */
+  sender.totalOffChainRequests += event.params.numDeliveries.toI32();
+  sender.totalRequests += event.params.numDeliveries.toI32();
+  sender.totalTransactions += 1
+  sender.save();
+  
+  let global = getGlobal();
+
+  // For this event, total number of deliveries is the same as total number of requests
+  global.totalRequests += event.params.numDeliveries.toI32();
+
+  global.totalDeliveries += event.params.numDeliveries.toI32();
+  global.totalMarketplaceDeliveriesWithSignatures += 1;
+
+  // 1 for each request and delivery (request is off-chain)
+  global.totalTransactions += 2;
+  global.save()
 }
 
 export function handleMarketplaceParamsUpdated(
@@ -168,7 +185,21 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   entity.blockTimestamp = event.block.timestamp
   entity.transactionHash = event.transaction.hash
 
+  let sender = createOrGetSender(event.params.requester)
+  sender.totalTransactions += 1
+  sender.totalMarketplaceRequests += 1
+  sender.totalRequests += event.params.numRequests.toI32();
+  sender.save()
+
+  // Set the sender relationship
+  entity.sender = sender.id
   entity.save()
+
+  let global = getGlobal();
+  global.totalMarketplaceRequests += 1;
+  global.totalRequests += event.params.numRequests.toI32();
+  global.totalTransactions += 1;
+  global.save()
 }
 
 export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
