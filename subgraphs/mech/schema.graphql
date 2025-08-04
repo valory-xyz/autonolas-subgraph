@@ -146,4 +146,5 @@ type Sender @entity(immutable: false) {
 type Global @entity(immutable: false) {
   id: ID! # uint256
   totalRequests: Int!
+  totalDeliveries: Int!
 }

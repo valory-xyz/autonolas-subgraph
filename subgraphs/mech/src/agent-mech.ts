@@ -156,4 +156,8 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.transactionHash = event.transaction.hash;
   entity.request = event.params.requestId.toHexString();
   entity.save();
+
+  let global = getGlobal();
+  global.totalDeliveries += 1;
+  global.save();
 }
