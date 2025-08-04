@@ -5,6 +5,7 @@ export function getGlobal(): Global {
   if (global == null) {
     global = new Global("");
     global.totalRequests = 0;
+    global.totalDeliveries = 0;
   }
   return global as Global;
 }
