@@ -9,15 +9,30 @@ type CreateMech @entity(immutable: true) {
 }
 
 type Deliver @entity(immutable: true) {
-  id: Bytes!
-  mech: Bytes! # address
-  mechServiceMultisig: Bytes! # address
+  id: ID! # requestId
+  mech: Bytes # address
+  mechServiceMultisig: Bytes # address
   requestId: Bytes! # bytes32
-  deliveryRate: BigInt! # uint256
-  data: Bytes! # bytes
+  deliveryRate: BigInt # uint256
+  ipfsHash: Bytes # bytes
+  sender: Bytes # address
+  request: Request # relationship to Request entity
+  isOffChain: Boolean # bool
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+}
+
+type Request @entity(immutable: true) {
+  id: ID!
+  requestId: Bytes # bytes32
+  ipfsHash: Bytes # bytes
+  sender: Sender # relationship to Sender entity
+  mech: Bytes # address
+  delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
+  blockNumber: BigInt
+  blockTimestamp: BigInt
+  transactionHash: Bytes
 }
 
 type ImplementationUpdated @entity(immutable: true) {
@@ -31,7 +46,6 @@ type ImplementationUpdated @entity(immutable: true) {
 type MarketplaceDelivery @entity(immutable: true) {
   id: Bytes!
   deliveryMech: Bytes! # address
-  requesters: Bytes! # indexed address[] (hashed)
   numDeliveries: BigInt! # uint256
   requestIds: [Bytes!]! # bytes32[]
   deliveredRequests: [Boolean!]! # bool[]
@@ -65,7 +79,6 @@ type MarketplaceRequest @entity(immutable: true) {
   id: Bytes!
   priorityMech: Bytes! # address
   requester: Bytes! # address
-  sender: Sender! # relationship to Sender entity
   numRequests: BigInt! # uint256
   requestIds: [Bytes!]! # bytes32[]
   blockNumber: BigInt!
@@ -268,6 +281,13 @@ type UpdateService @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
+type Metadata @entity {
+  id: ID!
+  serviceId: BigInt! # uint256
+  mech: Bytes # address
+  metadata: Bytes! # bytes32
+}
+
 type Mech @entity {
   id: ID!
   address: Bytes!
@@ -283,20 +303,20 @@ type Service @entity {
 
 type Sender @entity {
   id: Bytes! # address
-  requests: [MarketplaceRequest!]! @derivedFrom(field: "sender")
-  totalMarketplaceRequests: Int!
-  totalOffChainRequests: Int! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
-  totalRequests: Int!
-  totalTransactions: Int!
+  requests: [Request!]! @derivedFrom(field: "sender")
+  totalMarketplaceRequests: BigInt!
+  totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
+  totalRequests: BigInt!
+  totalTransactions: BigInt!
 }
 
 type Global @entity {
   id: ID!
-  totalMechs: Int!
-  totalMarketplaceRequests: Int!
-  totalMarketplaceDeliveries: Int!
-  totalMarketplaceDeliveriesWithSignatures: Int!
-  totalRequests: Int!
-  totalDeliveries: Int!
-  totalTransactions: Int!
+  totalMechs: BigInt!
+  totalMarketplaceRequests: BigInt!
+  totalMarketplaceDeliveries: BigInt!
+  totalMarketplaceDeliveriesWithSignatures: BigInt!
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  totalTransactions: BigInt!
 }
