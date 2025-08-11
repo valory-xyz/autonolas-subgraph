@@ -10,7 +10,7 @@ import {
   OwnerUpdated as OwnerUpdatedEvent,
   SetMechFactoryStatuses as SetMechFactoryStatusesEvent,
   SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEvent,
-} from '../generated/MechMarketplace/MechMarketplace';
+} from '../generated/MechMarketplaceV2/MechMarketplaceV2';
 import { Deliver as DeliverWithSignaturesEventV1 } from '../generated/MechMarketplaceV1/MechMarketplaceV1';
 import {
   CreateMech,

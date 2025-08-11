@@ -15,10 +15,10 @@ The Olas Mech Marketplace Subgraph tracks on-chain activity related to autonomou
 
 ### Core Contracts
 
-1. **MechMarketplace**
+1. **MechMarketplace** (v1 and v2)
    - **Gnosis**: `0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB`
    - **Base**: `0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020`
-   - Handles mech creation, marketplace requests, and deliveries
+   - Handles mech creation, senders, marketplace requests, and deliveries
 
 2. **ServiceRegistryL2** 
    - **Gnosis**: `0x9338b5153AE39BB89f50468E608eD9d764B755fD`
