@@ -1,17 +1,24 @@
 {
-  "name": "olas-mech-marketplace",
+  "name": "olas-mech",
   "license": "UNLICENSED",
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
     "generate-manifests": "node scripts/generate-manifests.js",
-    "deploy-gnosis": "graph deploy --network gnosis --studio olas-gnosis-mech-marketplace subgraph.gnosis.yaml",
-    "deploy-base": "graph deploy --network base --studio olas-base-mech-marketplace subgraph.base.yaml",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ olas-mech",
+    "create-local": "graph create --node http://localhost:8020/ olas-mech",
+    "remove-local": "graph remove --node http://localhost:8020/ olas-mech",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 olas-mech",
+    "deploy-gnosis": "graph deploy --network gnosis --studio olas-gnosis-mech subgraph.gnosis.yaml",
+    "deploy-base": "graph deploy --network base --studio olas-base-mech subgraph.base.yaml",
     "test": "graph test"
   },
   "dependencies": {
-    "@graphprotocol/graph-cli": "0.82.0",
-    "@graphprotocol/graph-ts": "0.32.0"
+    "@graphprotocol/graph-cli": "^0.86.0",
+    "@graphprotocol/graph-ts": "^0.35.1",
+    "node-fetch": "^3.3.1"
   },
-  "devDependencies": { "matchstick-as": "0.5.0" }
+  "devDependencies": {
+    "matchstick-as": "0.5.0"
+  }
 }

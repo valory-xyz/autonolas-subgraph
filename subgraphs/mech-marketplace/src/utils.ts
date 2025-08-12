@@ -38,6 +38,8 @@ export function getGlobal(): Global {
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
+    global.totalLegacyRequests = BigInt.fromI32(0);
+    global.totalLegacyDeliveries = BigInt.fromI32(0);
   }
   return global;
 }

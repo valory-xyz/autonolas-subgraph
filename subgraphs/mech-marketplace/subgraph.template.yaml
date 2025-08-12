@@ -143,6 +143,165 @@ dataSources:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
       file: ./src/complementary-service-metadata.ts
+  # Gnosis only sources - start
+  - kind: ethereum
+    name: AgentFactory
+    network: {{ network }}
+    source:
+      address: "{{ AgentFactory.address }}"
+      abi: AgentFactory
+      startBlock: {{ AgentFactory.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyCreateMech
+        - LegacyOwnerUpdated
+        - LegacyPause
+        - LegacyUnpause
+      abis:
+        - name: AgentFactory
+          file: ./abis/AgentFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,indexed uint256)
+          handler: handleCreateMech
+        - event: OwnerUpdated(indexed address)
+          handler: handleOwnerUpdated
+        - event: Pause(indexed address)
+          handler: handlePause
+        - event: Unpause(indexed address)
+          handler: handleUnpause
+      file: ./src/agent-factory.ts
+  - kind: ethereum
+    name: AgentFactoryV2
+    network: {{ network }}
+    source:
+      address: "{{ AgentFactoryV2.address }}"
+      abi: AgentFactory
+      startBlock: {{ AgentFactoryV2.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyCreateMech
+        - LegacyOwnerUpdated
+        - LegacyPause
+        - LegacyUnpause
+      abis:
+        - name: AgentFactory
+          file: ./abis/AgentFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,indexed uint256)
+          handler: handleCreateMech
+        - event: OwnerUpdated(indexed address)
+          handler: handleOwnerUpdated
+        - event: Pause(indexed address)
+          handler: handlePause
+        - event: Unpause(indexed address)
+          handler: handleUnpause
+      file: ./src/agent-factory.ts
+  - kind: ethereum
+    name: AgentFactoryV3
+    network: {{ network }}
+    source:
+      address: "{{ AgentFactoryV3.address }}"
+      abi: AgentFactory
+      startBlock: {{ AgentFactoryV3.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyCreateMech
+        - LegacyOwnerUpdated
+        - LegacyPause
+        - LegacyUnpause
+      abis:
+        - name: AgentFactory
+          file: ./abis/AgentFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,indexed uint256)
+          handler: handleCreateMech
+        - event: OwnerUpdated(indexed address)
+          handler: handleOwnerUpdated
+        - event: Pause(indexed address)
+          handler: handlePause
+        - event: Unpause(indexed address)
+          handler: handleUnpause
+      file: ./src/agent-factory.ts
+  - kind: ethereum
+    name: AgentFactoryV4
+    network: {{ network }}
+    source:
+      address: "{{ AgentFactoryV4.address }}"
+      abi: AgentFactory
+      startBlock: {{ AgentFactoryV4.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyCreateMech
+        - LegacyOwnerUpdated
+        - LegacyPause
+        - LegacyUnpause
+      abis:
+        - name: AgentFactory
+          file: ./abis/AgentFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,indexed uint256)
+          handler: handleCreateMech
+        - event: OwnerUpdated(indexed address)
+          handler: handleOwnerUpdated
+        - event: Pause(indexed address)
+          handler: handlePause
+        - event: Unpause(indexed address)
+          handler: handleUnpause
+      file: ./src/agent-factory.ts
+  - kind: ethereum
+    name: AgentRegistry
+    network: {{ network }}
+    source:
+      address: "{{ AgentRegistry.address }}"
+      abi: AgentRegistry
+      startBlock: {{ AgentRegistry.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyApproval
+        - LegacyApprovalForAll
+        - LegacyBaseURIChanged
+        - LegacyCreateAgent
+        - LegacyManagerUpdated
+        - LegacyAgentRegistryOwnerUpdated
+        - LegacyTransfer
+        - LegacyUpdateAgentHash
+      abis:
+        - name: AgentRegistry
+          file: ./abis/AgentRegistry.json
+      eventHandlers:
+        - event: Approval(indexed address,indexed address,indexed uint256)
+          handler: handleApproval
+        - event: ApprovalForAll(indexed address,indexed address,bool)
+          handler: handleApprovalForAll
+        - event: BaseURIChanged(string)
+          handler: handleBaseURIChanged
+        - event: CreateAgent(indexed uint256,bytes32)
+          handler: handleCreateAgent
+        - event: ManagerUpdated(indexed address)
+          handler: handleManagerUpdated
+        - event: OwnerUpdated(indexed address)
+          handler: handleOwnerUpdated
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: UpdateAgentHash(indexed uint256,bytes32)
+          handler: handleUpdateAgentHash
+      file: ./src/agent-registry.ts
+  # Gnosis only sources - end
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
@@ -228,3 +387,28 @@ templates:
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
       file: ./src/mech-nvm-subscription-token-usdc.ts
+  # Gnosis only sources - start
+  - name: AgentMech
+    kind: ethereum/contract
+    network: gnosis
+    source:
+      abi: AgentMech
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - LegacyRequest
+        - Legacy`Deliver
+      abis:
+        - name: AgentMech
+          file: ./abis/AgentMech.json
+      eventHandlers:
+        - event: Request(indexed address,uint256,bytes)
+          handler: handleRequest
+        - event: Deliver(indexed address,uint256,bytes)
+          handler: handleDeliver
+      file: ./src/agent-mech.ts
+features:
+  - ipfsOnEthereumContracts
+  # Gnosis only sources - end

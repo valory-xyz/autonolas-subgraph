@@ -5,6 +5,31 @@ const networksData = JSON.parse(fs.readFileSync('networks.json', 'utf8'));
 function replacePlaceholders(template, network, networkData) {
   let result = template.replace(/{{ network }}/g, network);
   
+  // Remove Gnosis-only sections for non-Gnosis networks
+  if (network !== 'gnosis') {
+    const lines = result.split('\n');
+    const filteredLines = [];
+    let skipSection = false;
+    
+    for (const line of lines) {
+      if (line.trim() === '# Gnosis only sources - start') {
+        skipSection = true;
+        continue;
+      }
+      
+      if (line.trim() === '# Gnosis only sources - end') {
+        skipSection = false;
+        continue;
+      }
+      
+      if (!skipSection) {
+        filteredLines.push(line);
+      }
+    }
+    
+    result = filteredLines.join('\n');
+  }
+  
   for (const [contractName, contractData] of Object.entries(networkData)) {
     result = result.replace(new RegExp(`{{ ${contractName}\\.address }}`, 'g'), contractData.address);
     result = result.replace(new RegExp(`{{ ${contractName}\\.startBlock }}`, 'g'), contractData.startBlock.toString());

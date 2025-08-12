@@ -319,4 +319,154 @@ type Global @entity {
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
+  
+  totalLegacyRequests: BigInt!
+  totalLegacyDeliveries: BigInt!
+}
+
+### Legacy mech - Schema
+
+type LegacyCreateMech @entity(immutable: true) {
+  id: Bytes!
+  mech: Bytes! # address
+  agentId: BigInt! # uint256
+  price: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyOwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyPause @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyUnpause @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyRequest @entity(immutable: false) {
+  id: ID!
+  sender: LegacySender!
+  mech: Bytes! # address
+  requestId: BigInt!
+  ipfsHash: String!
+  prompt: String
+  tool: String
+  questionTitle: String
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  delivery: LegacyDeliver @derivedFrom(field: "request")
+}
+
+type LegacyDeliver @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes!
+  mech: Bytes! # address
+  requestId: BigInt!
+  request: LegacyRequest
+  ipfsHash: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyApproval @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  spender: Bytes! # address
+  AgentRegistry_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyApprovalForAll @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  operator: Bytes! # address
+  approved: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyBaseURIChanged @entity(immutable: true) {
+  id: Bytes!
+  baseURI: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyCreateAgent @entity(immutable: true) {
+  id: Bytes!
+  agentId: BigInt! # uint256
+  agentHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyManagerUpdated @entity(immutable: true) {
+  id: Bytes!
+  manager: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyAgentRegistryOwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyTransfer @entity(immutable: true) {
+  id: Bytes!
+  from: Bytes! # address
+  to: Bytes! # address
+  AgentRegistry_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyUpdateAgentHash @entity(immutable: true) {
+  id: Bytes!
+  agentId: BigInt! # uint256
+  agentHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LegacyMechAgent @entity(immutable: false) {
+  id: ID! # agent Id 
+  mech: Bytes # address
+  agentHash: Bytes # bytes32
+}
+
+type LegacySender @entity(immutable: false) {
+  id: Bytes! # Address
+  totalRequests: Int!
+  requests: [LegacyRequest!] @derivedFrom(field: "sender")
 }
