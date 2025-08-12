@@ -8,7 +8,7 @@ WORKDIR /subgraphs
 
 RUN cd /subgraphs/autonolas && yarn install
 RUN cd /subgraphs/autonolas-base && yarn install
-RUN cd /subgraphs/mech && yarn install
+RUN cd /subgraphs/olas-mech && yarn install
 
 COPY scripts /scripts
 

@@ -34,12 +34,21 @@ yarn graph create --node $SUBGRAPH_NODE autonolas-base
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-base -l 0.1.0
 
 
-# Install the "mech" Subgraph
-cd /subgraphs/mech
+# Install the "olas-mech" Subgraph
+cd /subgraphs/olas-mech
 
-yarn graph codegen && yarn graph build
-yarn graph create --node $SUBGRAPH_NODE mech
-yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech -l 0.1.0
+# Generate network-specific manifests from template
+yarn generate-manifests
+
+# Deploy Gnosis version
+yarn graph codegen subgraph.gnosis.yaml && yarn graph build subgraph.gnosis.yaml
+yarn graph create --node $SUBGRAPH_NODE olas-mech-gnosis
+yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY olas-mech-gnosis subgraph.gnosis.yaml -l 0.1.0
+
+# Deploy Base version  
+yarn graph codegen subgraph.base.yaml && yarn graph build subgraph.base.yaml
+yarn graph create --node $SUBGRAPH_NODE olas-mech-base
+yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY olas-mech-base subgraph.base.yaml -l 0.1.0
 
 echo "Deployment completed!"
 sleep infinity
