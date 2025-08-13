@@ -32,6 +32,7 @@ import {
   getOrCreateDeliver,
   getOrCreateRequest,
   getServiceIdFromMultisig,
+  getServiceIdFromMech,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -172,6 +173,11 @@ export function handleDeliverWithSignaturesV1(
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
 
+  let serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+  }
+
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
@@ -187,6 +193,11 @@ export function handleDeliverWithSignaturesV2(
   entity.ipfsHash = event.params.deliveryData;
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
+
+  let serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+  }
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
