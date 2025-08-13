@@ -106,7 +106,7 @@ export function handleCreateMultisigWithAgents(
   event: CreateMultisigWithAgentsEvent
 ): void {
   let entity = new CreateMultisigWithAgents(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
+    event.params.multisig.toHexString()
   );
   entity.serviceId = event.params.serviceId;
   entity.multisig = event.params.multisig;
@@ -118,7 +118,14 @@ export function handleCreateMultisigWithAgents(
   // Update Service entity
   let service = Service.load(event.params.serviceId.toHexString());
   if (service !== null) {
-    service.multisig = event.params.multisig;
+    service.latestMultisig = event.params.multisig;
+
+    let historicalMultisigs = service.historicalMultisigs;
+    if (!historicalMultisigs.includes(event.params.multisig)) {
+      historicalMultisigs.push(event.params.multisig);
+      service.historicalMultisigs = historicalMultisigs;
+    }
+
     service.save();
   }
 
@@ -141,6 +148,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   // Create Service entity
   let service = new Service(event.params.serviceId.toHexString());
   service.configHash = event.params.configHash;
+  service.historicalMultisigs = [];
   service.save();
 }
 

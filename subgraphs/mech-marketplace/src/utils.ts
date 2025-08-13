@@ -11,6 +11,8 @@ import {
   Metadata,
   Deliver,
   Request,
+  CreateMultisigWithAgents,
+  CreateMech,
 } from '../generated/schema';
 import {
   MechFixedPriceNative,
@@ -80,6 +82,26 @@ export function getOrCreateRequest(requestId: Bytes): Request {
     request = new Request(requestId.toHexString());
   }
   return request;
+}
+
+export function getServiceIdFromMultisig(
+  multisigAddress: Bytes
+): string | null {
+  let multisigEntity = CreateMultisigWithAgents.load(
+    multisigAddress.toHexString()
+  );
+  if (multisigEntity !== null) {
+    return multisigEntity.serviceId.toHexString();
+  }
+  return null;
+}
+
+export function getServiceIdFromMech(mechAddress: Bytes): string | null {
+  let createMechEntity = CreateMech.load(mechAddress.toHexString());
+  if (createMechEntity !== null) {
+    return createMechEntity.serviceId.toHexString();
+  }
+  return null;
 }
 
 export function getChainId(network: string): i32 {

@@ -31,12 +31,11 @@ import {
   createDataSourceForMechContract,
   getOrCreateDeliver,
   getOrCreateRequest,
+  getServiceIdFromMultisig,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  let entity = new CreateMech(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
+  let entity = new CreateMech(event.params.mech.toHexString());
   entity.mech = event.params.mech;
   entity.serviceId = event.params.serviceId;
   entity.mechFactory = event.params.mechFactory;
@@ -234,10 +233,18 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
   sender.save();
 
+  // Get service ID from requester's multisig address
+  let serviceId = getServiceIdFromMultisig(event.params.requester);
+
   // Request entities for each request
   for (let i = 0; i < event.params.numRequests.toI32(); i++) {
     let request = getOrCreateRequest(event.params.requestIds[i]);
     request.sender = sender.id;
+
+    if (serviceId !== null) {
+      request.service = serviceId;
+    }
+
     request.save();
   }
 
