@@ -84,6 +84,16 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   return request;
 }
 
+export function getOrCreateMultisigWithAgents(
+  multisig: Bytes
+): CreateMultisigWithAgents {
+  let entity = CreateMultisigWithAgents.load(multisig.toHexString());
+  if (entity === null) {
+    entity = new CreateMultisigWithAgents(multisig.toHexString());
+  }
+  return entity;
+}
+
 export function getServiceIdFromMultisig(
   multisigAddress: Bytes
 ): string | null {

@@ -25,7 +25,6 @@ import {
   Approval,
   ApprovalForAll,
   BaseURIChanged,
-  CreateMultisigWithAgents,
   CreateService,
   DeployService,
   Deposit,
@@ -43,6 +42,7 @@ import {
   Transfer,
   UpdateService,
 } from '../generated/schema';
+import { getOrCreateMultisigWithAgents } from './utils';
 
 export function handleActivateRegistration(
   event: ActivateRegistrationEvent
@@ -105,9 +105,7 @@ export function handleBaseURIChanged(event: BaseURIChangedEvent): void {
 export function handleCreateMultisigWithAgents(
   event: CreateMultisigWithAgentsEvent
 ): void {
-  let entity = new CreateMultisigWithAgents(
-    event.params.multisig.toHexString()
-  );
+  let entity = getOrCreateMultisigWithAgents(event.params.multisig);
   entity.serviceId = event.params.serviceId;
   entity.multisig = event.params.multisig;
 
