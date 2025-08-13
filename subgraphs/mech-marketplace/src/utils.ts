@@ -60,6 +60,7 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   if (entity === null) {
     entity = new Metadata(serviceId.toHexString());
     entity.serviceId = serviceId;
+    entity.service = serviceId.toHexString();
   }
   return entity;
 }

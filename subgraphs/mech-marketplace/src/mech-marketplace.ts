@@ -53,6 +53,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.address = event.params.mech;
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
+  mechAgent.service = event.params.serviceId.toHexString();
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toHexString());

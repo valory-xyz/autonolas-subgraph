@@ -281,27 +281,32 @@ type UpdateService @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type Metadata @entity {
+type Metadata @entity(immutable: false) {
   id: ID!
   serviceId: BigInt! # uint256
   mech: Bytes # address
   metadata: Bytes! # bytes32
+  service: Service!
 }
 
-type Mech @entity {
+type Mech @entity(immutable: false) {
   id: ID!
   address: Bytes!
   mechFactory: Bytes!
   configHash: Bytes
   owner: Bytes!
+  service: Service!
 }
 
-type Service @entity {
+type Service @entity(immutable: false) {
   id: ID!
   configHash: Bytes!
+  multisig: Bytes
+  mechs: [Mech!] @derivedFrom(field: "service")
+  metadata: Metadata @derivedFrom(field: "service")
 }
 
-type Sender @entity {
+type Sender @entity(immutable: false) {
   id: Bytes! # address
   requests: [Request!]! @derivedFrom(field: "sender")
   totalMarketplaceRequests: BigInt!
@@ -310,7 +315,7 @@ type Sender @entity {
   totalTransactions: BigInt!
 }
 
-type Global @entity {
+type Global @entity(immutable: false) {
   id: ID!
   totalMechs: BigInt!
   totalMarketplaceRequests: BigInt!
