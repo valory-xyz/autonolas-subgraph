@@ -18,7 +18,7 @@ type Deliver @entity(immutable: true) {
   sender: Bytes # address
   request: Request # relationship to Request entity
   isOffChain: Boolean # bool
-  service: Service!
+  service: Service
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -31,7 +31,7 @@ type Request @entity(immutable: true) {
   sender: Sender # relationship to Sender entity
   mech: Bytes # address
   delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
-  service: Service!
+  service: Service
   blockNumber: BigInt
   blockTimestamp: BigInt
   transactionHash: Bytes
@@ -149,7 +149,7 @@ type BaseURIChanged @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type CreateMultisigWithAgents @entity(immutable: true) {
+type CreateMultisigWithAgents @entity(immutable: false) {
   id: ID!
   serviceId: BigInt! # uint256
   multisig: Bytes! # address
@@ -288,7 +288,7 @@ type Metadata @entity(immutable: false) {
   serviceId: BigInt! # uint256
   mech: Bytes # address
   metadata: Bytes! # bytes32
-  service: Service!
+  service: Service
 }
 
 type Mech @entity(immutable: false) {
@@ -297,7 +297,7 @@ type Mech @entity(immutable: false) {
   mechFactory: Bytes!
   configHash: Bytes
   owner: Bytes!
-  service: Service!
+  service: Service
 }
 
 type Service @entity(immutable: false) {

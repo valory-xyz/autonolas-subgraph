@@ -58,11 +58,11 @@ export function getOrCreateSender(address: Bytes): Sender {
 }
 
 export function getOrCreateMetadata(serviceId: BigInt): Metadata {
-  let entity = Metadata.load(serviceId.toHexString());
+  let entity = Metadata.load(serviceId.toString());
   if (entity === null) {
-    entity = new Metadata(serviceId.toHexString());
+    entity = new Metadata(serviceId.toString());
     entity.serviceId = serviceId;
-    entity.service = serviceId.toHexString();
+    entity.service = serviceId.toString();
   }
   return entity;
 }
@@ -101,7 +101,7 @@ export function getServiceIdFromMultisig(
     multisigAddress.toHexString()
   );
   if (multisigEntity !== null) {
-    return multisigEntity.serviceId.toHexString();
+    return multisigEntity.serviceId.toString();
   }
   return null;
 }
@@ -109,7 +109,7 @@ export function getServiceIdFromMultisig(
 export function getServiceIdFromMech(mechAddress: Bytes): string | null {
   let createMechEntity = CreateMech.load(mechAddress.toHexString());
   if (createMechEntity !== null) {
-    return createMechEntity.serviceId.toHexString();
+    return createMechEntity.serviceId.toString();
   }
   return null;
 }

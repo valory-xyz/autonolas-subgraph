@@ -114,7 +114,7 @@ export function handleCreateMultisigWithAgents(
   entity.transactionHash = event.transaction.hash;
 
   // Update Service entity
-  let service = Service.load(event.params.serviceId.toHexString());
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.latestMultisig = event.params.multisig;
 
@@ -144,7 +144,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   entity.save();
 
   // Create Service entity
-  let service = new Service(event.params.serviceId.toHexString());
+  let service = new Service(event.params.serviceId.toString());
   service.configHash = event.params.configHash;
   service.historicalMultisigs = [];
   service.save();
@@ -317,7 +317,7 @@ export function handleTransfer(event: TransferEvent): void {
   entity.save();
 
   // Update Mech entity with owner
-  let mechAgent = Mech.load(event.params.id.toHexString());
+  let mechAgent = Mech.load(event.params.id.toString());
   if (mechAgent !== null) {
     mechAgent.owner = event.params.to;
     mechAgent.save();
@@ -338,14 +338,14 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
   entity.save();
 
   // Update Service entity
-  let service = Service.load(event.params.serviceId.toHexString());
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.configHash = event.params.configHash;
     service.save();
   }
 
   // Update Mech entity with hash
-  let mech = Mech.load(event.params.serviceId.toHexString());
+  let mech = Mech.load(event.params.serviceId.toString());
   if (mech !== null) {
     mech.configHash = event.params.configHash;
     mech.save();
