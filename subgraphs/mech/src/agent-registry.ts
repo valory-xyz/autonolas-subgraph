@@ -20,7 +20,11 @@ import {
   Transfer,
   UpdateAgentHash,
 } from '../generated/schema';
-import { getOrCreateAgentMultisigAssociation, ZERO_ADDRESS } from './utils';
+import {
+  getOrCreateAgentMultisigAssociation,
+  getServiceIdFromMultisig,
+  ZERO_ADDRESS,
+} from './utils';
 
 export function handleApproval(event: ApprovalEvent): void {
   let entity = new Approval(
@@ -130,6 +134,16 @@ export function handleTransfer(event: TransferEvent): void {
     agentMultisigAssociation.agentId = event.params.id;
     agentMultisigAssociation.multisig = event.params.to;
     agentMultisigAssociation.save();
+
+    // Update MechAgent service field if it exists and service is not already set
+    let mechAgent = MechAgent.load(event.params.id.toHexString());
+    if (mechAgent !== null && mechAgent.service === null) {
+      let serviceId = getServiceIdFromMultisig(event.params.to);
+      if (serviceId !== null) {
+        mechAgent.service = serviceId;
+        mechAgent.save();
+      }
+    }
   }
 
   entity.blockNumber = event.block.number;

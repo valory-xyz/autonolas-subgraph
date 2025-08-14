@@ -76,7 +76,11 @@ export function getServiceIdFromMech(mech: Bytes): string | null {
   if (createMechEntity !== null) {
     let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
     if (mechAgent !== null) {
-      return mechAgent.service;
+      if (mechAgent.service !== null) {
+        return mechAgent.service;
+      }
+      // Fallback: try to get service ID from agent ID
+      return getServiceIdFromAgentId(createMechEntity.agentId);
     }
   }
   return null;
