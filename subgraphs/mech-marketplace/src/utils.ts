@@ -11,6 +11,8 @@ import {
   Metadata,
   Deliver,
   Request,
+  CreateMultisigWithAgents,
+  CreateMech,
 } from '../generated/schema';
 import {
   MechFixedPriceNative,
@@ -56,10 +58,11 @@ export function getOrCreateSender(address: Bytes): Sender {
 }
 
 export function getOrCreateMetadata(serviceId: BigInt): Metadata {
-  let entity = Metadata.load(serviceId.toHexString());
+  let entity = Metadata.load(serviceId.toString());
   if (entity === null) {
-    entity = new Metadata(serviceId.toHexString());
+    entity = new Metadata(serviceId.toString());
     entity.serviceId = serviceId;
+    entity.service = serviceId.toString();
   }
   return entity;
 }
@@ -79,6 +82,36 @@ export function getOrCreateRequest(requestId: Bytes): Request {
     request = new Request(requestId.toHexString());
   }
   return request;
+}
+
+export function getOrCreateMultisigWithAgents(
+  multisig: Bytes
+): CreateMultisigWithAgents {
+  let entity = CreateMultisigWithAgents.load(multisig.toHexString());
+  if (entity === null) {
+    entity = new CreateMultisigWithAgents(multisig.toHexString());
+  }
+  return entity;
+}
+
+export function getServiceIdFromMultisig(
+  multisigAddress: Bytes
+): string | null {
+  let multisigEntity = CreateMultisigWithAgents.load(
+    multisigAddress.toHexString()
+  );
+  if (multisigEntity !== null) {
+    return multisigEntity.serviceId.toString();
+  }
+  return null;
+}
+
+export function getServiceIdFromMech(mechAddress: Bytes): string | null {
+  let createMechEntity = CreateMech.load(mechAddress.toHexString());
+  if (createMechEntity !== null) {
+    return createMechEntity.serviceId.toString();
+  }
+  return null;
 }
 
 export function getChainId(network: string): i32 {

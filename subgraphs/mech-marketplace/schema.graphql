@@ -1,5 +1,5 @@
 type CreateMech @entity(immutable: true) {
-  id: Bytes!
+  id: ID!
   mech: Bytes! # address
   serviceId: BigInt! # uint256
   mechFactory: Bytes! # address
@@ -18,6 +18,7 @@ type Deliver @entity(immutable: true) {
   sender: Bytes # address
   request: Request # relationship to Request entity
   isOffChain: Boolean # bool
+  service: Service
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -30,6 +31,7 @@ type Request @entity(immutable: true) {
   sender: Sender # relationship to Sender entity
   mech: Bytes # address
   delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
+  service: Service
   blockNumber: BigInt
   blockTimestamp: BigInt
   transactionHash: Bytes
@@ -147,8 +149,8 @@ type BaseURIChanged @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type CreateMultisigWithAgents @entity(immutable: true) {
-  id: Bytes!
+type CreateMultisigWithAgents @entity(immutable: false) {
+  id: ID!
   serviceId: BigInt! # uint256
   multisig: Bytes! # address
   blockNumber: BigInt!
@@ -281,27 +283,35 @@ type UpdateService @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type Metadata @entity {
+type Metadata @entity(immutable: false) {
   id: ID!
   serviceId: BigInt! # uint256
   mech: Bytes # address
   metadata: Bytes! # bytes32
+  service: Service
 }
 
-type Mech @entity {
+type Mech @entity(immutable: false) {
   id: ID!
   address: Bytes!
   mechFactory: Bytes!
   configHash: Bytes
   owner: Bytes!
+  service: Service
 }
 
-type Service @entity {
+type Service @entity(immutable: false) {
   id: ID!
   configHash: Bytes!
+  latestMultisig: Bytes
+  historicalMultisigs: [Bytes!]!
+  mechs: [Mech!] @derivedFrom(field: "service")
+  metadata: Metadata @derivedFrom(field: "service")
+  requests: [Request!] @derivedFrom(field: "service")
+  deliveries: [Deliver!] @derivedFrom(field: "service")
 }
 
-type Sender @entity {
+type Sender @entity(immutable: false) {
   id: Bytes! # address
   requests: [Request!]! @derivedFrom(field: "sender")
   totalMarketplaceRequests: BigInt!
@@ -310,7 +320,7 @@ type Sender @entity {
   totalTransactions: BigInt!
 }
 
-type Global @entity {
+type Global @entity(immutable: false) {
   id: ID!
   totalMechs: BigInt!
   totalMarketplaceRequests: BigInt!

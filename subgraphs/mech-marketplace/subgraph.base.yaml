@@ -112,6 +112,8 @@ dataSources:
         - CreateService
         - Transfer
         - UpdateService
+        - Service
+        - CreateMultisigWithAgents
       abis:
         - name: ServiceRegistryL2
           file: ./abis/ServiceRegistryL2.json
@@ -122,6 +124,8 @@ dataSources:
           handler: handleTransfer
         - event: UpdateService(indexed uint256,bytes32)
           handler: handleUpdateService
+        - event: CreateMultisigWithAgents(indexed uint256,indexed address)
+          handler: handleCreateMultisigWithAgents
       file: ./src/service-registry-l-2.ts
   - kind: ethereum
     name: ComplementaryServiceMetadata

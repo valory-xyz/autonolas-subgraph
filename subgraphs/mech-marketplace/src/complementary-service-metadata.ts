@@ -8,7 +8,7 @@ export function handleComplementaryMetadataUpdated(
   let metadata = getOrCreateMetadata(event.params.serviceId);
   metadata.metadata = event.params.hash;
 
-  let mech = Mech.load(event.params.serviceId.toHexString());
+  let mech = Mech.load(event.params.serviceId.toString());
   if (mech !== null) {
     metadata.mech = mech.address;
   }

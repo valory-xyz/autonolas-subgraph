@@ -3,7 +3,7 @@ import {
   Request as RequestEvent,
 } from '../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import { Deliver, Request } from '../generated/schema';
-import { getOrCreateRequest } from './utils';
+import { getOrCreateRequest, getServiceIdFromMech } from './utils';
 
 export function handleDeliver(event: DeliverEvent): void {
   let entity = new Deliver(event.params.requestId.toHexString());
@@ -18,6 +18,11 @@ export function handleDeliver(event: DeliverEvent): void {
   let request = Request.load(event.params.requestId.toHexString());
   if (request !== null) {
     entity.sender = request.sender;
+  }
+
+  const serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
   }
 
   entity.blockNumber = event.block.number;
