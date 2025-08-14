@@ -1,4 +1,3 @@
-import { Address, ipfs } from '@graphprotocol/graph-ts';
 import {
   Approval as ApprovalEvent,
   ApprovalForAll as ApprovalForAllEvent,
@@ -126,7 +125,7 @@ export function handleTransfer(event: TransferEvent): void {
   entity.AgentRegistry_id = event.params.id;
 
   // If the agent is minted, to address is the operator -> multisig
-  if (event.params.from.toHexString() === ZERO_ADDRESS.toString()) {
+  if (event.params.from === ZERO_ADDRESS) {
     let agentMultisigAssociation = getOrCreateAgentMultisigAssociation(event);
     agentMultisigAssociation.agentId = event.params.id;
     agentMultisigAssociation.multisig = event.params.to;

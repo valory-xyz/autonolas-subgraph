@@ -18,6 +18,8 @@ dataSources:
         - OwnerUpdated
         - Pause
         - Unpause
+        - MechAgent
+        - AgentMultisigAssociation
       abis:
         - name: AgentFactory
           file: ./abis/AgentFactory.json
@@ -47,6 +49,8 @@ dataSources:
         - OwnerUpdated
         - Pause
         - Unpause
+        - MechAgent
+        - AgentMultisigAssociation
       abis:
         - name: AgentFactory
           file: ./abis/AgentFactory.json
@@ -76,6 +80,7 @@ dataSources:
         - OwnerUpdated
         - Pause
         - Unpause
+        - MechAgent
       abis:
         - name: AgentFactory
           file: ./abis/AgentFactory.json
@@ -105,6 +110,7 @@ dataSources:
         - OwnerUpdated
         - Pause
         - Unpause
+        - MechAgent
       abis:
         - name: AgentFactory
           file: ./abis/AgentFactory.json
@@ -138,6 +144,7 @@ dataSources:
         - AgentRegistryOwnerUpdated
         - Transfer
         - UpdateAgentHash
+        - AgentMultisigAssociation
       abis:
         - name: AgentRegistry
           file: ./abis/AgentRegistry.json

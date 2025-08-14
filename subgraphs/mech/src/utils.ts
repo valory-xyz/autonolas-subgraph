@@ -22,9 +22,9 @@ export function getGlobal(): Global {
 export function getOrCreateMultisigWithAgents(
   multisig: Bytes
 ): CreateMultisigWithAgents {
-  let entity = CreateMultisigWithAgents.load(multisig.toHexString());
+  let entity = CreateMultisigWithAgents.load(multisig);
   if (entity === null) {
-    entity = new CreateMultisigWithAgents(multisig.toHexString());
+    entity = new CreateMultisigWithAgents(multisig);
   }
   return entity;
 }
@@ -64,7 +64,7 @@ export function getServiceIdFromAgentId(agentId: BigInt): string | null {
 }
 
 export function getServiceIdFromMultisig(multisig: Bytes): string | null {
-  let entity = CreateMultisigWithAgents.load(multisig.toHexString());
+  let entity = CreateMultisigWithAgents.load(multisig);
   if (entity !== null) {
     return entity.serviceId.toString();
   }
