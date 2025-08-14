@@ -72,9 +72,12 @@ export function getServiceIdFromMultisig(multisig: Bytes): string | null {
 }
 
 export function getServiceIdFromMech(mech: Bytes): string | null {
-  let entity = MechAgent.load(mech.toHexString());
-  if (entity !== null) {
-    return entity.service;
+  let createMechEntity = CreateMech.load(mech.toHexString());
+  if (createMechEntity !== null) {
+    let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
+    if (mechAgent !== null) {
+      return mechAgent.service;
+    }
   }
   return null;
 }
