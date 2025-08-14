@@ -1,10 +1,14 @@
-import { json, ipfs, Bytes, JSONValueKind, log } from "@graphprotocol/graph-ts";
+import { json, ipfs, Bytes, JSONValueKind, log } from '@graphprotocol/graph-ts';
 import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
-} from "../generated/templates/AgentMech/AgentMech";
-import { Request, Deliver, Sender } from "../generated/schema";
-import { getGlobal } from "./utils";
+} from '../generated/templates/AgentMech/AgentMech';
+import { Request, Deliver, Sender } from '../generated/schema';
+import {
+  getGlobal,
+  getServiceIdFromMech,
+  getServiceIdFromMultisig,
+} from './utils';
 
 class Metadata {
   tool: string;
@@ -12,16 +16,16 @@ class Metadata {
 }
 
 const MetadataNotFound: Metadata = {
-  tool: "",
-  prompt: "",
+  tool: '',
+  prompt: '',
 };
 
 function getIpfsHash(data: Bytes): string {
-  return "f01701220" + data.toHexString().slice(2);
+  return 'f01701220' + data.toHexString().slice(2);
 }
 
 function tryGetIpfsResponse(requestHash: string): Bytes | null {
-  let response = ipfs.cat(requestHash + "/" + "metadata.json");
+  let response = ipfs.cat(requestHash + '/' + 'metadata.json');
 
   if (response) {
     return response;
@@ -33,23 +37,23 @@ function getMetadata(requestHash: string): Metadata {
   let response = tryGetIpfsResponse(requestHash);
 
   if (response) {
-    let promptStr = "";
-    let toolStr = "";
+    let promptStr = '';
+    let toolStr = '';
     let metadataString = json.fromString(response.toString());
 
     if (metadataString) {
       let metadata = metadataString.toObject();
 
       // Getting prompt info
-      let promptJson = metadata.get("prompt");
+      let promptJson = metadata.get('prompt');
       if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
         promptStr = promptJson.toString();
       } else {
-        promptStr = "[unhandled type]";
+        promptStr = '[unhandled type]';
       }
 
       // Getting tool info
-      let toolJson = metadata.get("tool");
+      let toolJson = metadata.get('tool');
       if (toolJson !== null && toolJson.kind === JSONValueKind.ARRAY) {
         let toolsArray = toolJson.toArray();
         let tools: string[] = [];
@@ -61,11 +65,11 @@ function getMetadata(requestHash: string): Metadata {
           }
         }
 
-        toolStr = tools.join(", ");
+        toolStr = tools.join(', ');
       } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
         toolStr = toolJson.toString();
       } else {
-        toolStr = "[unhandled type]";
+        toolStr = '[unhandled type]';
       }
     }
 
@@ -75,12 +79,12 @@ function getMetadata(requestHash: string): Metadata {
     };
   }
 
-  log.warning("Could not retrieve metadata for {}", [requestHash]);
+  log.warning('Could not retrieve metadata for {}', [requestHash]);
   return MetadataNotFound;
 }
 
 function extractQuestionTitle(prompt: string): string | null {
-  const marker = "With the given question";
+  const marker = 'With the given question';
   const markerIndex = prompt.indexOf(marker);
   if (markerIndex === -1) return null;
 
@@ -109,14 +113,14 @@ export function handleRequest(event: RequestEvent): void {
 
   let global = getGlobal();
   global.totalRequests += 1;
-  global.save()
+  global.save();
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
 
-  let prompt = "";
-  let tool = "";
-  let questionTitle = "";
+  let prompt = '';
+  let tool = '';
+  let questionTitle = '';
 
   let metadata = getMetadata(ipfsHash);
   if (metadata) {
@@ -140,6 +144,11 @@ export function handleRequest(event: RequestEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
+
+  // Associate request with service
+  let serviceId = getServiceIdFromMultisig(event.params.sender);
+  entity.service = serviceId;
+
   entity.save();
 }
 
@@ -155,6 +164,11 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.request = event.params.requestId.toHexString();
+
+  // Associate deliver with service
+  let serviceId = getServiceIdFromMech(event.address);
+  entity.service = serviceId;
+
   entity.save();
 
   let global = getGlobal();
