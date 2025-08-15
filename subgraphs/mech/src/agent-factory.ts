@@ -27,11 +27,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
   // add this check just in case
   if (mechAgent !== null) {
     mechAgent.mech = event.params.mech;
+    mechAgent.address = event.params.mech;
     mechAgent.service = serviceId;
     mechAgent.save();
   } else {
     mechAgent = new MechAgent(event.params.agentId.toHexString());
     mechAgent.mech = event.params.mech;
+    mechAgent.address = event.params.mech;
     mechAgent.service = serviceId;
     mechAgent.save();
   }
