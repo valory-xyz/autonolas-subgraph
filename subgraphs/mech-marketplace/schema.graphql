@@ -1,0 +1,332 @@
+type CreateMech @entity(immutable: true) {
+  id: ID!
+  mech: Bytes! # address
+  serviceId: BigInt! # uint256
+  mechFactory: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Deliver @entity(immutable: true) {
+  id: ID! # requestId
+  mech: Bytes # address
+  mechServiceMultisig: Bytes # address
+  requestId: Bytes! # bytes32
+  deliveryRate: BigInt # uint256
+  ipfsHash: Bytes # bytes
+  sender: Bytes # address
+  request: Request # relationship to Request entity
+  isOffChain: Boolean # bool
+  service: Service
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Request @entity(immutable: true) {
+  id: ID!
+  requestId: Bytes # bytes32
+  ipfsHash: Bytes # bytes
+  sender: Sender # relationship to Sender entity
+  mech: Bytes # address
+  delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
+  service: Service
+  blockNumber: BigInt
+  blockTimestamp: BigInt
+  transactionHash: Bytes
+}
+
+type ImplementationUpdated @entity(immutable: true) {
+  id: Bytes!
+  implementation: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceDelivery @entity(immutable: true) {
+  id: Bytes!
+  deliveryMech: Bytes! # address
+  numDeliveries: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  deliveredRequests: [Boolean!]! # bool[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceDeliveryWithSignatures @entity(immutable: true) {
+  id: Bytes!
+  deliveryMech: Bytes! # address
+  requester: Bytes! # address
+  numDeliveries: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceParamsUpdated @entity(immutable: true) {
+  id: Bytes!
+  fee: BigInt! # uint256
+  minResponseTimeout: BigInt! # uint256
+  maxResponseTimeout: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceRequest @entity(immutable: true) {
+  id: Bytes!
+  priorityMech: Bytes! # address
+  requester: Bytes! # address
+  numRequests: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SetMechFactoryStatuses @entity(immutable: true) {
+  id: Bytes!
+  mechFactories: [Bytes!]! # address[]
+  statuses: [Boolean!]! # bool[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SetPaymentTypeBalanceTrackers @entity(immutable: true) {
+  id: Bytes!
+  paymentTypes: [Bytes!]! # bytes32[]
+  balanceTrackers: [Bytes!]! # address[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+type ActivateRegistration @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Approval @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  spender: Bytes! # address
+  ServiceRegistryL2_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ApprovalForAll @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  operator: Bytes! # address
+  approved: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type BaseURIChanged @entity(immutable: true) {
+  id: Bytes!
+  baseURI: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreateMultisigWithAgents @entity(immutable: false) {
+  id: ID!
+  serviceId: BigInt! # uint256
+  multisig: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DeployService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Deposit @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Drain @entity(immutable: true) {
+  id: Bytes!
+  drainer: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DrainerUpdated @entity(immutable: true) {
+  id: Bytes!
+  drainer: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ManagerUpdated @entity(immutable: true) {
+  id: Bytes!
+  manager: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OperatorSlashed @entity(immutable: true) {
+  id: Bytes!
+  amount: BigInt! # uint256
+  operator: Bytes! # address
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OperatorUnbond @entity(immutable: true) {
+  id: Bytes!
+  operator: Bytes! # address
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceRegistryL2OwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Refund @entity(immutable: true) {
+  id: Bytes!
+  receiver: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RegisterInstance @entity(immutable: true) {
+  id: Bytes!
+  operator: Bytes! # address
+  serviceId: BigInt! # uint256
+  agentInstance: Bytes! # address
+  agentId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TerminateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Transfer @entity(immutable: true) {
+  id: Bytes!
+  from: Bytes! # address
+  to: Bytes! # address
+  ServiceRegistryL2_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UpdateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Metadata @entity(immutable: false) {
+  id: ID!
+  serviceId: BigInt! # uint256
+  mech: Bytes # address
+  metadata: Bytes! # bytes32
+  service: Service
+}
+
+type Mech @entity(immutable: false) {
+  id: ID!
+  address: Bytes!
+  mechFactory: Bytes!
+  configHash: Bytes
+  owner: Bytes!
+  service: Service
+}
+
+type Service @entity(immutable: false) {
+  id: ID!
+  configHash: Bytes!
+  latestMultisig: Bytes
+  historicalMultisigs: [Bytes!]!
+  mechs: [Mech!] @derivedFrom(field: "service")
+  metadata: Metadata @derivedFrom(field: "service")
+  requests: [Request!] @derivedFrom(field: "service")
+  deliveries: [Deliver!] @derivedFrom(field: "service")
+}
+
+type Sender @entity(immutable: false) {
+  id: Bytes! # address
+  requests: [Request!]! @derivedFrom(field: "sender")
+  totalMarketplaceRequests: BigInt!
+  totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
+  totalRequests: BigInt!
+  totalTransactions: BigInt!
+}
+
+type Global @entity(immutable: false) {
+  id: ID!
+  totalMechs: BigInt!
+  totalMarketplaceRequests: BigInt!
+  totalMarketplaceDeliveries: BigInt!
+  totalMarketplaceDeliveriesWithSignatures: BigInt!
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  totalTransactions: BigInt!
+}
