@@ -1,4 +1,4 @@
-type CreateMech @entity(immutable: true) {
+type CreateMech @entity(immutable: false) {
   id: Bytes!
   mech: Bytes! # address
   agentId: BigInt! # uint256
@@ -45,6 +45,7 @@ type Request @entity(immutable: false) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
   delivery: Deliver @derivedFrom(field: "request")
+  service: Service 
 }
 
 type Deliver @entity(immutable: true) {
@@ -57,6 +58,7 @@ type Deliver @entity(immutable: true) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+  service: Service
 }
 
 type Approval @entity(immutable: true) {
@@ -134,7 +136,9 @@ type UpdateAgentHash @entity(immutable: true) {
 type MechAgent @entity(immutable: false) {
   id: ID! # agent Id 
   mech: Bytes # address
+  address: Bytes # address
   agentHash: Bytes # bytes32
+  service: Service
 }
 
 type Sender @entity(immutable: false) {
@@ -147,4 +151,50 @@ type Global @entity(immutable: false) {
   id: ID! # uint256
   totalRequests: Int!
   totalDeliveries: Int!
+}
+
+type CreateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UpdateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreateMultisigWithAgents @entity(immutable: false) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  multisig: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Service @entity(immutable: false) {
+  id: ID! # serviceId
+  serviceId: BigInt! # uint256
+  configHash: Bytes # bytes32
+  latestMultisig: Bytes # address
+  historicalMultisigs: [Bytes!]! # array of addresses
+  totalRequests: BigInt! # total number of requests
+  totalDeliveries: BigInt! # total number of deliveries
+  mechs: [MechAgent!]  @derivedFrom(field: "service")
+  requests: [Request!] @derivedFrom(field: "service")
+  deliveries: [Deliver!] @derivedFrom(field: "service")
+}
+
+type AgentMultisigAssociation @entity(immutable: false) {
+  id: ID! # agentId
+  agentId: BigInt! # uint256
+  multisig: Bytes! # address
 }
