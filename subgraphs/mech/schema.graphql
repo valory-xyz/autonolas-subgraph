@@ -1,5 +1,5 @@
 type CreateMech @entity(immutable: false) {
-  id: ID!
+  id: Bytes!
   mech: Bytes! # address
   agentId: BigInt! # uint256
   price: BigInt! # uint256

@@ -29,10 +29,6 @@ export function getOrCreateMultisigWithAgents(
   return entity;
 }
 
-export const ZERO_ADDRESS = Address.fromString(
-  '0x0000000000000000000000000000000000000000'
-);
-
 export function getOrCreateAgentMultisigAssociation(
   event: TransferEvent
 ): AgentMultisigAssociation {
@@ -46,9 +42,9 @@ export function getOrCreateAgentMultisigAssociation(
 export function getOrCreateCreateMechEntity(
   event: CreateMechEvent
 ): CreateMech {
-  let entity = CreateMech.load(event.params.mech.toHexString());
+  let entity = CreateMech.load(event.params.mech);
   if (entity === null) {
-    entity = new CreateMech(event.params.mech.toHexString());
+    entity = new CreateMech(event.params.mech);
   }
   return entity;
 }
@@ -72,7 +68,7 @@ export function getServiceIdFromMultisig(multisig: Bytes): string | null {
 }
 
 export function getServiceIdFromMech(mech: Bytes): string | null {
-  let createMechEntity = CreateMech.load(mech.toHexString());
+  let createMechEntity = CreateMech.load(mech);
   if (createMechEntity !== null) {
     let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
     if (mechAgent !== null) {

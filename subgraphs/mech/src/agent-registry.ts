@@ -1,3 +1,4 @@
+import { Address } from '@graphprotocol/graph-ts';
 import {
   Approval as ApprovalEvent,
   ApprovalForAll as ApprovalForAllEvent,
@@ -23,7 +24,6 @@ import {
 import {
   getOrCreateAgentMultisigAssociation,
   getServiceIdFromMultisig,
-  ZERO_ADDRESS,
 } from './utils';
 
 export function handleApproval(event: ApprovalEvent): void {
@@ -129,7 +129,7 @@ export function handleTransfer(event: TransferEvent): void {
   entity.AgentRegistry_id = event.params.id;
 
   // If the agent is minted, to address is the operator -> multisig
-  if (event.params.from.equals(ZERO_ADDRESS)) {
+  if (event.params.from.equals(Address.zero())) {
     let agentMultisigAssociation = getOrCreateAgentMultisigAssociation(event);
     agentMultisigAssociation.agentId = event.params.id;
     agentMultisigAssociation.multisig = event.params.to;
