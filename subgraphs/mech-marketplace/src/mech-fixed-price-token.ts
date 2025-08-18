@@ -2,8 +2,9 @@ import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
 } from '../generated/templates/MechFixedPriceToken/MechFixedPriceToken';
-import { Deliver, Request } from '../generated/schema';
+import { Deliver, Request, Service } from '../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech } from './utils';
+import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
   let entity = new Deliver(event.params.requestId.toHexString());
@@ -23,6 +24,13 @@ export function handleDeliver(event: DeliverEvent): void {
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     entity.service = serviceId;
+
+    // Update service totalDeliveries counter
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+      service.save();
+    }
   }
 
   entity.blockNumber = event.block.number;
