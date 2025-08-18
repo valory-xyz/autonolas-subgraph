@@ -1,4 +1,4 @@
-import { dataSource } from '@graphprotocol/graph-ts';
+import { BigInt } from '@graphprotocol/graph-ts';
 import {
   ActivateRegistration as ActivateRegistrationEvent,
   Approval as ApprovalEvent,
@@ -147,6 +147,8 @@ export function handleCreateService(event: CreateServiceEvent): void {
   let service = new Service(event.params.serviceId.toString());
   service.configHash = event.params.configHash;
   service.historicalMultisigs = [];
+  service.totalRequests = BigInt.fromI32(0);
+  service.totalDeliveries = BigInt.fromI32(0);
   service.save();
 }
 

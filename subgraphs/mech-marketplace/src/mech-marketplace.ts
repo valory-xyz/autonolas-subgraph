@@ -173,11 +173,6 @@ export function handleDeliverWithSignaturesV1(
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
 
-  let serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    entity.service = serviceId;
-  }
-
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
@@ -193,11 +188,6 @@ export function handleDeliverWithSignaturesV2(
   entity.ipfsHash = event.params.deliveryData;
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
-
-  let serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    entity.service = serviceId;
-  }
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -254,6 +244,13 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     if (serviceId !== null) {
       request.service = serviceId;
+
+      // Update service totalRequests counter
+      let service = Service.load(serviceId);
+      if (service !== null) {
+        service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+        service.save();
+      }
     }
 
     request.save();
