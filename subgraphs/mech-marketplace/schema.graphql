@@ -309,8 +309,8 @@ type Service @entity(immutable: false) {
   metadata: Metadata @derivedFrom(field: "service")
   requests: [Request!] @derivedFrom(field: "service")
   deliveries: [Deliver!] @derivedFrom(field: "service")
-  totalRequests: BigInt
-  totalDeliveries: BigInt
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
 }
 
 type Sender @entity(immutable: false) {
