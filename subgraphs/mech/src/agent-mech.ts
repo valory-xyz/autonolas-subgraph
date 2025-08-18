@@ -1,9 +1,16 @@
-import { json, ipfs, Bytes, JSONValueKind, log } from '@graphprotocol/graph-ts';
+import {
+  json,
+  ipfs,
+  Bytes,
+  JSONValueKind,
+  log,
+  BigInt,
+} from '@graphprotocol/graph-ts';
 import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender } from '../generated/schema';
+import { Request, Deliver, Sender, Service } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -149,6 +156,15 @@ export function handleRequest(event: RequestEvent): void {
   let serviceId = getServiceIdFromMultisig(event.params.sender);
   entity.service = serviceId;
 
+  // Update Service totalRequests counter
+  if (serviceId !== null) {
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+      service.save();
+    }
+  }
+
   entity.save();
 }
 
@@ -170,6 +186,15 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.service = serviceId;
 
   entity.save();
+
+  // Update Service totalDeliveries counter
+  if (serviceId !== null) {
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+      service.save();
+    }
+  }
 
   let global = getGlobal();
   global.totalDeliveries += 1;

@@ -186,6 +186,8 @@ type Service @entity(immutable: false) {
   configHash: Bytes # bytes32
   latestMultisig: Bytes # address
   historicalMultisigs: [Bytes!]! # array of addresses
+  totalRequests: BigInt! # total number of requests
+  totalDeliveries: BigInt! # total number of deliveries
   mechs: [MechAgent!]  @derivedFrom(field: "service")
   requests: [Request!] @derivedFrom(field: "service")
   deliveries: [Deliver!] @derivedFrom(field: "service")

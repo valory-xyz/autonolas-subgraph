@@ -1,3 +1,4 @@
+import { BigInt } from '@graphprotocol/graph-ts';
 import {
   CreateService as CreateServiceEvent,
   UpdateService as UpdateServiceEvent,
@@ -24,6 +25,8 @@ export function handleCreateService(event: CreateServiceEvent): void {
   service.serviceId = event.params.serviceId;
   service.historicalMultisigs = [];
   service.configHash = event.params.configHash;
+  service.totalRequests = BigInt.fromI32(0);
+  service.totalDeliveries = BigInt.fromI32(0);
   service.save();
 }
 
