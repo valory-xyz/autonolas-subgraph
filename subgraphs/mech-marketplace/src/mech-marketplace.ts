@@ -144,6 +144,13 @@ export function handleMarketplaceDeliveryWithSignatures(
   );
   sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
   sender.MMActivityCount = sender.MMActivityCount.plus(BigInt.fromI32(1));
+  // Off-chain ATA: if requester is a service multisig, count all deliveries as ATA
+  let requesterServiceId = getServiceIdFromMultisig(event.params.requester);
+  if (requesterServiceId !== null) {
+    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(
+      event.params.numDeliveries
+    );
+  }
   sender.save();
 
   let global = getGlobal();
@@ -159,6 +166,12 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // 1 for each request and delivery (request is off-chain)
   global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(2));
+  // Off-chain ATA (if multisig)
+  if (requesterServiceId !== null) {
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(
+      event.params.numDeliveries
+    );
+  }
   global.save();
 }
 
