@@ -39,7 +39,8 @@ export function getGlobal(): Global {
     global.totalMarketplaceDeliveriesWithSignatures = BigInt.fromI32(0);
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
-    global.totalTransactions = BigInt.fromI32(0);
+    global.MMActivityCount = BigInt.fromI32(0);
+    global.totalAtaTransactions = BigInt.fromI32(0);
   }
   return global;
 }
@@ -49,7 +50,8 @@ export function getOrCreateSender(address: Bytes): Sender {
   if (sender == null) {
     sender = new Sender(address);
     sender.id = address;
-    sender.totalTransactions = BigInt.fromI32(0);
+    sender.MMActivityCount = BigInt.fromI32(0);
+    sender.totalAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
@@ -80,6 +82,7 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   let request = Request.load(requestId.toHexString());
   if (request == null) {
     request = new Request(requestId.toHexString());
+    request.isAta = false;
   }
   return request;
 }
@@ -128,6 +131,40 @@ export function getChainId(network: string): i32 {
     cleanNetwork,
   ]);
   return 0; // Unknown network
+}
+
+// Increments ATA counters for a delivered on-chain request when it was initiated by a service multisig
+export function incrementAtaForRequestDelivery(requestId: Bytes): void {
+  let req = Request.load(requestId.toHexString());
+  if (req === null || !req.isAta) return; // early exit if not ATA
+
+  let global = getGlobal();
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(
+    BigInt.fromI32(1)
+  );
+  global.save();
+
+  // Increment per-sender if available
+  let reqSender = req.sender;
+  if (reqSender !== null) {
+    let s = getOrCreateSender(reqSender as Bytes);
+    s.totalAtaTransactions = s.totalAtaTransactions.plus(BigInt.fromI32(1));
+    s.save();
+  }
+}
+
+// Increments ATA counters for off-chain deliveries when requester is a multisig
+export function incrementAtaForOffchainDeliveries(
+  requester: Bytes,
+  numDeliveries: BigInt
+): void {
+  let global = getGlobal();
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(numDeliveries);
+  global.save();
+
+  let sender = getOrCreateSender(requester);
+  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(numDeliveries);
+  sender.save();
 }
 
 /* Create dynamic data source for the new Mech contract based on factory address */
