@@ -38,8 +38,8 @@ yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY autonolas-base -l 
 cd /subgraphs/mech
 
 yarn graph codegen && yarn graph build
-yarn graph create --node $SUBGRAPH_NODE mech
-yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech -l 0.1.0
+yarn graph create --node $SUBGRAPH_NODE mech-3
+yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech-3 -l 0.1.0
 
 # Install the "mech-marketplace" Subgraph for Gnosis and Base
 cd /subgraphs/mech-marketplace
