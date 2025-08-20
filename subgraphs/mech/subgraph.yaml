@@ -2,7 +2,7 @@ specVersion: 1.0.0
 schema:
   file: ./schema.graphql
 indexerHints:
-  prune: 100
+  prune: 300
 dataSources:
   - kind: ethereum
     name: AgentFactory
