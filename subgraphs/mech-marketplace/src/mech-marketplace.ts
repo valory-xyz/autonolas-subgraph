@@ -32,7 +32,6 @@ import {
   getOrCreateDeliver,
   getOrCreateRequest,
   getServiceIdFromMultisig,
-  getServiceIdFromMech,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -109,28 +108,6 @@ export function handleMarketplaceDelivery(
     BigInt.fromI32(1)
   );
   global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(1));
-  // Count ATA deliveries: for each delivered request, check if it was an ATA request
-  let ataCount = 0;
-  for (let i = 0; i < event.params.requestIds.length; i++) {
-    let req = getOrCreateRequest(event.params.requestIds[i]);
-    if (req.isAta) {
-      ataCount += 1;
-      // increment per-sender ATA count if we can resolve the sender
-      let reqSender = req.sender;
-      if (reqSender !== null) {
-        let s = getOrCreateSender(reqSender as Bytes);
-        s.totalAtaTransactions = s.totalAtaTransactions.plus(
-          BigInt.fromI32(1)
-        );
-        s.save();
-      }
-    }
-  }
-  if (ataCount > 0) {
-    global.totalAtaTransactions = global.totalAtaTransactions.plus(
-      BigInt.fromI32(ataCount)
-    );
-  }
   global.save();
 }
 
@@ -167,13 +144,6 @@ export function handleMarketplaceDeliveryWithSignatures(
   );
   sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
   sender.MMActivityCount = sender.MMActivityCount.plus(BigInt.fromI32(1));
-  // Off-chain ATA: if requester is a service multisig, count all deliveries as ATA
-  let requesterServiceId = getServiceIdFromMultisig(event.params.requester);
-  if (requesterServiceId !== null) {
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(
-      event.params.numDeliveries
-    );
-  }
   sender.save();
 
   let global = getGlobal();
@@ -189,12 +159,6 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // 1 for each request and delivery (request is off-chain)
   global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(2));
-  // Off-chain ATA (if multisig)
-  if (requesterServiceId !== null) {
-    global.totalAtaTransactions = global.totalAtaTransactions.plus(
-      event.params.numDeliveries
-    );
-  }
   global.save();
 }
 
