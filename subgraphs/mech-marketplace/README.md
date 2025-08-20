@@ -170,7 +170,8 @@ query GlobalStats {
     totalMarketplaceDeliveriesWithSignatures
     totalRequests
     totalDeliveries
-    totalTransactions
+    MMActivityCount
+    totalAtaTransactions
   }
 }
 ```
@@ -201,10 +202,7 @@ query MarketplaceRequests {
     numRequests
     requester
     requestIds
-    sender {
-      id
-      totalTransactions
-    }
+    # sender object is no longer embedded here; query Sender separately if needed
   }
 }
 ```
