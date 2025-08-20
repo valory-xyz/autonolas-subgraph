@@ -32,6 +32,7 @@ type Request @entity(immutable: true) {
   mech: Bytes # address
   delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
   service: Service
+  isAta: Boolean!
   blockNumber: BigInt
   blockTimestamp: BigInt
   transactionHash: Bytes
@@ -319,7 +320,8 @@ type Sender @entity(immutable: false) {
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
   totalRequests: BigInt!
-  totalTransactions: BigInt!
+  MMActivityCount: BigInt!
+  totalAtaTransactions: BigInt!
 }
 
 type Global @entity(immutable: false) {
@@ -330,5 +332,6 @@ type Global @entity(immutable: false) {
   totalMarketplaceDeliveriesWithSignatures: BigInt!
   totalRequests: BigInt!
   totalDeliveries: BigInt!
-  totalTransactions: BigInt!
+  MMActivityCount: BigInt!
+  totalAtaTransactions: BigInt!
 }
