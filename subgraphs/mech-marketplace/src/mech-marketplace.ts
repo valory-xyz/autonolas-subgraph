@@ -133,6 +133,10 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.isOffChain = true;
     // Intentionally setting to empty string as request was off-chain
     deliver.request = '';
+    // Set required block fields for non-nullable schema fields
+    deliver.blockNumber = event.block.number;
+    deliver.blockTimestamp = event.block.timestamp;
+    deliver.transactionHash = event.transaction.hash;
     deliver.save();
   }
 
