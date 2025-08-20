@@ -154,19 +154,6 @@ export function incrementAtaForRequestDelivery(requestId: Bytes): void {
 }
 
 // Increments ATA counters for off-chain deliveries when requester is a multisig
-export function incrementAtaForOffchainDeliveries(
-  requester: Bytes,
-  numDeliveries: BigInt
-): void {
-  let global = getGlobal();
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(numDeliveries);
-  global.save();
-
-  let sender = getOrCreateSender(requester);
-  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(numDeliveries);
-  sender.save();
-}
-
 /* Create dynamic data source for the new Mech contract based on factory address */
 export function createDataSourceForMechContract(
   mech: Address,
