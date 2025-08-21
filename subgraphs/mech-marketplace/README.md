@@ -170,7 +170,7 @@ query GlobalStats {
     totalMarketplaceDeliveriesWithSignatures
     totalRequests
     totalDeliveries
-    mmActivityCount
+    totalTransactions
     totalAtaCount
   }
 }
