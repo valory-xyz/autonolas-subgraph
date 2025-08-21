@@ -41,21 +41,21 @@ yarn graph codegen && yarn graph build
 yarn graph create --node $SUBGRAPH_NODE mech
 yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech -l 0.1.0
 
-# Install the "mech-marketplace" Subgraph for Gnosis and Base
-cd /subgraphs/mech-marketplace
+# # Install the "mech-marketplace" Subgraph for Gnosis and Base
+# cd /subgraphs/mech-marketplace
 
-# Generate network-specific manifests from template
-yarn generate-manifests
+# # Generate network-specific manifests from template
+# yarn generate-manifests
 
-# Deploy Gnosis network
-yarn graph codegen subgraph.gnosis.yaml && yarn graph build subgraph.gnosis.yaml
-yarn graph create --node $SUBGRAPH_NODE mech-marketplace-gnosis
-yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech-marketplace-gnosis -l 0.1.0 subgraph.gnosis.yaml
+# # Deploy Gnosis network
+# yarn graph codegen subgraph.gnosis.yaml && yarn graph build subgraph.gnosis.yaml
+# yarn graph create --node $SUBGRAPH_NODE mech-marketplace-gnosis
+# yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech-marketplace-gnosis -l 0.1.0 subgraph.gnosis.yaml
 
-# Deploy Base network
-yarn graph codegen subgraph.base.yaml && yarn graph build subgraph.base.yaml
-yarn graph create --node $SUBGRAPH_NODE mech-marketplace-base
-yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech-marketplace-base -l 0.1.0 subgraph.base.yaml
+# # Deploy Base network
+# yarn graph codegen subgraph.base.yaml && yarn graph build subgraph.base.yaml
+# yarn graph create --node $SUBGRAPH_NODE mech-marketplace-base
+# yarn graph deploy --node $SUBGRAPH_NODE --ipfs $IPFS_REGISTRY mech-marketplace-base -l 0.1.0 subgraph.base.yaml
 
 echo "Deployment completed!"
 sleep infinity
