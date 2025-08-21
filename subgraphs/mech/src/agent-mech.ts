@@ -206,6 +206,7 @@ export function handleDeliver(event: DeliverEvent): void {
   global.save();
 
   // Sender: increment on delivery (not on request)
-  let s = getOrCreateSender(event.params.sender);
-  s.save();
+  let sender = getOrCreateSender(event.params.sender);
+  sender.totalAtaCount += 1;
+  sender.save();
 }
