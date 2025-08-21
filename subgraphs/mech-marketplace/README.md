@@ -202,7 +202,6 @@ query MarketplaceRequests {
     numRequests
     requester
     requestIds
-    # sender object is no longer embedded here; query Sender separately if needed
   }
 }
 ```
