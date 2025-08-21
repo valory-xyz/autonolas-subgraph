@@ -32,6 +32,7 @@ import {
   getOrCreateDeliver,
   getOrCreateRequest,
   getServiceIdFromMultisig,
+  incrementAtaForRequestDelivery,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -148,13 +149,6 @@ export function handleMarketplaceDeliveryWithSignatures(
   );
   sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
   sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  // Off-chain ATA: if requester is a service multisig, count all deliveries as ATA
-  let requesterServiceId = getServiceIdFromMultisig(event.params.requester);
-  if (requesterServiceId !== null) {
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(
-      event.params.numDeliveries
-    );
-  }
   sender.save();
 
   let global = getGlobal();
@@ -170,12 +164,6 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // 1 for each request and delivery (request is off-chain)
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(2));
-  // Off-chain ATA (if multisig)
-  if (requesterServiceId !== null) {
-    global.totalAtaTransactions = global.totalAtaTransactions.plus(
-      event.params.numDeliveries
-    );
-  }
   global.save();
 }
 
@@ -193,6 +181,9 @@ export function handleDeliverWithSignaturesV1(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
+
+  // Count ATA based on per-request deliver (ground truth)
+  incrementAtaForRequestDelivery(event.params.requestId);
 }
 
 export function handleDeliverWithSignaturesV2(
@@ -209,6 +200,9 @@ export function handleDeliverWithSignaturesV2(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
+
+  // Count ATA based on per-request deliver (ground truth)
+  incrementAtaForRequestDelivery(event.params.requestId);
 }
 
 export function handleMarketplaceParamsUpdated(
