@@ -110,6 +110,13 @@ export function handleMarketplaceDelivery(
   );
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   global.save();
+
+  // MM-only ATA counting for on-chain batch deliveries: only when deliveredRequests[i] is true
+  for (let i = 0; i < event.params.requestIds.length; i++) {
+    if (i >= event.params.deliveredRequests.length) break;
+    if (!event.params.deliveredRequests[i]) continue;
+    incrementAtaForRequestDelivery(event.params.requestIds[i]);
+  }
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -139,6 +146,9 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.blockTimestamp = event.block.timestamp;
     deliver.transactionHash = event.transaction.hash;
     deliver.save();
+
+    // At MM level: count off-chain deliveries as ATA per delivered requestId
+    incrementAtaForRequestDelivery(event.params.requestIds[i]);
   }
 
   let sender = getOrCreateSender(event.params.requester);
@@ -181,9 +191,6 @@ export function handleDeliverWithSignaturesV1(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
-
-  // Count ATA based on per-request deliver (ground truth)
-  incrementAtaForRequestDelivery(event.params.requestId);
 }
 
 export function handleDeliverWithSignaturesV2(
@@ -200,9 +207,6 @@ export function handleDeliverWithSignaturesV2(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
-
-  // Count ATA based on per-request deliver (ground truth)
-  incrementAtaForRequestDelivery(event.params.requestId);
 }
 
 export function handleMarketplaceParamsUpdated(
@@ -254,7 +258,6 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     if (serviceId !== null) {
       request.service = serviceId;
-      request.isAta = true;
 
       // Update service totalRequests counter
       let service = Service.load(serviceId);
@@ -273,6 +276,12 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   );
   global.totalRequests = global.totalRequests.plus(event.params.numRequests);
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+  if (serviceId !== null) {
+    // Unified ATA metric: include multisig requests
+    global.totalAtaCount = global.totalAtaCount.plus(
+      event.params.numRequests
+    );
+  }
   global.save();
 }
 
