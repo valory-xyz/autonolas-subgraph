@@ -43,8 +43,7 @@ export function handleDeliver(event: DeliverEvent): void {
 
   entity.save();
 
-  // Increment ATA counters if this delivery corresponds to an ATA request
-  incrementAtaForRequestDelivery(event.params.requestId);
+  
 }
 
 export function handleRequest(event: RequestEvent): void {

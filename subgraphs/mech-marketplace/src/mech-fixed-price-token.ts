@@ -3,11 +3,7 @@ import {
   Request as RequestEvent,
 } from '../generated/templates/MechFixedPriceToken/MechFixedPriceToken';
 import { Deliver, Request, Service } from '../generated/schema';
-import {
-  getOrCreateRequest,
-  getServiceIdFromMech,
-  incrementAtaForRequestDelivery,
-} from './utils';
+import { getOrCreateRequest, getServiceIdFromMech } from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -42,9 +38,6 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
-
-  // Increment ATA counters if this delivery corresponds to an ATA request
-  incrementAtaForRequestDelivery(event.params.requestId);
 }
 
 export function handleRequest(event: RequestEvent): void {
