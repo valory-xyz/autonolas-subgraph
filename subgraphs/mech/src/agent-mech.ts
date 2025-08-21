@@ -15,6 +15,7 @@ import {
   getGlobal,
   getServiceIdFromMech,
   getServiceIdFromMultisig,
+  getOrCreateSender,
 } from './utils';
 
 class Metadata {
@@ -108,18 +109,20 @@ function extractQuestionTitle(prompt: string): string | null {
 export function handleRequest(event: RequestEvent): void {
   let entity = new Request(event.params.requestId.toHexString());
 
-  // Create Sender entity to track all requests made by an address
-  let sender = Sender.load(event.params.sender);
-  if (!sender) {
-    sender = new Sender(event.params.sender);
-    sender.totalRequests = 0;
-  }
-
+  // Create / update Sender
+  let sender = getOrCreateSender(event.params.sender);
   sender.totalRequests += 1;
   sender.save();
 
   let global = getGlobal();
   global.totalRequests += 1;
+  global.totalTransactions += 1;
+
+  // Identify service multisig (counts toward ATA requests)
+  let serviceId = getServiceIdFromMultisig(event.params.sender);
+  if (serviceId !== null) {
+    global.totalAtaCount += 1;
+  }
   global.save();
 
   // Get metadata from IPFS
@@ -153,7 +156,6 @@ export function handleRequest(event: RequestEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   // Associate request with service
-  let serviceId = getServiceIdFromMultisig(event.params.sender);
   entity.service = serviceId;
 
   // Update Service totalRequests counter
@@ -198,5 +200,12 @@ export function handleDeliver(event: DeliverEvent): void {
 
   let global = getGlobal();
   global.totalDeliveries += 1;
+  global.totalTransactions += 1;
+  // Deliveries are always ATA
+  global.totalAtaCount += 1;
   global.save();
+
+  // Sender: increment on delivery (not on request)
+  let s = getOrCreateSender(event.params.sender);
+  s.save();
 }
