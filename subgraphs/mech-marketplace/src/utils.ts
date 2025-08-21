@@ -147,9 +147,9 @@ export function incrementAtaForRequestDelivery(requestId: Bytes): void {
   // Increment per-sender if available
   let reqSender = req.sender;
   if (reqSender !== null) {
-    let s = getOrCreateSender(reqSender as Bytes);
-    s.totalAtaTransactions = s.totalAtaTransactions.plus(BigInt.fromI32(1));
-    s.save();
+    let sender = getOrCreateSender(reqSender as Bytes);
+    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.save();
   }
 }
 
