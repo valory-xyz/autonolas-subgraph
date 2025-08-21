@@ -3,11 +3,7 @@ import {
   Request as RequestEvent,
 } from '../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import { Deliver, Request, Service } from '../generated/schema';
-import {
-  getOrCreateRequest,
-  getServiceIdFromMech,
-  incrementAtaForRequestDelivery,
-} from './utils';
+import { getOrCreateRequest, getServiceIdFromMech } from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -42,8 +38,6 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
-
-  
 }
 
 export function handleRequest(event: RequestEvent): void {
