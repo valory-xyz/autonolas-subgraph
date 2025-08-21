@@ -39,7 +39,7 @@ export function getGlobal(): Global {
     global.totalMarketplaceDeliveriesWithSignatures = BigInt.fromI32(0);
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
-    global.MMActivityCount = BigInt.fromI32(0);
+    global.totalTransactions = BigInt.fromI32(0);
     global.totalAtaTransactions = BigInt.fromI32(0);
   }
   return global;
@@ -50,7 +50,7 @@ export function getOrCreateSender(address: Bytes): Sender {
   if (sender == null) {
     sender = new Sender(address);
     sender.id = address;
-    sender.MMActivityCount = BigInt.fromI32(0);
+    sender.totalTransactions = BigInt.fromI32(0);
     sender.totalAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);

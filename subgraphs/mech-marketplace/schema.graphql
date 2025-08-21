@@ -320,7 +320,7 @@ type Sender @entity(immutable: false) {
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
   totalRequests: BigInt!
-  MMActivityCount: BigInt!
+  totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
 }
 
@@ -332,6 +332,6 @@ type Global @entity(immutable: false) {
   totalMarketplaceDeliveriesWithSignatures: BigInt!
   totalRequests: BigInt!
   totalDeliveries: BigInt!
-  MMActivityCount: BigInt!
+  totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
 }

@@ -107,7 +107,7 @@ export function handleMarketplaceDelivery(
   global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
     BigInt.fromI32(1)
   );
-  global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   global.save();
 }
 
@@ -147,7 +147,7 @@ export function handleMarketplaceDeliveryWithSignatures(
     event.params.numDeliveries
   );
   sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
-  sender.MMActivityCount = sender.MMActivityCount.plus(BigInt.fromI32(1));
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
   // Off-chain ATA: if requester is a service multisig, count all deliveries as ATA
   let requesterServiceId = getServiceIdFromMultisig(event.params.requester);
   if (requesterServiceId !== null) {
@@ -169,7 +169,7 @@ export function handleMarketplaceDeliveryWithSignatures(
     global.totalMarketplaceDeliveriesWithSignatures.plus(BigInt.fromI32(1));
 
   // 1 for each request and delivery (request is off-chain)
-  global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(2));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(2));
   // Off-chain ATA (if multisig)
   if (requesterServiceId !== null) {
     global.totalAtaTransactions = global.totalAtaTransactions.plus(
@@ -243,7 +243,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   entity.save();
 
   let sender = getOrCreateSender(event.params.requester);
-  sender.MMActivityCount = sender.MMActivityCount.plus(BigInt.fromI32(1));
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(
     BigInt.fromI32(1)
   );
@@ -278,7 +278,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     BigInt.fromI32(1)
   );
   global.totalRequests = global.totalRequests.plus(event.params.numRequests);
-  global.MMActivityCount = global.MMActivityCount.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   global.save();
 }
 
