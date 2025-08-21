@@ -141,7 +141,6 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.isOffChain = true;
     // Intentionally setting to empty string as request was off-chain
     deliver.request = '';
-    // Set required block fields for non-nullable schema fields
     deliver.blockNumber = event.block.number;
     deliver.blockTimestamp = event.block.timestamp;
     deliver.transactionHash = event.transaction.hash;
@@ -174,6 +173,13 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // 1 for each request and delivery (request is off-chain)
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(2));
+
+  // Off-chain ATA requests: if requester is a service multisig, treat each
+  // delivered item as one off-chain request to include in ATA count
+  let requesterServiceIdOff = getServiceIdFromMultisig(event.params.requester);
+  if (requesterServiceIdOff !== null) {
+    global.totalAtaCount = global.totalAtaCount.plus(event.params.numDeliveries);
+  }
   global.save();
 }
 
@@ -277,7 +283,6 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   global.totalRequests = global.totalRequests.plus(event.params.numRequests);
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   if (serviceId !== null) {
-    // Unified ATA metric: include multisig requests
     global.totalAtaCount = global.totalAtaCount.plus(
       event.params.numRequests
     );
