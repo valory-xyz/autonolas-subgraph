@@ -40,7 +40,7 @@ export function getGlobal(): Global {
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
-    global.totalAtaTransactions = BigInt.fromI32(0);
+    global.totalAtaCount = BigInt.fromI32(0);
   }
   return global;
 }
@@ -51,7 +51,7 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaTransactions = BigInt.fromI32(0);
+    sender.totalAtaCount = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
@@ -82,7 +82,6 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   let request = Request.load(requestId.toHexString());
   if (request == null) {
     request = new Request(requestId.toHexString());
-    request.isAta = false;
   }
   return request;
 }
@@ -135,20 +134,28 @@ export function getChainId(network: string): i32 {
 
 // Increments ATA counters for a delivered on-chain request when it was initiated by a service multisig
 export function incrementAtaForRequestDelivery(requestId: Bytes): void {
-  let req = Request.load(requestId.toHexString());
-  if (req === null || !req.isAta) return; // early exit if not ATA
-
+  // Single unified ATA metric
   let global = getGlobal();
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(
-    BigInt.fromI32(1)
-  );
+  global.totalAtaCount = global.totalAtaCount.plus(BigInt.fromI32(1));
   global.save();
 
-  // Increment per-sender if available
-  let reqSender = req.sender;
-  if (reqSender !== null) {
-    let sender = getOrCreateSender(reqSender as Bytes);
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+  // Resolve sender from Request (on-chain) or Deliver (off-chain stub)
+  let senderBytes: Bytes | null = null;
+  let req = Request.load(requestId.toHexString());
+  if (req !== null && req.sender !== null) {
+    senderBytes = req.sender as Bytes;
+  } else {
+    let deliv = Deliver.load(requestId.toHexString());
+    if (deliv !== null && deliv.sender !== null) {
+      senderBytes = deliv.sender as Bytes;
+    }
+  }
+
+  if (senderBytes !== null) {
+    let sender = getOrCreateSender(senderBytes as Bytes);
+    sender.totalAtaCount = sender.totalAtaCount.plus(
+      BigInt.fromI32(1)
+    );
     sender.save();
   }
 }
