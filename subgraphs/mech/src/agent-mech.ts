@@ -10,13 +10,12 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
   getServiceIdFromMultisig,
   getOrCreateSender,
-  getOrCreateMechAgent,
 } from './utils';
 
 class Metadata {
@@ -202,11 +201,17 @@ export function handleDeliver(event: DeliverEvent): void {
     }
   }
 
-  // Use MechAgent for mech deliveries (ATA counting)
-  let mechAgent = getOrCreateMechAgent(event.address);
-  mechAgent.totalTransactions += 1;
-  mechAgent.totalAtaTransactions += 1; // Mech is always a service multisig
-  mechAgent.save();
+  // Get the mech agent and update its transaction counters
+  let createMechEntity = CreateMech.load(event.address);
+  if (createMechEntity !== null) {
+    let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
+    if (mechAgent !== null) {
+      // Update mech agent transaction counters (ATA tracking)
+      mechAgent.totalTransactions = BigInt.fromI32(1) as BigInt;
+      mechAgent.totalAtaTransactions = BigInt.fromI32(1) as BigInt;
+      mechAgent.save();
+    }
+  }
 
   let global = getGlobal();
   global.totalDeliveries += 1;

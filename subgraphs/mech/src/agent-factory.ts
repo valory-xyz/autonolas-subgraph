@@ -35,6 +35,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
     mechAgent.service = serviceId;
+    mechAgent.totalTransactions = BigInt.fromI32(0);
+    mechAgent.totalAtaTransactions = BigInt.fromI32(0);
     mechAgent.save();
   }
 
