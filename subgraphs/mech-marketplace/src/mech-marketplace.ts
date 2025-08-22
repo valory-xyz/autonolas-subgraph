@@ -109,7 +109,6 @@ export function handleMarketplaceDelivery(
     BigInt.fromI32(1)
   );
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
-  global.save();
 
   // On-chain delivery ATA counting: deliveryMech is always a service multisig
   global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
