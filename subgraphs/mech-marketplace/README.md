@@ -171,7 +171,7 @@ query GlobalStats {
     totalRequests
     totalDeliveries
     totalTransactions
-    totalAtaCount
+    totalAtaTransactions
   }
 }
 ```
