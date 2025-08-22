@@ -171,6 +171,7 @@ query GlobalStats {
     totalRequests
     totalDeliveries
     totalTransactions
+    totalAtaTransactions
   }
 }
 ```
@@ -201,10 +202,6 @@ query MarketplaceRequests {
     numRequests
     requester
     requestIds
-    sender {
-      id
-      totalTransactions
-    }
   }
 }
 ```

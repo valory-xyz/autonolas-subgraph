@@ -10,11 +10,12 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
   getServiceIdFromMultisig,
+  getOrCreateSender,
 } from './utils';
 
 class Metadata {
@@ -108,18 +109,23 @@ function extractQuestionTitle(prompt: string): string | null {
 export function handleRequest(event: RequestEvent): void {
   let entity = new Request(event.params.requestId.toHexString());
 
-  // Create Sender entity to track all requests made by an address
-  let sender = Sender.load(event.params.sender);
-  if (!sender) {
-    sender = new Sender(event.params.sender);
-    sender.totalRequests = 0;
-  }
-
+  // Create / update Sender
+  let sender = getOrCreateSender(event.params.sender);
   sender.totalRequests += 1;
-  sender.save();
+  sender.totalTransactions += 1;
 
   let global = getGlobal();
   global.totalRequests += 1;
+  global.totalTransactions += 1;
+
+  // Identify service multisig (counts toward ATA requests)
+  let serviceId = getServiceIdFromMultisig(event.params.sender);
+  if (serviceId !== null) {
+    global.totalAtaTransactions += 1;
+    sender.totalAtaTransactions += 1;
+  }
+
+  sender.save();
   global.save();
 
   // Get metadata from IPFS
@@ -153,7 +159,6 @@ export function handleRequest(event: RequestEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   // Associate request with service
-  let serviceId = getServiceIdFromMultisig(event.params.sender);
   entity.service = serviceId;
 
   // Update Service totalRequests counter
@@ -196,7 +201,23 @@ export function handleDeliver(event: DeliverEvent): void {
     }
   }
 
+  // Get the mech agent and update its transaction counters
+  let createMechEntity = CreateMech.load(event.address);
+  if (createMechEntity !== null) {
+    let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
+    if (mechAgent !== null) {
+      // Update mech agent transaction counters (ATA tracking)
+      mechAgent.totalTransactions = BigInt.fromI32(1) as BigInt;
+      mechAgent.totalAtaTransactions = BigInt.fromI32(1) as BigInt;
+      mechAgent.save();
+    }
+  }
+
   let global = getGlobal();
   global.totalDeliveries += 1;
+  global.totalTransactions += 1;
+  // Deliveries are always ATA (mech is always a service multisig)
+  global.totalAtaTransactions += 1;
+
   global.save();
 }

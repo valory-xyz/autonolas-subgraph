@@ -134,16 +134,20 @@ type UpdateAgentHash @entity(immutable: true) {
 }
 
 type MechAgent @entity(immutable: false) {
-  id: ID! # agent Id 
+  id: ID! # agent Id
   mech: Bytes # address
   address: Bytes # address
   agentHash: Bytes # bytes32
   service: Service
+  totalTransactions: BigInt! 
+  totalAtaTransactions: BigInt! 
 }
 
 type Sender @entity(immutable: false) {
   id: Bytes! # Address
   totalRequests: Int!
+  totalTransactions: Int!
+  totalAtaTransactions: Int!
   requests: [Request!] @derivedFrom(field: "sender")
 }
 
@@ -151,6 +155,8 @@ type Global @entity(immutable: false) {
   id: ID! # uint256
   totalRequests: Int!
   totalDeliveries: Int!
+  totalTransactions: Int!
+  totalAtaTransactions: Int!
 }
 
 type CreateService @entity(immutable: true) {

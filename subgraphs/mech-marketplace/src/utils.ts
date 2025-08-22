@@ -13,6 +13,7 @@ import {
   Request,
   CreateMultisigWithAgents,
   CreateMech,
+  Mech,
 } from '../generated/schema';
 import {
   MechFixedPriceNative,
@@ -40,6 +41,7 @@ export function getGlobal(): Global {
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
+    global.totalAtaTransactions = BigInt.fromI32(0);
   }
   return global;
 }
@@ -50,11 +52,17 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     sender.totalTransactions = BigInt.fromI32(0);
+    sender.totalAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
   }
   return sender;
+}
+
+export function isServiceMultisig(address: Bytes): boolean {
+  let entity = CreateMultisigWithAgents.load(address.toHexString());
+  return entity !== null;
 }
 
 export function getOrCreateMetadata(serviceId: BigInt): Metadata {
@@ -82,6 +90,16 @@ export function getOrCreateRequest(requestId: Bytes): Request {
     request = new Request(requestId.toHexString());
   }
   return request;
+}
+
+export function getOrCreateMech(mechAddress: Bytes): Mech {
+  let mech = Mech.load(mechAddress.toHexString());
+  if (mech == null) {
+    mech = new Mech(mechAddress.toHexString());
+    mech.address = mechAddress;
+    mech.totalAtaTransactions = BigInt.fromI32(0);
+  }
+  return mech;
 }
 
 export function getOrCreateMultisigWithAgents(

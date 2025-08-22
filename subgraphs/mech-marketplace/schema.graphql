@@ -298,6 +298,7 @@ type Mech @entity(immutable: false) {
   configHash: Bytes
   owner: Bytes!
   service: Service
+  totalAtaTransactions: BigInt!
 }
 
 type Service @entity(immutable: false) {
@@ -320,6 +321,7 @@ type Sender @entity(immutable: false) {
   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
   totalRequests: BigInt!
   totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
 }
 
 type Global @entity(immutable: false) {
@@ -331,4 +333,5 @@ type Global @entity(immutable: false) {
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
 }

@@ -31,8 +31,9 @@ import {
   createDataSourceForMechContract,
   getOrCreateDeliver,
   getOrCreateRequest,
+  getOrCreateMech,
   getServiceIdFromMultisig,
-  getServiceIdFromMech,
+  isServiceMultisig,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -54,6 +55,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
   mechAgent.service = event.params.serviceId.toString();
+  mechAgent.totalAtaTransactions = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
@@ -109,7 +111,15 @@ export function handleMarketplaceDelivery(
     BigInt.fromI32(1)
   );
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+
+  // On-chain delivery ATA counting: deliveryMech is always a service multisig
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   global.save();
+
+  // Also update mech-level ATA count for the deliveryMech
+  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
+  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+  deliveryMech.save();
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -160,6 +170,27 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // 1 for each request and delivery (request is off-chain)
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(2));
+
+  // Off-chain request ATA counting: deliveryMech is always a service multisig
+  // So we always count +1 for deliveryMech, and +1 additional if requester is also a service multisig
+  let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
+
+  // Always update deliveryMech-level ATA count (mech is the service provider)
+  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
+  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+  deliveryMech.save();
+
+  // Check if requester (sender of the request) is a service multisig (additional +1)
+  if (isServiceMultisig(event.params.requester)) {
+    ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
+
+    // Update requester-level ATA count (using existing sender variable)
+    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.save();
+  }
+
+  // Update global ATA count
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
   global.save();
 }
 
@@ -262,6 +293,16 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   );
   global.totalRequests = global.totalRequests.plus(event.params.numRequests);
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+
+  // Simple transaction-level ATA counting: +1 for the entire transaction
+  if (serviceId !== null) {
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(
+      BigInt.fromI32(1)
+    );
+    // Also update sender-level ATA count
+    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.save();
+  }
   global.save();
 }
 
