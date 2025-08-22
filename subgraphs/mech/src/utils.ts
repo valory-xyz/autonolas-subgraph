@@ -85,10 +85,10 @@ export function getServiceIdFromMech(mech: Bytes): string | null {
   return null;
 }
 
-export function getOrCreateSender(addr: Bytes): Sender {
-  let sender = Sender.load(addr);
+export function getOrCreateSender(address: Bytes): Sender {
+  let sender = Sender.load(address);
   if (sender === null) {
-    sender = new Sender(addr);
+    sender = new Sender(address);
     sender.totalRequests = 0;
     sender.totalTransactions = 0;
     sender.totalAtaTransactions = 0;
