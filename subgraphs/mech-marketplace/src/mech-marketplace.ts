@@ -112,12 +112,12 @@ export function handleMarketplaceDelivery(
   global.save();
 
   // On-chain delivery ATA counting: deliveryMech is always a service multisig
-  global.totalAtaCount = global.totalAtaCount.plus(BigInt.fromI32(1));
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   global.save();
 
   // Also update sender-level ATA count for the deliveryMech
   let sender = getOrCreateSender(event.params.deliveryMech);
-  sender.totalAtaCount = sender.totalAtaCount.plus(BigInt.fromI32(1));
+  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
   sender.save();
 }
 
@@ -181,7 +181,7 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // Always update deliveryMech-level ATA count (since it's always a service multisig)
   let deliverySender = getOrCreateSender(event.params.deliveryMech);
-  deliverySender.totalAtaCount = deliverySender.totalAtaCount.plus(BigInt.fromI32(1));
+  deliverySender.totalAtaTransactions = deliverySender.totalAtaTransactions.plus(BigInt.fromI32(1));
   deliverySender.save();
 
   // Check if requester (sender of the request) is a service multisig (additional +1)
@@ -190,12 +190,12 @@ export function handleMarketplaceDeliveryWithSignatures(
 
     // Update requester-level ATA count
     let requesterSender = getOrCreateSender(event.params.requester);
-    requesterSender.totalAtaCount = requesterSender.totalAtaCount.plus(BigInt.fromI32(1));
+    requesterSender.totalAtaTransactions = requesterSender.totalAtaTransactions.plus(BigInt.fromI32(1));
     requesterSender.save();
   }
 
   // Update global ATA count
-  global.totalAtaCount = global.totalAtaCount.plus(ataIncrement);
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
   global.save();
 }
 
@@ -301,7 +301,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Simple transaction-level ATA counting: +1 for the entire transaction
   if (serviceId !== null) {
-    global.totalAtaCount = global.totalAtaCount.plus(
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(
       BigInt.fromI32(1)
     );
   }
