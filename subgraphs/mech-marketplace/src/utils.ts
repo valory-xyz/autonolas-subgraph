@@ -13,6 +13,7 @@ import {
   Request,
   CreateMultisigWithAgents,
   CreateMech,
+  Mech,
 } from '../generated/schema';
 import {
   MechFixedPriceNative,
@@ -89,6 +90,15 @@ export function getOrCreateRequest(requestId: Bytes): Request {
     request = new Request(requestId.toHexString());
   }
   return request;
+}
+
+export function getOrCreateMech(mechAddress: Bytes): Mech {
+  let mech = Mech.load(mechAddress.toHexString());
+  if (mech == null) {
+    mech = new Mech(mechAddress.toHexString());
+    mech.address = mechAddress;
+  }
+  return mech;
 }
 
 export function getOrCreateMultisigWithAgents(

@@ -298,6 +298,7 @@ type Mech @entity(immutable: false) {
   configHash: Bytes
   owner: Bytes!
   service: Service
+  totalAtaTransactions: BigInt!
 }
 
 type Service @entity(immutable: false) {
