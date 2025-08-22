@@ -4,6 +4,7 @@ import {
   CreateMech,
   CreateMultisigWithAgents,
   Global,
+  Sender,
   MechAgent,
 } from '../generated/schema';
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
@@ -15,6 +16,8 @@ export function getGlobal(): Global {
     global = new Global('');
     global.totalRequests = 0;
     global.totalDeliveries = 0;
+    global.totalTransactions = 0;
+    global.totalAtaTransactions = 0;
   }
   return global as Global;
 }
@@ -80,4 +83,15 @@ export function getServiceIdFromMech(mech: Bytes): string | null {
     }
   }
   return null;
+}
+
+export function getOrCreateSender(address: Bytes): Sender {
+  let sender = Sender.load(address);
+  if (sender === null) {
+    sender = new Sender(address);
+    sender.totalRequests = 0;
+    sender.totalTransactions = 0;
+    sender.totalAtaTransactions = 0;
+  }
+  return sender as Sender;
 }
