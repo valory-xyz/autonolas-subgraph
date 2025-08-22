@@ -134,11 +134,13 @@ type UpdateAgentHash @entity(immutable: true) {
 }
 
 type MechAgent @entity(immutable: false) {
-  id: ID! # agent Id 
+  id: ID! # agent Id
   mech: Bytes # address
   address: Bytes # address
   agentHash: Bytes # bytes32
   service: Service
+  totalTransactions: Int! # NEW: Total transactions by this mech
+  totalAtaTransactions: Int! # NEW: Total ATA transactions by this mech
 }
 
 type Sender @entity(immutable: false) {

@@ -95,3 +95,19 @@ export function getOrCreateSender(address: Bytes): Sender {
   }
   return sender as Sender;
 }
+
+export function getOrCreateMechAgent(mechAddress: Bytes): MechAgent {
+  let createMechEntity = CreateMech.load(mechAddress);
+  if (createMechEntity !== null) {
+    let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
+    if (mechAgent !== null) {
+      return mechAgent;
+    }
+  }
+  // Fallback: create new mech agent if not found
+  let mechAgent = new MechAgent(mechAddress.toHexString());
+  mechAgent.mech = mechAddress;
+  mechAgent.totalTransactions = 0;
+  mechAgent.totalAtaTransactions = 0;
+  return mechAgent;
+}

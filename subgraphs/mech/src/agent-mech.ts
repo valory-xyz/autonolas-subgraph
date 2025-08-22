@@ -16,6 +16,7 @@ import {
   getServiceIdFromMech,
   getServiceIdFromMultisig,
   getOrCreateSender,
+  getOrCreateMechAgent,
 } from './utils';
 
 class Metadata {
@@ -201,10 +202,11 @@ export function handleDeliver(event: DeliverEvent): void {
     }
   }
 
-  // Create / update Sender (mech is always a service multisig)
-  let sender = getOrCreateSender(event.params.sender);
-  sender.totalTransactions += 1;
-  sender.totalAtaTransactions += 1;
+  // Use MechAgent for mech deliveries (ATA counting)
+  let mechAgent = getOrCreateMechAgent(event.address);
+  mechAgent.totalTransactions += 1;
+  mechAgent.totalAtaTransactions += 1; // Mech is always a service multisig
+  mechAgent.save();
 
   let global = getGlobal();
   global.totalDeliveries += 1;
@@ -212,6 +214,5 @@ export function handleDeliver(event: DeliverEvent): void {
   // Deliveries are always ATA (mech is always a service multisig)
   global.totalAtaTransactions += 1;
 
-  sender.save();
   global.save();
 }
