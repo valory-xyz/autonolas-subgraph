@@ -142,12 +142,7 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.isOffChain = true;
     // Intentionally setting to empty string as request was off-chain
     deliver.request = '';
-    deliver.blockNumber = event.block.number;
-    deliver.blockTimestamp = event.block.timestamp;
-    deliver.transactionHash = event.transaction.hash;
     deliver.save();
-
-    // Transaction-level ATA counting will be handled below
   }
 
   let sender = getOrCreateSender(event.params.requester);
