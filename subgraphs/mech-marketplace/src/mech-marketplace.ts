@@ -111,19 +111,14 @@ export function handleMarketplaceDelivery(
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   global.save();
 
-  // Simple transaction-level ATA counting: +1 for the entire transaction
-  // Check if the deliveryMech (autonomous agent) is a service multisig
-  if (isServiceMultisig(event.params.deliveryMech)) {
-    let global = getGlobal();
-    global.totalAtaCount = global.totalAtaCount.plus(BigInt.fromI32(1));
-    global.save();
+  // On-chain delivery ATA counting: deliveryMech is always a service multisig
+  global.totalAtaCount = global.totalAtaCount.plus(BigInt.fromI32(1));
+  global.save();
 
-    // Also update sender-level ATA count if we can resolve the sender
-    // The deliveryMech is the autonomous agent, so we count it as a sender
-    let sender = getOrCreateSender(event.params.deliveryMech);
-    sender.totalAtaCount = sender.totalAtaCount.plus(BigInt.fromI32(1));
-    sender.save();
-  }
+  // Also update sender-level ATA count for the deliveryMech
+  let sender = getOrCreateSender(event.params.deliveryMech);
+  sender.totalAtaCount = sender.totalAtaCount.plus(BigInt.fromI32(1));
+  sender.save();
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
