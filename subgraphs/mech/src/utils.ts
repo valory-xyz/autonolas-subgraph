@@ -17,7 +17,7 @@ export function getGlobal(): Global {
     global.totalRequests = 0;
     global.totalDeliveries = 0;
     global.totalTransactions = 0;
-    global.totalAtaCount = 0;
+    global.totalAtaTransactions = 0;
   }
   return global as Global;
 }
@@ -90,6 +90,8 @@ export function getOrCreateSender(addr: Bytes): Sender {
   if (sender === null) {
     sender = new Sender(addr);
     sender.totalRequests = 0;
+    sender.totalTransactions = 0;
+    sender.totalAtaTransactions = 0;
   }
   return sender as Sender;
 }

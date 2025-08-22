@@ -144,6 +144,8 @@ type MechAgent @entity(immutable: false) {
 type Sender @entity(immutable: false) {
   id: Bytes! # Address
   totalRequests: Int!
+  totalTransactions: Int!
+  totalAtaTransactions: Int!
   requests: [Request!] @derivedFrom(field: "sender")
 }
 
@@ -152,7 +154,7 @@ type Global @entity(immutable: false) {
   totalRequests: Int!
   totalDeliveries: Int!
   totalTransactions: Int!
-  totalAtaCount: Int!
+  totalAtaTransactions: Int!
 }
 
 type CreateService @entity(immutable: true) {

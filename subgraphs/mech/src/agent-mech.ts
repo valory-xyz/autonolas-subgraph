@@ -112,7 +112,7 @@ export function handleRequest(event: RequestEvent): void {
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);
   sender.totalRequests += 1;
-  sender.save();
+  sender.totalTransactions += 1;
 
   let global = getGlobal();
   global.totalRequests += 1;
@@ -121,8 +121,11 @@ export function handleRequest(event: RequestEvent): void {
   // Identify service multisig (counts toward ATA requests)
   let serviceId = getServiceIdFromMultisig(event.params.sender);
   if (serviceId !== null) {
-    global.totalAtaCount += 1;
+    global.totalAtaTransactions += 1;
+    sender.totalAtaTransactions += 1;
   }
+
+  sender.save();
   global.save();
 
   // Get metadata from IPFS
@@ -198,10 +201,17 @@ export function handleDeliver(event: DeliverEvent): void {
     }
   }
 
+  // Create / update Sender (mech is always a service multisig)
+  let sender = getOrCreateSender(event.params.sender);
+  sender.totalTransactions += 1;
+  sender.totalAtaTransactions += 1;
+
   let global = getGlobal();
   global.totalDeliveries += 1;
   global.totalTransactions += 1;
-  // Deliveries are always ATA
-  global.totalAtaCount += 1;
+  // Deliveries are always ATA (mech is always a service multisig)
+  global.totalAtaTransactions += 1;
+
+  sender.save();
   global.save();
 }
