@@ -204,9 +204,4 @@ export function handleDeliver(event: DeliverEvent): void {
   // Deliveries are always ATA
   global.totalAtaCount += 1;
   global.save();
-
-  // Sender: increment on delivery (not on request)
-  let sender = getOrCreateSender(event.params.sender);
-  sender.totalAtaCount += 1;
-  sender.save();
 }
