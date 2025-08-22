@@ -115,10 +115,10 @@ export function handleMarketplaceDelivery(
   global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   global.save();
 
-  // Also update sender-level ATA count for the deliveryMech
-  let sender = getOrCreateSender(event.params.deliveryMech);
-  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
-  sender.save();
+  // Also update mech-level ATA count for the deliveryMech
+  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
+  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+  deliveryMech.save();
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
