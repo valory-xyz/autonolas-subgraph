@@ -215,16 +215,6 @@ export function handleDeliverWithSignaturesV1(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
-
-  // Update global ATA count for delivery (mechServiceMultisig is always a service multisig)
-  let global = getGlobal();
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  global.save();
-
-  // Update sender-level ATA count for the mechServiceMultisig
-  let sender = getOrCreateSender(event.params.mechServiceMultisig);
-  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
-  sender.save();
 }
 
 export function handleDeliverWithSignaturesV2(
@@ -241,16 +231,6 @@ export function handleDeliverWithSignaturesV2(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
-
-  // Update global ATA count for delivery (mechServiceMultisig is always a service multisig)
-  let global = getGlobal();
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  global.save();
-
-  // Update sender-level ATA count for the mechServiceMultisig
-  let sender = getOrCreateSender(event.params.mechServiceMultisig);
-  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
-  sender.save();
 }
 
 export function handleMarketplaceParamsUpdated(
