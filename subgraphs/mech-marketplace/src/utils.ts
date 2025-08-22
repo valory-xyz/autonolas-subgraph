@@ -59,6 +59,11 @@ export function getOrCreateSender(address: Bytes): Sender {
   return sender;
 }
 
+export function isServiceMultisig(address: Bytes): boolean {
+  let entity = CreateMultisigWithAgents.load(address.toHexString());
+  return entity !== null;
+}
+
 export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   let entity = Metadata.load(serviceId.toString());
   if (entity === null) {
@@ -132,35 +137,6 @@ export function getChainId(network: string): i32 {
   return 0; // Unknown network
 }
 
-// Increments ATA counters for a delivered on-chain request when it was initiated by a service multisig
-export function incrementAtaForRequestDelivery(requestId: Bytes): void {
-  // Single unified ATA metric
-  let global = getGlobal();
-  global.totalAtaCount = global.totalAtaCount.plus(BigInt.fromI32(1));
-  global.save();
-
-  // Resolve sender from Request (on-chain) or Deliver (off-chain stub)
-  let senderBytes: Bytes | null = null;
-  let req = Request.load(requestId.toHexString());
-  if (req !== null && req.sender !== null) {
-    senderBytes = req.sender as Bytes;
-  } else {
-    let deliv = Deliver.load(requestId.toHexString());
-    if (deliv !== null && deliv.sender !== null) {
-      senderBytes = deliv.sender as Bytes;
-    }
-  }
-
-  if (senderBytes !== null) {
-    let sender = getOrCreateSender(senderBytes as Bytes);
-    sender.totalAtaCount = sender.totalAtaCount.plus(
-      BigInt.fromI32(1)
-    );
-    sender.save();
-  }
-}
-
-// Increments ATA counters for off-chain deliveries when requester is a multisig
 /* Create dynamic data source for the new Mech contract based on factory address */
 export function createDataSourceForMechContract(
   mech: Address,
