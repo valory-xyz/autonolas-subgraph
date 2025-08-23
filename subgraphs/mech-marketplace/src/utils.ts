@@ -97,8 +97,6 @@ export function getOrCreateMech(mechAddress: Bytes): Mech {
   if (mech == null) {
     mech = new Mech(mechAddress.toHexString());
     mech.address = mechAddress;
-    mech.mechFactory = Address.zero();
-    mech.owner = Address.zero();
     mech.totalAtaTransactions = BigInt.fromI32(0);
   }
   return mech;
