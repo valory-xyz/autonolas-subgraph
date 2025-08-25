@@ -207,8 +207,12 @@ export function handleDeliver(event: DeliverEvent): void {
     let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
     if (mechAgent !== null) {
       // Update mech agent transaction counters (ATA tracking)
-      mechAgent.totalTransactions = BigInt.fromI32(1) as BigInt;
-      mechAgent.totalAtaTransactions = BigInt.fromI32(1) as BigInt;
+      mechAgent.totalTransactions = mechAgent.totalTransactions.plus(
+        BigInt.fromI32(1)
+      );
+      mechAgent.totalAtaTransactions = mechAgent.totalAtaTransactions.plus(
+        BigInt.fromI32(1)
+      );
       mechAgent.save();
     }
   }
