@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes } from '@graphprotocol/graph-ts';
+import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
@@ -31,7 +31,7 @@ import {
   createDataSourceForMechContract,
   getOrCreateDeliver,
   getOrCreateRequest,
-  getOrCreateMech,
+  getMech,
   getServiceIdFromMultisig,
   isServiceMultisig,
 } from './utils';
@@ -116,10 +116,12 @@ export function handleMarketplaceDelivery(
   global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   global.save();
 
-  // Also update mech-level ATA count for the deliveryMech
-  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
-  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
-  deliveryMech.save();
+  // Also update mech-level ATA count for the deliveryMech (if it exists)
+  let deliveryMech = getMech(event.params.deliveryMech, event.block.number, 'handleMarketplaceDelivery');
+  if (deliveryMech != null) {
+    deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.save();
+  }
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -175,10 +177,12 @@ export function handleMarketplaceDeliveryWithSignatures(
   // So we always count +1 for deliveryMech, and +1 additional if requester is also a service multisig
   let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
 
-  // Always update deliveryMech-level ATA count (mech is the service provider)
-  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
-  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
-  deliveryMech.save();
+  // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
+  let deliveryMech = getMech(event.params.deliveryMech, event.block.number, 'handleMarketplaceDeliveryWithSignatures');
+  if (deliveryMech != null) {
+    deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.save();
+  }
 
   // Check if requester (sender of the request) is a service multisig (additional +1)
   if (isServiceMultisig(event.params.requester)) {

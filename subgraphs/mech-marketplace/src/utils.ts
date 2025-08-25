@@ -92,12 +92,31 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   return request;
 }
 
-export function getOrCreateMech(mechAddress: Bytes): Mech {
-  let mech = Mech.load(mechAddress.toHexString());
+export function getMech(
+  mechAddress: Bytes,
+  blockNumber: BigInt,
+  functionName: string
+): Mech | null {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.error(
+      'Mech not found - could not find serviceId for mech {} at block {} in function {}',
+      [mechAddress.toHexString(), blockNumber.toString(), functionName]
+    );
+    return null;
+  }
+
+  let mech = Mech.load(serviceId);
   if (mech == null) {
-    mech = new Mech(mechAddress.toHexString());
-    mech.address = mechAddress;
-    mech.totalAtaTransactions = BigInt.fromI32(0);
+    log.error(
+      'Mech not found - attempted to access mech {} (serviceId {}) at block {} in function {} which was not created yet',
+      [
+        mechAddress.toHexString(),
+        serviceId,
+        blockNumber.toString(),
+        functionName,
+      ]
+    );
   }
   return mech;
 }
