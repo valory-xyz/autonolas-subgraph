@@ -294,9 +294,9 @@ type Metadata @entity(immutable: false) {
 type Mech @entity(immutable: false) {
   id: ID!
   address: Bytes!
-  mechFactory: Bytes
+  mechFactory: Bytes!
   configHash: Bytes
-  owner: Bytes
+  owner: Bytes!
   service: Service
   totalAtaTransactions: BigInt!
 }
