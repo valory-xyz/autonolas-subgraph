@@ -95,13 +95,19 @@ export function getOrCreateRequest(requestId: Bytes): Request {
 export function getMech(
   mechAddress: Bytes,
   blockNumber: BigInt,
+  transactionHash: Bytes,
   functionName: string
 ): Mech | null {
   const serviceId = getServiceIdFromMech(mechAddress);
   if (serviceId === null) {
     log.error(
-      'Mech not found - could not find serviceId for mech {} at block {} in function {}',
-      [mechAddress.toHexString(), blockNumber.toString(), functionName]
+      'Mech not found - could not find serviceId for mech {} in transaction {} at block {} in function {}',
+      [
+        mechAddress.toHexString(),
+        transactionHash.toHexString(),
+        blockNumber.toString(),
+        functionName,
+      ]
     );
     return null;
   }
@@ -109,10 +115,11 @@ export function getMech(
   let mech = Mech.load(serviceId);
   if (mech == null) {
     log.error(
-      'Mech not found - attempted to access mech {} (serviceId {}) at block {} in function {} which was not created yet',
+      'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} at block {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
         serviceId,
+        transactionHash.toHexString(),
         blockNumber.toString(),
         functionName,
       ]
