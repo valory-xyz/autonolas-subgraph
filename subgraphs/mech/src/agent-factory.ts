@@ -1,3 +1,4 @@
+import { BigInt } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   OwnerUpdated as OwnerUpdatedEvent,
