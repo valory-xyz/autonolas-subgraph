@@ -117,7 +117,7 @@ export function handleMarketplaceDelivery(
   global.save();
 
   // Also update mech-level ATA count for the deliveryMech (if it exists)
-  let deliveryMech = getMech(event.params.deliveryMech, event.block.number, event.transaction.hash, 'handleMarketplaceDelivery');
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
   if (deliveryMech != null) {
     deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
     deliveryMech.save();
@@ -178,7 +178,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
 
   // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
-  let deliveryMech = getMech(event.params.deliveryMech, event.block.number, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
   if (deliveryMech != null) {
     deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
     deliveryMech.save();

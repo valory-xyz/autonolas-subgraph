@@ -94,7 +94,6 @@ export function getOrCreateRequest(requestId: Bytes): Request {
 
 export function getMech(
   mechAddress: Bytes,
-  blockNumber: BigInt,
   transactionHash: Bytes,
   functionName: string
 ): Mech | null {
@@ -105,7 +104,6 @@ export function getMech(
       [
         mechAddress.toHexString(),
         transactionHash.toHexString(),
-        blockNumber.toString(),
         functionName,
       ]
     );
@@ -120,7 +118,6 @@ export function getMech(
         mechAddress.toHexString(),
         serviceId,
         transactionHash.toHexString(),
-        blockNumber.toString(),
         functionName,
       ]
     );
