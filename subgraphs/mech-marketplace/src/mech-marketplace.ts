@@ -55,7 +55,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
   mechAgent.service = event.params.serviceId.toString();
-  mechAgent.totalAtaTransactions = BigInt.fromI32(0);
+  mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
@@ -119,7 +119,7 @@ export function handleMarketplaceDelivery(
   // Also update mech-level ATA count for the deliveryMech (if it exists)
   let deliveryMech = getMech(event.params.deliveryMech, event.block.number, 'handleMarketplaceDelivery');
   if (deliveryMech != null) {
-    deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
     deliveryMech.save();
   }
 }
@@ -180,7 +180,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
   let deliveryMech = getMech(event.params.deliveryMech, event.block.number, 'handleMarketplaceDeliveryWithSignatures');
   if (deliveryMech != null) {
-    deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
     deliveryMech.save();
   }
 
@@ -189,7 +189,7 @@ export function handleMarketplaceDeliveryWithSignatures(
     ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
 
     // Update requester-level ATA count (using existing sender variable)
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
     sender.save();
   }
 
@@ -304,7 +304,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       BigInt.fromI32(1)
     );
     // Also update sender-level ATA count
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
     sender.save();
   }
   global.save();

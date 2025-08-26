@@ -52,7 +52,7 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaTransactions = BigInt.fromI32(0);
+    sender.totalAtaRequestsTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
