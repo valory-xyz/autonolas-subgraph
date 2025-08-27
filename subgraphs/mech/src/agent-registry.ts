@@ -1,4 +1,4 @@
-import { Address } from '@graphprotocol/graph-ts';
+import { Address, BigInt } from '@graphprotocol/graph-ts';
 import {
   Approval as ApprovalEvent,
   ApprovalForAll as ApprovalForAllEvent,
@@ -91,7 +91,6 @@ export function handleCreateAgent(event: CreateAgentEvent): void {
     mechAgent = new MechAgent(event.params.agentId.toHexString());
     mechAgent.agentHash = event.params.agentHash;
     mechAgent.totalTransactions = BigInt.fromI32(0);
-    mechAgent.totalAtaTransactions = BigInt.fromI32(0);
     mechAgent.save();
   }
 }

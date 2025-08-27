@@ -52,7 +52,7 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaTransactions = BigInt.fromI32(0);
+    sender.totalAtaRequestsTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
@@ -92,12 +92,35 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   return request;
 }
 
-export function getOrCreateMech(mechAddress: Bytes): Mech {
-  let mech = Mech.load(mechAddress.toHexString());
+export function getMech(
+  mechAddress: Bytes,
+  transactionHash: Bytes,
+  functionName: string
+): Mech | null {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.error(
+      'Mech not found - could not find serviceId for mech {} in transaction {} at block {} in function {}',
+      [
+        mechAddress.toHexString(),
+        transactionHash.toHexString(),
+        functionName,
+      ]
+    );
+    return null;
+  }
+
+  let mech = Mech.load(serviceId);
   if (mech == null) {
-    mech = new Mech(mechAddress.toHexString());
-    mech.address = mechAddress;
-    mech.totalAtaTransactions = BigInt.fromI32(0);
+    log.error(
+      'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} at block {} in function {} which was not created yet',
+      [
+        mechAddress.toHexString(),
+        serviceId,
+        transactionHash.toHexString(),
+        functionName,
+      ]
+    );
   }
   return mech;
 }

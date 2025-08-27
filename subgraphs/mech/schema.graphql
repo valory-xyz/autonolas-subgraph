@@ -140,7 +140,6 @@ type MechAgent @entity(immutable: false) {
   agentHash: Bytes # bytes32
   service: Service
   totalTransactions: BigInt! 
-  totalAtaTransactions: BigInt! 
 }
 
 type Sender @entity(immutable: false) {

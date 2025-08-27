@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes } from '@graphprotocol/graph-ts';
+import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
@@ -31,7 +31,7 @@ import {
   createDataSourceForMechContract,
   getOrCreateDeliver,
   getOrCreateRequest,
-  getOrCreateMech,
+  getMech,
   getServiceIdFromMultisig,
   isServiceMultisig,
 } from './utils';
@@ -55,7 +55,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
   mechAgent.service = event.params.serviceId.toString();
-  mechAgent.totalAtaTransactions = BigInt.fromI32(0);
+  mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
@@ -116,10 +116,12 @@ export function handleMarketplaceDelivery(
   global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   global.save();
 
-  // Also update mech-level ATA count for the deliveryMech
-  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
-  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
-  deliveryMech.save();
+  // Also update mech-level ATA count for the deliveryMech (if it exists)
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
+  if (deliveryMech != null) {
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.save();
+  }
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -175,17 +177,19 @@ export function handleMarketplaceDeliveryWithSignatures(
   // So we always count +1 for deliveryMech, and +1 additional if requester is also a service multisig
   let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
 
-  // Always update deliveryMech-level ATA count (mech is the service provider)
-  let deliveryMech = getOrCreateMech(event.params.deliveryMech);
-  deliveryMech.totalAtaTransactions = deliveryMech.totalAtaTransactions.plus(BigInt.fromI32(1));
-  deliveryMech.save();
+  // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
+  if (deliveryMech != null) {
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.save();
+  }
 
   // Check if requester (sender of the request) is a service multisig (additional +1)
   if (isServiceMultisig(event.params.requester)) {
     ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
 
     // Update requester-level ATA count (using existing sender variable)
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
     sender.save();
   }
 
@@ -300,7 +304,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       BigInt.fromI32(1)
     );
     // Also update sender-level ATA count
-    sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
     sender.save();
   }
   global.save();
