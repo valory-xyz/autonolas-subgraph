@@ -100,7 +100,7 @@ export function getMech(
   const serviceId = getServiceIdFromMech(mechAddress);
   if (serviceId === null) {
     log.error(
-      'Mech not found - could not find serviceId for mech {} in transaction {} at block {} in function {}',
+      'Mech not found - could not find serviceId for mech {} in transaction {} in function {}',
       [
         mechAddress.toHexString(),
         transactionHash.toHexString(),
@@ -113,7 +113,7 @@ export function getMech(
   let mech = Mech.load(serviceId);
   if (mech == null) {
     log.error(
-      'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} at block {} in function {} which was not created yet',
+      'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
         serviceId,
