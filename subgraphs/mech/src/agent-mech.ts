@@ -10,7 +10,7 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service, CreateMech, MechAgent } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -121,8 +121,17 @@ export function handleRequest(event: RequestEvent): void {
   // Identify service multisig (counts toward ATA requests)
   let serviceId = getServiceIdFromMultisig(event.params.sender);
   if (serviceId !== null) {
-    global.totalAtaTransactions += 1;
-    sender.totalAtaTransactions += 1;
+    let txHash = event.transaction.hash;
+    let transaction = AtaTransaction.load(txHash);
+    if (transaction === null) {
+      transaction = new AtaTransaction(txHash);
+      transaction.blockNumber = event.block.number;
+      transaction.blockTimestamp = event.block.timestamp;
+      transaction.save();
+
+      global.totalAtaTransactions += 1;
+      sender.totalAtaTransactions += 1;
+    }
   }
 
   sender.save();
@@ -218,7 +227,17 @@ export function handleDeliver(event: DeliverEvent): void {
   global.totalDeliveries += 1;
   global.totalTransactions += 1;
   // Deliveries are always ATA (mech is always a service multisig)
-  global.totalAtaTransactions += 1;
+  // We check the transaction hash here as well to avoid double-counting
+  // if a Request and Deliver happen in the same transaction.
+  let txHash = event.transaction.hash;
+  let transaction = AtaTransaction.load(txHash);
+  if (transaction === null) {
+    transaction = new AtaTransaction(txHash);
+    transaction.blockNumber = event.block.number;
+    transaction.blockTimestamp = event.block.timestamp;
+    transaction.save();
+    global.totalAtaTransactions += 1;
+  }
 
   global.save();
 }
