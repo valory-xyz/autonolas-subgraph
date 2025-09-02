@@ -10,7 +10,7 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service, CreateMech, MechAgent, Transaction } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -122,9 +122,9 @@ export function handleRequest(event: RequestEvent): void {
   let serviceId = getServiceIdFromMultisig(event.params.sender);
   if (serviceId !== null) {
     let txHash = event.transaction.hash;
-    let transaction = Transaction.load(txHash);
+    let transaction = AtaTransaction.load(txHash);
     if (transaction === null) {
-      transaction = new Transaction(txHash);
+      transaction = new AtaTransaction(txHash);
       transaction.blockNumber = event.block.number;
       transaction.blockTimestamp = event.block.timestamp;
       transaction.save();
@@ -230,9 +230,9 @@ export function handleDeliver(event: DeliverEvent): void {
   // We check the transaction hash here as well to avoid double-counting
   // if a Request and Deliver happen in the same transaction.
   let txHash = event.transaction.hash;
-  let transaction = Transaction.load(txHash);
+  let transaction = AtaTransaction.load(txHash);
   if (transaction === null) {
-    transaction = new Transaction(txHash);
+    transaction = new AtaTransaction(txHash);
     transaction.blockNumber = event.block.number;
     transaction.blockTimestamp = event.block.timestamp;
     transaction.save();

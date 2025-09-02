@@ -204,7 +204,7 @@ type AgentMultisigAssociation @entity(immutable: false) {
   multisig: Bytes! # address
 }
 
-type Transaction @entity(immutable: true) {
+type AtaTransaction @entity(immutable: true) {
   id: Bytes! # transaction hash
   blockNumber: BigInt!
   blockTimestamp: BigInt!
