@@ -48,20 +48,24 @@ Options:
 
 The following environment variables can be configured in your `.env` file:
 
-- `SUBGRAPH_NODE`: The Graph Node endpoint URL for subgraph deployment (with embedded basic auth)
-  - Example: `https://username:password@admin.your-graph-node.example.com`
-- `IPFS_REGISTRY`: IPFS registry endpoint URL for storing subgraph files (with embedded basic auth)
-  - Example: `https://username:password@your-ipfs-node.example.com`
+- `BASIC_AUTH_USER`: Username for basic authentication (required)
+- `BASIC_AUTH_PASSWORD`: Password for basic authentication (required)
+- `IPFS_REGISTRY`: IPFS registry URL (optional, defaults to `https://registry.autonolas.tech`)
+
+### Environment URLs
+
+The deployment script uses predefined URLs for the Graph Node based on the selected environment:
+
+- **Staging**: `admin.staging.subgraph.autonolas.tech`
+- **Production**: `admin.subgraph.autonolas.tech`
 
 ### Basic Authentication Configuration
 
-Depending on your environment, basic authentication should be configured differently in the `.env` file:
+The basic authentication credentials are applied to the predefined URLs automatically. Make sure to:
 
-- **Development/Local**: Use local credentials or no auth if running locally
-- **Staging**: Use staging environment credentials embedded in URLs
-- **Production**: Use production credentials with proper security measures
-
-The basic auth credentials are embedded directly in the URLs using the format: `https://username:password@hostname`
+1. Set the correct `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` in your `.env` file
+2. Use environment-specific credentials (staging credentials for staging, production credentials for production)
+3. Keep your credentials secure and never commit them to the repository
 
 
 ## Example queries

@@ -17,16 +17,27 @@ interface DeploymentConfig {
 }
 
 const EnvironmentSchema = z.object({
-  SUBGRAPH_NODE: z.string().min(1, "SUBGRAPH_NODE must be a valid URL"),
-  IPFS_REGISTRY: z.string().min(1, "IPFS_REGISTRY must be a valid URL"),
+  BASIC_AUTH_USER: z.string().min(1, "BASIC_AUTH_USER is required"),
+  BASIC_AUTH_PASSWORD: z.string().min(1, "BASIC_AUTH_PASSWORD is required"),
+  IPFS_REGISTRY: z.string().min(1, "IPFS_REGISTRY is required"),
 });
 
 type EnvironmentVars = z.infer<typeof EnvironmentSchema>;
 
+const ENVIRONMENT_URLS = {
+  staging: {
+    node: "admin.staging.subgraph.autonolas.tech"
+  },
+  production: {
+    node: "admin.subgraph.autonolas.tech"
+  }
+};
+
 async function validateEnvironmentVariables(): Promise<EnvironmentVars> {
   const envData = {
-    SUBGRAPH_NODE: process.env.SUBGRAPH_NODE,
-    IPFS_REGISTRY: process.env.IPFS_REGISTRY,
+    BASIC_AUTH_USER: process.env.BASIC_AUTH_USER,
+    BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,
+    IPFS_REGISTRY: process.env.IPFS_REGISTRY || "https://registry.autonolas.tech",
   };
 
   return EnvironmentSchema.parse(envData);
@@ -109,7 +120,7 @@ async function promptForConfiguration(dryRun: boolean): Promise<DeploymentConfig
 }
 
 async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, envVars: EnvironmentVars }) {
-  const { subgraphName, action, dryRun } = config;
+  const { subgraphName, action, dryRun, environment } = config;
   const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
 
   clack.log.info(`Deploying subgraph: ${subgraphName}`);
@@ -151,8 +162,12 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
 
     clack.log.info(`📋 Version: ${version}`);
 
-    // Prepare graph command options (credentials are now embedded in URLs)
-    const nodeOption = `--node=${envVars.SUBGRAPH_NODE}`;
+    // Build node URL with basic auth credentials
+    const envUrls = ENVIRONMENT_URLS[environment];
+    const nodeUrl = `https://${envVars.BASIC_AUTH_USER}:${envVars.BASIC_AUTH_PASSWORD}@${envUrls.node}`;
+    
+    // Prepare graph command options
+    const nodeOption = `--node=${nodeUrl}`;
     const ipfsOption = `--ipfs=${envVars.IPFS_REGISTRY}`;
     const versionOption = `-l=${version}`;
 
