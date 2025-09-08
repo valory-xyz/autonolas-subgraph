@@ -1,0 +1,243 @@
+# Service discovery entities
+type Service @entity(immutable: false) {
+  id: Bytes!                          # Service safe address
+  serviceId: BigInt!
+  operatorSafe: Bytes!
+  serviceSafe: Bytes!
+  
+  latestRegistrationBlock: BigInt!
+  latestRegistrationTimestamp: BigInt!
+  latestRegistrationTxHash: Bytes!
+  
+  latestMultisigBlock: BigInt!
+  latestMultisigTimestamp: BigInt!
+  latestMultisigTxHash: Bytes!
+  
+  isActive: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  
+  # Token balance tracking
+  balances: [TokenBalance!]! @derivedFrom(field: "service")
+  
+  # Position tracking
+  positions: [ProtocolPosition!]! @derivedFrom(field: "service")
+  positionIds: [String!]!             # Array of position IDs for iteration
+}
+
+type ServiceRegistration @entity(immutable: false) {
+  id: Bytes!                          # serviceId as string
+  serviceId: BigInt!
+  operatorSafe: Bytes!
+  registrationBlock: BigInt!
+  registrationTimestamp: BigInt!
+  registrationTxHash: Bytes!
+}
+
+type ServiceIndex @entity(immutable: false) {
+  id: Bytes!                          # serviceId as string
+  serviceId: BigInt!
+  currentServiceSafe: Bytes!          # Points to current Service entity
+}
+
+type AddressType @entity(immutable: false) {
+  id: Bytes!           # The address itself
+  isContract: Boolean! # true = contract, false = EOA
+  checkedAt: BigInt!   # Block number when first checked
+}
+
+type FundingBalance @entity(immutable: false) {
+  id: Bytes!
+  service: Service              # Link to service
+  totalInUsd: BigDecimal!
+  totalOutUsd: BigDecimal!
+  netUsd: BigDecimal!
+  firstInTimestamp: BigInt!
+  lastChangeTs: BigInt!
+}
+
+type ProtocolPosition @entity(immutable: false) {
+  id: Bytes!                # "<agent>-<tokenId>"
+  agent: Bytes!             @index
+  service: Service          # Link to service
+  protocol: String!         @index   # "velodrome-cl"
+  pool: Bytes!
+  
+  # Position status
+  isActive: Boolean!        # true = open, false = closed
+  
+  # Current state (only updated for active positions)
+  usdCurrent: BigDecimal!   # Total USD value
+  token0: Bytes
+  token0Symbol: String      # Token0 symbol (e.g., "USDC")
+  amount0: BigDecimal       # Current token0 amount
+  amount0USD: BigDecimal!   # Current USD value of token0
+  token1: Bytes
+  token1Symbol: String      # Token1 symbol (e.g., "DAI")
+  amount1: BigDecimal       # Current token1 amount  
+  amount1USD: BigDecimal!   # Current USD value of token1
+  liquidity: BigInt
+  
+  # Velodrome-specific
+  tokenId: BigInt!          # NFT token ID
+  
+  # Static position metadata (cached to avoid RPC calls)
+  tickLower: Int!           # Lower tick boundary (never changes)
+  tickUpper: Int!           # Upper tick boundary (never changes)
+  tickSpacing: Int          # Tick spacing for the pool (never changes) - used by Velodrome CL
+  fee: Int                  # Fee tier for the pool (never changes) - used by Uniswap V3
+  
+  # Entry tracking
+  entryTxHash: Bytes!       # Transaction hash when position opened
+  entryTimestamp: BigInt!   # Block timestamp when opened
+  entryAmount0: BigDecimal! # Initial token0 amount
+  entryAmount0USD: BigDecimal! # Initial USD value of token0
+  entryAmount1: BigDecimal! # Initial token1 amount
+  entryAmount1USD: BigDecimal! # Initial USD value of token1
+  entryAmountUSD: BigDecimal! # Total initial USD value
+  
+  # Exit tracking (set when position closes)
+  exitTxHash: Bytes         # Transaction hash when position closed
+  exitTimestamp: BigInt     # Block timestamp when closed
+  exitAmount0: BigDecimal   # Final token0 amount withdrawn
+  exitAmount0USD: BigDecimal # Final USD value of token0 at closure
+  exitAmount1: BigDecimal   # Final token1 amount withdrawn
+  exitAmount1USD: BigDecimal # Final USD value of token1 at closure
+  exitAmountUSD: BigDecimal # Total final USD value at closure
+}
+
+type PriceSource @entity(immutable: false) {
+  id: Bytes!                    # pool/oracle address
+  token: Token!
+  sourceType: String!           # "chainlink", "curve_3pool", "uniswap_v3", "velodrome_v2"
+  priority: Int!                # 1 = highest priority
+  isActive: Boolean!
+  lastUpdate: BigInt!
+  lastPrice: BigDecimal!
+  confidence: BigDecimal!       # 0-1 confidence score
+}
+
+type Token @entity(immutable: false) {
+  id: Bytes!                    # token address
+  symbol: String!
+  name: String!
+  decimals: BigInt!
+  derivedUSD: BigDecimal!       # Current best price
+  priceSources: [PriceSource!]! # Hardcoded price sources
+  lastPriceUpdate: BigInt!
+  priceConfidence: BigDecimal!  # Current price confidence level
+}
+
+type PriceUpdate @entity(immutable: true) {
+  id: Bytes!                    # tx hash + timestamp
+  token: Token!
+  priceUSD: BigDecimal!
+  source: PriceSource!
+  confidence: BigDecimal!
+  timestamp: BigInt!
+  block: BigInt!
+}
+
+# Portfolio tracking entities
+type AgentPortfolio @entity(immutable: false) {
+  id: Bytes!                    # Service safe address
+  service: Service!             # Link to service
+  
+  # Portfolio Values
+  finalValue: BigDecimal!       # Total current value (positions + uninvested)
+  initialValue: BigDecimal!     # Initial investment from FundingBalance
+  positionsValue: BigDecimal!   # Current value of all active positions
+  uninvestedValue: BigDecimal!  # Token balances in safe
+  
+  # Performance Metrics
+  roi: BigDecimal!              # Return on Investment (%)
+  apr: BigDecimal!              # Annualized Percentage Return (%)
+  
+  # Timing
+  firstTradingTimestamp: BigInt! # When first position was created
+  lastUpdated: BigInt!          # Last portfolio update timestamp
+  lastSnapshotTimestamp: BigInt! # Last snapshot timestamp
+  lastSnapshotBlock: BigInt!    # Last snapshot block
+  
+  # Metadata
+  totalPositions: Int!          # Count of active positions
+  totalClosedPositions: Int!    # Count of closed positions
+}
+
+type AgentPortfolioSnapshot @entity(immutable: true) {
+  id: Bytes!                    # "<serviceSafe>-<timestamp>"
+  service: Service!             # Link to service
+  portfolio: AgentPortfolio!    # Link to main portfolio
+  
+  # Snapshot Values
+  finalValue: BigDecimal!       
+  initialValue: BigDecimal!     
+  positionsValue: BigDecimal!   
+  uninvestedValue: BigDecimal!  
+  
+  # Performance at Snapshot
+  roi: BigDecimal!              
+  apr: BigDecimal!              
+  
+  # Metadata
+  timestamp: BigInt!            # When snapshot was taken
+  block: BigInt!                # Block number
+  totalPositions: Int!          
+  totalClosedPositions: Int!    
+  
+  # Position details at snapshot time
+  positionIds: [String!]        # Array of ProtocolPosition IDs that were active at snapshot
+}
+
+type TokenBalance @entity(immutable: false) {
+  id: Bytes!                    # "<serviceSafe>-<token>"
+  service: Service!             # Link to service
+  token: Bytes!                 # Token address
+  symbol: String!               # Token symbol
+  decimals: Int!                # Token decimals
+  
+  # Balance Data
+  balance: BigDecimal!          # Token amount
+  balanceUSD: BigDecimal!       # USD value
+  
+  # Metadata
+  lastUpdated: BigInt!          # Last update timestamp
+  lastBlock: BigInt!            # Last update block
+}
+
+# Temporary storage for pending positions that need mint data
+type PendingMintPosition @entity(immutable: false) {
+  id: String!                   # "<txHash>-<poolAddress>"
+  txHash: Bytes!                # Transaction hash
+  poolAddress: Bytes!           # Pool address
+  positionId: Bytes!            # Position ID that needs mint amounts
+  recipient: Bytes!             # The recipient address (for validation)
+}
+
+# Registry to track all services for snapshot scheduling
+type ServiceRegistry @entity(immutable: false) {
+  id: Bytes!                    # "registry" - singleton
+  serviceAddresses: [Bytes!]!   # Array of all service addresses
+}
+
+# Daily population-level metrics entity
+type DailyPopulationMetric @entity(immutable: true) {
+  id: Bytes!                        # "<timestamp>" for daily snapshots
+  
+  # Population Metrics
+  medianPopulationROI: BigDecimal!  # Median of all agent ROI values
+  medianPopulationAPR: BigDecimal!  # Median of all agent APR values
+  
+  # 7-Day Simple Moving Averages
+  sma7dROI: BigDecimal!             # 7-day SMA of median population ROI
+  sma7dAPR: BigDecimal!             # 7-day SMA of median population APR
+  
+  # Metadata
+  timestamp: BigInt!                # UTC midnight timestamp
+  block: BigInt!                    # Block number when calculated
+  totalAgents: Int!                 # Number of agents included in calculation
+  
+  # Historical Data (for SMA calculation)
+  historicalMedianROI: [BigDecimal!]!  # Last 7 days of median ROI values
+  historicalMedianAPR: [BigDecimal!]!  # Last 7 days of median APR values
+}
