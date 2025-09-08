@@ -203,7 +203,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   if (serviceIDForOffChain !== null) {
     let svc = Service.load(serviceIDForOffChain);
     if (svc !== null) {
-      let ids = (svc as unknown as any).agentIds as Array<BigInt>;
+      let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let agg = getOrCreateRequestsPerAgent(ids[i]);
         agg.reqCount = agg.reqCount.plus(event.params.numDeliveries);
@@ -328,7 +328,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   if (serviceId !== null) {
     let svc = Service.load(serviceId);
     if (svc !== null) {
-      let ids = (svc as unknown as any).agentIds as Array<BigInt>;
+      let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let agg = getOrCreateRequestsPerAgent(ids[i]);
         agg.reqCount = agg.reqCount.plus(event.params.numRequests);
