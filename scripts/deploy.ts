@@ -19,7 +19,7 @@ interface DeploymentConfig {
 const EnvironmentSchema = z.object({
   BASIC_AUTH_USER: z.string().min(1, "BASIC_AUTH_USER is required"),
   BASIC_AUTH_PASSWORD: z.string().min(1, "BASIC_AUTH_PASSWORD is required"),
-  IPFS_REGISTRY: z.string().min(1, "IPFS_REGISTRY is required"),
+  IPFS_REGISTRY: z.string().default("https://registry.autonolas.tech"),
 });
 
 type EnvironmentVars = z.infer<typeof EnvironmentSchema>;
@@ -40,7 +40,15 @@ async function validateEnvironmentVariables(): Promise<EnvironmentVars> {
     IPFS_REGISTRY: process.env.IPFS_REGISTRY || "https://registry.autonolas.tech",
   };
 
-  return EnvironmentSchema.parse(envData);
+  const result = EnvironmentSchema.safeParse(envData);
+  if (!result.success) {
+    clack.log.error("Environment validation failed");
+    clack.log.error(result.error.message);
+    process.exit(1);
+  }
+
+  const validatedEnvData = result.data;
+  return validatedEnvData;
 }
 
 function getSubgraphDirectories(): string[] {
@@ -60,7 +68,8 @@ function getSubgraphDirectories(): string[] {
     .sort();
 }
 
-async function promptForConfiguration(dryRun: boolean): Promise<DeploymentConfig> {
+async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<DeploymentConfig> {
+
   const title = dryRun ? "🧪 Subgraph Deployment Tool (DRY RUN)" : "🚀 Subgraph Deployment Tool";
   clack.intro(title);
 
@@ -116,6 +125,27 @@ async function promptForConfiguration(dryRun: boolean): Promise<DeploymentConfig
     process.exit(0);
   }
 
+  // Show confirmation summary
+  const { node: nodeURL } = ENVIRONMENT_URLS[environment];
+
+  clack.log.info("📋 Deployment Summary:");
+  clack.log.info(`   Environment: ${environment === "staging" ? "🧪 Staging" : "🚀 Production"}`);
+  clack.log.info(`   Subgraph: ${subgraphName}`);
+  clack.log.info(`   Action: ${action === "update" ? "🔄 Update (create new)" : "🆕 Overwrite"}`);
+  clack.log.info(`   Target: ${nodeURL}`);
+  if (dryRun) {
+    clack.log.warn(`   Mode: 🧪 DRY RUN`);
+  }
+
+  const shouldContinue = await clack.confirm({
+    message: "Continue with deployment?",
+  });
+
+  if (clack.isCancel(shouldContinue) || !shouldContinue) {
+    clack.cancel("Deployment cancelled");
+    process.exit(0);
+  }
+
   return { environment, subgraphName, action, dryRun };
 }
 
@@ -165,7 +195,7 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
     // Build node URL with basic auth credentials
     const envUrls = ENVIRONMENT_URLS[environment];
     const nodeUrl = `https://${envVars.BASIC_AUTH_USER}:${envVars.BASIC_AUTH_PASSWORD}@${envUrls.node}`;
-    
+
     // Prepare graph command options
     const nodeOption = `--node=${nodeUrl}`;
     const ipfsOption = `--ipfs=${envVars.IPFS_REGISTRY}`;
@@ -199,23 +229,6 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
 
 async function main() {
   const argv = await yargs(hideBin(process.argv))
-    .option("environment", {
-      alias: "e",
-      type: "string",
-      choices: ["staging", "production"],
-      description: "Deployment environment"
-    })
-    .option("subgraph", {
-      alias: "s",
-      type: "string",
-      description: "Subgraph name to deploy"
-    })
-    .option("action", {
-      alias: "a",
-      type: "string",
-      choices: ["update", "overwrite"],
-      description: "Deployment action"
-    })
     .option("dry-run", {
       alias: "d",
       type: "boolean",
@@ -227,30 +240,7 @@ async function main() {
 
   // Validate environment variables
   const envVars = await validateEnvironmentVariables();
-  if (!envVars) {
-    clack.log.error("Environment validation failed");
-    process.exit(1);
-  }
-
-  let config: DeploymentConfig;
-
-  // Use CLI args if provided, otherwise prompt
-  if (argv.environment && argv.subgraph && argv.action) {
-    const subgraphDirectories = getSubgraphDirectories();
-    if (!subgraphDirectories.includes(argv.subgraph)) {
-      clack.log.error(`Subgraph "${argv.subgraph}" not found. Available: ${subgraphDirectories.join(", ")}`);
-      process.exit(1);
-    }
-
-    config = {
-      environment: argv.environment as "staging" | "production",
-      subgraphName: argv.subgraph,
-      action: argv.action as "update" | "overwrite",
-      dryRun: argv["dry-run"]
-    };
-  } else {
-    config = await promptForConfiguration(argv["dry-run"]);
-  }
+  const config = await promptForConfiguration({ dryRun: argv["dry-run"] });
 
   await deploySubgraph({ config, envVars });
 }
