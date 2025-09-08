@@ -34,6 +34,7 @@ import {
   getMech,
   getServiceIdFromMultisig,
   isServiceMultisig,
+  getOrCreateRequestsPerAgent,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -196,6 +197,20 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Update global ATA count
   global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
   global.save();
+
+  // Increment per-agent counters for service derived from requester multisig (off-chain requests)
+  let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
+  if (serviceIDForOffChain !== null) {
+    let svc = Service.load(serviceIDForOffChain);
+    if (svc !== null) {
+      let ids = (svc as unknown as any).agentIds as Array<BigInt>;
+      for (let i = 0; i < ids.length; i++) {
+        let agg = getOrCreateRequestsPerAgent(ids[i]);
+        agg.reqCount = agg.reqCount.plus(event.params.numDeliveries);
+        agg.save();
+      }
+    }
+  }
 }
 
 export function handleDeliverWithSignaturesV1(
@@ -308,6 +323,19 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     sender.save();
   }
   global.save();
+
+  // Increment per-agent counters for all canonical agents of this service (on-chain requests)
+  if (serviceId !== null) {
+    let svc = Service.load(serviceId);
+    if (svc !== null) {
+      let ids = (svc as unknown as any).agentIds as Array<BigInt>;
+      for (let i = 0; i < ids.length; i++) {
+        let agg = getOrCreateRequestsPerAgent(ids[i]);
+        agg.reqCount = agg.reqCount.plus(event.params.numRequests);
+        agg.save();
+      }
+    }
+  }
 }
 
 export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
