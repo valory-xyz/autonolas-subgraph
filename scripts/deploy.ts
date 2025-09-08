@@ -26,7 +26,7 @@ type EnvironmentVars = z.infer<typeof EnvironmentSchema>;
 
 const ENVIRONMENT_URLS = {
   staging: {
-    node: "admin.staging.subgraph.autonolas.tech"
+    node: "admin.subgraph.staging.autonolas.tech"
   },
   production: {
     node: "admin.subgraph.autonolas.tech"
@@ -127,11 +127,13 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
 
   // Show confirmation summary
   const { node: nodeURL } = ENVIRONMENT_URLS[environment];
+  const finalSubgraphName = action === "update" ? `${subgraphName}-new` : subgraphName;
 
   clack.log.info("📋 Deployment Summary:");
   clack.log.info(`   Environment: ${environment === "staging" ? "🧪 Staging" : "🚀 Production"}`);
   clack.log.info(`   Subgraph: ${subgraphName}`);
   clack.log.info(`   Action: ${action === "update" ? "🔄 Update (create new)" : "🆕 Overwrite"}`);
+  clack.log.info(`   Deploy as: ${finalSubgraphName}`);
   clack.log.info(`   Target: ${nodeURL}`);
   if (dryRun) {
     clack.log.warn(`   Mode: 🧪 DRY RUN`);
@@ -206,8 +208,8 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
     spinner.start(`🚢 Deploying ${finalSubgraphName}...`);
 
     if (dryRun) {
-      clack.log.info(`yarn graph create ${nodeOption} ${finalSubgraphName}`);
-      clack.log.info(`yarn graph deploy ${nodeOption} ${ipfsOption} ${finalSubgraphName} ${versionOption}`);
+      clack.log.info(`yarn graph create [omitted] ${finalSubgraphName}`);
+      clack.log.info(`yarn graph deploy [omitted] ${finalSubgraphName} ${versionOption}`);
       spinner.stop(`🧪 Would deploy ${finalSubgraphName}`);
     } else {
       await exec(`yarn graph create ${nodeOption} ${finalSubgraphName}`);
