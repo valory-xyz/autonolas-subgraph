@@ -156,7 +156,7 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
     const ipfsOption = `--ipfs=${envVars.IPFS_REGISTRY}`;
     const versionOption = `-l=${version}`;
 
-    // Deploy + create subgraph
+    // Create + deploy subgraph
     const finalSubgraphName = action === "update" ? `${subgraphName}-new` : subgraphName;
     spinner.start(`🚢 Deploying ${finalSubgraphName}...`);
 
