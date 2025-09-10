@@ -206,7 +206,7 @@ export function handleMarketplaceDeliveryWithSignatures(
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let agg = getOrCreateRequestsPerAgent(ids[i]);
-        agg.reqCount = agg.reqCount.plus(event.params.numDeliveries);
+        agg.totalRequestsCount = agg.totalRequestsCount.plus(event.params.numDeliveries);
         agg.save();
       }
     }
@@ -331,7 +331,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let agg = getOrCreateRequestsPerAgent(ids[i]);
-        agg.reqCount = agg.reqCount.plus(event.params.numRequests);
+        agg.totalRequestsCount = agg.totalRequestsCount.plus(event.params.numRequests);
         agg.save();
       }
     }

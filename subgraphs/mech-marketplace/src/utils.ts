@@ -257,7 +257,7 @@ export function getOrCreateRequestsPerAgent(agentId: BigInt): RequestsPerAgent {
   let ent = RequestsPerAgent.load(id);
   if (ent == null) {
     ent = new RequestsPerAgent(id);
-    ent.reqCount = BigInt.fromI32(0);
+    ent.totalRequestsCount = BigInt.fromI32(0);
   }
   return ent as RequestsPerAgent;
 }
