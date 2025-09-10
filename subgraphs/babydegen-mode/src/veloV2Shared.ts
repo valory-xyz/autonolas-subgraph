@@ -6,7 +6,7 @@ import {
   ethereum
 } from "@graphprotocol/graph-ts"
 
-import { ProtocolPosition, Service } from "../generated/schema"
+import { ProtocolPosition, Service, AgentSwapBuffer } from "../generated/schema"
 import { VelodromeV2Pool } from "../generated/templates/VeloV2Pool/VelodromeV2Pool"
 import { VeloV2Pool as VeloV2PoolTemplate } from "../generated/templates"
 import { getTokenPriceUSD } from "./priceDiscovery"
@@ -28,6 +28,27 @@ function toHumanAmount(amount: BigInt, decimals: i32): BigDecimal {
   
   let divisor = BigInt.fromI32(10).pow(decimals as u8)
   return amount.toBigDecimal().div(divisor.toBigDecimal())
+}
+
+// Helper function to parse total slippage from bucket string (inline)
+function parseTotalSlippageFromBucket(bucketSwaps: string): BigDecimal {
+  if (bucketSwaps == "[]" || bucketSwaps == "") {
+    return BigDecimal.zero()
+  }
+  
+  let totalSlippage = BigDecimal.zero()
+  
+  // Simple parsing: split by comma, then by colon
+  let swaps = bucketSwaps.split(",")
+  for (let i = 0; i < swaps.length; i++) {
+    let parts = swaps[i].split(":")
+    if (parts.length == 2) {
+      let slippage = BigDecimal.fromString(parts[1])
+      totalSlippage = totalSlippage.plus(slippage)
+    }
+  }
+  
+  return totalSlippage
 }
 
 // Ensure pool template is created for tracking events
@@ -91,6 +112,14 @@ export function refreshVeloV2PositionWithEventAmounts(
       // Update first trading timestamp
       updateFirstTradingTimestamp(userAddress, block.timestamp)
     }
+    
+    // Initialize cost tracking for new position (inline)
+    pp.totalCostsUSD = BigDecimal.zero()
+    pp.swapSlippageUSD = BigDecimal.zero()
+    pp.investmentUSD = BigDecimal.zero()
+    pp.grossGainUSD = BigDecimal.zero()
+    pp.netGainUSD = BigDecimal.zero()
+    pp.positionROI = BigDecimal.zero()
     
     // Initialize all required fields
     pp.usdCurrent = BigDecimal.zero()
@@ -193,6 +222,51 @@ export function refreshVeloV2PositionWithEventAmounts(
   // Save the updated entry amounts first
   pp.save()
   
+  // Inline swap association logic (only for first-time positions)
+  if (pp.entryAmountUSD.equals(eventUsd)) {
+    // Search for recent swaps and associate them with this position using flattened buffer
+    const agent = pp.agent
+    const bufferId = agent
+    
+    let buffer = AgentSwapBuffer.load(bufferId)
+    
+    if (buffer != null) {
+      // Check buckets sequentially (most recent first)
+      let consumedSwaps = ""
+      let totalSlippage = BigDecimal.zero()
+      
+      if (buffer.bucket0Swaps != "") {
+        consumedSwaps = buffer.bucket0Swaps
+        totalSlippage = parseTotalSlippageFromBucket(buffer.bucket0Swaps)
+        buffer.bucket0Swaps = ""
+      } else if (buffer.bucket1Swaps != "") {
+        consumedSwaps = buffer.bucket1Swaps
+        totalSlippage = parseTotalSlippageFromBucket(buffer.bucket1Swaps)
+        buffer.bucket1Swaps = ""
+      } else if (buffer.bucket2Swaps != "") {
+        consumedSwaps = buffer.bucket2Swaps
+        totalSlippage = parseTotalSlippageFromBucket(buffer.bucket2Swaps)
+        buffer.bucket2Swaps = ""
+      } else if (buffer.bucket3Swaps != "") {
+        consumedSwaps = buffer.bucket3Swaps
+        totalSlippage = parseTotalSlippageFromBucket(buffer.bucket3Swaps)
+        buffer.bucket3Swaps = ""
+      }
+      
+      if (consumedSwaps != "") {
+        // Found and consumed swaps
+        buffer.totalSlippageUSD = buffer.totalSlippageUSD.minus(totalSlippage)
+        buffer.save()
+        
+        // Update position costs inline
+        pp.swapSlippageUSD = totalSlippage
+        pp.totalCostsUSD = pp.swapSlippageUSD // Add other costs here if needed
+        pp.investmentUSD = pp.entryAmountUSD.plus(pp.totalCostsUSD)
+        pp.save()
+      }
+    }
+  }
+  
   // Update current amounts by calling the regular refresh function
   refreshVeloV2Position(userAddress, poolAddress, block, txHash)
 }
@@ -241,6 +315,14 @@ export function refreshVeloV2Position(
       // Update first trading timestamp
       updateFirstTradingTimestamp(userAddress, block.timestamp)
     }
+    
+    // Initialize cost tracking for new position (inline)
+    pp.totalCostsUSD = BigDecimal.zero()
+    pp.swapSlippageUSD = BigDecimal.zero()
+    pp.investmentUSD = BigDecimal.zero()
+    pp.grossGainUSD = BigDecimal.zero()
+    pp.netGainUSD = BigDecimal.zero()
+    pp.positionROI = BigDecimal.zero()
     
     // Initialize all required fields
     pp.usdCurrent = BigDecimal.zero()

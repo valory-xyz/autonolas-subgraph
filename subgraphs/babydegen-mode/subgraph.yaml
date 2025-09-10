@@ -548,6 +548,8 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - TokenBalance
+        - SwapTransaction
+        - SwapToEntryAssociation
       abis:
         - name: LiFiDiamond
           file: ./abis/defi/LiFiDiamond.json

@@ -8,6 +8,7 @@ import {
 } from "../generated/schema"
 import { calculateUninvestedValue, updateFundingBalance } from "./tokenBalances"
 import { getServiceByAgent } from "./config"
+import { calculateActualROI, aggregateClosedPositionMetrics } from "./roiCalculation"
 
 // Use the single source of truth for funding balance updates
 export function updateFunding(
@@ -72,16 +73,22 @@ export function calculatePortfolioMetrics(
   // 4. Calculate total portfolio value (positions + uninvested)
   let finalValue = positionsValue.plus(uninvestedValue)
   
-  // 5. Calculate ROI and APR
-  let roi = BigDecimal.zero()
-  let apr = BigDecimal.zero()
+  // 5. Calculate projected ROI (current portfolio-based calculation)
+  let projected_roi = BigDecimal.zero()
   
   if (initialValue.gt(BigDecimal.zero())) {
-    // ROI = (final_value - initial_value) / initial_value * 100
+    // Projected ROI = (final_value - initial_value) / initial_value * 100
     let profit = finalValue.minus(initialValue)
-    roi = profit.div(initialValue).times(BigDecimal.fromString("100"))
-    
-    // APR calculation - use first trading timestamp or fallback to service creation
+    projected_roi = profit.div(initialValue).times(BigDecimal.fromString("100"))
+  }
+  
+  // Calculate new position-based ROI from closed positions
+  let actualROI = calculateActualROI(serviceSafe)
+  let aggregates = aggregateClosedPositionMetrics(serviceSafe)
+
+  // Calculate APR from actual ROI (position-based)
+  let actualAPR = BigDecimal.zero()
+  if (actualROI.gt(BigDecimal.zero())) {
     let timestampForAPR = portfolio.firstTradingTimestamp
     
     // Fallback: If no trading activity, use service creation timestamp
@@ -89,9 +96,6 @@ export function calculatePortfolioMetrics(
       let serviceEntity = Service.load(serviceSafe)
       if (serviceEntity != null && serviceEntity.latestRegistrationTimestamp.gt(BigInt.zero())) {
         timestampForAPR = serviceEntity.latestRegistrationTimestamp
-        log.info("PORTFOLIO: Using service registration timestamp for APR calculation - agent: {}", [
-          serviceSafe.toHexString()
-        ])
       }
     }
     
@@ -100,21 +104,27 @@ export function calculatePortfolioMetrics(
       let daysSinceStart = secondsSinceStart.toBigDecimal().div(BigDecimal.fromString("86400"))
       
       if (daysSinceStart.gt(BigDecimal.zero())) {
-        // APR = roi * (365 / days_invested)
+        // APR = actual_roi * (365 / days_invested)
         let annualizationFactor = BigDecimal.fromString("365").div(daysSinceStart)
-        apr = roi.times(annualizationFactor)
+        actualAPR = actualROI.times(annualizationFactor)
       }
     }
   }
-  
+
   // Update portfolio
   portfolio.finalValue = finalValue
   portfolio.initialValue = initialValue  
   portfolio.positionsValue = positionsValue
   portfolio.uninvestedValue = uninvestedValue
-  portfolio.roi = roi
-  portfolio.apr = apr
+  portfolio.projected_roi = projected_roi  // Current portfolio-based calculation (unrealized PnL)
+  portfolio.roi = actualROI  // Position-based ROI from closed positions
+  portfolio.apr = actualAPR  // APR calculated from actual ROI
   portfolio.lastUpdated = block.timestamp
+
+  // Update aggregation fields
+  portfolio.totalInvestments = aggregates.totalInvestments
+  portfolio.totalGrossGains = aggregates.totalGrossGains
+  portfolio.totalCosts = aggregates.totalCosts
   
   // Count positions
   let activeCount = 0
@@ -167,7 +177,7 @@ export function calculatePortfolioMetrics(
   
   log.info("PORTFOLIO: {} USD (ROI: {}%, positions: {}, uninvested: {})", [
     finalValue.toString(),
-    roi.toString(),
+    actualROI.toString(),
     positionsValue.toString(),
     uninvestedValue.toString()
   ])
@@ -268,7 +278,11 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
-    portfolio.roi = BigDecimal.zero()
+    portfolio.projected_roi = BigDecimal.zero()  // Current portfolio-based calculation (unrealized PnL)
+    portfolio.roi = BigDecimal.zero()  // Position-based ROI from closed positions
+    portfolio.totalInvestments = BigDecimal.zero()
+    portfolio.totalGrossGains = BigDecimal.zero()
+    portfolio.totalCosts = BigDecimal.zero()
     portfolio.apr = BigDecimal.zero()
     portfolio.lastUpdated = timestamp
     portfolio.save()
