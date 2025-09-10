@@ -149,6 +149,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   service.historicalMultisigs = [];
   service.totalRequests = BigInt.fromI32(0);
   service.totalDeliveries = BigInt.fromI32(0);
+  service.agentIds = [];
   service.save();
 }
 
@@ -289,6 +290,24 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
+
+  // Maintain the current canonical agent set for the service
+  let service = Service.load(event.params.serviceId.toString());
+  if (service !== null) {
+    let ids = service.agentIds;
+    let found = false;
+    for (let i = 0; i < ids.length; i++) {
+      if (ids[i].equals(event.params.agentId)) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      ids.push(event.params.agentId);
+      service.agentIds = ids;
+      service.save();
+    }
+  }
 }
 
 export function handleTerminateService(event: TerminateServiceEvent): void {
@@ -302,6 +321,13 @@ export function handleTerminateService(event: TerminateServiceEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
+
+  // Clear current canonical agent set on termination
+  let service = Service.load(event.params.serviceId.toString());
+  if (service !== null) {
+    service.agentIds = [];
+    service.save();
+  }
 }
 
 export function handleTransfer(event: TransferEvent): void {
