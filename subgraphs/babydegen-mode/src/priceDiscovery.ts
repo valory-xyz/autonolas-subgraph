@@ -221,7 +221,7 @@ function getPriceFromSource(
   if (sourceType == "chainlink") {
     // Pass block timestamp for staleness checking
     let price = getChainlinkPrice(sourceConfig.address, timestamp)
-    if (price.gt(BigDecimal.fromString("0")) && isValidPriceResult(price, token.symbol)) {
+    if (isValidPriceResult(price, token.symbol)) {
       return new PriceResult(price, baseConfidence, "chainlink")
     }
   }
@@ -230,7 +230,7 @@ function getPriceFromSource(
     // Used for tokens without direct feeds (USDC.e referencing USDC)
     // Pass block timestamp for staleness checking
     let price = getChainlinkPrice(sourceConfig.address, timestamp)
-    if (price.gt(BigDecimal.fromString("0")) && isValidPriceResult(price, token.symbol)) {
+    if (isValidPriceResult(price, token.symbol)) {
       // Slightly lower confidence for reference prices
       return new PriceResult(price, baseConfidence.times(BigDecimal.fromString("0.9")), "chainlink_ref")
     }
@@ -245,7 +245,7 @@ function getPriceFromSource(
       sourceConfig.address,
       sourceConfig.pairToken!
     )
-    if (price.gt(BigDecimal.fromString("0")) && isValidPriceResult(price, token.symbol)) {
+    if (isValidPriceResult(price, token.symbol)) {
       return new PriceResult(price, baseConfidence, "velodrome_slipstream")
     }
   }
@@ -257,7 +257,7 @@ function getPriceFromSource(
       sourceConfig.address,
       sourceConfig.pairToken!
     )
-    if (price.gt(BigDecimal.fromString("0")) && isValidPriceResult(price, token.symbol)) {
+    if (isValidPriceResult(price, token.symbol)) {
       return new PriceResult(price, baseConfidence, "velodrome_v2")
     }
   }
@@ -269,7 +269,7 @@ function getPriceFromSource(
       sourceConfig.address,
       sourceConfig.pairToken!
     )
-    if (price.gt(BigDecimal.fromString("0")) && isValidPriceResult(price, token.symbol)) {
+    if (isValidPriceResult(price, token.symbol)) {
       return new PriceResult(price, baseConfidence, "balancer")
     }
   }
@@ -324,6 +324,11 @@ function createPriceUpdate(
 }
 
 function isValidPriceResult(price: BigDecimal, tokenSymbol: string): boolean {
+  // First check if price is greater than zero
+  if (price.le(BigDecimal.fromString("0"))) {
+    return false
+  }
+  
   // Set price validation bounds based on token type
   let minPrice: BigDecimal
   let maxPrice: BigDecimal
@@ -345,7 +350,7 @@ function isValidPriceResult(price: BigDecimal, tokenSymbol: string): boolean {
     maxPrice = BigDecimal.fromString("100000") // $100,000
   }
   
-  if (price.le(minPrice) || price.ge(maxPrice)) {
+  if (price.lt(minPrice) || price.gt(maxPrice)) {
     return false
   }
   
