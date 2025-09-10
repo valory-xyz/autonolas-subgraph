@@ -6,6 +6,7 @@ import {
   Global,
   Sender,
   MechAgent,
+  RequestsPerAgentOnchain,
 } from '../generated/schema';
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
 import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
@@ -94,4 +95,16 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalAtaTransactions = 0;
   }
   return sender as Sender;
+}
+
+export function getOrCreateRequestsPerAgentOnchain(
+  agentId: BigInt
+): RequestsPerAgentOnchain {
+  let id = agentId.toString();
+  let ent = RequestsPerAgentOnchain.load(id);
+  if (ent == null) {
+    ent = new RequestsPerAgentOnchain(id);
+    ent.totalRequestsCount = BigInt.fromI32(0);
+  }
+  return ent as RequestsPerAgentOnchain;
 }
