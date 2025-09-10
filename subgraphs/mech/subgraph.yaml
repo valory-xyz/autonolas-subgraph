@@ -184,6 +184,8 @@ dataSources:
         - CreateService
         - UpdateService
         - CreateMultisigWithAgents
+        - RegisterInstance
+        - TerminateService
       abis:
         - name: ServiceRegistryL2
           file: ./abis/ServiceRegistryL2.json
@@ -194,6 +196,10 @@ dataSources:
           handler: handleUpdateService
         - event: CreateMultisigWithAgents(indexed uint256,indexed address)
           handler: handleCreateMultisigWithAgents
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+        - event: TerminateService(indexed uint256)
+          handler: handleTerminateService
       file: ./src/registryL2.ts
 templates:
   - name: AgentMech
