@@ -17,6 +17,7 @@ import {
 
 import { getTokenPriceUSD } from "./priceDiscovery"
 import { getTokenDecimals } from "./tokenUtils"
+import { parseTotalSlippageFromBucket } from "./helpers"
 
 // Constants
 const ASSOCIATION_WINDOW = BigInt.fromI32(1200) // 20 minutes in seconds
@@ -71,31 +72,11 @@ function getBucketIndex(timestamp: BigInt): BigInt {
 }
 
 // Helper function to create swap data string for storage
-function createSwapDataString(swapId: Bytes, slippageUSD: BigDecimal): string {
-  // Simple format: "swapId:slippage"
-  return swapId.toHexString() + ":" + slippageUSD.toString()
+// Format: "timestamp,swapId,slippage,expiresAt" (matches protocol parsing expectations)
+function createSwapDataString(timestamp: BigInt, swapId: Bytes, slippageUSD: BigDecimal, expiresAt: BigInt): string {
+  return timestamp.toString() + "," + swapId.toHexString() + "," + slippageUSD.toString() + "," + expiresAt.toString()
 }
 
-// Helper function to parse total slippage from bucket string
-function parseTotalSlippageFromBucket(bucketSwaps: string): BigDecimal {
-  if (bucketSwaps == "[]" || bucketSwaps == "") {
-    return BigDecimal.zero()
-  }
-  
-  let totalSlippage = BigDecimal.zero()
-  
-  // Simple parsing: split by comma, then by colon
-  let swaps = bucketSwaps.split(",")
-  for (let i = 0; i < swaps.length; i++) {
-    let parts = swaps[i].split(":")
-    if (parts.length == 2) {
-      let slippage = BigDecimal.fromString(parts[1])
-      totalSlippage = totalSlippage.plus(slippage)
-    }
-  }
-  
-  return totalSlippage
-}
 
 // Create a new SwapTransaction entity and add to time bucket
 export function createSwapTransaction(
@@ -201,11 +182,12 @@ function addSwapToBuffer(agent: Address, timestamp: BigInt, swapId: Bytes, slipp
   }
   
   // Add swap to current bucket (bucket0)
-  const swapData = createSwapDataString(swapId, slippageUSD)
+  const expiresAt = timestamp.plus(ASSOCIATION_WINDOW)
+  const swapData = createSwapDataString(timestamp, swapId, slippageUSD, expiresAt)
   if (buffer.bucket0Swaps == "") {
     buffer.bucket0Swaps = swapData
   } else {
-    buffer.bucket0Swaps = buffer.bucket0Swaps + "," + swapData
+    buffer.bucket0Swaps = buffer.bucket0Swaps + "|" + swapData
   }
   
   buffer.totalSlippageUSD = buffer.totalSlippageUSD.plus(slippageUSD)

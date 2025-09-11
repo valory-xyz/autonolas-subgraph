@@ -11,7 +11,7 @@ import { addAgentNFTToPool, removeAgentNFTFromPool, getCachedPoolAddress, cacheP
 import { getTokenPriceUSD } from "./priceDiscovery"
 import { VELO_MANAGER, VELO_FACTORY } from "./constants"
 import { isServiceAgent, getServiceByAgent } from "./config"
-import { updateFirstTradingTimestamp } from "./helpers"
+import { updateFirstTradingTimestamp, parseTotalSlippageFromBucket, associateSwapsWithPosition } from "./helpers"
 import { getTokenDecimals, getTokenSymbol } from "./tokenUtils"
 
 // Helper function to convert token amount from wei to human readable
@@ -185,7 +185,7 @@ export function refreshVeloCLPositionWithEventAmounts(
       updateFirstTradingTimestamp(nftOwner, block.timestamp)
     }
     
-    // Initialize cost tracking for new position (inline)
+    // Initialize cost tracking for new position
     pp.totalCostsUSD = BigDecimal.zero()
     pp.swapSlippageUSD = BigDecimal.zero()
     pp.investmentUSD = BigDecimal.zero()
@@ -193,91 +193,14 @@ export function refreshVeloCLPositionWithEventAmounts(
     pp.netGainUSD = BigDecimal.zero()
     pp.positionROI = BigDecimal.zero()
     
-    // Inline swap association logic (only for new positions)
-    const bufferId = nftOwner
-    let buffer = AgentSwapBuffer.load(bufferId)
-    if (buffer != null) {
-      let totalSlippageUSD = BigDecimal.zero()
-      let currentTime = block.timestamp
-      let associationWindow = BigInt.fromI32(1200) // 20 minutes
-      let bucketDuration = BigInt.fromI32(300) // 5 minutes
-      
-      // Helper function to parse total slippage from bucket
-      function parseTotalSlippageFromBucket(bucketData: string): BigDecimal {
-        if (bucketData == "") return BigDecimal.zero()
-        
-        let totalSlippage = BigDecimal.zero()
-        let swapEntries = bucketData.split("|")
-        
-        for (let i = 0; i < swapEntries.length; i++) {
-          let entry = swapEntries[i]
-          if (entry == "") continue
-          
-          let parts = entry.split(",")
-          if (parts.length >= 3) {
-            let slippageStr = parts[2]
-            let slippage = BigDecimal.fromString(slippageStr)
-            totalSlippage = totalSlippage.plus(slippage)
-          }
-        }
-        
-        return totalSlippage
-      }
-      
-      // Check buckets sequentially and consume swaps within association window
-      let bucketsToCheck = [buffer.bucket0Swaps, buffer.bucket1Swaps, buffer.bucket2Swaps, buffer.bucket3Swaps]
-      let updatedBuckets: string[] = ["", "", "", ""]
-      
-      for (let bucketIdx = 0; bucketIdx < bucketsToCheck.length; bucketIdx++) {
-        let bucketData = bucketsToCheck[bucketIdx]
-        if (bucketData == "") {
-          updatedBuckets[bucketIdx] = ""
-          continue
-        }
-        
-        let remainingSwaps: string[] = []
-        let swapEntries = bucketData.split("|")
-        
-        for (let i = 0; i < swapEntries.length; i++) {
-          let entry = swapEntries[i]
-          if (entry == "") continue
-          
-          let parts = entry.split(",")
-          if (parts.length >= 4) {
-            let swapTimestamp = BigInt.fromString(parts[0])
-            let slippageStr = parts[2]
-            let expiresAtStr = parts[3]
-            let expiresAt = BigInt.fromString(expiresAtStr)
-            
-            // Check if swap is within association window and not expired
-            if (currentTime.minus(swapTimestamp).le(associationWindow) && currentTime.le(expiresAt)) {
-              // Associate this swap
-              let slippage = BigDecimal.fromString(slippageStr)
-              totalSlippageUSD = totalSlippageUSD.plus(slippage)
-            } else {
-              // Keep swap in buffer (not associated or expired)
-              remainingSwaps.push(entry)
-            }
-          }
-        }
-        
-        // Update bucket with remaining swaps
-        updatedBuckets[bucketIdx] = remainingSwaps.join("|")
-      }
-      
-      // Update buffer with remaining swaps
-      buffer.bucket0Swaps = updatedBuckets[0]
-      buffer.bucket1Swaps = updatedBuckets[1]
-      buffer.bucket2Swaps = updatedBuckets[2]
-      buffer.bucket3Swaps = updatedBuckets[3]
-      buffer.save()
-      
-      // Update position costs if any swaps were associated
-      if (totalSlippageUSD.gt(BigDecimal.zero())) {
-        pp.swapSlippageUSD = totalSlippageUSD
-        pp.totalCostsUSD = totalSlippageUSD
-        pp.investmentUSD = eventUsd.plus(totalSlippageUSD)
-      }
+    // Use centralized swap association logic
+    let totalSlippageUSD = associateSwapsWithPosition(nftOwner, block)
+    
+    // Update position costs if any swaps were associated
+    if (totalSlippageUSD.gt(BigDecimal.zero())) {
+      pp.swapSlippageUSD = totalSlippageUSD
+      pp.totalCostsUSD = totalSlippageUSD
+      pp.investmentUSD = eventUsd.plus(totalSlippageUSD)
     }
     
     // Set static position metadata
