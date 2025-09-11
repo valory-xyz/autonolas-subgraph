@@ -201,13 +201,13 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
   if (serviceIDForOffChain !== null) {
-    let svc = Service.load(serviceIDForOffChain);
-    if (svc !== null) {
-      let ids = svc.agentIds;
-      for (let i = 0; i < ids.length; i++) {
-        let agg = getOrCreateRequestsPerAgent(ids[i]);
-        agg.totalRequestsCount = agg.totalRequestsCount.plus(event.params.numDeliveries);
-        agg.save();
+    let serviceEntity = Service.load(serviceIDForOffChain);
+    if (serviceEntity !== null) {
+      let agentIds = serviceEntity.agentIds;
+      for (let i = 0; i < agentIds.length; i++) {
+        let entity = getOrCreateRequestsPerAgent(agentIds[i]);
+        entity.RequestsCount = entity.RequestsCount.plus(event.params.numDeliveries);
+        entity.save();
       }
     }
   }
@@ -331,7 +331,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let agg = getOrCreateRequestsPerAgent(ids[i]);
-        agg.totalRequestsCount = agg.totalRequestsCount.plus(event.params.numRequests);
+        agg.RequestsCount = agg.RequestsCount.plus(event.params.numRequests);
         agg.save();
       }
     }

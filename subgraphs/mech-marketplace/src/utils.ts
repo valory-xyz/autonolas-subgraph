@@ -254,10 +254,10 @@ export function createDataSourceForMechContract(
 
 export function getOrCreateRequestsPerAgent(agentId: BigInt): RequestsPerAgent {
   let id = agentId.toString();
-  let ent = RequestsPerAgent.load(id);
-  if (ent == null) {
-    ent = new RequestsPerAgent(id);
-    ent.totalRequestsCount = BigInt.fromI32(0);
+  let entity = RequestsPerAgent.load(id);
+  if (entity == null) {
+    entity = new RequestsPerAgent(id);
+    entity.RequestsCount = BigInt.fromI32(0);
   }
-  return ent as RequestsPerAgent;
+  return entity as RequestsPerAgent;
 }

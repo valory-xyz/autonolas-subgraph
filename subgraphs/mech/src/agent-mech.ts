@@ -178,11 +178,11 @@ export function handleRequest(event: RequestEvent): void {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
       // Increment on-chain per-agent counters for current composition
-      let ids = service.agentIds;
-      for (let i = 0; i < ids.length; i++) {
-        let agg = getOrCreateRequestsPerAgentOnchain(ids[i]);
-        agg.totalRequestsCount = agg.totalRequestsCount.plus(BigInt.fromI32(1));
-        agg.save();
+      let agentIds = service.agentIds;
+      for (let i = 0; i < agentIds.length; i++) {
+        let entity = getOrCreateRequestsPerAgentOnchain(agentIds[i]);
+        entity.RequestsCount = entity.RequestsCount.plus(BigInt.fromI32(1));
+        entity.save();
       }
     }
   }

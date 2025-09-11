@@ -294,17 +294,17 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   // Maintain the current canonical agent set for the service
   let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
-    let ids = service.agentIds;
-    let found = false;
-    for (let i = 0; i < ids.length; i++) {
-      if (ids[i].equals(event.params.agentId)) {
-        found = true;
+    let agentIds = service.agentIds;
+    let agentIdFound = false;
+    for (let i = 0; i < agentIds.length; i++) {
+      if (agentIds[i].equals(event.params.agentId)) {
+        agentIdFound = true;
         break;
       }
     }
-    if (!found) {
-      ids.push(event.params.agentId);
-      service.agentIds = ids;
+    if (!agentIdFound) {
+      agentIds.push(event.params.agentId);
+      service.agentIds = agentIds;
       service.save();
     }
   }

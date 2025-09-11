@@ -101,10 +101,10 @@ export function getOrCreateRequestsPerAgentOnchain(
   agentId: BigInt
 ): RequestsPerAgentOnchain {
   let id = agentId.toString();
-  let ent = RequestsPerAgentOnchain.load(id);
-  if (ent == null) {
-    ent = new RequestsPerAgentOnchain(id);
-    ent.totalRequestsCount = BigInt.fromI32(0);
+  let entity = RequestsPerAgentOnchain.load(id);
+  if (entity == null) {
+    entity = new RequestsPerAgentOnchain(id);
+    entity.RequestsCount = BigInt.fromI32(0);
   }
-  return ent as RequestsPerAgentOnchain;
+  return entity as RequestsPerAgentOnchain;
 }
