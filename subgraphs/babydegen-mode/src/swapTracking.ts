@@ -31,30 +31,9 @@ function toHumanAmount(amount: BigInt, decimals: i32): BigDecimal {
   return amount.toBigDecimal().div(divisor.toBigDecimal())
 }
 
-// Check if a token is a stablecoin (Optimism network stablecoins)
-function isStablecoin(tokenAddress: Address): boolean {
-  let tokenHex = tokenAddress.toHexString().toLowerCase()
-  
-  // Optimism stablecoins - direct comparison to avoid array iteration issues
-  if (tokenHex == "0x0b2c639c533813f4aa9d7837caf62653d097ff85") return true // USDC Native
-  if (tokenHex == "0x7f5c764cbc14f9669b88837ca1490cca17c31607") return true // USDC Bridged
-  if (tokenHex == "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58") return true // USDT
-  if (tokenHex == "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1") return true // DAI
-  if (tokenHex == "0xc40f949f8a4e094d1b49a23ea9241d289b7b2819") return true // LUSD
-  if (tokenHex == "0x8ae125e8653821e851f12a49f7765db9a9ce7384") return true // DOLA
-  
-  return false
-}
-
-// Get token decimals with fallback
+// Get token decimals using the centralized function from tokenUtils
 function getTokenDecimalsWithFallback(tokenAddress: Address): i32 {
-  // For stablecoins, use 6 decimals
-  if (isStablecoin(tokenAddress)) {
-    return 6
-  }
-  
-  // For other tokens, use 18 decimals (most common)
-  return 18
+  return getTokenDecimals(tokenAddress)
 }
 
 // Calculate expected output amount for slippage calculation
