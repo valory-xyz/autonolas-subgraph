@@ -74,12 +74,12 @@ export function calculatePortfolioMetrics(
   let finalValue = positionsValue.plus(uninvestedValue)
   
   // 5. Calculate projected ROI (current portfolio-based calculation)
-  let projected_roi = BigDecimal.zero()
+  let projectedRoi = BigDecimal.zero()
   
   if (initialValue.gt(BigDecimal.zero())) {
     // Projected ROI = (final_value - initial_value) / initial_value * 100
     let profit = finalValue.minus(initialValue)
-    projected_roi = profit.div(initialValue).times(BigDecimal.fromString("100"))
+    projectedRoi = profit.div(initialValue).times(BigDecimal.fromString("100"))
   }
   
   // Calculate new position-based ROI from closed positions
@@ -116,8 +116,8 @@ export function calculatePortfolioMetrics(
   portfolio.initialValue = initialValue  
   portfolio.positionsValue = positionsValue
   portfolio.uninvestedValue = uninvestedValue
-  portfolio.projected_roi = projected_roi  // Current portfolio-based calculation (unrealized PnL)
-  portfolio.roi = actualROI  // Position-based ROI from closed positions
+  portfolio.projectedRoi = projectedRoi  // Current portfolio-based calculation (unrealized PnL)
+  portfolio.roi = actualROI  //Position-based ROI from closed positions
   portfolio.apr = actualAPR  // APR calculated from actual ROI
   portfolio.lastUpdated = block.timestamp
 
@@ -278,7 +278,7 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
-    portfolio.projected_roi = BigDecimal.zero()  // Current portfolio-based calculation (unrealized PnL)
+    portfolio.projectedRoi = BigDecimal.zero()  // Current portfolio-based calculation (unrealized PnL)
     portfolio.roi = BigDecimal.zero()  // Position-based ROI from closed positions
     portfolio.totalInvestments = BigDecimal.zero()
     portfolio.totalGrossGains = BigDecimal.zero()
