@@ -173,7 +173,10 @@ export function handleERC20Transfer(event: TransferEvent): void {
   if (toService != null) {
     updateTokenBalance(to, tokenAddress, value, true, event.block)
     
-    // Check if sender is a valid funding source
+    // ALWAYS ensure portfolio exists for any token activity
+    ensureAgentPortfolio(to, event.block.timestamp)
+    
+    // Then do the funding logic for valid sources only
     let isValidSource = isFundingSource(from, to, event.block, event.transaction.hash.toHexString())
     
     // Check if it's a funding deposit AND is NATIVE USDC (explicitly excluding bridged USDC)
