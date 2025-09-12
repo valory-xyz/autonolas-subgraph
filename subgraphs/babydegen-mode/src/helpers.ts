@@ -5,7 +5,8 @@ import {
   AgentPortfolioSnapshot,
   ProtocolPosition,
   Service,
-  AgentSwapBuffer
+  AgentSwapBuffer,
+  SwapTransaction
 } from "../generated/schema"
 import { calculateUninvestedValue, updateFundingBalance } from "./tokenBalances"
 import { getServiceByAgent } from "./config"
@@ -367,6 +368,20 @@ export function associateSwapsWithPosition(
       let associatedBucketData = associatedSwaps.join("|")
       let bucketSlippage = parseTotalSlippageFromBucket(associatedBucketData)
       totalSlippageUSD = totalSlippageUSD.plus(bucketSlippage)
+      
+      // CRITICAL FIX: Mark SwapTransaction entities as associated
+      for (let j = 0; j < associatedSwaps.length; j++) {
+        let swapEntry = associatedSwaps[j]
+        let swapParts = swapEntry.split(",")
+        if (swapParts.length >= 5) {
+          let swapId = swapParts[4] // SwapTransaction ID is the 5th field
+          let swapTransaction = SwapTransaction.load(Bytes.fromHexString(swapId))
+          if (swapTransaction != null) {
+            swapTransaction.isAssociated = true
+            swapTransaction.save()
+          }
+        }
+      }
     }
     
     // Update bucket with remaining swaps
@@ -379,6 +394,11 @@ export function associateSwapsWithPosition(
   buffer.bucket2Swaps = updatedBuckets[2]
   buffer.bucket3Swaps = updatedBuckets[3]
   buffer.save()
+  
+  // Handle negative slippage by setting to 0 (no cost reduction)
+  if (totalSlippageUSD.lt(BigDecimal.zero())) {
+    totalSlippageUSD = BigDecimal.zero()
+  }
   
   return totalSlippageUSD
 }

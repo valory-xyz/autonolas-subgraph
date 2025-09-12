@@ -153,12 +153,15 @@ export function refreshBalancerPositionWithEventAmounts(
     // Use centralized swap association logic
     let totalSlippageUSD = associateSwapsWithPosition(userAddress, block)
     
-    // Update position costs if any swaps were associated
-    if (totalSlippageUSD.gt(BigDecimal.zero())) {
-      pp.swapSlippageUSD = totalSlippageUSD
-      pp.totalCostsUSD = totalSlippageUSD
-      pp.investmentUSD = pp.entryAmountUSD.plus(totalSlippageUSD)
+    // Handle negative slippage (set to 0 - no cost reduction)
+    if (totalSlippageUSD.lt(BigDecimal.zero())) {
+      totalSlippageUSD = BigDecimal.zero()
     }
+    
+    // Always update position costs after handling negative slippage
+    pp.swapSlippageUSD = totalSlippageUSD
+    pp.totalCostsUSD = totalSlippageUSD
+    pp.investmentUSD = pp.entryAmountUSD.plus(totalSlippageUSD)
     
     // Initialize all required fields
     pp.usdCurrent = BigDecimal.zero()

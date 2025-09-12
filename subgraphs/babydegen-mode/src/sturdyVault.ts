@@ -219,12 +219,15 @@ function refreshSturdyPosition(
     // Associate swaps with position using centralized function
     let totalSlippageUSD = associateSwapsWithPosition(agent, block)
     
-    // Update position costs if any swaps were associated
-    if (totalSlippageUSD.gt(BigDecimal.zero())) {
-      position.swapSlippageUSD = totalSlippageUSD
-      position.totalCostsUSD = totalSlippageUSD
-      position.investmentUSD = position.entryAmountUSD.plus(totalSlippageUSD)
+    // Handle negative slippage (set to 0 - no cost reduction)
+    if (totalSlippageUSD.lt(BigDecimal.zero())) {
+      totalSlippageUSD = BigDecimal.zero()
     }
+    
+    // Always update position costs after handling negative slippage
+    position.swapSlippageUSD = totalSlippageUSD
+    position.totalCostsUSD = totalSlippageUSD
+    position.investmentUSD = position.entryAmountUSD.plus(totalSlippageUSD)
   }
   
   // Get underlying asset decimals

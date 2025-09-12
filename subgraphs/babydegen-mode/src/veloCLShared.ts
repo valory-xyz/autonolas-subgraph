@@ -196,12 +196,15 @@ export function refreshVeloCLPositionWithEventAmounts(
     // Use centralized swap association logic
     let totalSlippageUSD = associateSwapsWithPosition(nftOwner, block)
     
-    // Update position costs if any swaps were associated
-    if (totalSlippageUSD.gt(BigDecimal.zero())) {
-      pp.swapSlippageUSD = totalSlippageUSD
-      pp.totalCostsUSD = totalSlippageUSD
-      pp.investmentUSD = eventUsd.plus(totalSlippageUSD)
+    // Handle negative slippage by setting to 0 (no cost reduction)
+    if (totalSlippageUSD.lt(BigDecimal.zero())) {
+      totalSlippageUSD = BigDecimal.zero()
     }
+    
+    // Always update costs (even if zero after negative adjustment)
+    pp.swapSlippageUSD = totalSlippageUSD
+    pp.totalCostsUSD = totalSlippageUSD
+    pp.investmentUSD = eventUsd.plus(totalSlippageUSD)
     
     // Set static position metadata
     pp.tickLower = data.value5 as i32

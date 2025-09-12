@@ -205,13 +205,16 @@ export function refreshVeloV2PositionWithEventAmounts(
   if (pp.entryAmountUSD.equals(eventUsd)) {
     let totalSlippageUSD = associateSwapsWithPosition(userAddress, block)
     
-    // Update position costs if any swaps were associated
-    if (totalSlippageUSD.gt(BigDecimal.zero())) {
-      pp.swapSlippageUSD = totalSlippageUSD
-      pp.totalCostsUSD = totalSlippageUSD
-      pp.investmentUSD = pp.entryAmountUSD.plus(totalSlippageUSD)
-      pp.save()
+    // Handle negative slippage by setting to 0 (no cost reduction)
+    if (totalSlippageUSD.lt(BigDecimal.zero())) {
+      totalSlippageUSD = BigDecimal.zero()
     }
+    
+    // Always update costs (even if zero after negative adjustment)
+    pp.swapSlippageUSD = totalSlippageUSD
+    pp.totalCostsUSD = totalSlippageUSD
+    pp.investmentUSD = pp.entryAmountUSD.plus(totalSlippageUSD)
+    pp.save()
   }
   
   // Update current amounts by calling the regular refresh function
