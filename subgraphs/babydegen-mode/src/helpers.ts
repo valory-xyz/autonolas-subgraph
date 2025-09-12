@@ -112,12 +112,38 @@ export function calculatePortfolioMetrics(
     }
   }
 
+  // Calculate projected APR from projected ROI (same logic as actual APR)
+  let projectedAPR = BigDecimal.zero()
+  if (projectedRoi.gt(BigDecimal.zero())) {
+    let timestampForAPR = portfolio.firstTradingTimestamp
+    
+    // Fallback: If no trading activity, use service creation timestamp
+    if (timestampForAPR.equals(BigInt.zero())) {
+      let serviceEntity = Service.load(serviceSafe)
+      if (serviceEntity != null && serviceEntity.latestRegistrationTimestamp.gt(BigInt.zero())) {
+        timestampForAPR = serviceEntity.latestRegistrationTimestamp
+      }
+    }
+    
+    if (timestampForAPR.gt(BigInt.zero())) {
+      let secondsSinceStart = block.timestamp.minus(timestampForAPR)
+      let daysSinceStart = secondsSinceStart.toBigDecimal().div(BigDecimal.fromString("86400"))
+      
+      if (daysSinceStart.gt(BigDecimal.zero())) {
+        // Projected APR = projected_roi * (365 / days_invested)
+        let annualizationFactor = BigDecimal.fromString("365").div(daysSinceStart)
+        projectedAPR = projectedRoi.times(annualizationFactor)
+      }
+    }
+  }
+
   // Update portfolio
   portfolio.finalValue = finalValue
   portfolio.initialValue = initialValue  
   portfolio.positionsValue = positionsValue
   portfolio.uninvestedValue = uninvestedValue
   portfolio.projectedRoi = projectedRoi  // Current portfolio-based calculation (unrealized PnL)
+  portfolio.projectedApr = projectedAPR  // APR calculated from projected ROI
   portfolio.roi = actualROI  //Position-based ROI from closed positions
   portfolio.apr = actualAPR  // APR calculated from actual ROI
   portfolio.lastUpdated = block.timestamp
@@ -245,7 +271,9 @@ function createPortfolioSnapshot(portfolio: AgentPortfolio, block: ethereum.Bloc
   snapshot.positionsValue = portfolio.positionsValue
   snapshot.uninvestedValue = portfolio.uninvestedValue
   
-  // Copy performance metrics
+  // Copy performance metrics (both actual and projected)
+  snapshot.projectedRoi = portfolio.projectedRoi
+  snapshot.projectedApr = portfolio.projectedApr
   snapshot.roi = portfolio.roi
   snapshot.apr = portfolio.apr
   
@@ -374,6 +402,7 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
     portfolio.projectedRoi = BigDecimal.zero()  // Current portfolio-based calculation (unrealized PnL)
+    portfolio.projectedApr = BigDecimal.zero()  // APR calculated from projected ROI
     portfolio.roi = BigDecimal.zero()  // Position-based ROI from closed positions
     portfolio.totalInvestments = BigDecimal.zero()
     portfolio.totalGrossGains = BigDecimal.zero()
