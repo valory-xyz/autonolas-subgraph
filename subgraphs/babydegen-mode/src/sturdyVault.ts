@@ -165,18 +165,12 @@ function refreshSturdyPosition(
     position.pool = STURDY_VAULT // Use vault address as pool address
     position.isActive = true
     
-    // Initialize amounts
+    // Initialize entry tracking fields
     position.entryAmount0 = BigDecimal.zero()
     position.entryAmount0USD = BigDecimal.zero()
     position.entryAmount1 = BigDecimal.zero()
     position.entryAmount1USD = BigDecimal.zero()
     position.entryAmountUSD = BigDecimal.zero()
-    
-    position.amount0 = BigDecimal.zero()
-    position.amount0USD = BigDecimal.zero()
-    position.amount1 = BigDecimal.zero()
-    position.amount1USD = BigDecimal.zero()
-    position.usdCurrent = BigDecimal.zero()
     
     // Entry tracking
     position.entryTxHash = txHash
@@ -191,6 +185,13 @@ function refreshSturdyPosition(
     // Set token0 as the underlying asset (e.g., WETH), token1 as null
     position.token0 = underlyingAsset
     position.token1 = null
+    
+    // Set ALL required fields BEFORE calling any initialization functions
+    position.amount0 = BigDecimal.zero()
+    position.amount0USD = BigDecimal.zero()
+    position.amount1 = BigDecimal.zero()
+    position.amount1USD = BigDecimal.zero()
+    position.usdCurrent = BigDecimal.zero()
     
     // Add position to service
     let service = Service.load(agent)
@@ -207,7 +208,7 @@ function refreshSturdyPosition(
     // Update first trading timestamp
     updateFirstTradingTimestamp(agent, block.timestamp)
     
-    // Initialize cost tracking for new position
+    // Initialize cost tracking for new position - AFTER all required fields are set
     position.totalCostsUSD = BigDecimal.zero()
     position.swapSlippageUSD = BigDecimal.zero()
     position.investmentUSD = BigDecimal.zero()

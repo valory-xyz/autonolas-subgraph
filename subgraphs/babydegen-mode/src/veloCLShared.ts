@@ -460,14 +460,6 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
       updateFirstTradingTimestamp(nftOwner, block.timestamp)
     }
     
-    // Initialize cost tracking for new position (inline)
-    pp.totalCostsUSD = BigDecimal.zero()
-    pp.swapSlippageUSD = BigDecimal.zero()
-    pp.investmentUSD = BigDecimal.zero()
-    pp.grossGainUSD = BigDecimal.zero()
-    pp.netGainUSD = BigDecimal.zero()
-    pp.positionROI = BigDecimal.zero()
-    
     // Set static position metadata (required fields)
     pp.tickLower = tickLower
     pp.tickUpper = tickUpper
@@ -484,20 +476,40 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
     pp.entryAmount1USD = BigDecimal.zero()
     pp.entryAmountUSD = BigDecimal.zero()
     
+    // Set ALL required fields BEFORE calling any initialization functions
+    pp.usdCurrent = usd
+    pp.token0     = data.value2
+    pp.token0Symbol = getTokenSymbol(data.value2)
+    pp.amount0    = amount0Human
+    pp.amount0USD = usd0
+    pp.token1     = data.value3
+    pp.token1Symbol = getTokenSymbol(data.value3)
+    pp.amount1    = amount1Human
+    pp.amount1USD = usd1
+    pp.liquidity  = data.value7
+    
+    // Initialize cost tracking for new position (inline) - AFTER all required fields are set
+    pp.totalCostsUSD = BigDecimal.zero()
+    pp.swapSlippageUSD = BigDecimal.zero()
+    pp.investmentUSD = BigDecimal.zero()
+    pp.grossGainUSD = BigDecimal.zero()
+    pp.netGainUSD = BigDecimal.zero()
+    pp.positionROI = BigDecimal.zero()
+    
     // Entry amounts will be set by event processing
+  } else {
+    // Update current state (for existing positions)
+    pp.usdCurrent = usd
+    pp.token0     = data.value2
+    pp.token0Symbol = getTokenSymbol(data.value2)
+    pp.amount0    = amount0Human
+    pp.amount0USD = usd0
+    pp.token1     = data.value3
+    pp.token1Symbol = getTokenSymbol(data.value3)
+    pp.amount1    = amount1Human
+    pp.amount1USD = usd1
+    pp.liquidity  = data.value7
   }
-  
-  // Update current state (for both new and existing positions)
-  pp.usdCurrent = usd
-  pp.token0     = data.value2
-  pp.token0Symbol = getTokenSymbol(data.value2)
-  pp.amount0    = amount0Human
-  pp.amount0USD = usd0
-  pp.token1     = data.value3
-  pp.token1Symbol = getTokenSymbol(data.value3)
-  pp.amount1    = amount1Human
-  pp.amount1USD = usd1
-  pp.liquidity  = data.value7
   
   // Check if position should be closed
   if (isPositionClosed(data.value7, amount0Human, amount1Human)) {

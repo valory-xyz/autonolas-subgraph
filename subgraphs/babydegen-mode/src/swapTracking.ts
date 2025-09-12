@@ -18,6 +18,7 @@ import {
 import { getTokenPriceUSD } from "./priceDiscovery"
 import { getTokenDecimals } from "./tokenUtils"
 import { parseTotalSlippageFromBucket } from "./helpers"
+import { WETH } from "./constants"
 
 // Constants
 const ASSOCIATION_WINDOW = BigInt.fromI32(1200) // 20 minutes in seconds
@@ -32,8 +33,14 @@ function toHumanAmount(amount: BigInt, decimals: i32): BigDecimal {
   return amount.toBigDecimal().div(divisor.toBigDecimal())
 }
 
-// Get token decimals using the centralized function from tokenUtils
+// Get token decimals with fallback - use the proper tokenUtils function
 function getTokenDecimalsWithFallback(tokenAddress: Address): i32 {
+  // For ETH (zero address), use 18 decimals
+  if (tokenAddress.equals(Address.zero())) {
+    return 18
+  }
+  
+  // Use the proper getTokenDecimals function from tokenUtils
   return getTokenDecimals(tokenAddress)
 }
 
@@ -44,9 +51,13 @@ function calculateExpectedOutput(
   toToken: Address,
   timestamp: BigInt
 ): BigDecimal {
+  // Handle ETH (zero address) by mapping to WETH for price lookup
+  let fromTokenForPrice = fromToken.equals(Address.zero()) ? WETH : fromToken
+  let toTokenForPrice = toToken.equals(Address.zero()) ? WETH : toToken
+  
   // Get token prices
-  let fromPrice = getTokenPriceUSD(fromToken, timestamp, false)
-  let toPrice = getTokenPriceUSD(toToken, timestamp, false)
+  let fromPrice = getTokenPriceUSD(fromTokenForPrice, timestamp, false)
+  let toPrice = getTokenPriceUSD(toTokenForPrice, timestamp, false)
   
   if (fromPrice.equals(BigDecimal.zero()) || toPrice.equals(BigDecimal.zero())) {
     return BigDecimal.zero()
@@ -116,8 +127,12 @@ export function createSwapTransaction(
   let fromAmountHuman = toHumanAmount(fromAmount, fromDecimals)
   let toAmountHuman = toHumanAmount(toAmount, toDecimals)
   
-  let fromPrice = getTokenPriceUSD(fromAssetId, timestamp, false)
-  let toPrice = getTokenPriceUSD(toAssetId, timestamp, false)
+  // Handle ETH (zero address) by mapping to WETH for price lookup
+  let fromTokenForPrice = fromAssetId.equals(Address.zero()) ? WETH : fromAssetId
+  let toTokenForPrice = toAssetId.equals(Address.zero()) ? WETH : toAssetId
+  
+  let fromPrice = getTokenPriceUSD(fromTokenForPrice, timestamp, false)
+  let toPrice = getTokenPriceUSD(toTokenForPrice, timestamp, false)
   
   swap.fromAmountUSD = fromPrice.times(fromAmountHuman)
   swap.toAmountUSD = toPrice.times(toAmountHuman)

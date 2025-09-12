@@ -353,22 +353,6 @@ export function refreshBalancerPosition(
       updateFirstTradingTimestamp(userAddress, block.timestamp)
     }
     
-    // Initialize cost tracking for new position (inline to avoid compiler crash)
-    pp.totalCostsUSD = BigDecimal.zero()
-    pp.swapSlippageUSD = BigDecimal.zero()
-    pp.investmentUSD = BigDecimal.zero()
-    pp.grossGainUSD = BigDecimal.zero()
-    pp.netGainUSD = BigDecimal.zero()
-    pp.positionROI = BigDecimal.zero()
-    
-    // Initialize all required fields
-    pp.usdCurrent = BigDecimal.zero()
-    pp.amount0 = BigDecimal.zero()
-    pp.amount0USD = BigDecimal.zero()
-    pp.amount1 = BigDecimal.zero()
-    pp.amount1USD = BigDecimal.zero()
-    pp.liquidity = BigInt.zero()
-    
     // Initialize entry tracking fields
     pp.entryTxHash = txHash
     pp.entryTimestamp = block.timestamp
@@ -382,10 +366,23 @@ export function refreshBalancerPosition(
     pp.tickLower = 0
     pp.tickUpper = 0
     pp.tickSpacing = 0
-    pp.fee = 0
+    pp.fee = 30 // 30 basis points = 0.3% (default for Balancer pools)
     
-    // Set default fee for Balancer pools (typically 0.3%)
-    pp.fee = 30 // 30 basis points = 0.3%
+    // Set ALL required fields BEFORE calling any initialization functions
+    pp.usdCurrent = BigDecimal.zero()
+    pp.amount0 = BigDecimal.zero()
+    pp.amount0USD = BigDecimal.zero()
+    pp.amount1 = BigDecimal.zero()
+    pp.amount1USD = BigDecimal.zero()
+    pp.liquidity = BigInt.zero()
+    
+    // Initialize cost tracking for new position (inline) - AFTER all required fields are set
+    pp.totalCostsUSD = BigDecimal.zero()
+    pp.swapSlippageUSD = BigDecimal.zero()
+    pp.investmentUSD = BigDecimal.zero()
+    pp.grossGainUSD = BigDecimal.zero()
+    pp.netGainUSD = BigDecimal.zero()
+    pp.positionROI = BigDecimal.zero()
   }
   
   // Get current BPT balance

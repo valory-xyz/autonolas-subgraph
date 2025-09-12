@@ -5,8 +5,11 @@ import { TOKENS } from "./tokenConfig"
 import { getServiceByAgent } from "./config"
 import { isFundingSource } from "./common"
 import { getTokenPriceUSD } from "./priceDiscovery"
-import { WETH, WHITELISTED_TOKENS, USDC_NATIVE, USDC_BRIDGED } from "./constants"
+import { WETH, WHITELISTED_TOKENS, USDC_NATIVE, USDC_BRIDGED, OLAS } from "./constants"
 import { ensureAgentPortfolio } from "./helpers"
+
+// OLAS transfer exclusion - transfers from this address to service safes will not update token balance
+const EXCLUDED_OLAS_SENDER = Address.fromString("0x8BcAdb2c291C159F9385964e5eD95a9887302862")
 
 // NOTE: This subgraph is configured to track USDC Native and ETH transfers for funding balance calculations.
 // While all token transfers are tracked for token balance purposes, only USDC Native and ETH flows affect
@@ -171,6 +174,16 @@ export function handleERC20Transfer(event: TransferEvent): void {
   // Handle transfers TO service safes (deposits)
   let toService = getServiceByAgent(to)
   if (toService != null) {
+    // Skip OLAS transfers from specific excluded address
+    if (tokenAddress.equals(OLAS) && from.equals(EXCLUDED_OLAS_SENDER)) {
+      log.info("OLAS EXCLUSION: Skipping OLAS transfer from {} to service {} - amount: {}", [
+        from.toHexString(),
+        to.toHexString(), 
+        formattedAmount.toString()
+      ])
+      return // Skip token balance update entirely
+    }
+    
     updateTokenBalance(to, tokenAddress, value, true, event.block)
     
     // ALWAYS ensure portfolio exists for any token activity
