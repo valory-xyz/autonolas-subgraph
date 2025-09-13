@@ -49,6 +49,19 @@ export function calculateMedian(values: BigDecimal[]): BigDecimal {
 }
 
 /**
+ * Check if an agent should be excluded from projected ROI calculations
+ * Excludes agents with initial value < $1.00 AND final value exactly $0.00
+ * @param snapshot AgentPortfolioSnapshot to check
+ * @returns True if agent should be excluded from projected ROI calculations
+ */
+function shouldExcludeFromProjectedROI(snapshot: AgentPortfolioSnapshot): boolean {
+  const lowInitialValue = snapshot.initialValue.lt(BigDecimal.fromString("1.0"));
+  const zeroFinalValue = snapshot.finalValue.equals(BigDecimal.zero());
+  
+  return lowInitialValue && zeroFinalValue;
+}
+
+/**
  * Calculate 7-day simple moving average from historical values
  * @param historicalValues Array of historical daily values (up to 7 days)
  * @returns 7-day SMA as BigDecimal
@@ -141,27 +154,47 @@ export function getPreviousDailyPopulationMetric(currentDayTimestamp: BigInt): D
  * @param historicalAPR Current historical APR array
  * @param historicalProjectedROI Current historical projected ROI array
  * @param historicalProjectedAPR Current historical projected APR array
+ * @param historicalEthAdjustedROI Current historical ETH-adjusted ROI array
+ * @param historicalEthAdjustedAPR Current historical ETH-adjusted APR array
+ * @param historicalEthAdjustedProjectedROI Current historical ETH-adjusted projected ROI array
+ * @param historicalEthAdjustedProjectedAPR Current historical ETH-adjusted projected APR array
  * @param newMedianROI New median ROI to add
  * @param newMedianAPR New median APR to add
  * @param newMedianProjectedROI New median projected ROI to add
  * @param newMedianProjectedAPR New median projected APR to add
- * @returns Updated historical arrays as tuple [ROI, APR, ProjectedROI, ProjectedAPR]
+ * @param newMedianEthAdjustedROI New median ETH-adjusted ROI to add
+ * @param newMedianEthAdjustedAPR New median ETH-adjusted APR to add
+ * @param newMedianEthAdjustedProjectedROI New median ETH-adjusted projected ROI to add
+ * @param newMedianEthAdjustedProjectedAPR New median ETH-adjusted projected APR to add
+ * @returns Updated historical arrays as tuple [ROI, APR, ProjectedROI, ProjectedAPR, EthAdjustedROI, EthAdjustedAPR, EthAdjustedProjectedROI, EthAdjustedProjectedAPR]
  */
 export function updateHistoricalArrays(
   historicalROI: BigDecimal[],
   historicalAPR: BigDecimal[],
   historicalProjectedROI: BigDecimal[],
   historicalProjectedAPR: BigDecimal[],
+  historicalEthAdjustedROI: BigDecimal[],
+  historicalEthAdjustedAPR: BigDecimal[],
+  historicalEthAdjustedProjectedROI: BigDecimal[],
+  historicalEthAdjustedProjectedAPR: BigDecimal[],
   newMedianROI: BigDecimal,
   newMedianAPR: BigDecimal,
   newMedianProjectedROI: BigDecimal,
-  newMedianProjectedAPR: BigDecimal
+  newMedianProjectedAPR: BigDecimal,
+  newMedianEthAdjustedROI: BigDecimal,
+  newMedianEthAdjustedAPR: BigDecimal,
+  newMedianEthAdjustedProjectedROI: BigDecimal,
+  newMedianEthAdjustedProjectedAPR: BigDecimal
 ): BigDecimal[][] {
   // Add new values to the end
   historicalROI.push(newMedianROI);
   historicalAPR.push(newMedianAPR);
   historicalProjectedROI.push(newMedianProjectedROI);
   historicalProjectedAPR.push(newMedianProjectedAPR);
+  historicalEthAdjustedROI.push(newMedianEthAdjustedROI);
+  historicalEthAdjustedAPR.push(newMedianEthAdjustedAPR);
+  historicalEthAdjustedProjectedROI.push(newMedianEthAdjustedProjectedROI);
+  historicalEthAdjustedProjectedAPR.push(newMedianEthAdjustedProjectedAPR);
   
   // Keep only last 7 days (remove oldest if we have more than 7)
   if (historicalROI.length > 7) {
@@ -176,8 +209,29 @@ export function updateHistoricalArrays(
   if (historicalProjectedAPR.length > 7) {
     historicalProjectedAPR.shift(); // Remove first element
   }
+  if (historicalEthAdjustedROI.length > 7) {
+    historicalEthAdjustedROI.shift(); // Remove first element
+  }
+  if (historicalEthAdjustedAPR.length > 7) {
+    historicalEthAdjustedAPR.shift(); // Remove first element
+  }
+  if (historicalEthAdjustedProjectedROI.length > 7) {
+    historicalEthAdjustedProjectedROI.shift(); // Remove first element
+  }
+  if (historicalEthAdjustedProjectedAPR.length > 7) {
+    historicalEthAdjustedProjectedAPR.shift(); // Remove first element
+  }
   
-  return [historicalROI, historicalAPR, historicalProjectedROI, historicalProjectedAPR];
+  return [
+    historicalROI, 
+    historicalAPR, 
+    historicalProjectedROI, 
+    historicalProjectedAPR,
+    historicalEthAdjustedROI,
+    historicalEthAdjustedAPR,
+    historicalEthAdjustedProjectedROI,
+    historicalEthAdjustedProjectedAPR
+  ];
 }
 
 /**
@@ -186,14 +240,26 @@ export function updateHistoricalArrays(
  * @param medianAPR Calculated median APR
  * @param medianProjectedROI Calculated median projected ROI
  * @param medianProjectedAPR Calculated median projected APR
+ * @param medianEthAdjustedROI Calculated median ETH-adjusted ROI
+ * @param medianEthAdjustedAPR Calculated median ETH-adjusted APR
+ * @param medianEthAdjustedProjectedROI Calculated median ETH-adjusted projected ROI
+ * @param medianEthAdjustedProjectedAPR Calculated median ETH-adjusted projected APR
  * @param sma7dROI Calculated 7-day SMA ROI
  * @param sma7dAPR Calculated 7-day SMA APR
  * @param sma7dProjectedROI Calculated 7-day SMA projected ROI
  * @param sma7dProjectedAPR Calculated 7-day SMA projected APR
+ * @param sma7dEthAdjustedROI Calculated 7-day SMA ETH-adjusted ROI
+ * @param sma7dEthAdjustedAPR Calculated 7-day SMA ETH-adjusted APR
+ * @param sma7dEthAdjustedProjectedROI Calculated 7-day SMA ETH-adjusted projected ROI
+ * @param sma7dEthAdjustedProjectedAPR Calculated 7-day SMA ETH-adjusted projected APR
  * @param historicalROI Updated historical ROI array
  * @param historicalAPR Updated historical APR array
  * @param historicalProjectedROI Updated historical projected ROI array
  * @param historicalProjectedAPR Updated historical projected APR array
+ * @param historicalEthAdjustedROI Updated historical ETH-adjusted ROI array
+ * @param historicalEthAdjustedAPR Updated historical ETH-adjusted APR array
+ * @param historicalEthAdjustedProjectedROI Updated historical ETH-adjusted projected ROI array
+ * @param historicalEthAdjustedProjectedAPR Updated historical ETH-adjusted projected APR array
  * @param totalAgents Number of agents included in calculation
  * @param block Current block
  */
@@ -202,14 +268,26 @@ export function updateDailyPopulationMetricEntity(
   medianAPR: BigDecimal,
   medianProjectedROI: BigDecimal,
   medianProjectedAPR: BigDecimal,
+  medianEthAdjustedROI: BigDecimal,
+  medianEthAdjustedAPR: BigDecimal,
+  medianEthAdjustedProjectedROI: BigDecimal,
+  medianEthAdjustedProjectedAPR: BigDecimal,
   sma7dROI: BigDecimal,
   sma7dAPR: BigDecimal,
   sma7dProjectedROI: BigDecimal,
   sma7dProjectedAPR: BigDecimal,
+  sma7dEthAdjustedROI: BigDecimal,
+  sma7dEthAdjustedAPR: BigDecimal,
+  sma7dEthAdjustedProjectedROI: BigDecimal,
+  sma7dEthAdjustedProjectedAPR: BigDecimal,
   historicalROI: BigDecimal[],
   historicalAPR: BigDecimal[],
   historicalProjectedROI: BigDecimal[],
   historicalProjectedAPR: BigDecimal[],
+  historicalEthAdjustedROI: BigDecimal[],
+  historicalEthAdjustedAPR: BigDecimal[],
+  historicalEthAdjustedProjectedROI: BigDecimal[],
+  historicalEthAdjustedProjectedAPR: BigDecimal[],
   totalAgents: number,
   block: ethereum.Block
 ): void {
@@ -234,6 +312,14 @@ export function updateDailyPopulationMetricEntity(
   dailyPopulationMetric.medianProjectedROI = medianProjectedROI;
   dailyPopulationMetric.medianProjectedAPR = medianProjectedAPR;
   
+  // Set population metrics (ETH-adjusted actual)
+  dailyPopulationMetric.medianEthAdjustedROI = medianEthAdjustedROI;
+  dailyPopulationMetric.medianEthAdjustedAPR = medianEthAdjustedAPR;
+  
+  // Set population metrics (ETH-adjusted projected)
+  dailyPopulationMetric.medianEthAdjustedProjectedROI = medianEthAdjustedProjectedROI;
+  dailyPopulationMetric.medianEthAdjustedProjectedAPR = medianEthAdjustedProjectedAPR;
+  
   // Set 7-day simple moving averages (actual)
   dailyPopulationMetric.sma7dROI = sma7dROI;
   dailyPopulationMetric.sma7dAPR = sma7dAPR;
@@ -241,6 +327,14 @@ export function updateDailyPopulationMetricEntity(
   // Set 7-day simple moving averages (projected)
   dailyPopulationMetric.sma7dProjectedROI = sma7dProjectedROI;
   dailyPopulationMetric.sma7dProjectedAPR = sma7dProjectedAPR;
+  
+  // Set 7-day simple moving averages (ETH-adjusted actual)
+  dailyPopulationMetric.sma7dEthAdjustedROI = sma7dEthAdjustedROI;
+  dailyPopulationMetric.sma7dEthAdjustedAPR = sma7dEthAdjustedAPR;
+  
+  // Set 7-day simple moving averages (ETH-adjusted projected)
+  dailyPopulationMetric.sma7dEthAdjustedProjectedROI = sma7dEthAdjustedProjectedROI;
+  dailyPopulationMetric.sma7dEthAdjustedProjectedAPR = sma7dEthAdjustedProjectedAPR;
   
   // Set metadata
   dailyPopulationMetric.timestamp = dayTimestamp; // Use day timestamp for consistency
@@ -255,15 +349,25 @@ export function updateDailyPopulationMetricEntity(
   dailyPopulationMetric.historicalMedianProjectedROI = historicalProjectedROI;
   dailyPopulationMetric.historicalMedianProjectedAPR = historicalProjectedAPR;
   
+  // Set historical data (ETH-adjusted actual)
+  dailyPopulationMetric.historicalMedianEthAdjustedROI = historicalEthAdjustedROI;
+  dailyPopulationMetric.historicalMedianEthAdjustedAPR = historicalEthAdjustedAPR;
+  
+  // Set historical data (ETH-adjusted projected)
+  dailyPopulationMetric.historicalMedianEthAdjustedProjectedROI = historicalEthAdjustedProjectedROI;
+  dailyPopulationMetric.historicalMedianEthAdjustedProjectedAPR = historicalEthAdjustedProjectedAPR;
+  
   dailyPopulationMetric.save();
   
-  log.info("Created DailyPopulationMetric entity for day timestamp {} with {} agents, median ROI: {}, median APR: {}, projected ROI: {}, projected APR: {}", [
+  log.info("Created DailyPopulationMetric entity for day timestamp {} with {} agents, median ROI: {}, median APR: {}, projected ROI: {}, projected APR: {}, ETH-adjusted ROI: {}, ETH-adjusted APR: {}", [
     dayTimestamp.toString(),
     totalAgents.toString(),
     medianROI.toString(),
     medianAPR.toString(),
     medianProjectedROI.toString(),
-    medianProjectedAPR.toString()
+    medianProjectedAPR.toString(),
+    medianEthAdjustedROI.toString(),
+    medianEthAdjustedAPR.toString()
   ]);
 }
 
@@ -290,24 +394,61 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
     return;
   }
   
-  // Extract ROI and APR values from snapshots (both actual and projected)
+  // Extract ROI and APR values from snapshots with selective filtering
   let roiValues: BigDecimal[] = [];
   let aprValues: BigDecimal[] = [];
   let projectedRoiValues: BigDecimal[] = [];
   let projectedAprValues: BigDecimal[] = [];
+  let ethAdjustedRoiValues: BigDecimal[] = [];
+  let ethAdjustedAprValues: BigDecimal[] = [];
+  let ethAdjustedProjectedRoiValues: BigDecimal[] = [];
+  let ethAdjustedProjectedAprValues: BigDecimal[] = [];
+  
+  // Track exclusions for logging
+  let totalSnapshots = snapshots.length;
+  let excludedFromProjected = 0;
   
   for (let i = 0; i < snapshots.length; i++) {
-    roiValues.push(snapshots[i].roi);
-    aprValues.push(snapshots[i].apr);
-    projectedRoiValues.push(snapshots[i].projectedRoi);
-    projectedAprValues.push(snapshots[i].projectedApr);
+    let snapshot = snapshots[i];
+    let shouldExclude = shouldExcludeFromProjectedROI(snapshot);
+    
+    // Always include in actual ROI and ETH-adjusted actual ROI calculations
+    roiValues.push(snapshot.roi);
+    aprValues.push(snapshot.apr);
+    ethAdjustedRoiValues.push(snapshot.ethAdjustedRoi);
+    ethAdjustedAprValues.push(snapshot.ethAdjustedApr);
+    
+    // Conditionally include in projected ROI and ETH-adjusted projected ROI calculations
+    if (shouldExclude) {
+      excludedFromProjected++;
+      log.info("Excluding agent {} from projected ROI calculations - initial: {} USD, final: {} USD", [
+        snapshot.service.toHexString(),
+        snapshot.initialValue.toString(),
+        snapshot.finalValue.toString()
+      ]);
+    } else {
+      projectedRoiValues.push(snapshot.projectedRoi);
+      projectedAprValues.push(snapshot.projectedApr);
+      ethAdjustedProjectedRoiValues.push(snapshot.ethAdjustedProjectedRoi);
+      ethAdjustedProjectedAprValues.push(snapshot.ethAdjustedProjectedApr);
+    }
   }
   
-  // Calculate median values (both actual and projected)
+  log.info("Median calculation summary - Total snapshots: {}, Excluded from projected ROI: {}, Included in projected ROI: {}", [
+    totalSnapshots.toString(),
+    excludedFromProjected.toString(),
+    (totalSnapshots - excludedFromProjected).toString()
+  ]);
+  
+  // Calculate median values (both actual and projected, including ETH-adjusted)
   let medianROI = calculateMedian(roiValues);
   let medianAPR = calculateMedian(aprValues);
   let medianProjectedROI = calculateMedian(projectedRoiValues);
   let medianProjectedAPR = calculateMedian(projectedAprValues);
+  let medianEthAdjustedROI = calculateMedian(ethAdjustedRoiValues);
+  let medianEthAdjustedAPR = calculateMedian(ethAdjustedAprValues);
+  let medianEthAdjustedProjectedROI = calculateMedian(ethAdjustedProjectedRoiValues);
+  let medianEthAdjustedProjectedAPR = calculateMedian(ethAdjustedProjectedAprValues);
   
   // Get previous DailyPopulationMetric entity for historical data using day timestamp
   let previousDailyPopulationMetric = getPreviousDailyPopulationMetric(dayTimestamp);
@@ -315,50 +456,86 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   let historicalAPR: BigDecimal[] = [];
   let historicalProjectedROI: BigDecimal[] = [];
   let historicalProjectedAPR: BigDecimal[] = [];
+  let historicalEthAdjustedROI: BigDecimal[] = [];
+  let historicalEthAdjustedAPR: BigDecimal[] = [];
+  let historicalEthAdjustedProjectedROI: BigDecimal[] = [];
+  let historicalEthAdjustedProjectedAPR: BigDecimal[] = [];
   
   if (previousDailyPopulationMetric) {
     historicalROI = previousDailyPopulationMetric.historicalMedianROI;
     historicalAPR = previousDailyPopulationMetric.historicalMedianAPR;
     historicalProjectedROI = previousDailyPopulationMetric.historicalMedianProjectedROI;
     historicalProjectedAPR = previousDailyPopulationMetric.historicalMedianProjectedAPR;
+    historicalEthAdjustedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedROI;
+    historicalEthAdjustedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedAPR;
+    historicalEthAdjustedProjectedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedProjectedROI;
+    historicalEthAdjustedProjectedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedProjectedAPR;
   }
   
-  // Update historical arrays with new median values (all 4 metrics)
+  // Update historical arrays with new median values (all 8 metrics)
   let updatedHistorical = updateHistoricalArrays(
     historicalROI, 
     historicalAPR, 
     historicalProjectedROI, 
     historicalProjectedAPR,
+    historicalEthAdjustedROI,
+    historicalEthAdjustedAPR,
+    historicalEthAdjustedProjectedROI,
+    historicalEthAdjustedProjectedAPR,
     medianROI, 
     medianAPR, 
     medianProjectedROI, 
-    medianProjectedAPR
+    medianProjectedAPR,
+    medianEthAdjustedROI,
+    medianEthAdjustedAPR,
+    medianEthAdjustedProjectedROI,
+    medianEthAdjustedProjectedAPR
   );
   let updatedHistoricalROI = updatedHistorical[0];
   let updatedHistoricalAPR = updatedHistorical[1];
   let updatedHistoricalProjectedROI = updatedHistorical[2];
   let updatedHistoricalProjectedAPR = updatedHistorical[3];
+  let updatedHistoricalEthAdjustedROI = updatedHistorical[4];
+  let updatedHistoricalEthAdjustedAPR = updatedHistorical[5];
+  let updatedHistoricalEthAdjustedProjectedROI = updatedHistorical[6];
+  let updatedHistoricalEthAdjustedProjectedAPR = updatedHistorical[7];
   
-  // Calculate 7-day simple moving averages (all 4 metrics)
+  // Calculate 7-day simple moving averages (all 8 metrics)
   let sma7dROI = calculate7DaysSMA(updatedHistoricalROI);
   let sma7dAPR = calculate7DaysSMA(updatedHistoricalAPR);
   let sma7dProjectedROI = calculate7DaysSMA(updatedHistoricalProjectedROI);
   let sma7dProjectedAPR = calculate7DaysSMA(updatedHistoricalProjectedAPR);
+  let sma7dEthAdjustedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedROI);
+  let sma7dEthAdjustedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedAPR);
+  let sma7dEthAdjustedProjectedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedROI);
+  let sma7dEthAdjustedProjectedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedAPR);
   
-  // Create and save DailyPopulationMetric entity (all 14 parameters)
+  // Create and save DailyPopulationMetric entity (all 26 parameters)
   updateDailyPopulationMetricEntity(
     medianROI,
     medianAPR,
     medianProjectedROI,
     medianProjectedAPR,
+    medianEthAdjustedROI,
+    medianEthAdjustedAPR,
+    medianEthAdjustedProjectedROI,
+    medianEthAdjustedProjectedAPR,
     sma7dROI,
     sma7dAPR,
     sma7dProjectedROI,
     sma7dProjectedAPR,
+    sma7dEthAdjustedROI,
+    sma7dEthAdjustedAPR,
+    sma7dEthAdjustedProjectedROI,
+    sma7dEthAdjustedProjectedAPR,
     updatedHistoricalROI,
     updatedHistoricalAPR,
     updatedHistoricalProjectedROI,
     updatedHistoricalProjectedAPR,
+    updatedHistoricalEthAdjustedROI,
+    updatedHistoricalEthAdjustedAPR,
+    updatedHistoricalEthAdjustedProjectedROI,
+    updatedHistoricalEthAdjustedProjectedAPR,
     snapshots.length,
     block
   );
