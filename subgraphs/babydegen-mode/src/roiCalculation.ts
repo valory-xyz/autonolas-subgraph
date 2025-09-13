@@ -23,6 +23,7 @@ export function initializePositionCosts(position: ProtocolPosition): void {
 
 // Calculate position-based ROI from closed positions only
 // ROI = (Total_Gross_Gains - Total_Entry_Amounts - Total_Costs) / (Total_Entry_Amounts + Total_Costs) * 100
+// Where Gross_Gains = exit amounts
 export function calculateActualROI(serviceSafe: Address): BigDecimal {
   let service = Service.load(serviceSafe)
   if (service == null || service.positionIds == null) {
@@ -67,8 +68,7 @@ export function calculateActualROI(serviceSafe: Address): BigDecimal {
   }
   
   // Correct ROI formula: (G - I - C) / (I + C) * 100
-  // Which simplifies to: (G - (I + C)) / (I + C) * 100
-  let numerator = totalGrossGains.minus(totalInvestmentWithCosts)
+  let numerator = totalGrossGains.minus(totalEntryAmounts).minus(totalCosts)
   let roi = numerator.div(totalInvestmentWithCosts).times(BigDecimal.fromString("100"))
   
   log.info("Calculated actual ROI for service {}: {}% from {} closed positions (G:{}, I:{}, C:{})", [
@@ -155,26 +155,30 @@ export function updatePositionROI(position: ProtocolPosition): void {
   
   let exitAmount = position.exitAmountUSD as BigDecimal
   
-  // Calculate gross gain (exit amount - entry amount, before costs)
-  position.grossGainUSD = exitAmount.minus(position.entryAmountUSD)
+  // Calculate gross gain
+  position.grossGainUSD = exitAmount
   
-  // Calculate net gain (exit amount - total investment including costs)
-  position.netGainUSD = exitAmount.minus(position.investmentUSD)
+  // Calculate net gain (gross gain - entry amount - costs)
+  position.netGainUSD = position.grossGainUSD.minus(position.entryAmountUSD).minus(position.totalCostsUSD)
   
-  // Calculate position ROI
-  if (position.investmentUSD.gt(BigDecimal.zero())) {
-    position.positionROI = position.netGainUSD.div(position.investmentUSD).times(BigDecimal.fromString("100"))
+  // Calculate position ROI using correct formula: (G - I - C) / (I + C) * 100
+  // Where G = gross gain (what hits wallet), I = entry amount, C = costs
+  let totalInvestmentWithCosts = position.entryAmountUSD.plus(position.totalCostsUSD)
+  if (totalInvestmentWithCosts.gt(BigDecimal.zero())) {
+    let numerator = position.grossGainUSD.minus(position.entryAmountUSD).minus(position.totalCostsUSD)
+    position.positionROI = numerator.div(totalInvestmentWithCosts).times(BigDecimal.fromString("100"))
   } else {
     position.positionROI = BigDecimal.zero()
   }
   
   position.save()
   
-  log.info("Updated position ROI for {}: {}% (net gain: {} USD, investment: {} USD)", [
+  log.info("Updated position ROI for {}: {}% (gross gain: {} USD, entry: {} USD, costs: {} USD)", [
     position.id.toHexString(),
     position.positionROI.toString(),
-    position.netGainUSD.toString(),
-    position.investmentUSD.toString()
+    position.grossGainUSD.toString(),
+    position.entryAmountUSD.toString(),
+    position.totalCostsUSD.toString()
   ])
 }
 
