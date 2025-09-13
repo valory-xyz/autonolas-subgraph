@@ -11,23 +11,66 @@ import {
 import { calculateUninvestedValue, updateFundingBalance } from "./tokenBalances"
 import { getServiceByAgent } from "./config"
 import { calculateActualROI, aggregateClosedPositionMetrics } from "./roiCalculation"
+import { getEthUsd } from "./common"
 
-// Use the single source of truth for funding balance updates
+export class EthAdjustedMetrics {
+  ethPriceAtBaseline: BigDecimal
+  ethPriceCurrent: BigDecimal
+  ethDelta: BigDecimal
+  
+  constructor(ethPriceAtBaseline: BigDecimal, ethPriceCurrent: BigDecimal) {
+    this.ethPriceAtBaseline = ethPriceAtBaseline
+    this.ethPriceCurrent = ethPriceCurrent
+    
+    if (ethPriceAtBaseline.gt(BigDecimal.zero())) {
+      this.ethDelta = ethPriceCurrent.div(ethPriceAtBaseline)
+        .minus(BigDecimal.fromString("1"))
+        .times(BigDecimal.fromString("100"))
+    } else {
+      this.ethDelta = BigDecimal.zero()
+    }
+  }
+  
+  calculateEthAdjustedROI(originalROI: BigDecimal): BigDecimal {
+    return originalROI.minus(this.ethDelta)
+  }
+  
+  calculateEthAdjustedAPR(originalROI: BigDecimal, daysSinceStart: BigDecimal): BigDecimal {
+    // Calculate ETH-adjusted ROI first
+    let ethAdjustedROI = this.calculateEthAdjustedROI(originalROI)
+    
+    // Then calculate APR from ETH-adjusted ROI
+    if (daysSinceStart.gt(BigDecimal.zero())) {
+      let annualizationFactor = BigDecimal.fromString("365").div(daysSinceStart)
+      return ethAdjustedROI.times(annualizationFactor)
+    }
+    
+    return BigDecimal.zero()
+  }
+}
+
+export function calculateEthAdjustedMetrics(
+  portfolio: AgentPortfolio,
+  block: ethereum.Block
+): EthAdjustedMetrics {
+  let ethPriceCurrent = getEthUsd(block)
+  
+  let ethPriceAtBaseline = portfolio.ethPriceAtBaseline
+  if (ethPriceAtBaseline.equals(BigDecimal.zero())) {
+    ethPriceAtBaseline = ethPriceCurrent
+  }
+  
+  return new EthAdjustedMetrics(ethPriceAtBaseline, ethPriceCurrent)
+}
+
 export function updateFunding(
   serviceSafe: Address,
   usd: BigDecimal,
   deposit: boolean,
   ts: BigInt
 ): void {
-  // Update funding balance using the shared function
   updateFundingBalance(serviceSafe, usd, deposit, ts)
   
-  log.info("FUNDING: {} {} USD", [
-    deposit ? "IN" : "OUT",
-    usd.toString()
-  ])
-  
-  // Update portfolio after funding change
   let block = new ethereum.Block(
     Bytes.empty(),
     Bytes.empty(),
@@ -90,6 +133,9 @@ export function calculatePortfolioMetrics(
 
   // Calculate APR from actual ROI (position-based)
   let actualAPR = BigDecimal.zero()
+  // Calculate projected APR from projected ROI - initialize to zero
+  let projectedAPR = BigDecimal.zero()
+  
   if (actualROI.gt(BigDecimal.zero())) {
     let timestampForAPR = portfolio.firstTradingTimestamp
     
@@ -113,8 +159,6 @@ export function calculatePortfolioMetrics(
     }
   }
 
-  // Calculate projected APR from projected ROI (same logic as actual APR)
-  let projectedAPR = BigDecimal.zero()
   if (projectedRoi.gt(BigDecimal.zero())) {
     let timestampForAPR = portfolio.firstTradingTimestamp
     
@@ -138,6 +182,53 @@ export function calculatePortfolioMetrics(
     }
   }
 
+  // Calculate ETH-adjusted metrics
+  let ethMetrics = calculateEthAdjustedMetrics(portfolio, block)
+  
+  // Set baseline ETH price and timestamp if not already set
+  if (portfolio.ethPriceAtBaseline.equals(BigDecimal.zero())) {
+    portfolio.ethPriceAtBaseline = ethMetrics.ethPriceCurrent
+    
+    // Set baseline timestamp - use first funding time if available, otherwise registration time
+    let fundingBalance = FundingBalance.load(serviceSafe as Bytes)
+    if (fundingBalance && fundingBalance.firstInTimestamp.gt(BigInt.zero())) {
+      portfolio.baselineTimestamp = fundingBalance.firstInTimestamp
+    } else {
+      // Fallback to service registration timestamp
+      let serviceEntity = Service.load(serviceSafe)
+      if (serviceEntity != null && serviceEntity.latestRegistrationTimestamp.gt(BigInt.zero())) {
+        portfolio.baselineTimestamp = serviceEntity.latestRegistrationTimestamp
+      } else {
+        portfolio.baselineTimestamp = block.timestamp
+      }
+    }
+  }
+  
+  // Calculate ETH-adjusted ROI and APR
+  let ethAdjustedProjectedRoi = ethMetrics.calculateEthAdjustedROI(projectedRoi)
+  let ethAdjustedRoi = ethMetrics.calculateEthAdjustedROI(actualROI)
+  
+  // Calculate ETH-adjusted APR from ETH-adjusted ROI using days since start
+  let ethAdjustedProjectedApr = BigDecimal.zero()
+  let ethAdjustedApr = BigDecimal.zero()
+  
+  // Get days since start for APR calculation
+  let timestampForAPR = portfolio.firstTradingTimestamp
+  if (timestampForAPR.equals(BigInt.zero())) {
+    let serviceEntity = Service.load(serviceSafe)
+    if (serviceEntity != null && serviceEntity.latestRegistrationTimestamp.gt(BigInt.zero())) {
+      timestampForAPR = serviceEntity.latestRegistrationTimestamp
+    }
+  }
+  
+  if (timestampForAPR.gt(BigInt.zero())) {
+    let secondsSinceStart = block.timestamp.minus(timestampForAPR)
+    let daysSinceStart = secondsSinceStart.toBigDecimal().div(BigDecimal.fromString("86400"))
+    
+    ethAdjustedProjectedApr = ethMetrics.calculateEthAdjustedAPR(projectedRoi, daysSinceStart)
+    ethAdjustedApr = ethMetrics.calculateEthAdjustedAPR(actualROI, daysSinceStart)
+  }
+
   // Update portfolio
   portfolio.finalValue = finalValue
   portfolio.initialValue = initialValue  
@@ -147,6 +238,13 @@ export function calculatePortfolioMetrics(
   portfolio.projectedApr = projectedAPR  // APR calculated from projected ROI
   portfolio.roi = actualROI  //Position-based ROI from closed positions
   portfolio.apr = actualAPR  // APR calculated from actual ROI
+  
+  // Update ETH-adjusted metrics
+  portfolio.ethAdjustedProjectedRoi = ethAdjustedProjectedRoi
+  portfolio.ethAdjustedProjectedApr = ethAdjustedProjectedApr
+  portfolio.ethAdjustedRoi = ethAdjustedRoi
+  portfolio.ethAdjustedApr = ethAdjustedApr
+  
   portfolio.lastUpdated = block.timestamp
 
   // Update aggregation fields
@@ -154,30 +252,21 @@ export function calculatePortfolioMetrics(
   portfolio.totalGrossGains = aggregates.totalGrossGains
   portfolio.totalCosts = aggregates.totalCosts
   
-  // Count positions
   let activeCount = 0
   let closedCount = 0
   
-  // Get the service entity for position counting
   let serviceEntity = Service.load(serviceSafe)
   if (serviceEntity != null && serviceEntity.positionIds != null) {
-    // Iterate through all position IDs
     let positionIds = serviceEntity.positionIds
     for (let i = 0; i < positionIds.length; i++) {
       let positionIdString = positionIds[i]
       let position: ProtocolPosition | null = null
 
-      // Try loading position with different ID formats for robustness
-
-      // Method 1: Try as direct UTF8 string (standard format)
       let directId = Bytes.fromUTF8(positionIdString)
       position = ProtocolPosition.load(directId)
 
       if (position == null) {
-        // Method 2: Try as hex-decoded string (for any legacy hex-encoded IDs)
-        // Check if the string looks like hex (starts with 0x and has even length)
         if (positionIdString.startsWith("0x") && positionIdString.length % 2 == 0) {
-          // Convert hex string back to original string, then to Bytes
           let hexBytes = Bytes.fromHexString(positionIdString)
           let decodedString = hexBytes.toString()
           let decodedId = Bytes.fromUTF8(decodedString)
@@ -199,46 +288,28 @@ export function calculatePortfolioMetrics(
   portfolio.totalClosedPositions = closedCount
   
   portfolio.save()
-  
-  // Create snapshot
   createPortfolioSnapshot(portfolio, block)
-  
-  log.info("PORTFOLIO: {} USD (ROI: {}%, positions: {}, uninvested: {})", [
-    finalValue.toString(),
-    actualROI.toString(),
-    positionsValue.toString(),
-    uninvestedValue.toString()
-  ])
 }
 
-// Calculate total value of all active positions
 function calculatePositionsValue(serviceSafe: Address): BigDecimal {
   let totalValue = BigDecimal.zero()
   
-  // Get the service entity
   let service = Service.load(serviceSafe)
   if (service == null || service.positionIds == null) {
     return totalValue
   }
   
-  // Iterate through all position IDs
   let positionIds = service.positionIds
   
   for (let i = 0; i < positionIds.length; i++) {
     let positionIdString = positionIds[i]
     let position: ProtocolPosition | null = null
 
-    // Try loading position with different ID formats for robustness
-
-    // Method 1: Try as direct UTF8 string (standard format)
     let directId = Bytes.fromUTF8(positionIdString)
     position = ProtocolPosition.load(directId)
 
     if (position == null) {
-      // Method 2: Try as hex-decoded string (for any legacy hex-encoded IDs)
-      // Check if the string looks like hex (starts with 0x and has even length)
       if (positionIdString.startsWith("0x") && positionIdString.length % 2 == 0) {
-        // Convert hex string back to original string, then to Bytes
         let hexBytes = Bytes.fromHexString(positionIdString)
         let decodedString = hexBytes.toString()
         let decodedId = Bytes.fromUTF8(decodedString)
@@ -246,10 +317,7 @@ function calculatePositionsValue(serviceSafe: Address): BigDecimal {
       }
     }
 
-    // If position found and active, add to total value
     if (position != null && position.isActive) {
-      // Velodrome positions are updated via their own refresh mechanisms
-      
       totalValue = totalValue.plus(position.usdCurrent)
     }
   }
@@ -257,40 +325,32 @@ function calculatePositionsValue(serviceSafe: Address): BigDecimal {
   return totalValue
 }
 
-
-// Create a portfolio snapshot
 function createPortfolioSnapshot(portfolio: AgentPortfolio, block: ethereum.Block): void {
   let snapshotId = portfolio.id.toHexString() + "-" + block.timestamp.toString()
   let snapshot = new AgentPortfolioSnapshot(Bytes.fromUTF8(snapshotId))
   
   snapshot.service = portfolio.service
   snapshot.portfolio = portfolio.id
-  
-  // Copy values
   snapshot.finalValue = portfolio.finalValue
   snapshot.initialValue = portfolio.initialValue
   snapshot.positionsValue = portfolio.positionsValue
   snapshot.uninvestedValue = portfolio.uninvestedValue
-  
-  // Copy performance metrics (both actual and projected)
   snapshot.projectedRoi = portfolio.projectedRoi
   snapshot.projectedApr = portfolio.projectedApr
   snapshot.roi = portfolio.roi
   snapshot.apr = portfolio.apr
-  
-  // Metadata
+  snapshot.ethAdjustedProjectedRoi = portfolio.ethAdjustedProjectedRoi
+  snapshot.ethAdjustedProjectedApr = portfolio.ethAdjustedProjectedApr
+  snapshot.ethAdjustedRoi = portfolio.ethAdjustedRoi
+  snapshot.ethAdjustedApr = portfolio.ethAdjustedApr
   snapshot.timestamp = block.timestamp
   snapshot.block = block.number
   snapshot.totalPositions = portfolio.totalPositions
   snapshot.totalClosedPositions = portfolio.totalClosedPositions
   
-  // Note: Position IDs can be retrieved through the Service entity's positionIds field
-  // We don't duplicate them in the snapshot to avoid compilation issues
-  
   snapshot.save()
 }
 
-// Helper function to parse total slippage from bucket string (centralized)
 export function parseTotalSlippageFromBucket(bucketData: string): BigDecimal {
   if (bucketData == "") return BigDecimal.zero()
   
@@ -312,10 +372,10 @@ export function parseTotalSlippageFromBucket(bucketData: string): BigDecimal {
   return totalSlippage
 }
 
-// Centralized swap association logic to avoid code duplication
 export function associateSwapsWithPosition(
   userAddress: Address, 
-  block: ethereum.Block
+  block: ethereum.Block,
+  position: ProtocolPosition | null = null
 ): BigDecimal {
   const bufferId = userAddress
   let buffer = AgentSwapBuffer.load(bufferId)
@@ -325,9 +385,8 @@ export function associateSwapsWithPosition(
   
   let totalSlippageUSD = BigDecimal.zero()
   let currentTime = block.timestamp
-  let associationWindow = BigInt.fromI32(1200) // 20 minutes
+  let associationWindow = BigInt.fromI32(1200)
   
-  // Check buckets sequentially and consume swaps within association window
   let bucketsToCheck = [buffer.bucket0Swaps, buffer.bucket1Swaps, buffer.bucket2Swaps, buffer.bucket3Swaps]
   let updatedBuckets: string[] = ["", "", "", ""]
   
@@ -352,50 +411,49 @@ export function associateSwapsWithPosition(
         let expiresAtStr = parts[3]
         let expiresAt = BigInt.fromString(expiresAtStr)
         
-        // Check if swap is within association window and not expired
         if (currentTime.minus(swapTimestamp).le(associationWindow) && currentTime.le(expiresAt)) {
-          // Collect associated swaps
           associatedSwaps.push(entry)
         } else {
-          // Keep swap in buffer (not associated or expired)
           remainingSwaps.push(entry)
         }
       }
     }
     
-    // Use centralized function to calculate total slippage from associated swaps
     if (associatedSwaps.length > 0) {
       let associatedBucketData = associatedSwaps.join("|")
       let bucketSlippage = parseTotalSlippageFromBucket(associatedBucketData)
       totalSlippageUSD = totalSlippageUSD.plus(bucketSlippage)
       
-      // CRITICAL FIX: Mark SwapTransaction entities as associated
       for (let j = 0; j < associatedSwaps.length; j++) {
         let swapEntry = associatedSwaps[j]
         let swapParts = swapEntry.split(",")
         if (swapParts.length >= 5) {
-          let swapId = swapParts[4] // SwapTransaction ID is the 5th field
+          let swapId = swapParts[4]
           let swapTransaction = SwapTransaction.load(Bytes.fromHexString(swapId))
           if (swapTransaction != null) {
             swapTransaction.isAssociated = true
             swapTransaction.save()
+            
+            // If position is provided, add swap to position's swaps array
+            if (position != null) {
+              let currentSwaps = position.swaps
+              currentSwaps.push(swapTransaction.id)
+              position.swaps = currentSwaps
+            }
           }
         }
       }
     }
     
-    // Update bucket with remaining swaps
     updatedBuckets[bucketIdx] = remainingSwaps.join("|")
   }
   
-  // Update buffer with remaining swaps
   buffer.bucket0Swaps = updatedBuckets[0]
   buffer.bucket1Swaps = updatedBuckets[1]
   buffer.bucket2Swaps = updatedBuckets[2]
   buffer.bucket3Swaps = updatedBuckets[3]
   buffer.save()
   
-  // Handle negative slippage by setting to 0 (no cost reduction)
   if (totalSlippageUSD.lt(BigDecimal.zero())) {
     totalSlippageUSD = BigDecimal.zero()
   }
@@ -403,7 +461,6 @@ export function associateSwapsWithPosition(
   return totalSlippageUSD
 }
 
-// Ensure AgentPortfolio exists, create if it doesn't
 export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): AgentPortfolio {
   let portfolioId = serviceSafe as Bytes
   let portfolio = AgentPortfolio.load(portfolioId)
@@ -411,31 +468,43 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
   if (portfolio == null) {
     portfolio = new AgentPortfolio(portfolioId)
     portfolio.service = serviceSafe
-    portfolio.firstTradingTimestamp = BigInt.zero() // Will be set by updateFirstTradingTimestamp
     portfolio.lastSnapshotTimestamp = BigInt.zero()
     portfolio.lastSnapshotBlock = BigInt.zero()
     portfolio.totalPositions = 0
     portfolio.totalClosedPositions = 0
-    // Initialize with default values
     portfolio.finalValue = BigDecimal.zero()
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
-    portfolio.projectedRoi = BigDecimal.zero()  // Current portfolio-based calculation (unrealized PnL)
-    portfolio.projectedApr = BigDecimal.zero()  // APR calculated from projected ROI
-    portfolio.roi = BigDecimal.zero()  // Position-based ROI from closed positions
+    portfolio.projectedRoi = BigDecimal.zero()
+    portfolio.projectedApr = BigDecimal.zero()
+    portfolio.roi = BigDecimal.zero()
     portfolio.totalInvestments = BigDecimal.zero()
     portfolio.totalGrossGains = BigDecimal.zero()
     portfolio.totalCosts = BigDecimal.zero()
     portfolio.apr = BigDecimal.zero()
+    portfolio.ethAdjustedProjectedRoi = BigDecimal.zero()
+    portfolio.ethAdjustedProjectedApr = BigDecimal.zero()
+    portfolio.ethAdjustedRoi = BigDecimal.zero()
+    portfolio.ethAdjustedApr = BigDecimal.zero()
+    portfolio.ethPriceAtBaseline = BigDecimal.zero()
+    portfolio.baselineTimestamp = BigInt.zero()
     portfolio.lastUpdated = timestamp
+    
+    // Set firstTradingTimestamp from funding balance if available
+    let fundingBalance = FundingBalance.load(serviceSafe as Bytes)
+    if (fundingBalance && fundingBalance.firstInTimestamp.gt(BigInt.zero())) {
+      portfolio.firstTradingTimestamp = fundingBalance.firstInTimestamp
+    } else {
+      portfolio.firstTradingTimestamp = BigInt.zero()
+    }
+    
     portfolio.save()
   }
 
   return portfolio
 }
 
-// Update first trading timestamp when a position is created
 export function updateFirstTradingTimestamp(serviceSafe: Address, timestamp: BigInt): void {
   let portfolio = ensureAgentPortfolio(serviceSafe, timestamp)
 
