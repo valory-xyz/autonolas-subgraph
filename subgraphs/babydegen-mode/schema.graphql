@@ -109,6 +109,9 @@ type ProtocolPosition @entity(immutable: false) {
   totalCostsUSD: BigDecimal!        # Total costs for this position (slippage + fees)
   swapSlippageUSD: BigDecimal!      # Slippage costs from associated swaps
   
+  # Associated Swaps
+  swaps: [SwapTransaction!]!        # Direct reference to associated swap transactions
+  
   # Position ROI (for closed positions)
   investmentUSD: BigDecimal!        # entryAmountUSD + totalCostsUSD
   grossGainUSD: BigDecimal!         # exitAmountUSD (when closed)
@@ -165,6 +168,16 @@ type AgentPortfolio @entity(immutable: false) {
   roi: BigDecimal!              # Position-based ROI from closed positions (actual ROI)
   apr: BigDecimal!              # Annualized Percentage Return (calculated from roi)
   
+  # ETH-Adjusted Performance Metrics
+  ethAdjustedProjectedRoi: BigDecimal! # ETH-adjusted projected ROI
+  ethAdjustedProjectedApr: BigDecimal! # ETH-adjusted projected APR
+  ethAdjustedRoi: BigDecimal!          # ETH-adjusted actual ROI
+  ethAdjustedApr: BigDecimal!          # ETH-adjusted actual APR
+  
+  # ETH Price Tracking
+  ethPriceAtBaseline: BigDecimal!      # ETH price at baseline timestamp
+  baselineTimestamp: BigInt!           # Timestamp used for ETH price baseline
+  
   # Position-Based Aggregates (NEW)
   totalInvestments: BigDecimal! # Sum of (entryAmountUSD + costs) for closed positions
   totalGrossGains: BigDecimal!  # Sum of exitAmountUSD for closed positions
@@ -197,6 +210,12 @@ type AgentPortfolioSnapshot @entity(immutable: true) {
   projectedApr: BigDecimal!     # Projected APR at snapshot time
   roi: BigDecimal!              # Actual ROI at snapshot time
   apr: BigDecimal!              # Actual APR at snapshot time
+  
+  # ETH-Adjusted Performance at Snapshot
+  ethAdjustedProjectedRoi: BigDecimal! # ETH-adjusted projected ROI at snapshot time
+  ethAdjustedProjectedApr: BigDecimal! # ETH-adjusted projected APR at snapshot time
+  ethAdjustedRoi: BigDecimal!          # ETH-adjusted actual ROI at snapshot time
+  ethAdjustedApr: BigDecimal!          # ETH-adjusted actual APR at snapshot time
   
   # Metadata
   timestamp: BigInt!            # When snapshot was taken
@@ -251,6 +270,14 @@ type DailyPopulationMetric @entity(immutable: true) {
   medianProjectedROI: BigDecimal!   # Median of all agent projected ROI values
   medianProjectedAPR: BigDecimal!   # Median of all agent projected APR values
   
+  # ETH-Adjusted Population Metrics (Actual)
+  medianEthAdjustedROI: BigDecimal! # Median of all agent ETH-adjusted actual ROI values
+  medianEthAdjustedAPR: BigDecimal! # Median of all agent ETH-adjusted actual APR values
+  
+  # ETH-Adjusted Population Metrics (Projected)
+  medianEthAdjustedProjectedROI: BigDecimal! # Median of all agent ETH-adjusted projected ROI values
+  medianEthAdjustedProjectedAPR: BigDecimal! # Median of all agent ETH-adjusted projected APR values
+  
   # 7-Day Simple Moving Averages (Actual)
   sma7dROI: BigDecimal!             # 7-day SMA of median population ROI
   sma7dAPR: BigDecimal!             # 7-day SMA of median population APR
@@ -258,6 +285,14 @@ type DailyPopulationMetric @entity(immutable: true) {
   # 7-Day Simple Moving Averages (Projected)
   sma7dProjectedROI: BigDecimal!    # 7-day SMA of median projected ROI
   sma7dProjectedAPR: BigDecimal!    # 7-day SMA of median projected APR
+  
+  # ETH-Adjusted 7-Day Simple Moving Averages (Actual)
+  sma7dEthAdjustedROI: BigDecimal!  # 7-day SMA of median ETH-adjusted ROI
+  sma7dEthAdjustedAPR: BigDecimal!  # 7-day SMA of median ETH-adjusted APR
+  
+  # ETH-Adjusted 7-Day Simple Moving Averages (Projected)
+  sma7dEthAdjustedProjectedROI: BigDecimal! # 7-day SMA of median ETH-adjusted projected ROI
+  sma7dEthAdjustedProjectedAPR: BigDecimal! # 7-day SMA of median ETH-adjusted projected APR
   
   # Metadata
   timestamp: BigInt!                # UTC midnight timestamp
@@ -271,10 +306,18 @@ type DailyPopulationMetric @entity(immutable: true) {
   # Historical Data (for SMA calculation - Projected)
   historicalMedianProjectedROI: [BigDecimal!]!  # Last 7 days of median projected ROI values
   historicalMedianProjectedAPR: [BigDecimal!]!  # Last 7 days of median projected APR values
+  
+  # Historical Data (for SMA calculation - ETH-Adjusted Actual)
+  historicalMedianEthAdjustedROI: [BigDecimal!]!  # Last 7 days of median ETH-adjusted ROI values
+  historicalMedianEthAdjustedAPR: [BigDecimal!]!  # Last 7 days of median ETH-adjusted APR values
+  
+  # Historical Data (for SMA calculation - ETH-Adjusted Projected)
+  historicalMedianEthAdjustedProjectedROI: [BigDecimal!]!  # Last 7 days of median ETH-adjusted projected ROI values
+  historicalMedianEthAdjustedProjectedAPR: [BigDecimal!]!  # Last 7 days of median ETH-adjusted projected APR values
 }
 
 # Swap transaction tracking
-type SwapTransaction @entity(immutable: true) {
+type SwapTransaction @entity(immutable: false) {
   id: Bytes!                        # "<txHash>-<logIndex>"
   agent: Bytes!                     # Service safe address
   transactionId: Bytes!             # LiFi transaction ID
@@ -297,7 +340,6 @@ type SwapTransaction @entity(immutable: true) {
   
   # Association Status
   isAssociated: Boolean!            # Whether linked to position entry
-  associatedPosition: ProtocolPosition # Linked position (if any)
   expiresAt: BigInt!                # Cleanup timestamp (timestamp + 20 minutes)
 }
 
