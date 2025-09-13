@@ -11,7 +11,8 @@ import { VelodromeV2Pool } from "../generated/templates/VeloV2Pool/VelodromeV2Po
 import { VeloV2Pool as VeloV2PoolTemplate } from "../generated/templates"
 import { getTokenPriceUSD } from "./priceDiscovery"
 import { getServiceByAgent } from "./config"
-import { updateFirstTradingTimestamp, parseTotalSlippageFromBucket, associateSwapsWithPosition } from "./helpers"
+import { updateFirstTradingTimestamp, parseTotalSlippageFromBucket, associateSwapsWithPosition, calculatePortfolioMetrics } from "./helpers"
+import { updatePositionROI } from "./roiCalculation"
 import { getTokenDecimals, getTokenSymbol } from "./tokenUtils"
 
 // VelodromeV2 Router address on Optimism
@@ -99,6 +100,9 @@ export function refreshVeloV2PositionWithEventAmounts(
     pp.grossGainUSD = BigDecimal.zero()
     pp.netGainUSD = BigDecimal.zero()
     pp.positionROI = BigDecimal.zero()
+    
+    // Initialize swaps array
+    pp.swaps = []
     
     // Initialize all required fields
     pp.usdCurrent = BigDecimal.zero()
@@ -219,6 +223,9 @@ export function refreshVeloV2PositionWithEventAmounts(
   
   // Update current amounts by calling the regular refresh function
   refreshVeloV2Position(userAddress, poolAddress, block, txHash)
+  
+  // Update portfolio metrics to ensure AgentPortfolio entity is created
+  calculatePortfolioMetrics(userAddress, block)
 }
 
 // Refresh VelodromeV2 position (for current state updates)
@@ -340,7 +347,10 @@ export function refreshVeloV2Position(
   if (userBalance.equals(BigInt.zero())) {
     pp.isActive = false
     
-    // No fallback mechanism for exit data - we'll rely on Burn events only
+    // Calculate ROI for closed position (if exit data exists)
+    if (pp.exitAmountUSD && pp.exitAmountUSD!.gt(BigDecimal.zero())) {
+      updatePositionROI(pp)
+    }
     
     // Zero out current amounts
     pp.usdCurrent = BigDecimal.zero()
@@ -388,6 +398,9 @@ export function refreshVeloV2Position(
   }
   
   pp.save()
+  
+  // Update portfolio metrics to ensure AgentPortfolio entity is created
+  calculatePortfolioMetrics(userAddress, block)
 }
 
 // Handle VelodromeV2 Burn events (liquidity removal)
@@ -442,4 +455,7 @@ export function refreshVeloV2PositionWithBurnAmounts(
   // Save and refresh current state
   pp.save()
   refreshVeloV2Position(userAddress, poolAddress, block, txHash)
+  
+  // Ensure portfolio metrics are calculated after position update
+  calculatePortfolioMetrics(userAddress, block)
 }

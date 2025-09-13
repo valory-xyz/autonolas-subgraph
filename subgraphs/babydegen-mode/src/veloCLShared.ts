@@ -12,6 +12,7 @@ import { getTokenPriceUSD } from "./priceDiscovery"
 import { VELO_MANAGER, VELO_FACTORY } from "./constants"
 import { isServiceAgent, getServiceByAgent } from "./config"
 import { updateFirstTradingTimestamp, parseTotalSlippageFromBucket, associateSwapsWithPosition } from "./helpers"
+import { updatePositionROI } from "./roiCalculation"
 import { getTokenDecimals, getTokenSymbol } from "./tokenUtils"
 
 // Helper function to convert token amount from wei to human readable
@@ -193,8 +194,11 @@ export function refreshVeloCLPositionWithEventAmounts(
     pp.netGainUSD = BigDecimal.zero()
     pp.positionROI = BigDecimal.zero()
     
+    // Initialize swaps array
+    pp.swaps = []
+    
     // Use centralized swap association logic
-    let totalSlippageUSD = associateSwapsWithPosition(nftOwner, block)
+    let totalSlippageUSD = associateSwapsWithPosition(nftOwner, block, pp)
     
     // Handle negative slippage by setting to 0 (no cost reduction)
     if (totalSlippageUSD.lt(BigDecimal.zero())) {
@@ -349,6 +353,9 @@ export function refreshVeloCLPositionWithExitAmounts(
     // Remove from cache
     const poolAddress = getPoolAddress(data.value2, data.value3, data.value4 as i32, tokenId)
     removeAgentNFTFromPool("velodrome-cl", poolAddress, tokenId)
+    
+    // Calculate ROI for closed position
+    updatePositionROI(pp)
     
     pp.save()
     refreshPortfolio(nftOwner, block)
@@ -527,6 +534,9 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
     
     // Remove from cache to prevent future swap updates
     removeAgentNFTFromPool("velodrome-cl", poolAddress, tokenId)
+    
+    // Calculate ROI for closed position
+    updatePositionROI(pp)
   }
   
   pp.save()
