@@ -16,6 +16,7 @@ import {
   getServiceIdFromMech,
   getServiceIdFromMultisig,
   getOrCreateSender,
+  getOrCreateRequestsPerAgentOnchain,
 } from './utils';
 
 class Metadata {
@@ -176,6 +177,13 @@ export function handleRequest(event: RequestEvent): void {
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
+      // Increment on-chain per-agent counters for current composition
+      let agentIds = service.agentIds;
+      for (let i = 0; i < agentIds.length; i++) {
+        let requestPerAgent = getOrCreateRequestsPerAgentOnchain(agentIds[i]);
+        requestPerAgent.requestsCount = requestPerAgent.requestsCount.plus(BigInt.fromI32(1));
+        requestPerAgent.save();
+      }
     }
   }
 

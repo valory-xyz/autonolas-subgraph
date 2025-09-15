@@ -1,8 +1,10 @@
-import { BigInt } from '@graphprotocol/graph-ts';
+import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 import {
   CreateService as CreateServiceEvent,
   UpdateService as UpdateServiceEvent,
   CreateMultisigWithAgents as CreateMultisigWithAgentsEvent,
+  RegisterInstance as RegisterInstanceEvent,
+  TerminateService as TerminateServiceEvent,
 } from '../generated/ServiceRegistryL2/ServiceRegistryL2';
 import { CreateService, UpdateService, Service } from '../generated/schema';
 import { getOrCreateMultisigWithAgents } from './utils';
@@ -27,6 +29,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   service.configHash = event.params.configHash;
   service.totalRequests = BigInt.fromI32(0);
   service.totalDeliveries = BigInt.fromI32(0);
+  service.agentIds = [];
   service.save();
 }
 
@@ -47,6 +50,33 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
   let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.configHash = event.params.configHash;
+    service.save();
+  }
+}
+
+export function handleRegisterInstance(event: RegisterInstanceEvent): void {
+  let service = Service.load(event.params.serviceId.toString());
+  if (service !== null) {
+    let ids = service.agentIds;
+    let agentIdFound = false;
+    for (let i = 0; i < ids.length; i++) {
+      if (ids[i].equals(event.params.agentId)) {
+        agentIdFound = true;
+        break;
+      }
+    }
+    if (!agentIdFound) {
+      ids.push(event.params.agentId);
+      service.agentIds = ids;
+      service.save();
+    }
+  }
+}
+
+export function handleTerminateService(event: TerminateServiceEvent): void {
+  let service = Service.load(event.params.serviceId.toString());
+  if (service !== null) {
+    service.agentIds = [];
     service.save();
   }
 }

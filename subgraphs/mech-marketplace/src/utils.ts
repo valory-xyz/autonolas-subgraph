@@ -14,6 +14,7 @@ import {
   CreateMultisigWithAgents,
   CreateMech,
   Mech,
+  RequestsPerAgent,
 } from '../generated/schema';
 import {
   MechFixedPriceNative,
@@ -249,4 +250,14 @@ export function createDataSourceForMechContract(
       network,
     ]);
   }
+}
+
+export function getOrCreateRequestsPerAgent(agentId: BigInt): RequestsPerAgent {
+  let id = agentId.toString();
+  let requestPerAgent = RequestsPerAgent.load(id);
+  if (requestPerAgent == null) {
+    requestPerAgent = new RequestsPerAgent(id);
+    requestPerAgent.requestsCount = BigInt.fromI32(0);
+  }
+  return requestPerAgent as RequestsPerAgent;
 }

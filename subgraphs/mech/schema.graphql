@@ -196,12 +196,18 @@ type Service @entity(immutable: false) {
   mechs: [MechAgent!]  @derivedFrom(field: "service")
   requests: [Request!] @derivedFrom(field: "service")
   deliveries: [Deliver!] @derivedFrom(field: "service")
+  agentIds: [BigInt!]!
 }
 
 type AgentMultisigAssociation @entity(immutable: false) {
   id: ID! # agentId
   agentId: BigInt! # uint256
   multisig: Bytes! # address
+}
+
+type RequestsPerAgentOnchain @entity(immutable: false) {
+  id: ID! # agentId as string
+  requestsCount: BigInt!
 }
 
 type AtaTransaction @entity(immutable: true) {
