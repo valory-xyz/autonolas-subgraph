@@ -180,9 +180,9 @@ export function handleRequest(event: RequestEvent): void {
       // Increment on-chain per-agent counters for current composition
       let agentIds = service.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
-        let entity = getOrCreateRequestsPerAgentOnchain(agentIds[i]);
-        entity.RequestsCount = entity.RequestsCount.plus(BigInt.fromI32(1));
-        entity.save();
+        let requestPerAgent = getOrCreateRequestsPerAgentOnchain(agentIds[i]);
+        requestPerAgent.RequestsCount = requestPerAgent.RequestsCount.plus(BigInt.fromI32(1));
+        requestPerAgent.save();
       }
     }
   }
