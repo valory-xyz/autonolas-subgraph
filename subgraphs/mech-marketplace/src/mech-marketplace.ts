@@ -330,9 +330,9 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     if (svc !== null) {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
-        let agg = getOrCreateRequestsPerAgent(ids[i]);
-        agg.RequestsCount = agg.RequestsCount.plus(event.params.numRequests);
-        agg.save();
+        let requestPerAgent = getOrCreateRequestsPerAgent(ids[i]);
+        requestPerAgent.RequestsCount = requestPerAgent.RequestsCount.plus(event.params.numRequests);
+        requestPerAgent.save();
       }
     }
   }
