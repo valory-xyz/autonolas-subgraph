@@ -339,5 +339,5 @@ type Global @entity(immutable: false) {
 
 type RequestsPerAgent @entity(immutable: false) {
   id: ID!
-  RequestsCount: BigInt!
+  requestsCount: BigInt!
 }
