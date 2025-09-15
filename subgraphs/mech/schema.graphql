@@ -207,7 +207,7 @@ type AgentMultisigAssociation @entity(immutable: false) {
 
 type RequestsPerAgentOnchain @entity(immutable: false) {
   id: ID! # agentId as string
-  RequestsCount: BigInt!
+  requestsCount: BigInt!
 }
 
 type AtaTransaction @entity(immutable: true) {
