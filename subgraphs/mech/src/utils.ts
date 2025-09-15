@@ -104,7 +104,7 @@ export function getOrCreateRequestsPerAgentOnchain(
   let requestPerAgent = RequestsPerAgentOnchain.load(id);
   if (requestPerAgent == null) {
     requestPerAgent = new RequestsPerAgentOnchain(id);
-    requestPerAgent.RequestsCount = BigInt.fromI32(0);
+    requestPerAgent.requestsCount = BigInt.fromI32(0);
   }
   return requestPerAgent as RequestsPerAgentOnchain;
 }

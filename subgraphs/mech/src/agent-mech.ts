@@ -181,7 +181,7 @@ export function handleRequest(event: RequestEvent): void {
       let agentIds = service.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
         let requestPerAgent = getOrCreateRequestsPerAgentOnchain(agentIds[i]);
-        requestPerAgent.RequestsCount = requestPerAgent.RequestsCount.plus(BigInt.fromI32(1));
+        requestPerAgent.requestsCount = requestPerAgent.requestsCount.plus(BigInt.fromI32(1));
         requestPerAgent.save();
       }
     }
