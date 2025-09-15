@@ -205,9 +205,9 @@ export function handleMarketplaceDeliveryWithSignatures(
     if (serviceEntity !== null) {
       let agentIds = serviceEntity.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
-        let entity = getOrCreateRequestsPerAgent(agentIds[i]);
-        entity.RequestsCount = entity.RequestsCount.plus(event.params.numDeliveries);
-        entity.save();
+        let requestPerAgent = getOrCreateRequestsPerAgent(agentIds[i]);
+        requestPerAgent.RequestsCount = entity.RequestsCount.plus(event.params.numDeliveries);
+        requestPerAgent.save();
       }
     }
   }
