@@ -1,48 +1,17 @@
 import { Address, BigDecimal, BigInt, ethereum, log } from "@graphprotocol/graph-ts"
 import { VelodromeCLPool } from "../generated/VeloNFTManager/VelodromeCLPool"
 import { VelodromeV2Pool } from "../generated/templates/VeloV2Pool/VelodromeV2Pool"
-import { AggregatorV3Interface } from "../generated/templates/Safe/AggregatorV3Interface"
 import { BalancerV2WeightedPool } from "../generated/BalancerVault/BalancerV2WeightedPool"
 import { BalancerV2Vault } from "../generated/BalancerVault/BalancerV2Vault"
 import { getTokenConfig } from "./tokenConfig"
 import { USDC, USDT, OUSDT, WETH, Q96, WETH_USDC_VELOV3_POOL, BALANCER_VAULT } from "./constants"
 
-// Chainlink price adapter with validation
+// Chainlink price adapter with validation - NOT AVAILABLE ON MODE NETWORK
 export function getChainlinkPrice(feedAddress: Address, blockTimestamp: BigInt = BigInt.fromI32(0)): BigDecimal {
-  let aggregator = AggregatorV3Interface.bind(feedAddress)
-  let roundResult = aggregator.try_latestRoundData()
-  
-  if (roundResult.reverted) {
-    return BigDecimal.fromString("0")
-  }
-  
-  let roundData = roundResult.value
-  let price = roundData.value1.toBigDecimal().div(BigDecimal.fromString("1e8")) // 8 decimals
-  
-  // PRODUCTION ENHANCEMENT: Staleness checking
-  // Only check staleness if a block timestamp is provided
-  if (!blockTimestamp.equals(BigInt.fromI32(0))) {
-    // Chainlink updatedAt timestamp
-    let updatedAt = roundData.value3
-    
-    // Stale data threshold (24 hours in seconds)
-    const STALE_PRICE_THRESHOLD = BigInt.fromI32(86400)
-    
-    // Calculate how old the data is
-    let dataAge = blockTimestamp.minus(updatedAt)
-    
-    // If data is older than threshold, reject it
-    if (dataAge.gt(STALE_PRICE_THRESHOLD)) {
-      return BigDecimal.fromString("0") // Reject stale price
-    }
-  }
-  
-  // Validate price is reasonable (not zero, not negative)
-  if (price.le(BigDecimal.fromString("0"))) {
-    return BigDecimal.fromString("0")
-  }
-  
-  return price
+  // Chainlink price feeds are NOT available on MODE network
+  // This function is kept for compatibility but always returns 0
+  log.warning("Chainlink price feeds are not available on MODE network", [])
+  return BigDecimal.fromString("0")
 }
 
 

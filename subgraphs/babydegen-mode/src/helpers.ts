@@ -234,14 +234,14 @@ export function calculatePortfolioMetrics(
   portfolio.initialValue = initialValue  
   portfolio.positionsValue = positionsValue
   portfolio.uninvestedValue = uninvestedValue
-  portfolio.projectedRoi = projectedRoi  // Current portfolio-based calculation (unrealized PnL)
-  portfolio.projectedApr = projectedAPR  // APR calculated from projected ROI
+  portfolio.unrealisedPnL = projectedRoi  // Current portfolio-based calculation (unrealized PnL)
+  portfolio.projectedUnrealisedPnL = projectedAPR  // APR calculated from unrealized PnL
   portfolio.roi = actualROI  //Position-based ROI from closed positions
   portfolio.apr = actualAPR  // APR calculated from actual ROI
   
   // Update ETH-adjusted metrics
-  portfolio.ethAdjustedProjectedRoi = ethAdjustedProjectedRoi
-  portfolio.ethAdjustedProjectedApr = ethAdjustedProjectedApr
+  portfolio.ethAdjustedUnrealisedPnL = ethAdjustedProjectedRoi
+  portfolio.ethAdjustedProjectedUnrealisedPnL = ethAdjustedProjectedApr
   portfolio.ethAdjustedRoi = ethAdjustedRoi
   portfolio.ethAdjustedApr = ethAdjustedApr
   
@@ -335,12 +335,12 @@ function createPortfolioSnapshot(portfolio: AgentPortfolio, block: ethereum.Bloc
   snapshot.initialValue = portfolio.initialValue
   snapshot.positionsValue = portfolio.positionsValue
   snapshot.uninvestedValue = portfolio.uninvestedValue
-  snapshot.projectedRoi = portfolio.projectedRoi
-  snapshot.projectedApr = portfolio.projectedApr
+  snapshot.unrealisedPnL = portfolio.unrealisedPnL
+  snapshot.projectedUnrealisedPnL = portfolio.projectedUnrealisedPnL
   snapshot.roi = portfolio.roi
   snapshot.apr = portfolio.apr
-  snapshot.ethAdjustedProjectedRoi = portfolio.ethAdjustedProjectedRoi
-  snapshot.ethAdjustedProjectedApr = portfolio.ethAdjustedProjectedApr
+  snapshot.ethAdjustedUnrealisedPnL = portfolio.ethAdjustedUnrealisedPnL
+  snapshot.ethAdjustedProjectedUnrealisedPnL = portfolio.ethAdjustedProjectedUnrealisedPnL
   snapshot.ethAdjustedRoi = portfolio.ethAdjustedRoi
   snapshot.ethAdjustedApr = portfolio.ethAdjustedApr
   snapshot.timestamp = block.timestamp
@@ -476,15 +476,15 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
-    portfolio.projectedRoi = BigDecimal.zero()
-    portfolio.projectedApr = BigDecimal.zero()
+    portfolio.unrealisedPnL = BigDecimal.zero()
+    portfolio.projectedUnrealisedPnL = BigDecimal.zero()
     portfolio.roi = BigDecimal.zero()
     portfolio.totalInvestments = BigDecimal.zero()
     portfolio.totalGrossGains = BigDecimal.zero()
     portfolio.totalCosts = BigDecimal.zero()
     portfolio.apr = BigDecimal.zero()
-    portfolio.ethAdjustedProjectedRoi = BigDecimal.zero()
-    portfolio.ethAdjustedProjectedApr = BigDecimal.zero()
+    portfolio.ethAdjustedUnrealisedPnL = BigDecimal.zero()
+    portfolio.ethAdjustedProjectedUnrealisedPnL = BigDecimal.zero()
     portfolio.ethAdjustedRoi = BigDecimal.zero()
     portfolio.ethAdjustedApr = BigDecimal.zero()
     portfolio.ethPriceAtBaseline = BigDecimal.zero()
