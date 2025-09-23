@@ -244,24 +244,39 @@ export function handleERC20Transfer(event: TransferEvent): void {
   }
 }
 
-// Helper function to update withdrawal tracking in AgentPortfolio
+// Helper function to update withdrawal tracking in FundingBalance
 export function updateWithdrawalTracking(
   serviceSafe: Address,
   usd: BigDecimal,
   ts: BigInt
 ): void {
-  // Ensure portfolio exists
-  let portfolio = ensureAgentPortfolio(serviceSafe, ts)
+  let id = serviceSafe as Bytes
+  let fb = FundingBalance.load(id)
+  
+  if (!fb) {
+    fb = new FundingBalance(id)
+    fb.service = serviceSafe
+    fb.totalInUsd = BigDecimal.zero()
+    fb.totalOutUsd = BigDecimal.zero()
+    fb.totalWithdrawnUsd = BigDecimal.zero()
+    fb.netUsd = BigDecimal.zero()
+    fb.firstInTimestamp = ts
+    fb.lastChangeTs = ts
+  }
   
   // Add to total withdrawals
-  portfolio.totalWithdrawalsUSD = portfolio.totalWithdrawalsUSD.plus(usd)
-  portfolio.save()
+  fb.totalWithdrawnUsd = fb.totalWithdrawnUsd.plus(usd)
+  fb.lastChangeTs = ts
+  fb.save()
   
   log.info("WITHDRAWAL TRACKING: Added {} USD to withdrawals for service {} - total withdrawals now: {}", [
     usd.toString(),
     serviceSafe.toHexString(),
-    portfolio.totalWithdrawalsUSD.toString()
+    fb.totalWithdrawnUsd.toString()
   ])
+  
+  // Ensure AgentPortfolio exists
+  ensureAgentPortfolio(serviceSafe, ts)
 }
 
 // Helper function to update funding balance without circular dependency
@@ -280,9 +295,10 @@ export function updateFundingBalance(
     fb.service = serviceSafe
     fb.totalInUsd = BigDecimal.zero()
     fb.totalOutUsd = BigDecimal.zero()
+    fb.totalWithdrawnUsd = BigDecimal.zero()
     fb.netUsd = BigDecimal.zero()
     fb.firstInTimestamp = ts
-    
+    fb.lastChangeTs = ts
   }
   
   let oldTotalIn = fb.totalInUsd

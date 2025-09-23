@@ -101,8 +101,6 @@ export function refreshVeloV2PositionWithEventAmounts(
     pp.netGainUSD = BigDecimal.zero()
     pp.positionROI = BigDecimal.zero()
     
-    // Initialize swaps array
-    pp.swaps = []
     
     // Initialize all required fields
     pp.usdCurrent = BigDecimal.zero()

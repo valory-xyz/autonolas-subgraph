@@ -55,7 +55,7 @@ export function calculateEthAdjustedMetrics(
 ): EthAdjustedMetrics {
   let ethPriceCurrent = getEthUsd(block)
   
-  let ethPriceAtBaseline = portfolio.ethPriceAtBaseline
+  let ethPriceAtBaseline = portfolio.firstFundingEthPrice
   if (ethPriceAtBaseline.equals(BigDecimal.zero())) {
     ethPriceAtBaseline = ethPriceCurrent
   }
@@ -108,6 +108,7 @@ export function calculatePortfolioMetrics(
   // 1. Get initial investment from FundingBalance
   let fundingBalance = FundingBalance.load(serviceSafe as Bytes)
   let initialValue = fundingBalance ? fundingBalance.netUsd : BigDecimal.zero()
+  let totalWithdrawn = fundingBalance ? fundingBalance.totalWithdrawnUsd : BigDecimal.zero()
   
   // 2. Calculate total positions value
   let positionsValue = calculatePositionsValue(serviceSafe)
@@ -116,7 +117,7 @@ export function calculatePortfolioMetrics(
   let uninvestedValue = calculateUninvestedValue(serviceSafe)
   
   // 4. Calculate total portfolio value (positions + uninvested + withdrawals)
-  let finalValue = positionsValue.plus(uninvestedValue).plus(portfolio.totalWithdrawalsUSD)
+  let finalValue = positionsValue.plus(uninvestedValue).plus(totalWithdrawn)
   
   // 5. Calculate projected ROI (current portfolio-based calculation)
   let projectedRoi = BigDecimal.zero()
@@ -185,24 +186,13 @@ export function calculatePortfolioMetrics(
   // Calculate ETH-adjusted metrics
   let ethMetrics = calculateEthAdjustedMetrics(portfolio, block)
   
-  // Set baseline ETH price and timestamp if not already set
-  if (portfolio.ethPriceAtBaseline.equals(BigDecimal.zero())) {
-    portfolio.ethPriceAtBaseline = ethMetrics.ethPriceCurrent
-    
-    // Set baseline timestamp - use first funding time if available, otherwise registration time
-    let fundingBalance = FundingBalance.load(serviceSafe as Bytes)
-    if (fundingBalance && fundingBalance.firstInTimestamp.gt(BigInt.zero())) {
-      portfolio.baselineTimestamp = fundingBalance.firstInTimestamp
-    } else {
-      // Fallback to service registration timestamp
-      let serviceEntity = Service.load(serviceSafe)
-      if (serviceEntity != null && serviceEntity.latestRegistrationTimestamp.gt(BigInt.zero())) {
-        portfolio.baselineTimestamp = serviceEntity.latestRegistrationTimestamp
-      } else {
-        portfolio.baselineTimestamp = block.timestamp
-      }
-    }
+  // Set baseline ETH price if not already set
+  if (portfolio.firstFundingEthPrice.equals(BigDecimal.zero())) {
+    portfolio.firstFundingEthPrice = ethMetrics.ethPriceCurrent
   }
+  
+  // Update current ETH price
+  portfolio.currentEthPrice = ethMetrics.ethPriceCurrent
   
   // Calculate ETH-adjusted ROI and APR
   let ethAdjustedProjectedRoi = ethMetrics.calculateEthAdjustedROI(projectedRoi)
@@ -434,12 +424,8 @@ export function associateSwapsWithPosition(
             swapTransaction.isAssociated = true
             swapTransaction.save()
             
-            // If position is provided, add swap to position's swaps array
-            if (position != null) {
-              let currentSwaps = position.swaps
-              currentSwaps.push(swapTransaction.id)
-              position.swaps = currentSwaps
-            }
+            // Note: swaps field removed from ProtocolPosition schema
+            // Swap association is now tracked via SwapToEntryAssociation entity
           }
         }
       }
@@ -476,7 +462,6 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
-    portfolio.totalWithdrawalsUSD = BigDecimal.zero()
     portfolio.unrealisedPnL = BigDecimal.zero()
     portfolio.projectedUnrealisedPnL = BigDecimal.zero()
     portfolio.roi = BigDecimal.zero()
@@ -488,8 +473,8 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.ethAdjustedProjectedUnrealisedPnL = BigDecimal.zero()
     portfolio.ethAdjustedRoi = BigDecimal.zero()
     portfolio.ethAdjustedApr = BigDecimal.zero()
-    portfolio.ethPriceAtBaseline = BigDecimal.zero()
-    portfolio.baselineTimestamp = BigInt.zero()
+    portfolio.firstFundingEthPrice = BigDecimal.zero()
+    portfolio.currentEthPrice = BigDecimal.zero()
     portfolio.lastUpdated = timestamp
     
     // Set firstTradingTimestamp from funding balance if available

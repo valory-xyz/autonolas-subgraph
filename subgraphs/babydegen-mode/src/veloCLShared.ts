@@ -194,9 +194,6 @@ export function refreshVeloCLPositionWithEventAmounts(
     pp.netGainUSD = BigDecimal.zero()
     pp.positionROI = BigDecimal.zero()
     
-    // Initialize swaps array
-    pp.swaps = []
-    
     // Use centralized swap association logic
     let totalSlippageUSD = associateSwapsWithPosition(nftOwner, block, pp)
     

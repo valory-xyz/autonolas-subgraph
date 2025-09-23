@@ -191,9 +191,6 @@ function refreshSturdyPosition(
     position.netGainUSD = BigDecimal.zero()
     position.positionROI = BigDecimal.zero()
     
-    // Initialize swaps array
-    position.swaps = []
-    
     let totalSlippageUSD = associateSwapsWithPosition(agent, block, position)
     
     if (totalSlippageUSD.lt(BigDecimal.zero())) {

@@ -418,12 +418,12 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   // Extract ROI and APR values from snapshots with selective filtering
   let roiValues: BigDecimal[] = [];
   let aprValues: BigDecimal[] = [];
-  let projectedRoiValues: BigDecimal[] = [];
-  let projectedAprValues: BigDecimal[] = [];
+  let unrealisedPnLValues: BigDecimal[] = [];
+  let projectedUnrealisedPnLValues: BigDecimal[] = [];
   let ethAdjustedRoiValues: BigDecimal[] = [];
   let ethAdjustedAprValues: BigDecimal[] = [];
-  let ethAdjustedProjectedRoiValues: BigDecimal[] = [];
-  let ethAdjustedProjectedAprValues: BigDecimal[] = [];
+  let ethAdjustedUnrealisedPnLValues: BigDecimal[] = [];
+  let ethAdjustedProjectedUnrealisedPnLValues: BigDecimal[] = [];
   
   // Track exclusions for logging
   let totalSnapshots = snapshots.length;
@@ -448,10 +448,10 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
         snapshot.finalValue.toString()
       ]);
     } else {
-      projectedRoiValues.push(snapshot.unrealisedPnL);
-      projectedAprValues.push(snapshot.projectedUnrealisedPnL);
-      ethAdjustedProjectedRoiValues.push(snapshot.ethAdjustedUnrealisedPnL);
-      ethAdjustedProjectedAprValues.push(snapshot.ethAdjustedProjectedUnrealisedPnL);
+      unrealisedPnLValues.push(snapshot.unrealisedPnL);
+      projectedUnrealisedPnLValues.push(snapshot.projectedUnrealisedPnL);
+      ethAdjustedUnrealisedPnLValues.push(snapshot.ethAdjustedUnrealisedPnL);
+      ethAdjustedProjectedUnrealisedPnLValues.push(snapshot.ethAdjustedProjectedUnrealisedPnL);
     }
   }
   
@@ -464,12 +464,12 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   // Calculate median values (both actual and unrealized PnL, including ETH-adjusted)
   let medianROI = calculateMedian(roiValues);
   let medianAPR = calculateMedian(aprValues);
-  let medianUnrealisedPnL = calculateMedian(projectedRoiValues);
-  let medianProjectedUnrealisedPnL = calculateMedian(projectedAprValues);
+  let medianUnrealisedPnL = calculateMedian(unrealisedPnLValues);
+  let medianProjectedUnrealisedPnL = calculateMedian(projectedUnrealisedPnLValues);
   let medianEthAdjustedROI = calculateMedian(ethAdjustedRoiValues);
   let medianEthAdjustedAPR = calculateMedian(ethAdjustedAprValues);
-  let medianEthAdjustedUnrealisedPnL = calculateMedian(ethAdjustedProjectedRoiValues);
-  let medianEthAdjustedProjectedUnrealisedPnL = calculateMedian(ethAdjustedProjectedAprValues);
+  let medianEthAdjustedUnrealisedPnL = calculateMedian(ethAdjustedUnrealisedPnLValues);
+  let medianEthAdjustedProjectedUnrealisedPnL = calculateMedian(ethAdjustedProjectedUnrealisedPnLValues);
   
   // Get previous DailyPopulationMetric entity for historical data using day timestamp
   let previousDailyPopulationMetric = getPreviousDailyPopulationMetric(dayTimestamp);

@@ -145,9 +145,6 @@ export function refreshBalancerPositionWithEventAmounts(
     pp.entryAmount1USD = BigDecimal.zero()
     pp.entryAmountUSD = BigDecimal.zero()
     
-    // Initialize swaps array
-    pp.swaps = []
-    
     let totalSlippageUSD = associateSwapsWithPosition(userAddress, block, pp)
     
     if (totalSlippageUSD.lt(BigDecimal.zero())) {
