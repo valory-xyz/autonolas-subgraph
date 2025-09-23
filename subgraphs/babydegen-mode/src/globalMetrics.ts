@@ -105,6 +105,10 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     return snapshots;
   }
   
+  // Track filtering statistics
+  let totalAgentsChecked = 0;
+  let agentsExcludedForInsufficientPositions = 0;
+  
   // For each service, look for snapshots created on this day
   for (let i = 0; i < serviceRegistry.serviceAddresses.length; i++) {
     let serviceAddress = serviceRegistry.serviceAddresses[i];
@@ -113,6 +117,21 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     // Since we don't know the exact block timestamp, we need to find snapshots within the day
     let portfolio = AgentPortfolio.load(serviceAddress);
     if (portfolio && portfolio.lastSnapshotTimestamp.gt(BigInt.zero())) {
+      totalAgentsChecked++;
+      
+      // Check if agent has at least 2 total positions (active + closed)
+      let totalPositions = portfolio.totalPositions + portfolio.totalClosedPositions;
+      if (totalPositions < 2) {
+        agentsExcludedForInsufficientPositions++;
+        log.info("Excluding agent {} from population metrics - insufficient position history: {} total positions (active: {}, closed: {})", [
+          serviceAddress.toHexString(),
+          totalPositions.toString(),
+          portfolio.totalPositions.toString(),
+          portfolio.totalClosedPositions.toString()
+        ]);
+        continue; // Skip this agent
+      }
+      
       let snapshotDayTimestamp = getDayTimestamp(portfolio.lastSnapshotTimestamp);
       
       // If the last snapshot was taken on this day, load it
@@ -127,9 +146,11 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     }
   }
   
-  log.info("Found {} agent snapshots for day timestamp {}", [
-    snapshots.length.toString(),
-    dayTimestamp.toString()
+  log.info("Agent filtering summary for day timestamp {} - Total checked: {}, Excluded for insufficient positions: {}, Final snapshots: {}", [
+    dayTimestamp.toString(),
+    totalAgentsChecked.toString(),
+    agentsExcludedForInsufficientPositions.toString(),
+    snapshots.length.toString()
   ]);
   
   return snapshots;
