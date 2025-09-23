@@ -157,10 +157,11 @@ type AgentPortfolio @entity(immutable: false) {
   service: Service!             # Link to service
   
   # Portfolio Values
-  finalValue: BigDecimal!       # Total current value (positions + uninvested)
-  initialValue: BigDecimal!     # Initial investment from FundingBalance
+  finalValue: BigDecimal!       # Total current value (positions + uninvested + withdrawals)
+  initialValue: BigDecimal!     # Initial investment from FundingBalance (only inflows)
   positionsValue: BigDecimal!   # Current value of all active positions
   uninvestedValue: BigDecimal!  # Token balances in safe
+  totalWithdrawalsUSD: BigDecimal! # Total USDC/ETH withdrawn to EOAs (added to final value)
   
   # Performance Metrics
   unrealisedPnL: BigDecimal!           # Current unrealized PnL calculation (portfolio-based)

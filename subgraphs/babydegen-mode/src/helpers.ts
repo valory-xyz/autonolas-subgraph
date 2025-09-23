@@ -115,8 +115,8 @@ export function calculatePortfolioMetrics(
   // 3. Calculate uninvested funds
   let uninvestedValue = calculateUninvestedValue(serviceSafe)
   
-  // 4. Calculate total portfolio value (positions + uninvested)
-  let finalValue = positionsValue.plus(uninvestedValue)
+  // 4. Calculate total portfolio value (positions + uninvested + withdrawals)
+  let finalValue = positionsValue.plus(uninvestedValue).plus(portfolio.totalWithdrawalsUSD)
   
   // 5. Calculate projected ROI (current portfolio-based calculation)
   let projectedRoi = BigDecimal.zero()
@@ -476,6 +476,7 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
+    portfolio.totalWithdrawalsUSD = BigDecimal.zero()
     portfolio.unrealisedPnL = BigDecimal.zero()
     portfolio.projectedUnrealisedPnL = BigDecimal.zero()
     portfolio.roi = BigDecimal.zero()

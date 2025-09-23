@@ -230,8 +230,8 @@ export function handleERC20Transfer(event: TransferEvent): void {
         let tokenPrice = getTokenPriceUSD(tokenAddress, event.block.timestamp, false)
         let usdValue = amountDecimal.times(tokenPrice)
         
-        // Update funding balance
-        updateFundingBalance(from, usdValue, false, event.block.timestamp)
+        // NEW LOGIC: Track withdrawals separately instead of reducing funding balance
+        updateWithdrawalTracking(from, usdValue, event.block.timestamp)
       }
     } else {
       // Calculate USD value for non-USDC tokens for logging purposes only
@@ -242,6 +242,26 @@ export function handleERC20Transfer(event: TransferEvent): void {
       
     }
   }
+}
+
+// Helper function to update withdrawal tracking in AgentPortfolio
+export function updateWithdrawalTracking(
+  serviceSafe: Address,
+  usd: BigDecimal,
+  ts: BigInt
+): void {
+  // Ensure portfolio exists
+  let portfolio = ensureAgentPortfolio(serviceSafe, ts)
+  
+  // Add to total withdrawals
+  portfolio.totalWithdrawalsUSD = portfolio.totalWithdrawalsUSD.plus(usd)
+  portfolio.save()
+  
+  log.info("WITHDRAWAL TRACKING: Added {} USD to withdrawals for service {} - total withdrawals now: {}", [
+    usd.toString(),
+    serviceSafe.toHexString(),
+    portfolio.totalWithdrawalsUSD.toString()
+  ])
 }
 
 // Helper function to update funding balance without circular dependency
