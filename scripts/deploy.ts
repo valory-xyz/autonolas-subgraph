@@ -5,7 +5,7 @@ const exec = promisify(execAsync);
 import * as clack from "@clack/prompts";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { existsSync, readdirSync, statSync } from "fs";
+import { existsSync, readdirSync, statSync, unlinkSync, copyFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ interface DeploymentConfig {
   subgraphName: string;
   action: "update" | "overwrite";
   dryRun: boolean;
+  manifestFile?: string; // Selected manifest file when multiple exist
 }
 
 const EnvironmentSchema = z.object({
@@ -68,6 +69,51 @@ function getSubgraphDirectories(): string[] {
     .sort();
 }
 
+function getManifestFiles(subgraphDir: string): string[] {
+  const files = readdirSync(subgraphDir);
+  const manifestFiles = files.filter(file =>
+    file.startsWith('subgraph.') && file.endsWith('.yaml') && file !== 'subgraph.yaml'
+  );
+
+  // If there's a direct subgraph.yaml, prioritize it
+  if (existsSync(join(subgraphDir, 'subgraph.yaml'))) {
+    return ['subgraph.yaml'];
+  }
+
+  return manifestFiles.sort();
+}
+
+async function promptForManifest(subgraphDir: string): Promise<string | undefined> {
+  const manifestFiles = getManifestFiles(subgraphDir);
+
+  if (manifestFiles.length === 0) {
+    clack.log.error("No subgraph manifest files found");
+    process.exit(1);
+  }
+
+  if (manifestFiles.length === 1) {
+    clack.log.info(`📄 Using manifest file: ${manifestFiles[0]}`);
+    return manifestFiles[0];
+  }
+
+  // Multiple manifest files found, ask user to select
+  clack.log.info(`📄 Found ${manifestFiles.length} manifest files: ${manifestFiles.join(', ')}`);
+  const selectedManifest = await clack.select({
+    message: "Multiple manifest files found. Select which one to deploy:",
+    options: manifestFiles.map(file => ({
+      value: file,
+      label: `📄 ${file}`,
+    })),
+  }) as string;
+
+  if (clack.isCancel(selectedManifest)) {
+    clack.cancel("Operation cancelled");
+    process.exit(0);
+  }
+
+  return selectedManifest;
+}
+
 async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<DeploymentConfig> {
 
   const title = dryRun ? "🧪 Subgraph Deployment Tool (DRY RUN)" : "🚀 Subgraph Deployment Tool";
@@ -112,6 +158,10 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
     process.exit(0);
   }
 
+  // Check for multiple manifest files and prompt for selection
+  const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
+  const manifestFile = await promptForManifest(subgraphDir);
+
   const action = await clack.select({
     message: "Deployment action:",
     options: [
@@ -148,11 +198,11 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
     process.exit(0);
   }
 
-  return { environment, subgraphName, action, dryRun };
+  return { environment, subgraphName, action, dryRun, manifestFile };
 }
 
 async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, envVars: EnvironmentVars }) {
-  const { subgraphName, action, dryRun, environment } = config;
+  const { subgraphName, action, dryRun, environment, manifestFile } = config;
   const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
 
   clack.log.info(`Deploying subgraph: ${subgraphName}`);
@@ -163,11 +213,26 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
   }
 
   const spinner = clack.spinner();
+  let tempManifestCreated = false;
 
   try {
     // Change to subgraph directory
     process.chdir(subgraphDir);
     clack.log.info(`📁 Changed to directory: ${subgraphDir}`);
+
+    // Handle manifest file selection for subgraphs with multiple manifests
+    if (manifestFile && manifestFile !== 'subgraph.yaml') {
+      const sourcePath = join(subgraphDir, manifestFile);
+      const targetPath = join(subgraphDir, 'subgraph.yaml');
+
+      if (dryRun) {
+        clack.log.info(`cp ${sourcePath} ${targetPath}`);
+      } else {
+        copyFileSync(sourcePath, targetPath);
+        tempManifestCreated = true;
+        clack.log.info(`📄 Created temporary manifest: ${manifestFile} -> subgraph.yaml`);
+      }
+    }
 
     // Install dependencies
     spinner.start("📦 Installing dependencies...");
@@ -222,8 +287,27 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
       : `🎉 Deployment completed successfully!`;
     clack.outro(successMessage);
 
+    // Clean up temporary manifest file
+    if (tempManifestCreated && !dryRun) {
+      const tempManifestPath = join(subgraphDir, 'subgraph.yaml');
+      if (existsSync(tempManifestPath)) {
+        unlinkSync(tempManifestPath);
+        clack.log.info(`🧹 Cleaned up temporary manifest file`);
+      }
+    }
+
   } catch (error) {
     spinner.stop("❌ Operation failed");
+
+    // Clean up temporary manifest file even on error
+    if (tempManifestCreated && !dryRun) {
+      const tempManifestPath = join(subgraphDir, 'subgraph.yaml');
+      if (existsSync(tempManifestPath)) {
+        unlinkSync(tempManifestPath);
+        clack.log.info(`🧹 Cleaned up temporary manifest file after error`);
+      }
+    }
+
     clack.log.error(`Error: ${error}`);
     process.exit(1);
   }

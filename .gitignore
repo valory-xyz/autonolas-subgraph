@@ -5,3 +5,4 @@ generated/
 temp/
 
 .env
+.env.prod 
