@@ -191,6 +191,7 @@ export function handleRequest(event: RequestEvent): void {
 }
 
 export function handleDeliver(event: DeliverEvent): void {
+
   let entity = new Deliver(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
@@ -201,7 +202,14 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-  entity.request = event.params.requestId.toHexString();
+
+  let existingRequest = Request.load(event.params.requestId.toHexString());
+  // Do not attach a delivery to request in case it already has delivery attached
+  if (existingRequest !== null && existingRequest.delivery === null) {
+    entity.request = event.params.requestId.toHexString();
+  } else {
+     log.warning('Delivery already attached to Request', [event.params.requestId.toHexString()]);
+  }
 
   // Associate deliver with service
   let serviceId = getServiceIdFromMech(event.address);
