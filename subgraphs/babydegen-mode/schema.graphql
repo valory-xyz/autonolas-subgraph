@@ -159,6 +159,7 @@ type AgentPortfolio @entity(immutable: false) {
   initialValue: BigDecimal!     # Initial investment from FundingBalance
   positionsValue: BigDecimal!   # Current value of all active positions
   uninvestedValue: BigDecimal!  # Token balances in safe
+  totalWithdrawnUSD: BigDecimal! # Total amount withdrawn to EOAs (from FundingBalance)
   
   # Performance Metrics (ENHANCED)
   unrealisedPnL: BigDecimal!    # Current ROI calculation (portfolio-based unrealized PnL)
@@ -202,6 +203,7 @@ type AgentPortfolioSnapshot @entity(immutable: true) {
   initialValue: BigDecimal!     
   positionsValue: BigDecimal!   
   uninvestedValue: BigDecimal!  
+  totalWithdrawnUSD: BigDecimal! # Total amount withdrawn to EOAs at snapshot time
   
   # Performance at Snapshot
   unrealisedPnL: BigDecimal!           # Unrealized PnL at snapshot time

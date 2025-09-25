@@ -582,12 +582,12 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   // Calculate 7-day simple moving averages (all 8 metrics)
   let sma7dROI = calculate7DaysSMA(updatedHistoricalROI);
   let sma7dAPR = calculate7DaysSMA(updatedHistoricalAPR);
-  let sma7dProjectedROI = calculate7DaysSMA(updatedHistoricalProjectedROI);
-  let sma7dProjectedAPR = calculate7DaysSMA(updatedHistoricalProjectedAPR);
+  let sma7dUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedROI);
+  let sma7dProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedAPR);
   let sma7dEthAdjustedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedROI);
   let sma7dEthAdjustedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedAPR);
-  let sma7dEthAdjustedProjectedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedROI);
-  let sma7dEthAdjustedProjectedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedAPR);
+  let sma7dEthAdjustedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedROI);
+  let sma7dEthAdjustedProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedAPR);
   
   // Calculate staking APR data for frontend
   let registryId = Bytes.fromUTF8("registry");
@@ -612,12 +612,12 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
     medianEthAdjustedProjectedUnrealisedPnL,
     sma7dROI,
     sma7dAPR,
-    sma7dProjectedROI,
-    sma7dProjectedAPR,
+    sma7dUnrealisedPnL,
+    sma7dProjectedUnrealisedPnL,
     sma7dEthAdjustedROI,
     sma7dEthAdjustedAPR,
-    sma7dEthAdjustedProjectedROI,
-    sma7dEthAdjustedProjectedAPR,
+    sma7dEthAdjustedUnrealisedPnL,
+    sma7dEthAdjustedProjectedUnrealisedPnL,
     updatedHistoricalROI,
     updatedHistoricalAPR,
     updatedHistoricalProjectedROI,

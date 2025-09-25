@@ -226,6 +226,7 @@ export function calculatePortfolioMetrics(
   portfolio.initialValue = initialValue  
   portfolio.positionsValue = positionsValue
   portfolio.uninvestedValue = uninvestedValue
+  portfolio.totalWithdrawnUSD = totalWithdrawn  // Total amount withdrawn to EOAs
   portfolio.unrealisedPnL = projectedRoi  // Current portfolio-based calculation (unrealized PnL)
   portfolio.projectedUnrealisedPnL = projectedAPR  // APR calculated from unrealized PnL
   portfolio.roi = actualROI  //Position-based ROI from closed positions
@@ -329,6 +330,7 @@ function createPortfolioSnapshot(portfolio: AgentPortfolio, block: ethereum.Bloc
   snapshot.initialValue = portfolio.initialValue
   snapshot.positionsValue = portfolio.positionsValue
   snapshot.uninvestedValue = portfolio.uninvestedValue
+  snapshot.totalWithdrawnUSD = portfolio.totalWithdrawnUSD
   snapshot.unrealisedPnL = portfolio.unrealisedPnL
   snapshot.projectedUnrealisedPnL = portfolio.projectedUnrealisedPnL
   snapshot.roi = portfolio.roi
@@ -472,6 +474,7 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
     portfolio.initialValue = BigDecimal.zero()
     portfolio.positionsValue = BigDecimal.zero()
     portfolio.uninvestedValue = BigDecimal.zero()
+    portfolio.totalWithdrawnUSD = BigDecimal.zero()
     portfolio.unrealisedPnL = BigDecimal.zero()
     portfolio.projectedUnrealisedPnL = BigDecimal.zero()
     portfolio.roi = BigDecimal.zero()
