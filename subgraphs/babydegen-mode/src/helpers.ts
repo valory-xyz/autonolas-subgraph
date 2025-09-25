@@ -6,12 +6,14 @@ import {
   ProtocolPosition,
   Service,
   AgentSwapBuffer,
-  SwapTransaction
+  SwapTransaction,
+  DailyPopulationMetric
 } from "../generated/schema"
 import { calculateUninvestedValue, updateFundingBalance } from "./tokenBalances"
 import { getServiceByAgent } from "./config"
 import { calculateActualROI, aggregateClosedPositionMetrics } from "./roiCalculation"
 import { getEthUsd } from "./common"
+import { calculateGlobalMetrics } from "./globalMetrics"
 
 export class EthAdjustedMetrics {
   ethPriceAtBaseline: BigDecimal
@@ -279,6 +281,8 @@ export function calculatePortfolioMetrics(
   
   portfolio.save()
   createPortfolioSnapshot(portfolio, block)
+
+  triggerGlobalMetricsIfNeeded(block)
 }
 
 function calculatePositionsValue(serviceSafe: Address): BigDecimal {
@@ -339,6 +343,12 @@ function createPortfolioSnapshot(portfolio: AgentPortfolio, block: ethereum.Bloc
   snapshot.totalClosedPositions = portfolio.totalClosedPositions
   
   snapshot.save()
+  
+  // CRITICAL FIX: Update portfolio snapshot tracking
+  // This ensures the scheduler knows when the last snapshot was taken
+  portfolio.lastSnapshotTimestamp = block.timestamp
+  portfolio.lastSnapshotBlock = block.number
+  portfolio.save()
 }
 
 export function parseTotalSlippageFromBucket(bucketData: string): BigDecimal {
@@ -497,5 +507,26 @@ export function updateFirstTradingTimestamp(serviceSafe: Address, timestamp: Big
   if (portfolio.firstTradingTimestamp.equals(BigInt.zero())) {
     portfolio.firstTradingTimestamp = timestamp
     portfolio.save()
+  }
+}
+
+// Helper function to get day timestamp (UTC midnight)
+function getDayTimestamp(timestamp: BigInt): BigInt {
+  const ONE_DAY = BigInt.fromI32(86400) // 86400 seconds in a day
+  return timestamp.div(ONE_DAY).times(ONE_DAY)
+}
+
+// Trigger global metrics calculation if needed
+function triggerGlobalMetricsIfNeeded(block: ethereum.Block): void {
+  let currentDayTimestamp = getDayTimestamp(block.timestamp)
+  let globalId = currentDayTimestamp.toString()
+  
+  // Check if we already have global metrics for today
+  let existingMetrics = DailyPopulationMetric.load(Bytes.fromUTF8(globalId))
+  
+  if (existingMetrics == null) {
+    // No global metrics for today yet, calculate them
+    log.info("Triggering global metrics calculation for day timestamp {}", [currentDayTimestamp.toString()])
+    calculateGlobalMetrics(block)
   }
 }

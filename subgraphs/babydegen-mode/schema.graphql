@@ -292,6 +292,10 @@ type DailyPopulationMetric @entity(immutable: true) {
   sma7dEthAdjustedUnrealisedPnL: BigDecimal!          # 7-day SMA of median ETH-adjusted unrealized PnL
   sma7dEthAdjustedProjectedUnrealisedPnL: BigDecimal! # 7-day SMA of median ETH-adjusted projected unrealized PnL
   
+  # Staking APR Data (for frontend calculation)
+  totalFundedAUM: BigDecimal!       # Sum of all agent funding balances (for staking ROI denominator)
+  averageAgentDaysActive: BigDecimal! # Average time since agents started (for annualization)
+  
   # Metadata
   timestamp: BigInt!                # UTC midnight timestamp
   block: BigInt!                    # Block number when calculated
