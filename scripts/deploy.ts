@@ -12,6 +12,7 @@ import { z } from "zod";
 interface DeploymentConfig {
   environment: "staging" | "production";
   subgraphName: string;
+  finalSubgraphName: string;
   action: "update" | "overwrite";
   dryRun: boolean;
   manifestFile?: string; // Selected manifest file when multiple exist
@@ -209,11 +210,11 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
     process.exit(0);
   }
 
-  return { environment, subgraphName, action, dryRun, manifestFile };
+  return { environment, subgraphName, finalSubgraphName, action, dryRun, manifestFile };
 }
 
 async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, envVars: EnvironmentVars }) {
-  const { subgraphName, action, dryRun, environment, manifestFile } = config;
+  const { subgraphName, finalSubgraphName, action, dryRun, environment, manifestFile } = config;
   const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
 
   clack.log.info(`Deploying subgraph: ${subgraphName}`);
@@ -280,7 +281,6 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
     const versionOption = `-l=${version}`;
 
     // Create + deploy subgraph
-    const finalSubgraphName = action === "update" ? `${subgraphName}-new` : subgraphName;
     spinner.start(`🚢 Deploying ${finalSubgraphName}...`);
 
     if (dryRun) {
