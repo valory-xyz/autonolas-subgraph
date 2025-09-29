@@ -144,6 +144,7 @@ function refreshSturdyPosition(
   if (position == null) {
     position = new ProtocolPosition(positionIdBytes)
     position.agent = agent
+    position.service = agent  // Link to service entity
     position.protocol = "STURDY"
     position.pool = STURDY_VAULT
     position.isActive = true

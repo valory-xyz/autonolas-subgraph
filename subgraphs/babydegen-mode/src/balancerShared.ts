@@ -102,6 +102,7 @@ export function refreshBalancerPositionWithEventAmounts(
   if (!pp) {
     pp = new ProtocolPosition(positionId)
     pp.agent = userAddress
+    pp.service = userAddress  // Link to service entity
     pp.protocol = "balancer"
     pp.pool = poolAddress
     pp.isActive = true
@@ -292,6 +293,7 @@ export function refreshBalancerPosition(
   if (!pp) {
     pp = new ProtocolPosition(positionId)
     pp.agent = userAddress
+    pp.service = userAddress  // Link to service entity
     pp.protocol = "balancer"
     pp.pool = poolAddress
     pp.isActive = true

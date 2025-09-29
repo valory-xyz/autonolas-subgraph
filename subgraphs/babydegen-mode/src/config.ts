@@ -21,7 +21,7 @@ export const VELO_NFT_MANAGER = Address.fromString("0x991d5546C4B442B4c5fdc4c8B8
 // Service lookup functions - now uses dynamic service registry
 export function getServiceByAgent(address: Address): Service | null {
   // Load service directly by address (service safe address is the entity ID)
-  return Service.load(address)
+  return Service.load(Address.fromString(address.toHexString().toLowerCase()))
 }
 
 export function isServiceAgent(address: Address): boolean {
