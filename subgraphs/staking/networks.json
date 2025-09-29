@@ -1,0 +1,8 @@
+{
+  "mode-mainnet": {
+    "StakingFactory": {
+      "address": "0x75D529FAe220bC8db714F0202193726b46881B76",
+      "startBlock": 14444647
+    }
+  }
+}

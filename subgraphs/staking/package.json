@@ -1,0 +1,18 @@
+{
+  "name": "autonolas-staking-subgraph",
+  "license": "UNLICENSED",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "generate-manifests": "node ../../scripts/generate-manifests.ts",
+    "deploy-mode": "graph deploy --network mode-mainnet --studio olas-mode-staking subgraph.mode-mainnet.yaml",
+    "test": "graph test"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "^0.97.0",
+    "@graphprotocol/graph-ts": "^0.38.0"
+  },
+  "devDependencies": {
+    "matchstick-as": "0.5.0"
+  }
+}
