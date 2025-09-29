@@ -1,0 +1,33 @@
+name: Deploy Subgraphs
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy-subgraphs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+
+      - name: Install Graph CLI
+        run: yarn global add @graphprotocol/graph-cli
+
+      - name: Deploy Subgraph
+        env:
+          VERSION: ${{github.event.release.tag_name}}
+          GRAPH_NODE_USER: ${{secrets.GRAPH_NODE_PROD_USER}}
+          GRAPH_NODE_PASSWORD: ${{secrets.GRAPH_NODE_PROD_PASSWORD}}
+        run: |
+          cd subgraphs/autonolas
+          graph codegen && graph build
+          graph create --node=https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech autonolas-$VERSION
+          graph deploy --node=https://${PROD_USER}:${PROD_PASSWORD}@admin.subgraph.autonolas.tech --ipfs=https://registry.autonolas.tech autonolas-$VERSION -l $VERSION
