@@ -5,8 +5,20 @@ on:
     types: [published]
 
 jobs:
+  # Deploy Mech Subgraph
+  mech:
+    uses: ./.github/workflows/deploy-subgraph-reusable.yml
+    with:
+      subgraph_name: mech
+      working_directory: subgraphs/mech
+      manifest_file: subgraph.yaml
+      version: ${{ github.event.release.tag_name }}
+    secrets:
+      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
+      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
+
   # Deploy Mech Marketplace for Base Network Subgraph
-  deploy-mech-marketplace-base:
+  mech-marketplace-base:
     uses: ./.github/workflows/deploy-subgraph-reusable.yml
     with:
       subgraph_name: mech-marketplace-base
@@ -18,7 +30,7 @@ jobs:
       GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
 
   # Deploy Mech Marketplace for Gnosis Network Subgraph
-  deploy-mech-marketplace-gnosis:
+  mech-marketplace-gnosis:
     uses: ./.github/workflows/deploy-subgraph-reusable.yml
     with:
       subgraph_name: mech-marketplace-gnosis
