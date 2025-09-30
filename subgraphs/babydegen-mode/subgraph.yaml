@@ -1,0 +1,676 @@
+specVersion: 1.0.0
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: ServiceRegistryL2
+    network: mode-mainnet
+    source:
+      address: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"
+      abi: ServiceRegistryL2
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Service
+        - ServiceRegistration
+        - ServiceIndex
+      abis:
+        - name: ServiceRegistryL2
+          file: ./abis/utils/ServiceRegistryL2.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: Safe
+          file: ./abis/utils/Safe.json
+      eventHandlers:
+        - event: CreateMultisigWithAgents(indexed uint256,indexed address)
+          handler: handleCreateMultisigWithAgents
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+      file: ./src/serviceRegistry.ts
+  - kind: ethereum
+    name: USDC
+    network: mode-mainnet
+    source:
+      address: "0xd988097fb8612cc24eec14542bc03424c656005f"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - FundingBalance
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleUSDC
+      file: ./src/funding.ts
+  # Additional token data sources for balance tracking
+  - kind: ethereum
+    name: WETH
+    network: mode-mainnet
+    source:
+      address: "0x4200000000000000000000000000000000000006"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: MODE
+    network: mode-mainnet
+    source:
+      address: "0xdfc7c877a950e49d2610114102175a06c2e3167a"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: OLAS
+    network: mode-mainnet
+    source:
+      address: "0xcfd1d50ce23c46d3cf6407487b2f8934e96dc8f9"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: ezETH
+    network: mode-mainnet
+    source:
+      address: "0x2416092f143378750bb29b79ed961ab195cceea5"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: uniBTC
+    network: mode-mainnet
+    source:
+      address: "0x6b2a01a5f79deb4c2f3c0eda7b01df456fbd726a"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: weETH_mode
+    network: mode-mainnet
+    source:
+      address: "0x04C0599Ae5A44757c0af6F9eC3b93da8976c150A"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: STONE
+    network: mode-mainnet
+    source:
+      address: "0x80137510979822322193FC997d400D5A6C747bf7"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: wrsETH
+    network: mode-mainnet
+    source:
+      address: "0xe7903B1F75C534Dd8159b313d92cDCfbC62cB3Cd"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: wMLT
+    network: mode-mainnet
+    source:
+      address: "0x8b2EeA0999876AAB1E7955fe01A5D261b570452C"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: BMX
+    network: mode-mainnet
+    source:
+      address: "0x66eEd5FF1701E6ed8470DC391F05e27B1d0657eb"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: XVELO
+    network: mode-mainnet
+    source:
+      address: "0x7f9AdFbd38b669F03d1d11000Bc76b9AaEA28A81"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  - kind: ethereum
+    name: USDT
+    network: mode-mainnet
+    source:
+      address: "0xf0f161fda2712db8b566946122a5af183995e2ed"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - FundingBalance
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleUSDC
+      file: ./src/funding.ts
+  - kind: ethereum
+    name: oUSDT
+    network: mode-mainnet
+    source:
+      address: "0x1217bfe6c773eec6cc4a38b5dc45b92292b6e189"
+      abi: ERC20
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+      abis:
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleERC20Transfer
+      file: ./src/tokenBalances.ts
+  # Temporarily disabled Velodrome CL support due to compilation issues
+  # TODO: Re-enable after fixing template imports
+  - kind: ethereum
+    name: VeloNFTManager
+    network: mode-mainnet
+    source:
+      address: "0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702"
+      abi: NonfungiblePositionManager
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolPosition
+      abis:
+        - name: NonfungiblePositionManager
+          file: ./abis/nft/NonfungiblePositionManager.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeCLFactory
+          file: ./abis/defi/VelodromeCLFactory.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: IncreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleIncreaseLiquidity
+        - event: DecreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleDecreaseLiquidity
+        - event: Collect(indexed uint256,address,uint256,uint256)
+          handler: handleCollect
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleNFTTransfer
+      file: ./src/veloNFTManager.ts
+  # VelodromeV2 Sugar Bootstrap
+  - kind: ethereum/contract
+    name: VeloV2Sugar
+    network: mode-mainnet
+    source:
+      address: '0x9ECd2f44f72E969fa3F3C4e4F63bc61E0C08F31F'
+      abi: Sugar
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/veloV2Bootstrap.ts
+      entities:
+        - ProtocolPosition
+      abis:
+        - name: Sugar
+          file: ./abis/utils/Sugar.json
+        - name: PoolFactory
+          file: ./abis/defi/PoolFactory.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      blockHandlers:
+        - handler: handleVeloV2Bootstrap
+          filter:
+            kind: once
+
+  # VelodromeV2 Factory for ongoing discovery
+  - kind: ethereum/contract
+    name: VeloV2Factory
+    network: mode-mainnet
+    source:
+      address: '0x31832f2a97Fd20664D76Cc421207669b55CE4BC0' # MODE Velodrome V2 Factory address
+      abi: PoolFactory
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/veloV2Bootstrap.ts
+      entities:
+        - ProtocolPosition
+      abis:
+        - name: PoolFactory
+          file: ./abis/defi/PoolFactory.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: PoolCreated(indexed address,indexed address,indexed bool,address,uint256)
+          handler: handleVeloV2PoolCreated
+
+  # Block handler for portfolio snapshots
+  - kind: ethereum/contract
+    name: PortfolioScheduler
+    network: mode-mainnet
+    source:
+      address: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"  # ServiceRegistryL2 address
+      abi: ServiceRegistryL2
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - AgentPortfolio
+        - AgentPortfolioSnapshot
+      abis:
+        - name: ServiceRegistryL2
+          file: ./abis/utils/ServiceRegistryL2.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+      blockHandlers:
+        - handler: handleBlock
+          filter:
+            kind: polling
+            every: 100  # Check every 100 blocks
+      file: ./src/portfolioScheduler.ts
+  # LiFi Diamond contract for tracking ETH swaps
+  - kind: ethereum
+    name: LiFiDiamond
+    network: mode-mainnet
+    source:
+      address: "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE"
+      abi: LiFiDiamond
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TokenBalance
+        - SwapTransaction
+        - SwapToEntryAssociation
+      abis:
+        - name: LiFiDiamond
+          file: ./abis/defi/LiFiDiamond.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: LiFiGenericSwapCompleted(indexed bytes32,string,string,address,address,address,uint256,uint256)
+          handler: handleLiFiGenericSwapCompleted
+      file: ./src/lifiDiamond.ts
+  # STURDY Yearn V3 Vault for tracking deposit/withdraw events
+  - kind: ethereum
+    name: SturdyVault
+    network: mode-mainnet
+    source:
+      address: "0x2dE57F6432Ac67A99aF5aB17017005048AE7A24C"
+      abi: YearnV3Vault
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolPosition
+        - Service
+      abis:
+        - name: YearnV3Vault
+          file: ./abis/defi/YearnV3Vault.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+      eventHandlers:
+        - event: Deposit(indexed address,indexed address,uint256,uint256)
+          handler: handleSturdyDeposit
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleSturdyWithdraw
+      file: ./src/sturdyVault.ts
+  # Balancer V2 Vault for tracking pool position entries/exits
+  - kind: ethereum
+    name: BalancerVault
+    network: mode-mainnet
+    source:
+      address: "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+      abi: BalancerV2Vault
+      startBlock: 17753826
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolPosition
+        - Service
+      abis:
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+      eventHandlers:
+        - event: PoolBalanceChanged(indexed bytes32,indexed address,address[],int256[],uint256[])
+          handler: handlePoolBalanceChanged
+      file: ./src/balancerVault.ts
+
+templates:
+  # Keep VelodromeV2 Pool template for Mint event handling
+  - kind: ethereum/contract
+    name: VeloV2Pool
+    network: mode-mainnet
+    source:
+      abi: VelodromeV2Pool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ProtocolPosition
+      abis:
+        - name: VelodromeV2Pool
+          file: ./abis/defi/VelodromeV2Pool.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+      eventHandlers:
+        - event: Mint(indexed address,uint256,uint256)
+          handler: handleVeloV2Mint
+        - event: Burn(indexed address,indexed address,uint256,uint256)
+          handler: handleVeloV2Burn
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleVeloV2Transfer
+      file: ./src/veloV2Pool.ts
+  # Safe template for tracking ETH transfers to service safes
+  - kind: ethereum/contract
+    name: Safe
+    network: mode-mainnet
+    source:
+      abi: Safe
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - FundingBalance
+        - Service
+      abis:
+        - name: Safe
+          file: ./abis/utils/Safe.json
+        - name: VelodromeCLPool
+          file: ./abis/defi/VelodromeCLPool.json
+      eventHandlers:
+        - event: SafeReceived(indexed address,uint256)
+          handler: handleSafeReceived
+        - event: ExecutionSuccess(bytes32,uint256)
+          handler: handleExecutionSuccess
+        - event: ExecutionFromModuleSuccess(indexed address)
+          handler: handleExecutionFromModuleSuccess
+      file: ./src/safe.ts

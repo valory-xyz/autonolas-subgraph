@@ -21,7 +21,7 @@ services:
       postgres_user: graph-node
       postgres_pass: let-me-in
       postgres_db: graph-node
-      ethereum: "mainnet:https://rpc-gate.autonolas.tech/ethereum-rpc/ --ethereum-rpc base:https://rpc-gate.autonolas.tech/base-rpc/ --ethereum-rpc gnosis:https://rpc-gate.autonolas.tech/gnosis-rpc/"
+      ethereum: "mainnet:https://rpc-gate.autonolas.tech/ethereum-rpc/ --ethereum-rpc base:https://rpc-gate.autonolas.tech/base-rpc/ --ethereum-rpc gnosis:https://rpc-gate.autonolas.tech/gnosis-rpc/ --ethereum-rpc mode-mainnet:https://mainnet.mode-mainnet.network/"
       ipfs: ${IPFS_URL:-https://registry.autonolas.tech}
       GRAPH_LOG: ${GRAPH_LOG:-debug}
       GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: "true"
