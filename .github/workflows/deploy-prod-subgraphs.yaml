@@ -3,32 +3,100 @@ name: Deploy Subgraphs to Production
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to deploy'
+      subgraph:
+        description: "Subgraph (e.g. autonolas)"
         required: true
         type: string
+      version:
+        description: "Version (e.g. v0.1.2)"
+        required: true
+        type: string
+      manifest:
+        description: "Manifest file (e.g. subgraph.yaml)"
+        required: true
+        type: string
+        default: "subgraph.yaml"
 
 jobs:
-  # Deploy Mech Subgraph
-  mech:
-    uses: ./.github/workflows/deploy-subgraph-reusable.yml
-    with:
-      subgraph_name: mech
-      working_directory: subgraphs/mech
-      manifest_file: subgraph.yaml
-      version: ${{ inputs.version }}
-    secrets:
-      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
-      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  # Deploy Service Registry Subgraph on the Mode Mainnet Network
-  service-registry-mode-mainnet:
-    uses: ./.github/workflows/deploy-subgraph-reusable.yml
-    with:
-      subgraph_name: service-registry-mode-mainnet
-      working_directory: subgraphs/service-registry
-      manifest_file: subgraph.mode-mainnet.yaml
-      version: ${{ inputs.version }}
-    secrets:
-      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
-      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
+      - name: Validate subgraph folder exists
+        run: |
+          SUBGRAPH_PATH="subgraphs/${{ inputs.subgraph }}"
+
+          if [ ! -d "$SUBGRAPH_PATH" ]; then
+            echo "❌ Error: Subgraph folder '$SUBGRAPH_PATH' does not exist!"
+            echo ""
+            echo "Available subgraphs:"
+            ls -1 subgraphs/
+            exit 1
+          fi
+          echo "✅ Subgraph folder found: $SUBGRAPH_PATH"
+
+      - name: Validate manifest file exists
+        run: |
+          MANIFEST_PATH="subgraphs/${{ inputs.subgraph }}/${{ inputs.manifest }}"
+
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "❌ Error: Manifest file '$MANIFEST_PATH' does not exist!"
+            echo ""
+            echo "Available files in subgraphs/${{ inputs.subgraph }}:"
+            ls -1 subgraphs/${{ inputs.subgraph }}/
+            exit 1
+          fi
+          echo "✅ Manifest file found: $MANIFEST_PATH"
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "yarn"
+
+      - name: Prepare environment
+        env:
+          VERSION: ${{ inputs.version }}
+          GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_USER }}
+          GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PASSWORD }}
+        run: |
+          # Export variables for subsequent steps
+          MANIFEST="${{ inputs.manifest }}"
+          echo "MANIFEST=$MANIFEST" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          # Extract network from manifest file name
+          if [[ "$MANIFEST" =~ ^subgraph\.(.+)\.yaml$ ]]; then
+            NETWORK="${BASH_REMATCH[1]}"
+          else
+            NETWORK=""
+          fi
+          echo "NETWORK=$NETWORK" >> $GITHUB_ENV
+
+          # Build Subgraph name
+          if [ -n "$NETWORK" ]; then
+            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${NETWORK}-${VERSION//./_}" >> $GITHUB_ENV
+          else
+            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${VERSION//./_}" >> $GITHUB_ENV
+          fi
+
+          # Create masked node URL
+          GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
+          echo "::add-mask::$GRAPH_NODE_URL"
+          echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Subgraph deployed successfully"
+          echo "Subgraph name: ${{ env.SUBGRAPH_NAME }}"
+          echo "Version: ${{ env.VERSION }}"
+          echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
