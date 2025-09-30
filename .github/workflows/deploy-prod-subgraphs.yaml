@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       subgraph:
-        description: "Subgraph (e.g. autonolas)"
+        description: "Subgraph (e.g., autonolas)"
         required: true
         type: string
       version:
-        description: "Version (e.g. v0.1.2)"
+        description: "Version (e.g., v0.1.2)"
         required: true
         type: string
       manifest:
-        description: "Manifest file (e.g. subgraph.yaml)"
+        description: "Manifest file (e.g., subgraph.yaml)"
         required: true
         type: string
         default: "subgraph.yaml"
