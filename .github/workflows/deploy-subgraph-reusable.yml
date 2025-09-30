@@ -88,3 +88,4 @@ jobs:
           echo "✅ Subgraph deployed successfully"
           echo "Subgraph name: ${{ env.SUBGRAPH_NAME }}"
           echo "Version: ${{ env.VERSION }}"
+          echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
