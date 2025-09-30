@@ -41,12 +41,13 @@ jobs:
 
       - name: Prepare environment
         env:
+          VERSION: ${{ inputs.version }}
           GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_USER }}
           GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PASSWORD }}
         run: |
           # Export variables for subsequent steps
           echo "SUBGRAPH_MANIFEST=${{ inputs.manifest_file }}" >> $GITHUB_ENV
-          echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "SUBGRAPH_NAME=${{ inputs.subgraph_name }}-${VERSION//./_}" >> $GITHUB_ENV
 
           # Create masked node URL
