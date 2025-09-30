@@ -45,12 +45,13 @@ jobs:
             echo "❌ Error: Manifest file '$MANIFEST_PATH' does not exist!"
             echo ""
             echo "Available files in subgraphs/${{ inputs.subgraph }}:"
-            ls -1 subgraphs/${{ inputs.subgraph }}/
+            ls -1 subgraphs/${{ inputs.subgraph }}/ | grep subgraph
             exit 1
           fi
           echo "✅ Manifest file found: $MANIFEST_PATH"
 
   deploy:
+    needs: validate-inputs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
