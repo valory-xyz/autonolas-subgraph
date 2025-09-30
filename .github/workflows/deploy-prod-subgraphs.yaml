@@ -1,4 +1,4 @@
-name: Deploy Subgraphs to Production
+name: Deploy Subgraph to Production
 
 on:
   workflow_dispatch:
@@ -23,6 +23,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate version format
+        run: |
+          if [[ ! "${{ inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Error: Version must follow format vX.Y.Z (e.g., v0.1.2)"
+            exit 1
+          fi
+          echo "✅ Version format is valid: ${{ inputs.version }}"
 
       - name: Validate subgraph folder exists
         run: |
@@ -94,10 +102,39 @@ jobs:
           echo "::add-mask::$GRAPH_NODE_URL"
           echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
 
+      - name: Install subgraph packages
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn install
+
+      - name: Generate code
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn graph codegen ${{ env.MANIFEST }}
+
+      - name: Build subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn graph build ${{ env.MANIFEST }}
+
+      - name: Create subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        continue-on-error: true # Subgraph may already exist
+        run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
+
+      - name: Deploy subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: |
+          yarn graph deploy \
+            --node=${{ env.GRAPH_NODE_URL }} \
+            --ipfs=https://registry.autonolas.tech \
+            ${{ env.SUBGRAPH_NAME }} \
+            ${{ env.MANIFEST }} \
+            -l ${{ env.VERSION }}
+
       - name: Deployment summary
         if: success()
         run: |
           echo "✅ Subgraph deployed successfully"
           echo "Subgraph name: ${{ env.SUBGRAPH_NAME }}"
+          echo "Manifest: ${{ env.MANIFEST }}"
+          echo "Network: ${{ env.NETWORK || 'default' }}"
           echo "Version: ${{ env.VERSION }}"
           echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
