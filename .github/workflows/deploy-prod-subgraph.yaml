@@ -18,7 +18,18 @@ on:
         default: "subgraph.yaml"
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Display deployment plan
+        run: |
+          echo "📋 Deployment Plan"
+          echo "- Subgraph: ${{ inputs.subgraph }}"
+          echo "- Version:  ${{ inputs.version }}"
+          echo "- Manifest: ${{ inputs.manifest }}"
+
   validate-inputs:
+    needs: plan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
