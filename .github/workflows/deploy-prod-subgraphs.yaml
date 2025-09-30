@@ -1,4 +1,4 @@
-name: Deploy Subgraphs
+name: Deploy Subgraphs to Production
 
 on:
   release:
