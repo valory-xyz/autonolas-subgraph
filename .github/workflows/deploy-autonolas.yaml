@@ -5,65 +5,26 @@ on:
     types: [published]
 
 jobs:
+  # Deploy Mech Marketplace for Base Network Subgraph
   deploy-mech-marketplace-base:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/deploy-subgraph-reusable.yml
+    with:
+      subgraph_name: mech-marketplace-base
+      working_directory: subgraphs/mech-marketplace
+      manifest_file: subgraph.base.yaml
+      version: ${{ github.event.release.tag_name }}
+    secrets:
+      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
+      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "yarn"
-
-      - name: Prepare environment
-        env:
-          VERSION: ${{ github.event.release.tag_name }}
-          GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
-          GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
-        run: |
-          # Export variables for subsequent steps
-          echo "SUBGRAPH_MANIFEST=subgraph.base.yaml" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "SUBGRAPH_NAME=mech-marketplace-base-${VERSION//./_}" >> $GITHUB_ENV
-
-          # Create masked node URL
-          GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
-          echo "::add-mask::$GRAPH_NODE_URL"
-          echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
-
-      - name: Install subgraph packages
-        working-directory: subgraphs/mech-marketplace
-        run: yarn install
-
-      - name: Generate code
-        working-directory: subgraphs/mech-marketplace
-        run: yarn graph codegen ${{ env.SUBGRAPH_MANIFEST }}
-
-      - name: Build subgraph
-        working-directory: subgraphs/mech-marketplace
-        run: yarn graph build ${{ env.SUBGRAPH_MANIFEST }}
-
-      - name: Create subgraph
-        working-directory: subgraphs/mech-marketplace
-        continue-on-error: true # Subgraph may already exist
-        run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
-
-      - name: Deploy subgraph
-        working-directory: subgraphs/mech-marketplace
-        run: |
-          yarn graph deploy \
-            --node=${{ env.GRAPH_NODE_URL }} \
-            --ipfs=https://registry.autonolas.tech \
-            ${{ env.SUBGRAPH_NAME }} \
-            ${{ env.SUBGRAPH_MANIFEST }} \
-            -l ${{ env.VERSION }}
-
-      - name: Deployment summary
-        if: success()
-        run: |
-          echo "✅ Subgraph deployed successfully"
-          echo "Subgraph name: ${{ env.SUBGRAPH_NAME }}"
-          echo "Version: ${{ env.VERSION }}"
+  # Deploy Mech Marketplace for Gnosis Network Subgraph
+  deploy-mech-marketplace-gnosis:
+    uses: ./.github/workflows/deploy-subgraph-reusable.yml
+    with:
+      subgraph_name: mech-marketplace-gnosis
+      working_directory: subgraphs/mech-marketplace
+      manifest_file: subgraph.gnosis.yaml
+      version: ${{ github.event.release.tag_name }}
+    secrets:
+      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
+      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
