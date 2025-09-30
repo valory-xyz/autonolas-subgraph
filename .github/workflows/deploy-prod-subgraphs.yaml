@@ -1,8 +1,12 @@
 name: Deploy Subgraphs to Production
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
 
 jobs:
   # Deploy Mech Subgraph
@@ -12,31 +16,19 @@ jobs:
       subgraph_name: mech
       working_directory: subgraphs/mech
       manifest_file: subgraph.yaml
-      version: ${{ github.event.release.tag_name }}
+      version: ${{ inputs.version }}
     secrets:
       GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
       GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
 
-  # Deploy Mech Marketplace for Base Network Subgraph
-  mech-marketplace-base:
+  # Deploy Service Registry Subgraph on the Mode Mainnet Network
+  service-registry-mode-mainnet:
     uses: ./.github/workflows/deploy-subgraph-reusable.yml
     with:
-      subgraph_name: mech-marketplace-base
-      working_directory: subgraphs/mech-marketplace
-      manifest_file: subgraph.base.yaml
-      version: ${{ github.event.release.tag_name }}
-    secrets:
-      GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
-      GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
-
-  # Deploy Mech Marketplace for Gnosis Network Subgraph
-  mech-marketplace-gnosis:
-    uses: ./.github/workflows/deploy-subgraph-reusable.yml
-    with:
-      subgraph_name: mech-marketplace-gnosis
-      working_directory: subgraphs/mech-marketplace
-      manifest_file: subgraph.gnosis.yaml
-      version: ${{ github.event.release.tag_name }}
+      subgraph_name: service-registry-mode-mainnet
+      working_directory: subgraphs/service-registry
+      manifest_file: subgraph.mode-mainnet.yaml
+      version: ${{ inputs.version }}
     secrets:
       GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
       GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
