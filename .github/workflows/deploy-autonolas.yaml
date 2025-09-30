@@ -21,6 +21,9 @@ jobs:
       - name: Install packages
         run: yarn install
 
+      - name: Install Graph CLI
+        run: npm install -g @graphprotocol/graph-cli
+
       - name: Prepare environment
         env:
           VERSION: ${{ github.event.release.tag_name }}
@@ -39,21 +42,21 @@ jobs:
 
       - name: Generate code
         working-directory: subgraphs/mech-marketplace
-        run: yarn graph codegen ${{ env.SUBGRAPH_MANIFEST }}
+        run: graph codegen ${{ env.SUBGRAPH_MANIFEST }}
 
       - name: Build subgraph
         working-directory: subgraphs/mech-marketplace
-        run: yarn graph build ${{ env.SUBGRAPH_MANIFEST }}
+        run: graph build ${{ env.SUBGRAPH_MANIFEST }}
 
       - name: Create subgraph
         working-directory: subgraphs/mech-marketplace
         continue-on-error: true # Subgraph may already exist
-        run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
+        run: graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
 
       - name: Deploy subgraph
         working-directory: subgraphs/mech-marketplace
         run: |
-          yarn graph deploy \
+          graph deploy \
             --node=${{ env.GRAPH_NODE_URL }} \
             --ipfs=https://registry.autonolas.tech \
             ${{ env.SUBGRAPH_NAME }} \
