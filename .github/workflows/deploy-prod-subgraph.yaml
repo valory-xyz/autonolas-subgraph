@@ -74,8 +74,8 @@ jobs:
       - name: Prepare environment
         env:
           VERSION: ${{ inputs.version }}
-          GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_USER }}
-          GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PASSWORD }}
+          GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
+          GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
         run: |
           # Export variables for subsequent steps
           MANIFEST="${{ inputs.manifest }}"
