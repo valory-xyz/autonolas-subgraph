@@ -4,7 +4,7 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "generate-manifests": "node scripts/generate-manifests.js",
+    "generate-manifests": "node ../../scripts/generate-manifests.ts",
     "deploy-gnosis": "graph deploy --network gnosis --studio olas-gnosis-mech-marketplace subgraph.gnosis.yaml",
     "deploy-base": "graph deploy --network base --studio olas-base-mech-marketplace subgraph.base.yaml",
     "test": "graph test"

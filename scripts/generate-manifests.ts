@@ -1,4 +1,4 @@
-const fs = require('fs');
+import * as fs from 'fs';
 
 const networksData = JSON.parse(fs.readFileSync('networks.json', 'utf8'));
 

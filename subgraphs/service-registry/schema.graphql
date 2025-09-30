@@ -1,0 +1,84 @@
+type Service @entity(immutable: false) {
+  id: ID! # service ID
+  multisig: Bytes
+  agentIds: [Int!]!
+}
+
+type AgentRegistration @entity(immutable: false) {
+  id: ID! # serviceId-agentId
+  serviceId: Int!
+  agentId: Int!
+  registrationTimestamp: BigInt!
+}
+
+type Multisig @entity(immutable: false) {
+  id: Bytes! # multisig address
+  serviceId: Int!
+  creator: Bytes!
+  creationTimestamp: BigInt!
+  txHash: Bytes!
+  agentIds: [Int!]!
+}
+type DailyServiceActivity @entity(immutable: false) {
+  id: ID!
+  service: Service!
+  dayTimestamp: BigInt!
+  agentIds: [Int!]!
+}
+
+type DailyUniqueAgents @entity(immutable: false) {
+  id: ID!
+  dayTimestamp: BigInt!
+  count: Int!
+  agents: [DailyUniqueAgent!]! @derivedFrom(field: "dailyUniqueAgents")
+}
+
+type DailyUniqueAgent @entity(immutable: false) {
+  id: ID!
+  dailyUniqueAgents: DailyUniqueAgents!
+  agent: AgentPerformance!
+}
+
+type DailyAgentPerformance @entity(immutable: false) {
+  id: ID!
+  dayTimestamp: BigInt!
+  agentId: Int!
+  txCount: Int!
+  multisigs: [DailyAgentMultisig!]! @derivedFrom(field: "dailyAgentPerformance")
+  activeMultisigCount: Int!
+}
+
+type DailyAgentMultisig @entity(immutable: false) {
+  id: ID!
+  dailyAgentPerformance: DailyAgentPerformance!
+  multisig: Multisig!
+}
+
+type DailyActiveMultisigs @entity(immutable: false) {
+  id: ID!
+  dayTimestamp: BigInt!
+  multisigs: [DailyActiveMultisig!]! @derivedFrom(field: "dailyActiveMultisigs")
+  count: Int!
+}
+
+type DailyActiveMultisig @entity(immutable: false) {
+  id: ID!
+  dailyActiveMultisigs: DailyActiveMultisigs!
+  multisig: Multisig!
+}
+
+type AgentPerformance @entity(immutable: false) {
+  id: ID! # agentId
+  txCount: BigInt!
+}
+
+type Global @entity(immutable: false) {
+  id: ID!
+  txCount: BigInt!
+  lastUpdated: BigInt!
+  totalOperators: Int!
+}
+
+type Operator @entity(immutable: false) {
+  id: Bytes! # operator address
+}

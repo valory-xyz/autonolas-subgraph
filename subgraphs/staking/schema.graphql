@@ -1,0 +1,197 @@
+type InstanceCreated @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes! # address
+  instance: Bytes! # address
+  implementation: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type InstanceRemoved @entity(immutable: true) {
+  id: Bytes!
+  instance: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type InstanceStatusChanged @entity(immutable: true) {
+  id: Bytes!
+  instance: Bytes! # address
+  isEnabled: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type VerifierUpdated @entity(immutable: true) {
+  id: Bytes!
+  verifier: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Checkpoint @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  serviceIds: [BigInt!]! # uint256[]
+  rewards: [BigInt!]! # uint256[]
+  epochLength: BigInt! # uint256
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  blockTimestamp: BigInt!
+  contractAddress: Bytes! # address
+}
+
+type Deposit @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes! # address
+  amount: BigInt! # uint256
+  balance: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RewardClaimed @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: Bytes! # address
+  multisig: Bytes! # address
+  nonces: [BigInt!]! # uint256[]
+  reward: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceForceUnstaked @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: Bytes! # address
+  multisig: Bytes! # address
+  nonces: [BigInt!]! # uint256[]
+  reward: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceInactivityWarning @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  serviceInactivity: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceStaked @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: Bytes! # address
+  multisig: Bytes! # address
+  nonces: [BigInt!]! # uint256[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceUnstaked @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: Bytes! # address
+  multisig: Bytes! # address
+  nonces: [BigInt!]! # uint256[]
+  reward: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServicesEvicted @entity(immutable: true) {
+  id: Bytes!
+  epoch: BigInt! # uint256
+  serviceIds: [BigInt!]! # uint256[]
+  owners: [Bytes!]! # address[]
+  multisigs: [Bytes!]! # address[]
+  serviceInactivity: [BigInt!]! # uint256[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Withdraw @entity(immutable: true) {
+  id: Bytes!
+  to: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type StakingContract @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes! # address
+  instance: Bytes! # address
+  implementation: Bytes! # address
+  metadataHash: Bytes!
+  maxNumServices: BigInt!
+  rewardsPerSecond: BigInt!
+  minStakingDeposit: BigInt!
+  minStakingDuration: BigInt!
+  maxNumInactivityPeriods: BigInt!
+  livenessPeriod: BigInt!
+  timeForEmissions: BigInt!
+  numAgentInstances: BigInt!
+  agentIds: [BigInt!]!
+  threshold: BigInt!
+  configHash: Bytes!
+  proxyHash: Bytes!
+  serviceRegistry: Bytes!
+  activityChecker: Bytes!
+}
+
+type RewardUpdate @entity(immutable: true) {
+  id: ID!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  type: String! # "Claimable" or "Claimed"
+  amount: BigInt!
+}
+
+type Service @entity(immutable: false) {
+  id: ID!
+  currentOlasStaked: BigInt!
+  olasRewardsEarned: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type Global @entity(immutable: false) {
+  id: ID!
+  cumulativeOlasStaked: BigInt!
+  cumulativeOlasUnstaked: BigInt!
+  currentOlasStaked: BigInt!
+  totalRewards: BigInt!
+}

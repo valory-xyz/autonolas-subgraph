@@ -12,6 +12,7 @@ import { z } from "zod";
 interface DeploymentConfig {
   environment: "staging" | "production";
   subgraphName: string;
+  finalSubgraphName: string;
   action: "update" | "overwrite";
   dryRun: boolean;
   manifestFile?: string; // Selected manifest file when multiple exist
@@ -71,8 +72,12 @@ function getSubgraphDirectories(): string[] {
 
 function getManifestFiles(subgraphDir: string): string[] {
   const files = readdirSync(subgraphDir);
-  const manifestFiles = files.filter(file =>
-    file.startsWith('subgraph.') && file.endsWith('.yaml') && file !== 'subgraph.yaml'
+  const manifestFiles = files.filter(
+    (file) =>
+      file.startsWith("subgraph.") &&
+      file.endsWith(".yaml") &&
+      file !== "subgraph.yaml" &&
+      !file.includes("template")
   );
 
   // If there's a direct subgraph.yaml, prioritize it
@@ -81,6 +86,11 @@ function getManifestFiles(subgraphDir: string): string[] {
   }
 
   return manifestFiles.sort();
+}
+
+function getChainFromManifest(manifestFile: string): string | null {
+  const match = manifestFile.match(/^subgraph\.(.+)\.yaml$/);
+  return match ? match[1] : null;
 }
 
 async function promptForManifest(subgraphDir: string): Promise<string | undefined> {
@@ -161,6 +171,8 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
   // Check for multiple manifest files and prompt for selection
   const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
   const manifestFile = await promptForManifest(subgraphDir);
+  const chain = manifestFile && manifestFile !== 'subgraph.yaml' ? getChainFromManifest(manifestFile): null;
+  const subgraphNameWithChain = chain ? `${subgraphName}-${chain}` : subgraphName;
 
   const action = await clack.select({
     message: "Deployment action:",
@@ -177,7 +189,7 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
 
   // Show confirmation summary
   const { node: nodeURL } = ENVIRONMENT_URLS[environment];
-  const finalSubgraphName = action === "update" ? `${subgraphName}-new` : subgraphName;
+  const finalSubgraphName = action === "update" ? `${subgraphNameWithChain}-new` : subgraphNameWithChain;
 
   clack.log.info("📋 Deployment Summary:");
   clack.log.info(`   Environment: ${environment === "staging" ? "🧪 Staging" : "🚀 Production"}`);
@@ -198,11 +210,11 @@ async function promptForConfiguration({ dryRun }: { dryRun: boolean }): Promise<
     process.exit(0);
   }
 
-  return { environment, subgraphName, action, dryRun, manifestFile };
+  return { environment, subgraphName, finalSubgraphName, action, dryRun, manifestFile };
 }
 
 async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, envVars: EnvironmentVars }) {
-  const { subgraphName, action, dryRun, environment, manifestFile } = config;
+  const { subgraphName, finalSubgraphName, action, dryRun, environment, manifestFile } = config;
   const subgraphDir = join(process.cwd(), "subgraphs", subgraphName);
 
   clack.log.info(`Deploying subgraph: ${subgraphName}`);
@@ -269,7 +281,6 @@ async function deploySubgraph({ config, envVars }: { config: DeploymentConfig, e
     const versionOption = `-l=${version}`;
 
     // Create + deploy subgraph
-    const finalSubgraphName = action === "update" ? `${subgraphName}-new` : subgraphName;
     spinner.start(`🚢 Deploying ${finalSubgraphName}...`);
 
     if (dryRun) {
