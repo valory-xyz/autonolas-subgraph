@@ -134,7 +134,7 @@ jobs:
           if [ "${{ inputs.environment }}" == "production" ]; then
             GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
           else
-            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.staging.subgraph.autonolas.tech"
+            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.staging.autonolas.tech"
           fi
           echo "::add-mask::$GRAPH_NODE_URL"
           echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
@@ -178,5 +178,5 @@ jobs:
           if [ "${{ inputs.environment }}" == "production" ]; then
             echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
           else
-            echo "- URL: https://staging.subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
           fi
