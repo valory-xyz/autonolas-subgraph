@@ -1,4 +1,4 @@
-name: Deploy Subgraph to Production
+name: Deploy Subgraph
 
 run-name: Deploy ${{ inputs.subgraph }} ${{ inputs.version }} to ${{ inputs.environment }}
 
