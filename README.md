@@ -4,11 +4,14 @@
 
 Production deployments are managed through GitHub Actions for consistency and security.
 
+**⚠️ Important:** Production deployments are only allowed from the `main` branch. Staging deployments can be triggered from any branch.
+
 ### Option 1: Using the GitHub UI
 
 1. Go to the [Actions tab](../../actions/workflows/deploy-prod-subgraph.yaml) in the GitHub repository
 2. Click "Run workflow"
 3. Fill in the required parameters:
+   - **Environment**: Choose `production` or `staging`
    - **Subgraph**: Name of the subgraph to deploy (e.g., `autonolas`, `mech`)
    - **Version**: Semantic version to deploy (e.g., `v0.1.2`)
    - **Manifest**: Manifest file name (e.g., `subgraph.yaml` or `subgraph.base.yaml`)
