@@ -44,7 +44,7 @@ type Request @entity(immutable: false) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  delivery: Deliver @derivedFrom(field: "request")
+  delivery: Deliver
   service: Service 
 }
 
