@@ -153,7 +153,6 @@ jobs:
 
       - name: Create subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
-        continue-on-error: true # Subgraph may already exist
         run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
 
       - name: Deploy subgraph
