@@ -191,10 +191,9 @@ export function handleRequest(event: RequestEvent): void {
 }
 
 export function handleDeliver(event: DeliverEvent): void {
+  const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
 
-  let entity = new Deliver(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
+  let entity = new Deliver(deliveryId);
   entity.sender = event.params.sender;
   entity.mech = event.address;
   entity.requestId = event.params.requestId;
@@ -203,12 +202,25 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
 
+  // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
-  // Do not attach a delivery to request in case it already has delivery attached
-  if (existingRequest !== null && existingRequest.delivery === null) {
-    entity.request = event.params.requestId.toHexString();
+  if (existingRequest !== null) {
+    // If the Request exists and has no delivery, attach the delivery to the request
+    const deliveries = existingRequest.delivery.load();
+    if (deliveries.length === 0) {
+      entity.request = event.params.requestId.toHexString();
+    } else {
+      log.warning(
+        "Duplicated delivery {0} for the same request {1}",
+        [deliveryId.toHexString(), event.params.requestId.toHexString()]
+      );
+    }
   } else {
-     log.warning('Delivery already attached to Request', [event.params.requestId.toHexString()]);
+    // No matching Request found
+    log.warning(
+      "Delivery {0} received for non-existing request {1}",
+      [deliveryId.toHexString(), event.params.requestId.toHexString()]
+    );
   }
 
   // Associate deliver with service
