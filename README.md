@@ -4,6 +4,8 @@
 
 Production deployments are managed through GitHub Actions for consistency and security.
 
+### Option 1: Using the GitHub UI
+
 1. Go to the [Actions tab](../../actions/workflows/deploy-prod-subgraph.yaml) in the GitHub repository
 2. Click "Run workflow"
 3. Fill in the required parameters:
@@ -12,7 +14,23 @@ Production deployments are managed through GitHub Actions for consistency and se
    - **Manifest**: Manifest file name (e.g., `subgraph.yaml` or `subgraph.base.yaml`)
 4. Click "Run workflow"
 
-The workflow will:
+### Option 2: Using the deployment script
+
+Run the interactive deployment script to generate the GitHub CLI command:
+
+```bash
+node scripts/deploy.ts
+```
+
+The script will:
+- Prompt you to select the subgraph
+- Prompt you to select the manifest file
+- Ask for the version to deploy
+- Generate the `gh workflow run` command for you to execute
+
+### What the workflow does
+
+Once triggered (via UI or CLI), the workflow will:
 - Display a deployment plan with your inputs
 - Validate version format, subgraph folder, and manifest file
 - Build and deploy the subgraph to production
