@@ -206,10 +206,8 @@ export function handleDeliver(event: DeliverEvent): void {
   let existingRequest = Request.load(event.params.requestId.toHexString());
   if (existingRequest !== null) {
     // If the Request exists and has no delivery, attach the delivery to the request
-    if (existingRequest.delivery === null) {
-      existingRequest.delivery = deliveryId;
-      existingRequest.save();
-
+    const deliveries = existingRequest.delivery.load();
+    if (deliveries.length === 0) {
       entity.request = event.params.requestId.toHexString();
     } else {
       log.warning(
