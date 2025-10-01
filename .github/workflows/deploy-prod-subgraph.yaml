@@ -31,11 +31,11 @@ jobs:
     steps:
       - name: Display deployment plan
         run: |
-          echo "📋 Deployment Plan"
-          echo "- Environment: ${{ inputs.environment }}"
-          echo "- Subgraph:    ${{ inputs.subgraph }}"
-          echo "- Version:     ${{ inputs.version }}"
-          echo "- Manifest:    ${{ inputs.manifest }}"
+          echo "## 📋 Deployment Plan" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Subgraph: ${{ inputs.subgraph }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest: ${{ inputs.manifest }}" >> $GITHUB_STEP_SUMMARY
 
   validate-inputs:
     needs: plan
