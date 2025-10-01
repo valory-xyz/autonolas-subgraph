@@ -10,7 +10,7 @@ on:
         options:
           - production
           - staging
-        default: "production"
+        default: "staging"
       subgraph:
         description: "Subgraph (e.g., autonolas)"
         required: true
@@ -43,6 +43,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate production deployment branch
+        if: inputs.environment == 'production'
+        run: |
+          CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+          if [ "$CURRENT_BRANCH" != "main" ]; then
+            echo "❌ Error: Production deployments are only allowed from the 'main' branch"
+            echo "Current branch: $CURRENT_BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch validation passed: deploying from main branch"
 
       - name: Validate version format
         run: |
