@@ -176,6 +176,8 @@ jobs:
 
           if [ "${{ inputs.environment }}" == "production" ]; then
             echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
           fi
