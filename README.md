@@ -8,7 +8,7 @@ Production deployments are managed through GitHub Actions for consistency and se
 
 ### Option 1: Using the GitHub UI
 
-1. Go to the [Actions tab](../../actions/workflows/deploy-prod-subgraph.yaml) in the GitHub repository
+1. Go to the [Actions tab](../../actions/workflows/deploy-subgraph.yaml) in the GitHub repository
 2. Click "Run workflow"
 3. Fill in the required parameters:
    - **Environment**: Choose `production` or `staging`
