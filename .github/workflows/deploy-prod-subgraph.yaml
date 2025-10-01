@@ -3,6 +3,14 @@ name: Deploy Subgraph to Production
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+        default: "production"
       subgraph:
         description: "Subgraph (e.g., autonolas)"
         required: true
@@ -24,9 +32,10 @@ jobs:
       - name: Display deployment plan
         run: |
           echo "📋 Deployment Plan"
-          echo "- Subgraph: ${{ inputs.subgraph }}"
-          echo "- Version:  ${{ inputs.version }}"
-          echo "- Manifest: ${{ inputs.manifest }}"
+          echo "- Environment: ${{ inputs.environment }}"
+          echo "- Subgraph:    ${{ inputs.subgraph }}"
+          echo "- Version:     ${{ inputs.version }}"
+          echo "- Manifest:    ${{ inputs.manifest }}"
 
   validate-inputs:
     needs: plan
@@ -85,8 +94,8 @@ jobs:
       - name: Prepare environment
         env:
           VERSION: ${{ inputs.version }}
-          GRAPH_NODE_USER: ${{ secrets.GRAPH_NODE_PROD_USER }}
-          GRAPH_NODE_PASSWORD: ${{ secrets.GRAPH_NODE_PROD_PASSWORD }}
+          GRAPH_NODE_USER: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_USER || secrets.GRAPH_NODE_STAGING_USER }}
+          GRAPH_NODE_PASSWORD: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_PASSWORD || secrets.GRAPH_NODE_STAGING_PASSWORD }}
         run: |
           # Export variables for subsequent steps
           MANIFEST="${{ inputs.manifest }}"
@@ -108,8 +117,12 @@ jobs:
             echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${VERSION//./_}" >> $GITHUB_ENV
           fi
 
-          # Create masked node URL
-          GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
+          # Create masked node URL based on environment
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
+          else
+            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.staging.subgraph.autonolas.tech"
+          fi
           echo "::add-mask::$GRAPH_NODE_URL"
           echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
 
@@ -144,8 +157,13 @@ jobs:
         if: success()
         run: |
           echo "✅ Subgraph deployed successfully"
-          echo "Subgraph name: ${{ env.SUBGRAPH_NAME }}"
-          echo "Manifest: ${{ env.MANIFEST }}"
-          echo "Network: ${{ env.NETWORK || 'default' }}"
-          echo "Version: ${{ env.VERSION }}"
-          echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+          echo "- Environment: ${{ inputs.environment }}"
+          echo "- Subgraph name: ${{ env.SUBGRAPH_NAME }}"
+          echo "- Version: ${{ env.VERSION }}"
+          echo "- Manifest: ${{ env.MANIFEST }}"
+
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+          else
+            echo "- URL: https://staging.subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
+          fi
