@@ -282,8 +282,6 @@ export function calculatePortfolioMetrics(
   
   portfolio.save()
   createPortfolioSnapshot(portfolio, block)
-
-  triggerGlobalMetricsIfNeeded(block)
 }
 
 function calculatePositionsValue(serviceSafe: Address): BigDecimal {
@@ -502,6 +500,11 @@ export function ensureAgentPortfolio(serviceSafe: Address, timestamp: BigInt): A
   }
 
   return portfolio
+  // This was causing a race condition where individual agent activity
+  // would create DailyPopulationMetric entities prematurely, blocking
+  // the proper batch scheduler from processing all agents.
+  // Global metrics should only be calculated by the portfolio scheduler
+  // in portfolioScheduler.ts after all agent snapshots are created.
 }
 
 export function updateFirstTradingTimestamp(serviceSafe: Address, timestamp: BigInt): void {

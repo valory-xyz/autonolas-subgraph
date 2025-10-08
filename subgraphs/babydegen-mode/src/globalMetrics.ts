@@ -119,18 +119,7 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     if (portfolio && portfolio.lastSnapshotTimestamp.gt(BigInt.zero())) {
       totalAgentsChecked++;
       
-      // Check if agent has at least 2 total positions (active + closed)
-      let totalPositions = portfolio.totalPositions + portfolio.totalClosedPositions;
-      if (totalPositions < 2) {
-        agentsExcludedForInsufficientPositions++;
-        log.info("Excluding agent {} from population metrics - insufficient position history: {} total positions (active: {}, closed: {})", [
-          serviceAddress.toHexString(),
-          totalPositions.toString(),
-          portfolio.totalPositions.toString(),
-          portfolio.totalClosedPositions.toString()
-        ]);
-        continue; // Skip this agent
-      }
+      // REMOVED: Position requirement filter
       
       let snapshotDayTimestamp = getDayTimestamp(portfolio.lastSnapshotTimestamp);
       
