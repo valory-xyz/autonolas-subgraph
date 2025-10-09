@@ -119,8 +119,6 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     if (portfolio && portfolio.lastSnapshotTimestamp.gt(BigInt.zero())) {
       totalAgentsChecked++;
       
-      // REMOVED: Position requirement filter
-      
       let snapshotDayTimestamp = getDayTimestamp(portfolio.lastSnapshotTimestamp);
       
       // If the last snapshot was taken on this day, load it
