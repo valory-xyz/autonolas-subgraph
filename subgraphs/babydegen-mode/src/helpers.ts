@@ -162,7 +162,7 @@ export function calculatePortfolioMetrics(
     }
   }
 
-  if (projectedRoi.gt(BigDecimal.zero())) {
+  if (initialValue.gt(BigDecimal.zero())) {
     let timestampForAPR = portfolio.firstTradingTimestamp
     
     // Fallback: If no trading activity, use service creation timestamp
