@@ -72,7 +72,6 @@ export function handleSafeReceived(event: SafeReceivedEvent): void {
       
       let ethAmount = value.toBigDecimal().div(BigDecimal.fromString("1e18"))
       
-      // NEW LOGIC: Check if receiver is this service's operator safe
       if (to.equals(Address.fromBytes(fromService.operatorSafe))) {
         // This is Service Safe → Operator Safe transfer
         

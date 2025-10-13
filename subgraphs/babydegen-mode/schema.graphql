@@ -51,7 +51,7 @@ type FundingBalance @entity(immutable: false) {
   service: Service              # Link to service
   totalInUsd: BigDecimal!
   totalOutUsd: BigDecimal!
-  totalWithdrawnUsd: BigDecimal!  # NEW: Track USDC withdrawals to EOAs separately
+  totalWithdrawnUsd: BigDecimal!  #  Track USDC withdrawals to EOAs separately
   netUsd: BigDecimal!
   firstInTimestamp: BigInt!
   lastChangeTs: BigInt!
@@ -177,7 +177,7 @@ type AgentPortfolio @entity(immutable: false) {
   firstFundingEthPrice: BigDecimal!        # ETH price at first funding
   currentEthPrice: BigDecimal!             # Current ETH price
   
-  # Position-Based Aggregates (NEW)
+  # Position-Based Aggregates
   totalInvestments: BigDecimal! # Sum of (entryAmountUSD + costs) for closed positions
   totalGrossGains: BigDecimal!  # Sum of exitAmountUSD for closed positions
   totalCosts: BigDecimal!       # Sum of all costs for closed positions

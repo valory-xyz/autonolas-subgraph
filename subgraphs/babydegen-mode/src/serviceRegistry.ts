@@ -142,7 +142,7 @@ export function handleCreateMultisigWithAgents(event: CreateMultisigWithAgents):
   // Create Safe datasource instance to track ETH transfers for service safe
   Safe.create(multisig)
   
-  // NEW: Also create Safe datasource for the operator safe to track ETH inflows
+  //  Also create Safe datasource for the operator safe to track ETH inflows
   
   Safe.create(Address.fromBytes(registration.operatorSafe)) // Dynamic operator safe tracking
 }
