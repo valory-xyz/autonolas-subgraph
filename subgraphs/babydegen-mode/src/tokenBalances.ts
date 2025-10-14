@@ -230,16 +230,8 @@ export function handleERC20Transfer(event: TransferEvent): void {
         let tokenPrice = getTokenPriceUSD(tokenAddress, event.block.timestamp, false)
         let usdValue = amountDecimal.times(tokenPrice)
         
-        // NEW LOGIC: Track withdrawals separately instead of reducing funding balance
         updateWithdrawalTracking(from, usdValue, event.block.timestamp)
       }
-    } else {
-      // Calculate USD value for non-USDC tokens for logging purposes only
-      let divisor = BigDecimal.fromString("1" + "0".repeat(tokenConfig.decimals))
-      let amountDecimal = value.toBigDecimal().div(divisor)
-      let tokenPrice = getTokenPriceUSD(tokenAddress, event.block.timestamp, false)
-      let usdValue = amountDecimal.times(tokenPrice)
-      
     }
   }
 }

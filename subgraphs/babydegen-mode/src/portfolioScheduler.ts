@@ -48,10 +48,10 @@ function getDayTimestamp(timestamp: BigInt): BigInt {
  * @param block The new block
  */
 export function handleBlock(block: ethereum.Block): void {
-  // Only check every N blocks to reduce overhead
-  if (block.number.mod(CHECK_INTERVAL).notEqual(BigInt.zero())) {
-    return
-  }
+  log.info("SCHEDULER: handleBlock triggered at block {} timestamp {}", [
+    block.number.toString(),
+    block.timestamp.toString()
+  ])
   
   // Check all services for snapshot requirements
   checkServicesForSnapshot(block)
@@ -78,12 +78,18 @@ function checkServicesForSnapshot(block: ethereum.Block): void {
   
   let serviceAddresses = registry.serviceAddresses
   let snapshotsCreated = false
+  let totalServices = serviceAddresses.length
+  let servicesChecked = 0
+  let snapshotsDue = 0
+  
   
   for (let i = 0; i < serviceAddresses.length; i++) {
     let serviceAddress = serviceAddresses[i]
+    servicesChecked++
     
     // Check if snapshot is due for this service
     if (isSnapshotDue(serviceAddress, block)) {
+      snapshotsDue++
       
       // Trigger portfolio calculation which will create snapshot
       // Convert Bytes to Address for calculatePortfolioMetrics
@@ -95,6 +101,12 @@ function checkServicesForSnapshot(block: ethereum.Block): void {
       snapshotsCreated = true
     }
   }
+  
+  log.info("SCHEDULER: Completed check - {} services checked, {} snapshots due, {} snapshots created", [
+    servicesChecked.toString(),
+    snapshotsDue.toString(),
+    snapshotsCreated ? "YES" : "NO"
+  ])
   
   // After all agent snapshots are created, calculate global metrics
   if (snapshotsCreated) {
@@ -133,6 +145,13 @@ function isSnapshotDue(serviceAddress: Bytes, block: ethereum.Block): boolean {
   
   // Only take a snapshot if we've crossed into a new UTC day
   let isDue = currentDayTimestamp.gt(lastSnapshotDayTimestamp)
+  
+  log.info("SCHEDULER: Service {} - Current interval: {}, Last interval: {}, Due: {}", [
+    serviceAddress.toHexString(),
+    currentDayTimestamp.toString(),
+    lastSnapshotDayTimestamp.toString(),
+    isDue ? "YES" : "NO"
+  ])
   
   return isDue
 }

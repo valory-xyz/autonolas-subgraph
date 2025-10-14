@@ -422,7 +422,6 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
   const amounts = LiquidityAmounts.getAmountsForLiquidity(
                     slot0.value0, sqrtPa, sqrtPb, data.value7)
 
-  // USD pricing - NEW HARDCODED VERSION
   const token0Price = getTokenPriceUSD(data.value2, block.timestamp, false) // token0
   const token1Price = getTokenPriceUSD(data.value3, block.timestamp, false) // token1
 

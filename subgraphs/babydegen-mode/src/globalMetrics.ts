@@ -119,19 +119,6 @@ export function getAllAgentSnapshotsForDay(block: ethereum.Block): AgentPortfoli
     if (portfolio && portfolio.lastSnapshotTimestamp.gt(BigInt.zero())) {
       totalAgentsChecked++;
       
-      // Check if agent has at least 2 total positions (active + closed)
-      let totalPositions = portfolio.totalPositions + portfolio.totalClosedPositions;
-      if (totalPositions < 2) {
-        agentsExcludedForInsufficientPositions++;
-        log.info("Excluding agent {} from population metrics - insufficient position history: {} total positions (active: {}, closed: {})", [
-          serviceAddress.toHexString(),
-          totalPositions.toString(),
-          portfolio.totalPositions.toString(),
-          portfolio.totalClosedPositions.toString()
-        ]);
-        continue; // Skip this agent
-      }
-      
       let snapshotDayTimestamp = getDayTimestamp(portfolio.lastSnapshotTimestamp);
       
       // If the last snapshot was taken on this day, load it
@@ -175,6 +162,50 @@ export function calculateTotalFundedAUM(serviceAddresses: Bytes[]): BigDecimal {
   }
   
   return totalAUM;
+}
+
+/**
+ * Calculate median AUM across specified agents using individual FundingBalance.netUsd values
+ * @param serviceAddresses Array of service addresses to calculate median AUM for (should match agents with snapshots)
+ * @returns Median AUM as BigDecimal
+ */
+export function calculateMedianAUM(serviceAddresses: Bytes[]): BigDecimal {
+  let aumValues: BigDecimal[] = [];
+  
+  for (let i = 0; i < serviceAddresses.length; i++) {
+    let serviceAddress = serviceAddresses[i];
+    let fundingBalance = FundingBalance.load(serviceAddress);
+    
+    if (fundingBalance) {
+      // Use netUsd (total funding balance) for individual agent AUM
+      aumValues.push(fundingBalance.netUsd);
+    }
+  }
+  
+  if (aumValues.length == 0) {
+    return BigDecimal.zero();
+  }
+  
+  // Use existing calculateMedian function for consistency
+  return calculateMedian(aumValues);
+}
+
+/**
+ * Update historical AUM array with new median AUM value, maintaining 7-day window
+ * @param historicalAUM Current historical AUM array
+ * @param newMedianAUM New median AUM to add
+ * @returns Updated historical AUM array
+ */
+export function updateAUMHistoricalArray(historicalAUM: BigDecimal[], newMedianAUM: BigDecimal): BigDecimal[] {
+  // Add new value to the end
+  historicalAUM.push(newMedianAUM);
+  
+  // Keep only last 7 days (remove oldest if we have more than 7)
+  if (historicalAUM.length > 7) {
+    historicalAUM.shift(); // Remove first element
+  }
+  
+  return historicalAUM;
 }
 
 /**
@@ -231,6 +262,7 @@ export function getPreviousDailyPopulationMetric(currentDayTimestamp: BigInt): D
  * @param historicalEthAdjustedAPR Current historical ETH-adjusted APR array
  * @param historicalEthAdjustedProjectedROI Current historical ETH-adjusted projected ROI array
  * @param historicalEthAdjustedProjectedAPR Current historical ETH-adjusted projected APR array
+ * @param historicalAUM Current historical AUM array
  * @param newMedianROI New median ROI to add
  * @param newMedianAPR New median APR to add
  * @param newMedianProjectedROI New median projected ROI to add
@@ -239,7 +271,8 @@ export function getPreviousDailyPopulationMetric(currentDayTimestamp: BigInt): D
  * @param newMedianEthAdjustedAPR New median ETH-adjusted APR to add
  * @param newMedianEthAdjustedProjectedROI New median ETH-adjusted projected ROI to add
  * @param newMedianEthAdjustedProjectedAPR New median ETH-adjusted projected APR to add
- * @returns Updated historical arrays as tuple [ROI, APR, ProjectedROI, ProjectedAPR, EthAdjustedROI, EthAdjustedAPR, EthAdjustedProjectedROI, EthAdjustedProjectedAPR]
+ * @param newMedianAUM New median AUM to add
+ * @returns Updated historical arrays as tuple [ROI, APR, ProjectedROI, ProjectedAPR, EthAdjustedROI, EthAdjustedAPR, EthAdjustedProjectedROI, EthAdjustedProjectedAPR, AUM]
  */
 export function updateHistoricalArrays(
   historicalROI: BigDecimal[],
@@ -250,6 +283,7 @@ export function updateHistoricalArrays(
   historicalEthAdjustedAPR: BigDecimal[],
   historicalEthAdjustedProjectedROI: BigDecimal[],
   historicalEthAdjustedProjectedAPR: BigDecimal[],
+  historicalAUM: BigDecimal[],
   newMedianROI: BigDecimal,
   newMedianAPR: BigDecimal,
   newMedianProjectedROI: BigDecimal,
@@ -257,7 +291,8 @@ export function updateHistoricalArrays(
   newMedianEthAdjustedROI: BigDecimal,
   newMedianEthAdjustedAPR: BigDecimal,
   newMedianEthAdjustedProjectedROI: BigDecimal,
-  newMedianEthAdjustedProjectedAPR: BigDecimal
+  newMedianEthAdjustedProjectedAPR: BigDecimal,
+  newMedianAUM: BigDecimal
 ): BigDecimal[][] {
   // Add new values to the end
   historicalROI.push(newMedianROI);
@@ -268,6 +303,7 @@ export function updateHistoricalArrays(
   historicalEthAdjustedAPR.push(newMedianEthAdjustedAPR);
   historicalEthAdjustedProjectedROI.push(newMedianEthAdjustedProjectedROI);
   historicalEthAdjustedProjectedAPR.push(newMedianEthAdjustedProjectedAPR);
+  historicalAUM.push(newMedianAUM);
   
   // Keep only last 7 days (remove oldest if we have more than 7)
   if (historicalROI.length > 7) {
@@ -294,6 +330,9 @@ export function updateHistoricalArrays(
   if (historicalEthAdjustedProjectedAPR.length > 7) {
     historicalEthAdjustedProjectedAPR.shift(); // Remove first element
   }
+  if (historicalAUM.length > 7) {
+    historicalAUM.shift(); // Remove first element
+  }
   
   return [
     historicalROI, 
@@ -303,7 +342,8 @@ export function updateHistoricalArrays(
     historicalEthAdjustedROI,
     historicalEthAdjustedAPR,
     historicalEthAdjustedProjectedROI,
-    historicalEthAdjustedProjectedAPR
+    historicalEthAdjustedProjectedAPR,
+    historicalAUM
   ];
 }
 
@@ -317,6 +357,7 @@ export function updateHistoricalArrays(
  * @param medianEthAdjustedAPR Calculated median ETH-adjusted APR
  * @param medianEthAdjustedProjectedROI Calculated median ETH-adjusted projected ROI
  * @param medianEthAdjustedProjectedAPR Calculated median ETH-adjusted projected APR
+ * @param medianAUM Calculated median AUM
  * @param sma7dROI Calculated 7-day SMA ROI
  * @param sma7dAPR Calculated 7-day SMA APR
  * @param sma7dProjectedROI Calculated 7-day SMA projected ROI
@@ -325,6 +366,7 @@ export function updateHistoricalArrays(
  * @param sma7dEthAdjustedAPR Calculated 7-day SMA ETH-adjusted APR
  * @param sma7dEthAdjustedProjectedROI Calculated 7-day SMA ETH-adjusted projected ROI
  * @param sma7dEthAdjustedProjectedAPR Calculated 7-day SMA ETH-adjusted projected APR
+ * @param sma7dAUM Calculated 7-day SMA AUM
  * @param historicalROI Updated historical ROI array
  * @param historicalAPR Updated historical APR array
  * @param historicalProjectedROI Updated historical projected ROI array
@@ -333,10 +375,13 @@ export function updateHistoricalArrays(
  * @param historicalEthAdjustedAPR Updated historical ETH-adjusted APR array
  * @param historicalEthAdjustedProjectedROI Updated historical ETH-adjusted projected ROI array
  * @param historicalEthAdjustedProjectedAPR Updated historical ETH-adjusted projected APR array
+ * @param historicalAUM Updated historical AUM array
+ * @param totalFundedAUM Total funded AUM
+ * @param averageAgentDaysActive Average agent days active
  * @param totalAgents Number of agents included in calculation
  * @param block Current block
  */
-export function updateDailyPopulationMetricEntity(
+export function updateDailyPopulationMetricEntityWithEthAdjusted(
   medianROI: BigDecimal,
   medianAPR: BigDecimal,
   medianProjectedROI: BigDecimal,
@@ -345,6 +390,7 @@ export function updateDailyPopulationMetricEntity(
   medianEthAdjustedAPR: BigDecimal,
   medianEthAdjustedProjectedROI: BigDecimal,
   medianEthAdjustedProjectedAPR: BigDecimal,
+  medianAUM: BigDecimal,
   sma7dROI: BigDecimal,
   sma7dAPR: BigDecimal,
   sma7dProjectedROI: BigDecimal,
@@ -353,6 +399,7 @@ export function updateDailyPopulationMetricEntity(
   sma7dEthAdjustedAPR: BigDecimal,
   sma7dEthAdjustedProjectedROI: BigDecimal,
   sma7dEthAdjustedProjectedAPR: BigDecimal,
+  sma7dAUM: BigDecimal,
   historicalROI: BigDecimal[],
   historicalAPR: BigDecimal[],
   historicalProjectedROI: BigDecimal[],
@@ -361,6 +408,7 @@ export function updateDailyPopulationMetricEntity(
   historicalEthAdjustedAPR: BigDecimal[],
   historicalEthAdjustedProjectedROI: BigDecimal[],
   historicalEthAdjustedProjectedAPR: BigDecimal[],
+  historicalAUM: BigDecimal[],
   totalFundedAUM: BigDecimal,
   averageAgentDaysActive: BigDecimal,
   totalAgents: number,
@@ -411,6 +459,10 @@ export function updateDailyPopulationMetricEntity(
   dailyPopulationMetric.sma7dEthAdjustedUnrealisedPnL = sma7dEthAdjustedProjectedROI;
   dailyPopulationMetric.sma7dEthAdjustedProjectedUnrealisedPnL = sma7dEthAdjustedProjectedAPR;
   
+  // Set AUM metrics
+  dailyPopulationMetric.medianAUM = medianAUM;
+  dailyPopulationMetric.sma7dAUM = sma7dAUM;
+  
   // Set staking APR data (for frontend calculation)
   dailyPopulationMetric.totalFundedAUM = totalFundedAUM;
   dailyPopulationMetric.averageAgentDaysActive = averageAgentDaysActive;
@@ -435,6 +487,9 @@ export function updateDailyPopulationMetricEntity(
   // Set historical data (ETH-adjusted unrealized PnL)
   dailyPopulationMetric.historicalMedianEthAdjustedUnrealisedPnL = historicalEthAdjustedProjectedROI;
   dailyPopulationMetric.historicalMedianEthAdjustedProjectedUnrealisedPnL = historicalEthAdjustedProjectedAPR;
+  
+  // Set historical data (AUM)
+  dailyPopulationMetric.historicalMedianAUM = historicalAUM;
   
   dailyPopulationMetric.save();
   
@@ -529,66 +584,6 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   let medianEthAdjustedUnrealisedPnL = calculateMedian(ethAdjustedUnrealisedPnLValues);
   let medianEthAdjustedProjectedUnrealisedPnL = calculateMedian(ethAdjustedProjectedUnrealisedPnLValues);
   
-  // Get previous DailyPopulationMetric entity for historical data using day timestamp
-  let previousDailyPopulationMetric = getPreviousDailyPopulationMetric(dayTimestamp);
-  let historicalROI: BigDecimal[] = [];
-  let historicalAPR: BigDecimal[] = [];
-  let historicalProjectedROI: BigDecimal[] = [];
-  let historicalProjectedAPR: BigDecimal[] = [];
-  let historicalEthAdjustedROI: BigDecimal[] = [];
-  let historicalEthAdjustedAPR: BigDecimal[] = [];
-  let historicalEthAdjustedProjectedROI: BigDecimal[] = [];
-  let historicalEthAdjustedProjectedAPR: BigDecimal[] = [];
-  
-  if (previousDailyPopulationMetric) {
-    historicalROI = previousDailyPopulationMetric.historicalMedianROI;
-    historicalAPR = previousDailyPopulationMetric.historicalMedianAPR;
-    historicalProjectedROI = previousDailyPopulationMetric.historicalMedianUnrealisedPnL;
-    historicalProjectedAPR = previousDailyPopulationMetric.historicalMedianProjectedUnrealisedPnL;
-    historicalEthAdjustedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedROI;
-    historicalEthAdjustedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedAPR;
-    historicalEthAdjustedProjectedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedUnrealisedPnL;
-    historicalEthAdjustedProjectedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedProjectedUnrealisedPnL;
-  }
-  
-  // Update historical arrays with new median values (all 8 metrics)
-  let updatedHistorical = updateHistoricalArrays(
-    historicalROI, 
-    historicalAPR, 
-    historicalProjectedROI, 
-    historicalProjectedAPR,
-    historicalEthAdjustedROI,
-    historicalEthAdjustedAPR,
-    historicalEthAdjustedProjectedROI,
-    historicalEthAdjustedProjectedAPR,
-    medianROI, 
-    medianAPR, 
-    medianUnrealisedPnL, 
-    medianProjectedUnrealisedPnL,
-    medianEthAdjustedROI,
-    medianEthAdjustedAPR,
-    medianEthAdjustedUnrealisedPnL,
-    medianEthAdjustedProjectedUnrealisedPnL
-  );
-  let updatedHistoricalROI = updatedHistorical[0];
-  let updatedHistoricalAPR = updatedHistorical[1];
-  let updatedHistoricalProjectedROI = updatedHistorical[2];
-  let updatedHistoricalProjectedAPR = updatedHistorical[3];
-  let updatedHistoricalEthAdjustedROI = updatedHistorical[4];
-  let updatedHistoricalEthAdjustedAPR = updatedHistorical[5];
-  let updatedHistoricalEthAdjustedProjectedROI = updatedHistorical[6];
-  let updatedHistoricalEthAdjustedProjectedAPR = updatedHistorical[7];
-  
-  // Calculate 7-day simple moving averages (all 8 metrics)
-  let sma7dROI = calculate7DaysSMA(updatedHistoricalROI);
-  let sma7dAPR = calculate7DaysSMA(updatedHistoricalAPR);
-  let sma7dUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedROI);
-  let sma7dProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedAPR);
-  let sma7dEthAdjustedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedROI);
-  let sma7dEthAdjustedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedAPR);
-  let sma7dEthAdjustedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedROI);
-  let sma7dEthAdjustedProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedAPR);
-  
   // Calculate staking APR data for frontend
   let registryId = Bytes.fromUTF8("registry");
   let serviceRegistry = ServiceRegistry.load(registryId);
@@ -600,8 +595,81 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
   let totalFundedAUM = calculateTotalFundedAUM(serviceAddresses);
   let averageAgentDaysActive = calculateAverageAgentDaysActive(serviceAddresses, block.timestamp);
   
-  // Create and save DailyPopulationMetric entity (all 28 parameters)
-  updateDailyPopulationMetricEntity(
+  // Calculate median AUM - ONLY for agents that have snapshots (same as ROI/APR calculation)
+  let snapshotServiceAddresses: Bytes[] = [];
+  for (let i = 0; i < snapshots.length; i++) {
+    snapshotServiceAddresses.push(snapshots[i].service);
+  }
+  let medianAUM = calculateMedianAUM(snapshotServiceAddresses);
+  
+  // Get previous DailyPopulationMetric entity for historical data using day timestamp
+  let previousDailyPopulationMetric = getPreviousDailyPopulationMetric(dayTimestamp);
+  let historicalROI: BigDecimal[] = [];
+  let historicalAPR: BigDecimal[] = [];
+  let historicalProjectedROI: BigDecimal[] = [];
+  let historicalProjectedAPR: BigDecimal[] = [];
+  let historicalEthAdjustedROI: BigDecimal[] = [];
+  let historicalEthAdjustedAPR: BigDecimal[] = [];
+  let historicalEthAdjustedProjectedROI: BigDecimal[] = [];
+  let historicalEthAdjustedProjectedAPR: BigDecimal[] = [];
+  let historicalAUM: BigDecimal[] = [];
+  
+  if (previousDailyPopulationMetric) {
+    historicalROI = previousDailyPopulationMetric.historicalMedianROI;
+    historicalAPR = previousDailyPopulationMetric.historicalMedianAPR;
+    historicalProjectedROI = previousDailyPopulationMetric.historicalMedianUnrealisedPnL;
+    historicalProjectedAPR = previousDailyPopulationMetric.historicalMedianProjectedUnrealisedPnL;
+    historicalEthAdjustedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedROI;
+    historicalEthAdjustedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedAPR;
+    historicalEthAdjustedProjectedROI = previousDailyPopulationMetric.historicalMedianEthAdjustedUnrealisedPnL;
+    historicalEthAdjustedProjectedAPR = previousDailyPopulationMetric.historicalMedianEthAdjustedProjectedUnrealisedPnL;
+    historicalAUM = previousDailyPopulationMetric.historicalMedianAUM;
+  }
+  
+  // Update historical arrays with new median values (all 9 metrics including AUM)
+  let updatedHistorical = updateHistoricalArrays(
+    historicalROI, 
+    historicalAPR, 
+    historicalProjectedROI, 
+    historicalProjectedAPR,
+    historicalEthAdjustedROI,
+    historicalEthAdjustedAPR,
+    historicalEthAdjustedProjectedROI,
+    historicalEthAdjustedProjectedAPR,
+    historicalAUM,
+    medianROI, 
+    medianAPR, 
+    medianUnrealisedPnL, 
+    medianProjectedUnrealisedPnL,
+    medianEthAdjustedROI,
+    medianEthAdjustedAPR,
+    medianEthAdjustedUnrealisedPnL,
+    medianEthAdjustedProjectedUnrealisedPnL,
+    medianAUM
+  );
+  let updatedHistoricalROI = updatedHistorical[0];
+  let updatedHistoricalAPR = updatedHistorical[1];
+  let updatedHistoricalProjectedROI = updatedHistorical[2];
+  let updatedHistoricalProjectedAPR = updatedHistorical[3];
+  let updatedHistoricalEthAdjustedROI = updatedHistorical[4];
+  let updatedHistoricalEthAdjustedAPR = updatedHistorical[5];
+  let updatedHistoricalEthAdjustedProjectedROI = updatedHistorical[6];
+  let updatedHistoricalEthAdjustedProjectedAPR = updatedHistorical[7];
+  let updatedHistoricalAUM = updatedHistorical[8];
+  
+  // Calculate 7-day simple moving averages (all 9 metrics including AUM)
+  let sma7dROI = calculate7DaysSMA(updatedHistoricalROI);
+  let sma7dAPR = calculate7DaysSMA(updatedHistoricalAPR);
+  let sma7dUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedROI);
+  let sma7dProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalProjectedAPR);
+  let sma7dEthAdjustedROI = calculate7DaysSMA(updatedHistoricalEthAdjustedROI);
+  let sma7dEthAdjustedAPR = calculate7DaysSMA(updatedHistoricalEthAdjustedAPR);
+  let sma7dEthAdjustedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedROI);
+  let sma7dEthAdjustedProjectedUnrealisedPnL = calculate7DaysSMA(updatedHistoricalEthAdjustedProjectedAPR);
+  let sma7dAUM = calculate7DaysSMA(updatedHistoricalAUM);
+  
+  // Create and save DailyPopulationMetric entity with AUM metrics
+  updateDailyPopulationMetricEntityWithEthAdjusted(
     medianROI,
     medianAPR,
     medianUnrealisedPnL,
@@ -610,6 +678,7 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
     medianEthAdjustedAPR,
     medianEthAdjustedUnrealisedPnL,
     medianEthAdjustedProjectedUnrealisedPnL,
+    medianAUM,
     sma7dROI,
     sma7dAPR,
     sma7dUnrealisedPnL,
@@ -618,6 +687,7 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
     sma7dEthAdjustedAPR,
     sma7dEthAdjustedUnrealisedPnL,
     sma7dEthAdjustedProjectedUnrealisedPnL,
+    sma7dAUM,
     updatedHistoricalROI,
     updatedHistoricalAPR,
     updatedHistoricalProjectedROI,
@@ -626,6 +696,7 @@ export function calculateGlobalMetrics(block: ethereum.Block): void {
     updatedHistoricalEthAdjustedAPR,
     updatedHistoricalEthAdjustedProjectedROI,
     updatedHistoricalEthAdjustedProjectedAPR,
+    updatedHistoricalAUM,
     totalFundedAUM,
     averageAgentDaysActive,
     snapshots.length,
