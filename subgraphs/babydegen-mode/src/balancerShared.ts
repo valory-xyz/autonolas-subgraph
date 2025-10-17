@@ -280,7 +280,8 @@ export function refreshBalancerPosition(
   poolAddress: Address,
   poolId: Bytes,
   block: ethereum.Block,
-  txHash: Bytes
+  txHash: Bytes,
+  updatePortfolio: boolean = true
 ): void {
   const positionId = getBalancerPositionId(userAddress, poolAddress, txHash)
   
@@ -441,5 +442,9 @@ export function refreshBalancerPosition(
   }
   
   pp.save()
-  calculatePortfolioMetrics(userAddress, block)
+  
+  // Only update portfolio if requested
+  if (updatePortfolio) {
+    calculatePortfolioMetrics(userAddress, block)
+  }
 }

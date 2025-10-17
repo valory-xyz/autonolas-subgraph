@@ -17,6 +17,10 @@ import { calculateGlobalMetrics } from "./globalMetrics"
 import { getTokenPriceUSD } from "./priceDiscovery"
 import { WETH, WHITELISTED_TOKENS } from "./constants"
 import { TokenBalance } from "../generated/schema"
+import { refreshBalancerPosition } from "./balancerShared"
+import { refreshSturdyPosition } from "./sturdyVault"
+import { refreshVeloCLPosition } from "./veloCLShared"
+import { refreshVeloV2Position } from "./veloV2Shared"
 
 export class EthAdjustedMetrics {
   ethPriceAtBaseline: BigDecimal
@@ -99,7 +103,8 @@ export function updateFunding(
 // Calculate portfolio metrics for an agent
 export function calculatePortfolioMetrics(
   serviceSafe: Address, 
-  block: ethereum.Block
+  block: ethereum.Block,
+  takeSnapshot: boolean = false,
 ): void {
   // Check if this is a valid service
   let service = getServiceByAgent(serviceSafe)
@@ -109,9 +114,14 @@ export function calculatePortfolioMetrics(
   
   // Ensure portfolio exists (replaces the existing if/else logic)
   let portfolio = ensureAgentPortfolio(serviceSafe, block.timestamp)
-  
-  // This ensures that both TokenBalance and ProtocolPosition USD values are current
-  refreshAllUSDValues(serviceSafe, block)
+
+  if(takeSnapshot){
+    // Refresh all position amounts before creating snapshot to ensure current state
+    refreshAllPositionAmounts(serviceSafe, block)
+    // This ensures that both TokenBalance and ProtocolPosition USD values are current
+    refreshAllUSDValues(serviceSafe, block)
+  }
+
   
   // 1. Get initial investment from FundingBalance
   let fundingBalance = FundingBalance.load(serviceSafe as Bytes)
@@ -287,7 +297,11 @@ export function calculatePortfolioMetrics(
   portfolio.totalClosedPositions = closedCount
   
   portfolio.save()
-  createPortfolioSnapshot(portfolio, block)
+
+  if(takeSnapshot){
+    createPortfolioSnapshot(portfolio, block)
+  }
+
 }
 
 function calculatePositionsValue(serviceSafe: Address): BigDecimal {
@@ -628,6 +642,76 @@ export function refreshActivePositionUSDValues(
       if (needsUpdate) {
         position.usdCurrent = position.amount0USD.plus(position.amount1USD)
         position.save()
+      }
+    }
+  }
+}
+
+// Refresh position amounts for all active positions
+export function refreshAllPositionAmounts(
+  serviceSafe: Address,
+  block: ethereum.Block
+): void {
+  let service = getServiceByAgent(serviceSafe)
+  if (service == null || service.positionIds == null) {
+    return
+  }
+  
+  let positionIds = service.positionIds
+  
+  for (let i = 0; i < positionIds.length; i++) {
+    let positionIdString = positionIds[i]
+    let position: ProtocolPosition | null = null
+
+    let directId = Bytes.fromUTF8(positionIdString)
+    position = ProtocolPosition.load(directId)
+
+    if (position == null) {
+      if (positionIdString.startsWith("0x") && positionIdString.length % 2 == 0) {
+        let hexBytes = Bytes.fromHexString(positionIdString)
+        let decodedString = hexBytes.toString()
+        let decodedId = Bytes.fromUTF8(decodedString)
+        position = ProtocolPosition.load(decodedId)
+      }
+    }
+
+    // Call each protocol's respective refresh method for ACTIVE positions
+    if (position != null && position.isActive) {
+      if (position.protocol == "balancer") {
+        refreshBalancerPosition(
+          Address.fromBytes(position.agent),
+          Address.fromBytes(position.pool),
+          position.tokenId ? Bytes.fromI32(position.tokenId!.toI32()) : Bytes.fromUTF8(""),
+          block,
+          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          false
+        )
+      } else if (position.protocol == "STURDY") {
+        refreshSturdyPosition(
+          Address.fromBytes(position.agent),
+          block,
+          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          BigInt.zero(), // assets not needed for refresh
+          true, // isDeposit not critical for refresh
+          false
+        )
+      } else if (position.protocol == "velodrome-cl") {
+        // Call Velodrome CL refresh method: refreshVeloCLPosition(tokenId, block, txHash)
+        refreshVeloCLPosition(
+          position.tokenId!,
+          block,
+          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          false
+        )
+      } else if (position.protocol == "velodrome-v2") {
+        // Call Velodrome V2 refresh method: refreshVeloV2Position(userAddress, poolAddress, block, txHash)
+        refreshVeloV2Position(
+          Address.fromBytes(position.agent),
+          Address.fromBytes(position.pool),
+          block,
+          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          false
+        )
       }
     }
   }

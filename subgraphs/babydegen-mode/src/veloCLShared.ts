@@ -363,7 +363,7 @@ export function refreshVeloCLPositionWithExitAmounts(
 }
 
 // 2c. Re-price NFT into USD + persist (for non-entry events)
-export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, txHash: Bytes = Bytes.empty()): void {
+export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, txHash: Bytes = Bytes.empty(), updatePortfolio: boolean = true): void {
   const mgr = NonfungiblePositionManager.bind(VELO_MANAGER)
   
   // First, get the actual NFT owner
@@ -536,9 +536,11 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
   }
   
   pp.save()
-
-  // bubble up to AgentPortfolio
-  refreshPortfolio(nftOwner, block)
+  
+  if(updatePortfolio){
+    // bubble up to AgentPortfolio
+    refreshPortfolio(nftOwner, block)
+  }
 }
 
 // 3. Handle NFT transfers (add/remove from cache)

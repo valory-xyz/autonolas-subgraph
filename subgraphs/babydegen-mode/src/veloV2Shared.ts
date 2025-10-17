@@ -231,7 +231,8 @@ export function refreshVeloV2Position(
   userAddress: Address,
   poolAddress: Address,
   block: ethereum.Block,
-  txHash: Bytes
+  txHash: Bytes,
+  updatePortfolio: boolean = true
 ): void {
   const positionId = getVeloV2PositionId(userAddress, poolAddress)
   
@@ -398,7 +399,10 @@ export function refreshVeloV2Position(
   pp.save()
   
   // Update portfolio metrics to ensure AgentPortfolio entity is created
-  calculatePortfolioMetrics(userAddress, block)
+  if(updatePortfolio){
+    calculatePortfolioMetrics(userAddress, block)
+  }
+  
 }
 
 // Handle VelodromeV2 Burn events (liquidity removal)

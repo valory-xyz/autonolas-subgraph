@@ -114,12 +114,13 @@ export function handleSturdyWithdraw(event: Withdraw): void {
   }
 }
 
-function refreshSturdyPosition(
+export function refreshSturdyPosition(
   agent: Address,
   block: ethereum.Block,
   txHash: Bytes,
   assets: BigInt,
-  isDeposit: boolean
+  isDeposit: boolean,
+  updatePortfolio: boolean = true
 ): void {
   let position: ProtocolPosition | null = null
   let positionIdBytes: Bytes
@@ -261,7 +262,11 @@ function refreshSturdyPosition(
   position.amount0USD = currentUSDValue
   
   position.save()
-  calculatePortfolioMetrics(agent, block)
+  
+  // Only update portfolio if requested (avoid recursion during snapshots)
+  if (updatePortfolio) {
+    calculatePortfolioMetrics(agent, block)
+  }
 }
 
 function calculateSturdyPositionValue(agent: Address, underlyingAsset: Address, timestamp: BigInt): BigDecimal {
