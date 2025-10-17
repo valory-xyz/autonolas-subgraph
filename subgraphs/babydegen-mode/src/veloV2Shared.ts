@@ -82,7 +82,7 @@ export function refreshVeloV2PositionWithEventAmounts(
         serviceEntity.positionIds = []
       }
       let positionIds = serviceEntity.positionIds
-      let positionIdString = positionId.toString()
+      let positionIdString = positionId.toHexString()
       if (positionIds.indexOf(positionIdString) == -1) {
         positionIds.push(positionIdString)
         serviceEntity.positionIds = positionIds
@@ -261,7 +261,7 @@ export function refreshVeloV2Position(
         serviceEntity.positionIds = []
       }
       let positionIds = serviceEntity.positionIds
-      let positionIdString = positionId.toString()
+      let positionIdString = positionId.toHexString()
       if (positionIds.indexOf(positionIdString) == -1) {
         positionIds.push(positionIdString)
         serviceEntity.positionIds = positionIds

@@ -175,7 +175,7 @@ export function refreshVeloCLPositionWithEventAmounts(
         service.positionIds = []
       }
       let positionIds = service.positionIds
-      let positionIdString = positionId.toString()  // Get original string before hex encoding
+      let positionIdString = positionId.toHexString()  // Use hex encoding like other protocols
       if (positionIds.indexOf(positionIdString) == -1) {
         positionIds.push(positionIdString)
         service.positionIds = positionIds
@@ -455,7 +455,7 @@ export function refreshVeloCLPosition(tokenId: BigInt, block: ethereum.Block, tx
         service.positionIds = []
       }
       let positionIds = service.positionIds
-      let positionIdString = positionId.toString()  // Get original string before hex encoding
+      let positionIdString = positionId.toHexString()  // Use hex encoding like other protocols
       if (positionIds.indexOf(positionIdString) == -1) {
         positionIds.push(positionIdString)
         service.positionIds = positionIds
