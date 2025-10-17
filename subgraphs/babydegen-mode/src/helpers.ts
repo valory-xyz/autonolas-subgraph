@@ -681,16 +681,16 @@ export function refreshAllPositionAmounts(
         refreshBalancerPosition(
           Address.fromBytes(position.agent),
           Address.fromBytes(position.pool),
-          position.tokenId ? Bytes.fromI32(position.tokenId!.toI32()) : Bytes.fromUTF8(""),
+          Bytes.fromI32(position.tokenId.toI32()),
           block,
-          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          position.entryTxHash,
           false
         )
       } else if (position.protocol == "STURDY") {
         refreshSturdyPosition(
           Address.fromBytes(position.agent),
           block,
-          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          position.entryTxHash,
           BigInt.zero(), // assets not needed for refresh
           true, // isDeposit not critical for refresh
           false
@@ -698,9 +698,9 @@ export function refreshAllPositionAmounts(
       } else if (position.protocol == "velodrome-cl") {
         // Call Velodrome CL refresh method: refreshVeloCLPosition(tokenId, block, txHash)
         refreshVeloCLPosition(
-          position.tokenId!,
+          position.tokenId,
           block,
-          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          position.entryTxHash,
           false
         )
       } else if (position.protocol == "velodrome-v2") {
@@ -709,7 +709,7 @@ export function refreshAllPositionAmounts(
           Address.fromBytes(position.agent),
           Address.fromBytes(position.pool),
           block,
-          position.entryTxHash ? position.entryTxHash! : Bytes.fromUTF8(""),
+          position.entryTxHash,
           false
         )
       }
