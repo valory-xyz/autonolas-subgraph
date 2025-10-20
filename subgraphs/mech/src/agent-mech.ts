@@ -24,6 +24,11 @@ class Metadata {
   prompt: string;
 }
 
+class ResponseMetadata {
+  model: string
+  response: string
+}
+
 const MetadataNotFound: Metadata = {
   tool: '',
   prompt: '',
@@ -40,6 +45,26 @@ function tryGetIpfsResponse(requestHash: string): Bytes | null {
     return response;
   }
   return ipfs.cat(requestHash);
+}
+
+function getResponseMetadata(
+  requestHash: string,
+  requestId: BigInt
+): ResponseMetadata {
+  let url = requestHash + '/' + requestId.toString();
+  let response = tryGetIpfsResponse(url);
+
+  let jsonObj = json.fromBytes(response as Bytes).toObject();
+
+  let metadata = jsonObj.get('metadata')!.toObject();
+  let toolResponse = jsonObj.get("result")!.toString() || '';
+
+  let model = metadata.get("model")!.toString() || '';
+
+  return {
+    model: model,
+    response: toolResponse
+  }
 }
 
 function getMetadata(requestHash: string): Metadata {
@@ -201,6 +226,11 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
+
+  let responseMetadata = getResponseMetadata(entity.ipfsHash, entity.requestId);
+
+  entity.toolResponse = responseMetadata.response
+  entity.model = responseMetadata.model
 
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
