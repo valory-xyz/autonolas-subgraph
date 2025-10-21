@@ -19,6 +19,8 @@ import {
   getOrCreateRequestsPerAgentOnchain,
 } from './utils';
 
+let UNHANDLED_TYPE = '[unhandled type]';
+
 class Metadata {
   tool: string;
   prompt: string;
@@ -57,9 +59,9 @@ function getResponseMetadata(
   let jsonObj = json.fromBytes(response as Bytes).toObject();
 
   let metadata = jsonObj.get('metadata')!.toObject();
-  let toolResponse = jsonObj.get("result")!.toString() || '';
+  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
 
-  let model = metadata.get("model")!.toString() || '';
+  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
 
   return {
     model: model,
@@ -83,7 +85,7 @@ function getMetadata(requestHash: string): Metadata {
       if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
         promptStr = promptJson.toString();
       } else {
-        promptStr = '[unhandled type]';
+        promptStr = UNHANDLED_TYPE;
       }
 
       // Getting tool info
@@ -103,7 +105,7 @@ function getMetadata(requestHash: string): Metadata {
       } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
         toolStr = toolJson.toString();
       } else {
-        toolStr = '[unhandled type]';
+        toolStr = UNHANDLED_TYPE;
       }
     }
 
