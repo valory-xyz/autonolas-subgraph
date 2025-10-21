@@ -3,7 +3,7 @@ import {
   describe,
   test,
   clearStore,
-  afterAll
+  afterEach
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { handleDeliver, handleRequest } from "../src/agent-mech"
@@ -12,7 +12,7 @@ import { mockIpfsFile } from "matchstick-as"
 
 
 describe("Describe agent-mech processing", () => {
-    afterAll(() => {
+    afterEach(() => {
         clearStore()
     })
 
@@ -173,8 +173,94 @@ describe("Describe agent-mech processing", () => {
             "gpt-4.1-2025-04-14"
         )
 
-        assert.entityCount("Request", 1)
-
+        assert.entityCount("Request", 0)
     })
 
+    test("Invalid response", () => {
+        let sender = Address.fromString("0x0000000000000000000000000000000000000001")
+        let requestId = BigInt.fromI32(234)
+        let data = Bytes.fromHexString("0xdeadbeef")
+
+        mockIpfsFile("f01701220deadbeef/234/metadata.json", "tests/ipfs_mocks/mech-invalid-response.json")
+
+        let event = createMechDeliveryEvent(
+            sender,
+            requestId,
+            data,
+        )
+
+        handleDeliver(event)
+
+        let deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
+
+        assert.entityCount("Deliver", 1)
+
+        assert.fieldEquals(
+            "Deliver",
+            deliveryId.toHexString(),
+            "toolResponse",
+            "[unhandled type]"
+        )
+
+        assert.fieldEquals(
+            "Deliver",
+            deliveryId.toHexString(),
+            "model",
+            "[unhandled type]"
+        )
+    })
+
+    test("Full request/response cycle", () => {
+        let sender = Address.fromString("0x0000000000000000000000000000000000000001")
+        let requestId = BigInt.fromI32(234)
+        let data = Bytes.fromHexString("0xdeadbeef")
+
+        mockIpfsFile("f01701220deadbeef/metadata.json", "tests/ipfs_mocks/mech-request.json")
+        mockIpfsFile("f01701220deadbeef/234/metadata.json", "tests/ipfs_mocks/mech-response.json")
+
+        let event = createMechRequestEvent(
+            sender,
+            requestId,
+            data,
+        )
+
+        handleRequest(event)
+
+        assert.entityCount("Request", 1)
+
+        let deliveryEvent = createMechDeliveryEvent(
+            sender,
+            requestId,
+            data,
+        )
+
+        handleDeliver(deliveryEvent)
+
+        assert.entityCount("Deliver", 1)
+
+        let deliveryId = deliveryEvent.transaction.hash.concatI32(deliveryEvent.logIndex.toI32());
+
+        assert.fieldEquals(
+            "Deliver",
+            deliveryId.toHexString(),
+            "toolResponse",
+            '{"p_yes": 0.99, "p_no": 0.01, "info_utility": 1.0, "confidence": 0.99}'
+        )
+
+        assert.fieldEquals(
+            "Deliver",
+            deliveryId.toHexString(),
+            "model",
+            "gpt-4.1-2025-04-14"
+        )
+
+        assert.fieldEquals(
+            "Deliver",
+            deliveryId.toHexString(),
+            "request",
+            requestId.toHexString()
+        )
+
+        assert.entityCount("Request", 1)
+    })
 })
