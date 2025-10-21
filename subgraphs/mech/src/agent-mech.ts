@@ -58,7 +58,16 @@ function getResponseMetadata(
 
   let jsonObj = json.fromBytes(response as Bytes).toObject();
 
-  let metadata = jsonObj.get('metadata')!.toObject();
+  let metadataObj = jsonObj.get('metadata');
+
+  if (metadataObj === null) {
+    return {
+      model: UNHANDLED_TYPE,
+      response: UNHANDLED_TYPE
+    }
+  }
+
+  let metadata = metadataObj.toObject();
   let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
 
   let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
