@@ -19,9 +19,16 @@ import {
   getOrCreateRequestsPerAgentOnchain,
 } from './utils';
 
+let UNHANDLED_TYPE = '[unhandled type]';
+
 class Metadata {
   tool: string;
   prompt: string;
+}
+
+class ResponseMetadata {
+  model: string
+  response: string
 }
 
 const MetadataNotFound: Metadata = {
@@ -42,6 +49,35 @@ function tryGetIpfsResponse(requestHash: string): Bytes | null {
   return ipfs.cat(requestHash);
 }
 
+function getResponseMetadata(
+  requestHash: string,
+  requestId: BigInt
+): ResponseMetadata {
+  let url = requestHash + '/' + requestId.toString();
+  let response = tryGetIpfsResponse(url);
+
+  let jsonObj = json.fromBytes(response as Bytes).toObject();
+
+  let metadataObj = jsonObj.get('metadata');
+
+  if (metadataObj === null) {
+    return {
+      model: UNHANDLED_TYPE,
+      response: UNHANDLED_TYPE
+    }
+  }
+
+  let metadata = metadataObj.toObject();
+  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
+
+  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
+
+  return {
+    model: model,
+    response: toolResponse
+  }
+}
+
 function getMetadata(requestHash: string): Metadata {
   let response = tryGetIpfsResponse(requestHash);
 
@@ -58,7 +94,7 @@ function getMetadata(requestHash: string): Metadata {
       if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
         promptStr = promptJson.toString();
       } else {
-        promptStr = '[unhandled type]';
+        promptStr = UNHANDLED_TYPE;
       }
 
       // Getting tool info
@@ -78,7 +114,7 @@ function getMetadata(requestHash: string): Metadata {
       } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
         toolStr = toolJson.toString();
       } else {
-        toolStr = '[unhandled type]';
+        toolStr = UNHANDLED_TYPE;
       }
     }
 
@@ -201,6 +237,11 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
+
+  let responseMetadata = getResponseMetadata(entity.ipfsHash, entity.requestId);
+
+  entity.toolResponse = responseMetadata.response
+  entity.model = responseMetadata.model
 
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
