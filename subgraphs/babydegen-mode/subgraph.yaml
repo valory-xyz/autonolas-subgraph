@@ -24,6 +24,18 @@ dataSources:
           file: ./abis/defi/VelodromeV2Pool.json
         - name: VelodromeCLPool
           file: ./abis/defi/VelodromeCLPool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+        - name: YearnV3Vault
+          file: ./abis/defi/YearnV3Vault.json
+        - name: NonfungiblePositionManager
+          file: ./abis/nft/NonfungiblePositionManager.json
+        - name: VelodromeCLFactory
+          file: ./abis/defi/VelodromeCLFactory.json
+        - name: ERC20
+          file: ./abis/utils/ERC20.json
         - name: Safe
           file: ./abis/utils/Safe.json
       eventHandlers:
@@ -53,6 +65,10 @@ dataSources:
           file: ./abis/defi/VelodromeCLPool.json
         - name: VelodromeV2Pool
           file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleUSDC
@@ -387,6 +403,10 @@ dataSources:
           file: ./abis/defi/VelodromeCLPool.json
         - name: VelodromeV2Pool
           file: ./abis/defi/VelodromeV2Pool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleUSDC
@@ -524,6 +544,16 @@ dataSources:
           file: ./abis/defi/VelodromeV2Pool.json
         - name: VelodromeCLPool
           file: ./abis/defi/VelodromeCLPool.json
+        - name: BalancerV2WeightedPool
+          file: ./abis/defi/BalancerV2WeightedPool.json
+        - name: BalancerV2Vault
+          file: ./abis/defi/BalancerV2Vault.json
+        - name: YearnV3Vault
+          file: ./abis/defi/YearnV3Vault.json
+        - name: NonfungiblePositionManager
+          file: ./abis/nft/NonfungiblePositionManager.json
+        - name: VelodromeCLFactory
+          file: ./abis/defi/VelodromeCLFactory.json
         - name: ERC20
           file: ./abis/utils/ERC20.json
       blockHandlers:
