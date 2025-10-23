@@ -55,8 +55,15 @@ function getResponseMetadata(
 ): ResponseMetadata {
   let url = requestHash + '/' + requestId.toString();
   let response = tryGetIpfsResponse(url);
+  
+  if (response === null) {
+    return {
+      model: UNHANDLED_TYPE,
+      response: UNHANDLED_TYPE
+    }
+  }
 
-  let jsonObj = json.fromBytes(response as Bytes).toObject();
+  let jsonObj = json.fromBytes(response).toObject();
 
   let metadataObj = jsonObj.get('metadata');
 
