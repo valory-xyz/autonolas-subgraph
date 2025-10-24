@@ -678,10 +678,12 @@ export function refreshAllPositionAmounts(
     // Call each protocol's respective refresh method for ACTIVE positions
     if (position != null && position.isActive) {
       if (position.protocol == "balancer") {
+        // For Balancer, tokenId is a pool ID (bytes32), convert BigInt to Bytes directly
+        let poolIdBytes = changetype<Bytes>(Bytes.fromBigInt(position.tokenId))
         refreshBalancerPosition(
           Address.fromBytes(position.agent),
           Address.fromBytes(position.pool),
-          Bytes.fromI32(position.tokenId.toI32()),
+          poolIdBytes,
           block,
           position.entryTxHash,
           false
