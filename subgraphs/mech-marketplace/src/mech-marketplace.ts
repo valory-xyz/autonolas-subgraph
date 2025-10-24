@@ -141,6 +141,18 @@ export function handleMarketplaceDeliveryWithSignatures(
   entity.transactionHash = event.transaction.hash;
   entity.save();
 
+  // Increment received requests for the provider service (deliveryMech is a multisig)
+  const providerServiceId = getServiceIdFromMultisig(event.params.deliveryMech);
+  if (providerServiceId !== null) {
+    const service = Service.load(providerServiceId);
+    if (service !== null) {
+      service.totalRequestsReceived = service.totalRequestsReceived.plus(
+        event.params.numDeliveries
+      );
+      service.save();
+    }
+  }
+
   for (let i = 0; i < event.params.requestIds.length; i++) {
     let deliver = getOrCreateDeliver(event.params.requestIds[i]);
     deliver.sender = event.params.requester;
@@ -326,9 +338,9 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Increment per-agent counters for all canonical agents of this service (on-chain requests)
   if (serviceId !== null) {
-    let svc = Service.load(serviceId);
-    if (svc !== null) {
-      let ids = svc.agentIds;
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      let ids = service.agentIds;
       for (let i = 0; i < ids.length; i++) {
         let requestPerAgent = getOrCreateRequestsPerAgent(ids[i]);
         requestPerAgent.requestsCount = requestPerAgent.requestsCount.plus(event.params.numRequests);
