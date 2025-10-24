@@ -149,6 +149,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   service.historicalMultisigs = [];
   service.totalRequests = BigInt.fromI32(0);
   service.totalDeliveries = BigInt.fromI32(0);
+  service.totalRequestsReceived = BigInt.fromI32(0);
   service.agentIds = [];
   service.save();
 }
