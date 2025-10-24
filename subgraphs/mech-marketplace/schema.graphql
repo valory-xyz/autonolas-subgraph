@@ -24,7 +24,7 @@ type Deliver @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type Request @entity(immutable: true) {
+type Request @entity(immutable: false) {
   id: ID!
   requestId: Bytes # bytes32
   ipfsHash: Bytes # bytes
@@ -35,6 +35,20 @@ type Request @entity(immutable: true) {
   blockNumber: BigInt
   blockTimestamp: BigInt
   transactionHash: Bytes
+  isDelivered: Boolean!
+  deliveredByMech: Bytes
+  unrevokedDeliveries: BigInt!
+  latestOpenDelivery: String
+  deliveryIndex: BigInt!
+}
+
+type RequestDelivery @entity(immutable: false) {
+  id: ID!
+  request: Request!
+  deliverer: Bytes!
+  isPriority: Boolean!
+  previousOpenDelivery: String
+  isRevoked: Boolean!
 }
 
 type ImplementationUpdated @entity(immutable: true) {
@@ -299,6 +313,11 @@ type Mech @entity(immutable: false) {
   owner: Bytes!
   service: Service
   totalDeliveriesTransactions: BigInt!
+  receivedRequests: BigInt!
+  selfDeliveredFromReceived: BigInt!
+  deliveredByOthersFromReceived: BigInt!
+  undeliveredRequests: BigInt!
+  revokedDeliveries: BigInt!
 }
 
 type Service @entity(immutable: false) {
