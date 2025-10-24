@@ -1,9 +1,17 @@
 import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
+  RevokeRequest as RevokeRequestEvent,
 } from '../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { Deliver, Request, Service } from '../generated/schema';
-import { getOrCreateRequest, getServiceIdFromMech } from './utils';
+import {
+  applyDeliveryCounters,
+  getOrCreateRequest,
+  getServiceIdFromMech,
+  incrementReceivedCounters,
+  loadMechByAddress,
+  revertDeliveryCounters,
+} from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -18,6 +26,12 @@ export function handleDeliver(event: DeliverEvent): void {
 
   const request = Request.load(event.params.requestId.toHexString());
   if (request !== null) {
+    if (request.isDelivered && request.latestOpenDelivery === null) {
+      return;
+    }
+    request.deliveredByMech = event.params.mech;
+    request.save();
+    applyDeliveryCounters(request, event.params.mech);
     entity.sender = request.sender;
   }
 
@@ -25,7 +39,6 @@ export function handleDeliver(event: DeliverEvent): void {
   if (serviceId !== null) {
     entity.service = serviceId;
 
-    // Update service totalDeliveries counter
     let service = Service.load(serviceId);
     if (service !== null) {
       service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
@@ -45,6 +58,8 @@ export function handleRequest(event: RequestEvent): void {
   entity.requestId = event.params.requestId;
   entity.mech = event.params.mech;
   entity.ipfsHash = event.params.data;
+  entity.isDelivered = false;
+  entity.deliveredByMech = null;
 
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
@@ -57,6 +72,11 @@ export function handleRequest(event: RequestEvent): void {
       );
       service.save();
     }
+
+    let mech = loadMechByAddress(event.params.mech);
+    if (mech !== null) {
+      incrementReceivedCounters(mech);
+    }
   }
 
   entity.blockNumber = event.block.number;
@@ -64,4 +84,15 @@ export function handleRequest(event: RequestEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
+}
+
+export function handleRevokeRequest(event: RevokeRequestEvent): void {
+  let request = Request.load(event.params.requestId.toHexString());
+  if (request === null) {
+    return;
+  }
+
+  revertDeliveryCounters(request, event.address);
+  request.deliveredByMech = request.isDelivered ? request.deliveredByMech : null;
+  request.save();
 }
