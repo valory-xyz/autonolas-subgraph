@@ -312,6 +312,7 @@ type Service @entity(immutable: false) {
   deliveries: [Deliver!] @derivedFrom(field: "service")
   totalRequests: BigInt!
   totalDeliveries: BigInt!
+  totalRequestsReceived: BigInt!
   agentIds: [BigInt!]!
 }
 
