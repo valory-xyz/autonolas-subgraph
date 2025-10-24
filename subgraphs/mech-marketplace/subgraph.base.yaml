@@ -174,6 +174,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: RevokeRequest(bytes32)
+          handler: handleRevokeRequest
       file: ./src/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
