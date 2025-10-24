@@ -46,6 +46,19 @@ export function handleRequest(event: RequestEvent): void {
   entity.mech = event.params.mech;
   entity.ipfsHash = event.params.data;
 
+  const serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalRequestsReceived = service.totalRequestsReceived.plus(
+        BigInt.fromI32(1)
+      );
+      service.save();
+    }
+  }
+
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
