@@ -57,6 +57,11 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.owner = event.transaction.from;
   mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
+  mechAgent.receivedRequests = BigInt.fromI32(0);
+  mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
+  mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
+  mechAgent.undeliveredRequests = BigInt.fromI32(0);
+  mechAgent.revokedDeliveries = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
@@ -159,6 +164,9 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.isOffChain = true;
     // Intentionally setting to empty string as request was off-chain
     deliver.request = '';
+    deliver.blockNumber = event.block.number;
+    deliver.blockTimestamp = event.block.timestamp;
+    deliver.transactionHash = event.transaction.hash;
     deliver.save();
   }
 
