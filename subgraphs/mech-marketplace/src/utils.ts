@@ -2,6 +2,8 @@ import {
   Address,
   BigInt,
   Bytes,
+  Value,
+  ValueKind,
   dataSource,
   log,
 } from '@graphprotocol/graph-ts';
@@ -11,6 +13,7 @@ import {
   Metadata,
   Deliver,
   Request,
+  RequestDelivery,
   CreateMultisigWithAgents,
   CreateMech,
   Mech,
@@ -30,6 +33,9 @@ import {
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
 } from './constants';
+
+export const BIGINT_ZERO = BigInt.zero();
+export const BIGINT_ONE = BigInt.fromI32(1);
 
 export function getGlobal(): Global {
   let global = Global.load('');
@@ -89,8 +95,71 @@ export function getOrCreateRequest(requestId: Bytes): Request {
   let request = Request.load(requestId.toHexString());
   if (request == null) {
     request = new Request(requestId.toHexString());
+    request.isDelivered = false;
+    request.deliveredByMech = null;
+    request.unrevokedDeliveries = BIGINT_ZERO;
+    request.latestOpenDelivery = null;
+    request.deliveryIndex = BIGINT_ZERO;
   }
   return request;
+}
+
+function createRequestDelivery(
+  request: Request,
+  deliverer: Bytes,
+  isPriority: boolean
+): RequestDelivery {
+  const nextIndex = request.deliveryIndex.plus(BIGINT_ONE);
+  request.deliveryIndex = nextIndex;
+
+  const deliveryId = request.id.concat('-').concat(nextIndex.toString());
+  let delivery = new RequestDelivery(deliveryId);
+  delivery.request = request.id;
+  delivery.deliverer = deliverer;
+  delivery.isPriority = isPriority;
+  delivery.isRevoked = false;
+  delivery.previousOpenDelivery = request.latestOpenDelivery;
+
+  request.latestOpenDelivery = deliveryId;
+  request.unrevokedDeliveries = request.unrevokedDeliveries.plus(BIGINT_ONE);
+  request.isDelivered = true;
+
+  return delivery;
+}
+
+function closeLatestDelivery(
+  request: Request,
+  deliverer: Bytes
+): RequestDelivery | null {
+  const latestId = request.latestOpenDelivery;
+  if (latestId === null) {
+    return null;
+  }
+
+  let delivery = RequestDelivery.load(latestId);
+  if (delivery === null || delivery.isRevoked) {
+    return null;
+  }
+
+  if (!delivery.deliverer.equals(deliverer)) {
+    return null;
+  }
+
+  delivery.isRevoked = true;
+  request.latestOpenDelivery = delivery.previousOpenDelivery;
+  request.unrevokedDeliveries = request.unrevokedDeliveries.minus(BIGINT_ONE);
+  request.isDelivered = request.unrevokedDeliveries.gt(BIGINT_ZERO);
+
+  return delivery;
+}
+
+export function loadMechByAddress(mechAddress: Bytes): Mech | null {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    return null;
+  }
+
+  return Mech.load(serviceId);
 }
 
 export function getMech(
@@ -124,6 +193,82 @@ export function getMech(
     );
   }
   return mech;
+}
+
+export function incrementReceivedCounters(mech: Mech): void {
+  mech.receivedRequests = mech.receivedRequests.plus(BIGINT_ONE);
+  mech.undeliveredRequests = mech.undeliveredRequests.plus(BIGINT_ONE);
+  mech.save();
+}
+
+export function applyDeliveryCounters(request: Request, deliverer: Bytes): void {
+  const priorityAddress = request.mech;
+  if (priorityAddress === null) {
+    return;
+  }
+
+  const priority = loadMechByAddress(priorityAddress as Bytes);
+  if (priority === null) {
+    return;
+  }
+
+  const delivery = createRequestDelivery(
+    request,
+    deliverer,
+    priority.address.equals(deliverer)
+  );
+  delivery.save();
+
+  if (delivery.isPriority) {
+    priority.selfDeliveredFromReceived = priority.selfDeliveredFromReceived.plus(
+      BIGINT_ONE
+    );
+  } else {
+    priority.deliveredByOthersFromReceived = priority.deliveredByOthersFromReceived.plus(
+      BIGINT_ONE
+    );
+  }
+
+  priority.undeliveredRequests = priority.undeliveredRequests.minus(BIGINT_ONE);
+  priority.save();
+}
+
+export function revertDeliveryCounters(
+  request: Request,
+  deliverer: Bytes
+): void {
+  const priorityAddress = request.mech;
+  if (priorityAddress === null) {
+    return;
+  }
+
+  const priority = loadMechByAddress(priorityAddress as Bytes);
+  if (priority === null) {
+    return;
+  }
+
+  const delivery = closeLatestDelivery(request, deliverer);
+  if (delivery === null) {
+    return;
+  }
+
+  priority.revokedDeliveries = priority.revokedDeliveries.plus(BIGINT_ONE);
+
+  if (delivery.isPriority) {
+    priority.selfDeliveredFromReceived = priority.selfDeliveredFromReceived.minus(
+      BIGINT_ONE
+    );
+  } else {
+    priority.deliveredByOthersFromReceived = priority.deliveredByOthersFromReceived.minus(
+      BIGINT_ONE
+    );
+  }
+
+  if (!request.isDelivered) {
+    priority.undeliveredRequests = priority.undeliveredRequests.plus(BIGINT_ONE);
+  }
+
+  priority.save();
 }
 
 export function getOrCreateMultisigWithAgents(
