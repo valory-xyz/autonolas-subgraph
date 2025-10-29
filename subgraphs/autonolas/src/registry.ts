@@ -24,7 +24,8 @@ import {
 } from "../generated/ServiceRegistry/ServiceRegistry"
 import {
   Unit,
-  Service
+  Service,
+  Global
 } from "../generated/schema"
 
 class Metadata {
@@ -50,6 +51,20 @@ const ComponentTypePrefix = Bytes.fromHexString("cm")
 const AgentTypePrefix = Bytes.fromHexString("ag")
 
 const ServiceTypePrefix = Bytes.fromHexString("sr")
+
+const GlobalId = ""
+
+function getGlobal(): Global {
+  let global = Global.load(GlobalId)
+  if (global) {
+    return global
+  }
+
+  global = new Global(GlobalId)
+  global.totalBuilders = 0
+  global.save()
+  return global
+}
 
 function tryGetPackageType(packageHash: string, packageName: string): string {
   let baseURI = packageHash + "/" + packageName + "/";
