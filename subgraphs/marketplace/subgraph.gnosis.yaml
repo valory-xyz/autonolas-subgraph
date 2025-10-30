@@ -182,10 +182,11 @@ dataSources:
         - CreateMech
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
-        - Deliver
+        - MarketplaceDeliveryIndividual
         - MarketplaceRequest
+        - MarketplaceRequestIndividual
         - Mech
-        - Sender
+        - MarketplaceSender
         - Global
         - SetPaymentTypeBalanceTrackers
       abis:
@@ -221,10 +222,11 @@ dataSources:
         - CreateMech
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
-        - Deliver
+        - MarketplaceDeliveryIndividual
         - MarketplaceRequest
+        - MarketplaceRequestIndividual
         - Mech
-        - Sender
+        - MarketplaceSender
         - Global
       abis:
         - name: MechMarketplaceV2
@@ -299,8 +301,8 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - Deliver
-        - Request
+        - MarketplaceDeliveryIndividual
+        - MarketplaceRequestIndividual
       abis:
         - name: MechFixedPriceNative
           file: ./abis/marketplace/MechFixedPriceNative.json
@@ -320,8 +322,8 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - Deliver
-        - Request
+        - MarketplaceDeliveryIndividual
+        - MarketplaceRequestIndividual
       abis:
         - name: MechFixedPriceToken
           file: ./abis/marketplace/MechFixedPriceToken.json
@@ -341,8 +343,8 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - Deliver
-        - Request
+        - MarketplaceDeliveryIndividual
+        - MarketplaceRequestIndividual
       abis:
         - name: MechNvmSubscriptionNative
           file: ./abis/marketplace/MechNvmSubscriptionNative.json
@@ -362,8 +364,8 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - Deliver
-        - Request
+        - MarketplaceDeliveryIndividual
+        - MarketplaceRequestIndividual
       abis:
         - name: MechNvmSubscriptionTokenUSDC
           file: ./abis/marketplace/MechNvmSubscriptionTokenUSDC.json
