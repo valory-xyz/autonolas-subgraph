@@ -27,7 +27,7 @@ import {
   getOrCreateSender,
   getGlobal,
   createDataSourceForMechContract,
-  getOrCreateDeliver,
+  getOrCreateMarketplaceIndividualDeliver,
   getOrCreateRequest,
   getMech,
   getServiceIdFromMultisig,
@@ -127,7 +127,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   entity.save();
 
   for (let i = 0; i < event.params.requestIds.length; i++) {
-    let deliver = getOrCreateDeliver(event.params.requestIds[i]);
+    let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestIds[i]);
     deliver.sender = event.params.requester;
     deliver.isOffChain = true;
     // Intentionally setting to null as request was off-chain
@@ -201,7 +201,7 @@ export function handleMarketplaceDeliveryWithSignatures(
 export function handleDeliverWithSignaturesV1(
   event: DeliverWithSignaturesEventV1
 ): void {
-  let entity = getOrCreateDeliver(event.params.requestId);
+  let entity = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
   entity.requestId = event.params.requestId;
   entity.deliveryRate = event.params.deliveryRate;
   entity.ipfsHash = event.params.data;
@@ -217,7 +217,7 @@ export function handleDeliverWithSignaturesV1(
 export function handleDeliverWithSignaturesV2(
   event: DeliverWithSignaturesEvent
 ): void {
-  let entity = getOrCreateDeliver(event.params.requestId);
+  let entity = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
   entity.requestId = event.params.requestId;
   entity.deliveryRate = event.params.deliveryRate;
   entity.ipfsHash = event.params.deliveryData;

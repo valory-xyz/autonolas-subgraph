@@ -3,11 +3,11 @@ import {
   Request as RequestEvent,
 } from '../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { MarketplaceDeliveryIndividual, MarketplaceRequestIndividual, MarketplaceService } from '../generated/schema';
-import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender } from './utils';
+import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver } from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
-  let entity = new MarketplaceDeliveryIndividual(event.params.requestId.toHexString());
+  let entity = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
   entity.requestId = event.params.requestId;

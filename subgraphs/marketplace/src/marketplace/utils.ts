@@ -77,7 +77,7 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   return entity;
 }
 
-export function getOrCreateDeliver(requestId: Bytes): MarketplaceDeliveryIndividual {
+export function getOrCreateMarketplaceIndividualDeliver(requestId: Bytes): MarketplaceDeliveryIndividual {
   let deliver = MarketplaceDeliveryIndividual.load(requestId.toHexString());
   if (deliver == null) {
     deliver = new MarketplaceDeliveryIndividual(requestId.toHexString());
