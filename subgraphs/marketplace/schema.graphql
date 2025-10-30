@@ -310,6 +310,7 @@ type RequestToMech @entity(immutable: false) {
   prompt: String
   tool: String
   questionTitle: String
+  request: Request!
 }
 
 type RequestToMarketplace @entity(immutable: false) {
@@ -317,6 +318,7 @@ type RequestToMarketplace @entity(immutable: false) {
   ipfsHashBytes: Bytes # raw bytes
   isMarketplace: Boolean
   isOffChain: Boolean
+  request: Request!
 }
 
 type Request @entity(immutable: false) {
@@ -330,21 +332,27 @@ type Request @entity(immutable: false) {
   delivery: Deliver @derivedFrom(field: "request")
   service: Service
 
-  mechRequest: RequestToMech @drivedFrom(field: "id")
-  marketplaceRequest: RequestToMarketplace @deriveFrom(field: "id")
+  mechRequest: RequestToMech @derivedFrom(field: "request")
+  marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
+}
 
+type DeliverForMech @entity(immutable: true) {
+  id: Bytes! # delivery id
   # Mech-only fields
-  requestId: BigInt! 
-  ipfsHash: String!
-  prompt: String
-  tool: String
-  questionTitle: String
+  requestId: Bytes! 
+  ipfsHash: String! 
+  deliver: Deliver
+}
 
-  # Marketplace-only fields
-  requestIdBytes: Bytes # bytes32
-  ipfsHashBytes: Bytes # raw bytes
+type DeliverForMarketplace @entity(immutable: true) {
+  id: Bytes! # delivery id
+  requestId: Bytes 
+  ipfsHashBytes: Bytes 
+  mechServiceMultisig: Bytes 
+  deliveryRate: BigInt 
   isMarketplace: Boolean
   isOffChain: Boolean
+  deliver: Deliver
 }
 
 type Deliver @entity(immutable: true) {
@@ -361,17 +369,8 @@ type Deliver @entity(immutable: true) {
   toolResponse: String!
   model: String!
 
-  # Mech-only fields
-  requestId: BigInt! 
-  ipfsHash: String! 
-
-  # Marketplace-only fields
-  requestIdBytes: Bytes 
-  ipfsHashBytes: Bytes 
-  mechServiceMultisig: Bytes 
-  deliveryRate: BigInt 
-  isMarketplace: Boolean
-  isOffChain: Boolean
+  mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
+  marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
 }
 
 type Sender @entity(immutable: false) {

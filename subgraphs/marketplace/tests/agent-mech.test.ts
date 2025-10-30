@@ -32,8 +32,33 @@ describe("Describe agent-mech processing", () => {
         // act
         handleRequest(event)
 
-
         // assert
+        assert.entityCount("RequestToMech", 1)
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "ipfsHash",
+            "f017012201234567890abcdef"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "prompt",
+            "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "tool",
+            "prediction-request-rag"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "questionTitle",
+            "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
+        )
+
         assert.entityCount("Request", 1)
 
         assert.fieldEquals(
@@ -43,34 +68,42 @@ describe("Describe agent-mech processing", () => {
             sender.toHexString()
         )
 
+        assert.entityCount("RequestToMech", 1)
         assert.fieldEquals(
-            "Request",
+            "RequestToMech",
             requestId.toHexString(),
-            "requestId",
-            requestId.toString()
+            "request",
+            requestId.toHexString()
         )
 
         assert.fieldEquals(
-            "Request",
+            "RequestToMech",
             requestId.toHexString(),
             "ipfsHash",
             "f017012201234567890abcdef"
         )
 
         assert.fieldEquals(
-            "Request",
+            "RequestToMech",
+            requestId.toHexString(),
+            "prompt",
+            "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
+        )
+
+        assert.fieldEquals(
+            "RequestToMech",
             requestId.toHexString(),
             "tool",
             "prediction-request-rag"
         )
 
         assert.fieldEquals(
-            "Request",
+            "RequestToMech",
             requestId.toHexString(),
             "questionTitle",
             "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
         )
-        
+
         assert.fieldEquals(
             "Request",
             requestId.toHexString(),
@@ -239,6 +272,45 @@ describe("Describe agent-mech processing", () => {
         assert.entityCount("Deliver", 1)
 
         let deliveryId = deliveryEvent.transaction.hash.concatI32(deliveryEvent.logIndex.toI32());
+
+        assert.entityCount("RequestToMech", 1)
+
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "request",
+            requestId.toHexString()
+        )
+
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "ipfsHash",
+            "f01701220deadbeef"
+        )
+
+        assert.entityCount("DeliverForMech", 1)
+
+        assert.fieldEquals(
+            "DeliverForMech",
+            deliveryId.toHexString(),
+            "requestId",
+            requestId.toHexString()
+        )
+
+        assert.fieldEquals(
+            "DeliverForMech",
+            deliveryId.toHexString(),
+            "ipfsHash",
+            "f01701220deadbeef"
+        )
+
+        assert.fieldEquals(
+            "DeliverForMech",
+            deliveryId.toHexString(),
+            "deliver",
+            deliveryId.toHexString()
+        )
 
         assert.fieldEquals(
             "Deliver",

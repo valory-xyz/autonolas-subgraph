@@ -10,7 +10,7 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction, RequestToMech, DeliverForMech } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -200,13 +200,16 @@ export function handleRequest(event: RequestEvent): void {
     }
   }
 
-  entity.prompt = prompt;
-  entity.tool = tool;
-  entity.questionTitle = questionTitle;
+  let mechRequest = new RequestToMech(Bytes.fromHexString(event.params.requestId.toHexString()));
+  mechRequest.ipfsHash = ipfsHash;
+  mechRequest.prompt = prompt;
+  mechRequest.tool = tool;
+  mechRequest.questionTitle = questionTitle;
+  mechRequest.request = entity.id;
+  mechRequest.save();
+
   entity.sender = event.params.sender;
   entity.mech = event.address;
-  entity.requestId = event.params.requestId;
-  entity.ipfsHash = ipfsHash;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
@@ -237,15 +240,21 @@ export function handleDeliver(event: DeliverEvent): void {
   const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
 
   let entity = new Deliver(deliveryId);
+  let mechDelivery = new DeliverForMech(deliveryId);
+
+  mechDelivery.requestId = Bytes.fromHexString(event.params.requestId.toHexString());
+  mechDelivery.ipfsHash = getIpfsHash(event.params.data);
+  mechDelivery.deliver = entity.id;
+  mechDelivery.save();
+
   entity.sender = event.params.sender;
   entity.mech = event.address;
-  entity.requestId = event.params.requestId;
-  entity.ipfsHash = getIpfsHash(event.params.data);
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
+  entity.request = Bytes.fromHexString(event.params.requestId.toHexString());
   entity.transactionHash = event.transaction.hash;
 
-  let responseMetadata = getResponseMetadata(entity.ipfsHash, entity.requestId);
+  let responseMetadata = getResponseMetadata(mechDelivery.ipfsHash, BigInt.fromI32(event.params.requestId.toI32()));
 
   entity.toolResponse = responseMetadata.response
   entity.model = responseMetadata.model
