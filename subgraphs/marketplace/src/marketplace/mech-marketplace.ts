@@ -31,6 +31,7 @@ import {
   getOrCreateRequest,
   getMech,
   getServiceIdFromMultisig,
+  getServiceIdFromMech,
   isServiceMultisig,
   getOrCreateRequestsPerAgent,
 } from './utils';
@@ -207,6 +208,13 @@ export function handleDeliverWithSignaturesV1(
   entity.ipfsHash = event.params.data;
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
+  entity.isOffChain = true;
+
+  // Get serviceId from mech if available
+  const serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+  }
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -223,6 +231,13 @@ export function handleDeliverWithSignaturesV2(
   entity.ipfsHash = event.params.deliveryData;
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
+  entity.isOffChain = true;
+
+  // Get serviceId from mech if available
+  const serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+  }
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
