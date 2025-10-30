@@ -3,7 +3,7 @@ import {
   Request as RequestEvent,
 } from '../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { MarketplaceDeliveryIndividual, MarketplaceRequestIndividual, MarketplaceService } from '../generated/schema';
-import { getOrCreateRequest, getServiceIdFromMech } from './utils';
+import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender } from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -45,6 +45,27 @@ export function handleRequest(event: RequestEvent): void {
   entity.requestId = event.params.requestId;
   entity.mech = event.params.mech;
   entity.ipfsHash = event.params.data;
+
+  // Get or create sender from transaction origin
+  let sender = getOrCreateSender(event.transaction.from);
+  entity.sender = sender.id;
+
+  // Get serviceId from mech if available
+  const serviceId = getServiceIdFromMech(event.params.mech);
+  if (serviceId !== null) {
+    entity.service = serviceId;
+
+    // Update service totalRequests counter
+    let service = MarketplaceService.load(serviceId);
+    if (service !== null) {
+      service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+      service.save();
+    }
+  }
+
+  // Update sender counters
+  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.save();
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
