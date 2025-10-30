@@ -2,28 +2,27 @@ import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
 } from '../generated/templates/MechNvmSubscriptionNative/MechNvmSubscriptionNative';
-import { MarketplaceDeliveryIndividual, MarketplaceRequestIndividual, MarketplaceService } from '../generated/schema';
+import { Deliver, Request, MarketplaceService, DeliverForMarketplace, RequestToMarketplace } from '../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver } from './utils';
-import { BigInt } from '@graphprotocol/graph-ts';
+import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
-  let entity = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
-  entity.mech = event.params.mech;
-  entity.mechServiceMultisig = event.params.mechServiceMultisig;
-  entity.requestId = event.params.requestId;
-  entity.deliveryRate = event.params.deliveryRate;
-  entity.ipfsHash = event.params.data;
-  entity.request = event.params.requestId.toHexString();
-  entity.isOffChain = false;
+  let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
+  deliver.mech = event.params.mech;
+  deliver.requestId = event.params.requestId;
+  deliver.blockNumber = event.block.number;
+  deliver.blockTimestamp = event.block.timestamp;
+  deliver.transactionHash = event.transaction.hash;
 
-  const request = MarketplaceRequestIndividual.load(event.params.requestId.toHexString());
+  let request = Request.load(event.params.requestId.toHexString());
   if (request !== null) {
-    entity.sender = request.sender.id;
+    deliver.request = request.id;
+    deliver.sender = request.sender.id;
   }
 
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    entity.service = serviceId;
+    deliver.service = serviceId;
 
     // Update service totalDeliveries counter
     let service = MarketplaceService.load(serviceId);
@@ -33,27 +32,37 @@ export function handleDeliver(event: DeliverEvent): void {
     }
   }
 
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
+  deliver.save();
 
-  entity.save();
+  // Create marketplace-specific delivery entity
+  let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
+  if (marketplaceDeliver == null) {
+    marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
+  }
+  marketplaceDeliver.requestId = event.params.requestId;
+  marketplaceDeliver.ipfsHashBytes = event.params.data;
+  marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
+  marketplaceDeliver.deliveryRate = event.params.deliveryRate;
+  marketplaceDeliver.isMarketplace = true;
+  marketplaceDeliver.isOffChain = false;
+  marketplaceDeliver.deliver = deliver.id;
+  marketplaceDeliver.save();
 }
 
 export function handleRequest(event: RequestEvent): void {
-  let entity = getOrCreateRequest(event.params.requestId);
-  entity.requestId = event.params.requestId;
-  entity.mech = event.params.mech;
-  entity.ipfsHash = event.params.data;
+  let request = getOrCreateRequest(event.params.requestId);
+  request.requestId = event.params.requestId;
+  request.mech = event.params.mech;
+  request.ipfsHash = event.params.data;
 
   // Get or create sender from transaction origin
   let sender = getOrCreateSender(event.transaction.from);
-  entity.sender = sender.id;
+  request.sender = sender.id;
 
   // Get serviceId from mech if available
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    entity.service = serviceId;
+    request.service = serviceId;
 
     // Update service totalRequests counter
     let service = MarketplaceService.load(serviceId);
@@ -67,9 +76,20 @@ export function handleRequest(event: RequestEvent): void {
   sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
   sender.save();
 
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
+  request.blockNumber = event.block.number;
+  request.blockTimestamp = event.block.timestamp;
+  request.transactionHash = event.transaction.hash;
 
-  entity.save();
+  request.save();
+
+  // Create marketplace-specific request entity
+  let marketplaceRequest = RequestToMarketplace.load(event.params.requestId);
+  if (marketplaceRequest == null) {
+    marketplaceRequest = new RequestToMarketplace(event.params.requestId);
+  }
+  marketplaceRequest.ipfsHashBytes = event.params.data;
+  marketplaceRequest.isMarketplace = true;
+  marketplaceRequest.isOffChain = false;
+  marketplaceRequest.request = request.id;
+  marketplaceRequest.save();
 }
