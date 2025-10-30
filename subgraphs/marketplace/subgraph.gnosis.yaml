@@ -182,11 +182,13 @@ dataSources:
         - CreateMech
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
-        - MarketplaceDeliveryIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
         - MarketplaceRequest
-        - MarketplaceRequestIndividual
         - Mech
-        - MarketplaceSender
+        - Sender
         - Global
         - SetPaymentTypeBalanceTrackers
       abis:
@@ -222,11 +224,13 @@ dataSources:
         - CreateMech
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
-        - MarketplaceDeliveryIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
         - MarketplaceRequest
-        - MarketplaceRequestIndividual
         - Mech
-        - MarketplaceSender
+        - Sender
         - Global
       abis:
         - name: MechMarketplaceV2
@@ -301,8 +305,10 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - MarketplaceDeliveryIndividual
-        - MarketplaceRequestIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
       abis:
         - name: MechFixedPriceNative
           file: ./abis/marketplace/MechFixedPriceNative.json
@@ -322,8 +328,10 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - MarketplaceDeliveryIndividual
-        - MarketplaceRequestIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
       abis:
         - name: MechFixedPriceToken
           file: ./abis/marketplace/MechFixedPriceToken.json
@@ -343,8 +351,10 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - MarketplaceDeliveryIndividual
-        - MarketplaceRequestIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
       abis:
         - name: MechNvmSubscriptionNative
           file: ./abis/marketplace/MechNvmSubscriptionNative.json
@@ -364,8 +374,10 @@ templates:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - MarketplaceDeliveryIndividual
-        - MarketplaceRequestIndividual
+        - Request
+        - Deliver
+        - RequestToMarketplace
+        - DeliverForMarketplace
       abis:
         - name: MechNvmSubscriptionTokenUSDC
           file: ./abis/marketplace/MechNvmSubscriptionTokenUSDC.json
