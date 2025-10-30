@@ -236,6 +236,14 @@ type Mech @entity(immutable: false) {
 #   totalAtaRequestsTransactions: BigInt!
 # }
 
+type LegacyGlobal @entity(immutable: false) {
+  id: ID! # uint256
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
+}
+
 type Global @entity(immutable: false) {
   id: ID!
   totalMechs: BigInt!
@@ -251,6 +259,23 @@ type Global @entity(immutable: false) {
 type RequestsPerAgent @entity(immutable: false) {
   id: ID!
   requestsCount: BigInt!
+}
+
+type AgentMultisigAssociation @entity(immutable: false) {
+  id: ID! # agentId
+  agentId: BigInt! # uint256
+  multisig: Bytes! # address
+}
+
+type RequestsPerAgentOnchain @entity(immutable: false) {
+  id: ID! # agentId as string
+  requestsCount: BigInt!
+}
+
+type AtaTransaction @entity(immutable: true) {
+  id: Bytes! # transaction hash
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
 }
 
 
@@ -279,9 +304,24 @@ type CreateMech @entity(immutable: false) {
   mechFactory: Bytes 
 }
 
+type RequestToMech @entity(immutable: false) {
+  id: Bytes! 
+  ipfsHash: String!
+  prompt: String
+  tool: String
+  questionTitle: String
+}
+
+type RequestToMarketplace @entity(immutable: false) {
+  id: Bytes! 
+  ipfsHashBytes: Bytes # raw bytes
+  isMarketplace: Boolean
+  isOffChain: Boolean
+}
+
 type Request @entity(immutable: false) {
   # Common fields
-  id: ID!
+  id: Bytes!
   sender: Sender!
   mech: Bytes! # address
   blockNumber: BigInt!
@@ -289,6 +329,9 @@ type Request @entity(immutable: false) {
   transactionHash: Bytes!
   delivery: Deliver @derivedFrom(field: "request")
   service: Service
+
+  mechRequest: RequestToMech @drivedFrom(field: "id")
+  marketplaceRequest: RequestToMarketplace @deriveFrom(field: "id")
 
   # Mech-only fields
   requestId: BigInt! 
@@ -315,6 +358,9 @@ type Deliver @entity(immutable: true) {
   transactionHash: Bytes!
   service: Service
 
+  toolResponse: String!
+  model: String!
+
   # Mech-only fields
   requestId: BigInt! 
   ipfsHash: String! 
@@ -334,13 +380,13 @@ type Sender @entity(immutable: false) {
   requests: [Request!] @derivedFrom(field: "sender")
 
   # Mech-only counters
-  totalRequests: Int!
-  totalTransactions: Int!
-  totalAtaTransactions: Int!
+  totalRequests: BigInt!
+  totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
 
   # Marketplace-only counters
-  totalMarketplaceRequests: Int
-  totalOffChainRequests: Int
+  totalMarketplaceRequests: BigInt
+  totalOffChainRequests: BigInt
 }
 
 type Service @entity(immutable: false) {

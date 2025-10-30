@@ -1,0 +1,5 @@
+{
+    "prompt": "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?",
+    "tool": "prediction-request-rag",
+    "nonce": "b55e609a-a40c-4600-b09f-89eaca5bc285"
+}

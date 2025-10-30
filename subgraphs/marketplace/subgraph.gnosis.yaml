@@ -278,6 +278,7 @@ templates:
       entities:
         - Request
         - Deliver
+        - LegacyGlobal
       abis:
         - name: AgentMech
           file: ./abis/AgentMech.json
