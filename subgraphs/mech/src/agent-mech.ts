@@ -63,25 +63,35 @@ function getResponseMetadata(
     }
   }
 
-  let jsonObj = json.fromBytes(response).toObject();
+  let jsonObj = json.fromBytes(response);
 
-  let metadataObj = jsonObj.get('metadata');
+  let metadata = UNHANDLED_TYPE;
+  let result = UNHANDLED_TYPE;
 
-  if (metadataObj === null) {
+  if (jsonObj.kind === JSONValueKind.NULL) {
     return {
       model: UNHANDLED_TYPE,
       response: UNHANDLED_TYPE
     }
   }
 
-  let metadata = metadataObj.toObject();
-  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
+  if (jsonObj.kind === JSONValueKind.OBJECT) {
+    let responseObj = jsonObj.toObject();
+    let metadataValue = responseObj.get('metadata');
 
-  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
+    if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
+      metadata = metadataValue.toObject().get("model")!.toString();
+    }
+
+    let resultValue = responseObj.get('result');
+    if (resultValue !== null && resultValue.kind === JSONValueKind.STRING) {
+      result = resultValue.toString();
+    }
+  }
 
   return {
-    model: model,
-    response: toolResponse
+    model: metadata,
+    response: result
   }
 }
 
