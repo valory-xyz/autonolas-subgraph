@@ -10,7 +10,7 @@ import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction } from '../generated/schema';
+import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction, RequestToMech, DeliverForMech } from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -151,16 +151,16 @@ function extractQuestionTitle(prompt: string): string | null {
 }
 
 export function handleRequest(event: RequestEvent): void {
-  let entity = new Request(event.params.requestId.toHexString());
+  let entity = new Request(Bytes.fromHexString(event.params.requestId.toHexString()));
 
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);
-  sender.totalRequests += 1;
-  sender.totalTransactions += 1;
+  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
 
   let global = getGlobal();
-  global.totalRequests += 1;
-  global.totalTransactions += 1;
+  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // Identify service multisig (counts toward ATA requests)
   let serviceId = getServiceIdFromMultisig(event.params.sender);
@@ -173,8 +173,8 @@ export function handleRequest(event: RequestEvent): void {
       transaction.blockTimestamp = event.block.timestamp;
       transaction.save();
 
-      global.totalAtaTransactions += 1;
-      sender.totalAtaTransactions += 1;
+      global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
 
@@ -200,13 +200,16 @@ export function handleRequest(event: RequestEvent): void {
     }
   }
 
-  entity.prompt = prompt;
-  entity.tool = tool;
-  entity.questionTitle = questionTitle;
+  let mechRequest = new RequestToMech(Bytes.fromHexString(event.params.requestId.toHexString()));
+  mechRequest.ipfsHash = ipfsHash;
+  mechRequest.prompt = prompt;
+  mechRequest.tool = tool;
+  mechRequest.questionTitle = questionTitle;
+  mechRequest.request = entity.id;
+  mechRequest.save();
+
   entity.sender = event.params.sender;
   entity.mech = event.address;
-  entity.requestId = event.params.requestId;
-  entity.ipfsHash = ipfsHash;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
@@ -237,26 +240,32 @@ export function handleDeliver(event: DeliverEvent): void {
   const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
 
   let entity = new Deliver(deliveryId);
+  let mechDelivery = new DeliverForMech(deliveryId);
+
+  mechDelivery.requestId = Bytes.fromHexString(event.params.requestId.toHexString());
+  mechDelivery.ipfsHash = getIpfsHash(event.params.data);
+  mechDelivery.deliver = entity.id;
+  mechDelivery.save();
+
   entity.sender = event.params.sender;
   entity.mech = event.address;
-  entity.requestId = event.params.requestId;
-  entity.ipfsHash = getIpfsHash(event.params.data);
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
+  entity.request = Bytes.fromHexString(event.params.requestId.toHexString());
   entity.transactionHash = event.transaction.hash;
 
-  let responseMetadata = getResponseMetadata(entity.ipfsHash, entity.requestId);
+  let responseMetadata = getResponseMetadata(mechDelivery.ipfsHash, BigInt.fromI32(event.params.requestId.toI32()));
 
   entity.toolResponse = responseMetadata.response
   entity.model = responseMetadata.model
 
   // Connecting delivery with request
-  let existingRequest = Request.load(event.params.requestId.toHexString());
+  let existingRequest = Request.load(Bytes.fromHexString(event.params.requestId.toHexString()));
   if (existingRequest !== null) {
     // If the Request exists and has no delivery, attach the delivery to the request
     const deliveries = existingRequest.delivery.load();
     if (deliveries.length === 0) {
-      entity.request = event.params.requestId.toHexString();
+      entity.request = Bytes.fromHexString(event.params.requestId.toHexString());
     } else {
       log.warning(
         "Duplicated delivery {0} for the same request {1}",
@@ -288,8 +297,8 @@ export function handleDeliver(event: DeliverEvent): void {
 
   // Get the mech agent and update its transaction counters
   let createMechEntity = CreateMech.load(event.address);
-  if (createMechEntity !== null) {
-    let mechAgent = MechAgent.load(createMechEntity.agentId.toHexString());
+  if (createMechEntity !== null && createMechEntity.agentId !== null) {
+    let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
     if (mechAgent !== null) {
       // Update mech agent transaction counters
       mechAgent.totalTransactions = mechAgent.totalTransactions.plus(
@@ -300,8 +309,8 @@ export function handleDeliver(event: DeliverEvent): void {
   }
 
   let global = getGlobal();
-  global.totalDeliveries += 1;
-  global.totalTransactions += 1;
+  global.totalDeliveries = global.totalDeliveries.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
   // Deliveries are always ATA (mech is always a service multisig)
   // We check the transaction hash here as well to avoid double-counting
   // if a Request and Deliver happen in the same transaction.
@@ -312,7 +321,7 @@ export function handleDeliver(event: DeliverEvent): void {
     transaction.blockNumber = event.block.number;
     transaction.blockTimestamp = event.block.timestamp;
     transaction.save();
-    global.totalAtaTransactions += 1;
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   }
 
   global.save();

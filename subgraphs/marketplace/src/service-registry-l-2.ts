@@ -1,19 +1,9 @@
 import {
   ActivateRegistration as ActivateRegistrationEvent,
-  Approval as ApprovalEvent,
-  ApprovalForAll as ApprovalForAllEvent,
-  BaseURIChanged as BaseURIChangedEvent,
   CreateMultisigWithAgents as CreateMultisigWithAgentsEvent,
   CreateService as CreateServiceEvent,
   DeployService as DeployServiceEvent,
   Deposit as DepositEvent,
-  Drain as DrainEvent,
-  DrainerUpdated as DrainerUpdatedEvent,
-  ManagerUpdated as ManagerUpdatedEvent,
-  OperatorSlashed as OperatorSlashedEvent,
-  OperatorUnbond as OperatorUnbondEvent,
-  OwnerUpdated as OwnerUpdatedEvent,
-  Refund as RefundEvent,
   RegisterInstance as RegisterInstanceEvent,
   TerminateService as TerminateServiceEvent,
   Transfer as TransferEvent,
@@ -21,20 +11,10 @@ import {
 } from "../generated/ServiceRegistryL2/ServiceRegistryL2"
 import {
   ActivateRegistration,
-  Approval,
-  ApprovalForAll,
-  BaseURIChanged,
   CreateMultisigWithAgents,
   CreateService,
   DeployService,
   Deposit,
-  Drain,
-  DrainerUpdated,
-  ManagerUpdated,
-  OperatorSlashed,
-  OperatorUnbond,
-  OwnerUpdated,
-  Refund,
   RegisterInstance,
   TerminateService,
   Transfer,
@@ -48,49 +28,6 @@ export function handleActivateRegistration(
     event.transaction.hash.concatI32(event.logIndex.toI32()),
   )
   entity.serviceId = event.params.serviceId
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleApproval(event: ApprovalEvent): void {
-  let entity = new Approval(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.owner = event.params.owner
-  entity.spender = event.params.spender
-  entity.internal_id = event.params.id
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleApprovalForAll(event: ApprovalForAllEvent): void {
-  let entity = new ApprovalForAll(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.owner = event.params.owner
-  entity.operator = event.params.operator
-  entity.approved = event.params.approved
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleBaseURIChanged(event: BaseURIChangedEvent): void {
-  let entity = new BaseURIChanged(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.baseURI = event.params.baseURI
 
   entity.blockNumber = event.block.number
   entity.blockTimestamp = event.block.timestamp
@@ -147,102 +84,6 @@ export function handleDeposit(event: DepositEvent): void {
     event.transaction.hash.concatI32(event.logIndex.toI32()),
   )
   entity.sender = event.params.sender
-  entity.amount = event.params.amount
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleDrain(event: DrainEvent): void {
-  let entity = new Drain(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.drainer = event.params.drainer
-  entity.amount = event.params.amount
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleDrainerUpdated(event: DrainerUpdatedEvent): void {
-  let entity = new DrainerUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.drainer = event.params.drainer
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleManagerUpdated(event: ManagerUpdatedEvent): void {
-  let entity = new ManagerUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.manager = event.params.manager
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleOperatorSlashed(event: OperatorSlashedEvent): void {
-  let entity = new OperatorSlashed(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.amount = event.params.amount
-  entity.operator = event.params.operator
-  entity.serviceId = event.params.serviceId
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleOperatorUnbond(event: OperatorUnbondEvent): void {
-  let entity = new OperatorUnbond(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.operator = event.params.operator
-  entity.serviceId = event.params.serviceId
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
-  let entity = new OwnerUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.owner = event.params.owner
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleRefund(event: RefundEvent): void {
-  let entity = new Refund(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.receiver = event.params.receiver
   entity.amount = event.params.amount
 
   entity.blockNumber = event.block.number
