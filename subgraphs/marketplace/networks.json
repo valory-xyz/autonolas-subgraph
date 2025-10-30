@@ -17,8 +17,41 @@
     "AgentRegistry": {
       "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
     },
+    "MechMarketplaceV1": {
+      "address": "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB",
+      "startBlock": 38661963,
+      "endBlock": 41490893
+    },
+    "MechMarketplaceV2": {
+      "address": "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB",
+      "startBlock": 41490894
+    },
     "ServiceRegistryL2": {
-      "address": "0x9338b5153AE39BB89f50468E608eD9d764B755fD"
+      "address": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
+      "startBlock": 27871084
+    },
+    "ComplementaryServiceMetadata": {
+      "address": "0x0598081D48FB80B0A7E52FAD2905AE9beCd6fC69",
+      "startBlock": 40646851
+    }
+  },
+  "base": {
+    "MechMarketplaceV1": {
+      "address": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
+      "startBlock": 26642705,
+      "endBlock": 33907400
+    },
+    "MechMarketplaceV2": {
+      "address": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
+      "startBlock": 33907401
+    },
+    "ServiceRegistryL2": {
+      "address": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
+      "startBlock": 10827380
+    },
+    "ComplementaryServiceMetadata": {
+      "address": "0x28C1edC7CEd549F7f80B732fDC19f0370160707d",
+      "startBlock": 31728383
     }
   }
 }
