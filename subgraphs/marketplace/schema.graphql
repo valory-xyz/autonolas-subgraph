@@ -218,45 +218,62 @@ type MarketplaceService @entity(immutable: false) {
   historicalMultisigs: [Bytes!]!
   mechs: [Mech!] @derivedFrom(field: "service")
   metadata: Metadata @derivedFrom(field: "service")
-  requests: [MarketplaceRequestIndividual!] @derivedFrom(field: "service")
-  deliveries: [MarketplaceDeliveryIndividual!] @derivedFrom(field: "service")
+  requests: [Request!] @derivedFrom(field: "service")
+  deliveries: [Deliver!] @derivedFrom(field: "service")
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   agentIds: [BigInt!]!
 }
 
-type MarketplaceRequestIndividual @entity(immutable: true) {
+type RequestToMarketplace @entity(immutable: false) {
+  id: Bytes! # requestId
+  ipfsHashBytes: Bytes # raw bytes
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  request: Request!
+}
+
+type Request @entity(immutable: false) {
   id: ID! # requestId.toHexString()
   requestId: Bytes! # bytes32
   ipfsHash: Bytes # bytes
-  sender: MarketplaceSender! # relationship to MarketplaceSender entity
+  sender: Sender! # relationship to Sender entity
   mech: Bytes! # address
-  delivery: MarketplaceDeliveryIndividual @derivedFrom(field: "request") # relationship to MarketplaceDeliveryIndividual entity
+  delivery: Deliver @derivedFrom(field: "request") # relationship to Deliver entity
   service: MarketplaceService
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+  marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
 }
 
-type MarketplaceDeliveryIndividual @entity(immutable: true) {
-  id: ID! # requestId.toHexString()
+type DeliverForMarketplace @entity(immutable: true) {
+  id: Bytes! # delivery id (requestId)
+  requestId: Bytes
+  ipfsHashBytes: Bytes
+  mechServiceMultisig: Bytes
+  deliveryRate: BigInt
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  deliver: Deliver
+}
+
+type Deliver @entity(immutable: true) {
+  id: ID! # requestId.toHexString() or deliveryId
   requestId: Bytes! # bytes32
   mech: Bytes! # address
-  mechServiceMultisig: Bytes # address
-  deliveryRate: BigInt # uint256
-  ipfsHash: Bytes # bytes
   sender: Bytes # address
-  request: MarketplaceRequestIndividual # relationship to MarketplaceRequestIndividual entity
-  isOffChain: Boolean! # bool
+  request: Request # relationship to Request entity
   service: MarketplaceService
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+  marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
 }
 
-type MarketplaceSender @entity(immutable: false) {
+type Sender @entity(immutable: false) {
   id: Bytes! # address
-  requests: [MarketplaceRequestIndividual!]! @derivedFrom(field: "sender")
+  requests: [Request!]! @derivedFrom(field: "sender")
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
   totalRequests: BigInt!
