@@ -2,7 +2,6 @@ import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
-  ImplementationUpdated as ImplementationUpdatedEvent,
   MarketplaceDelivery as MarketplaceDeliveryEvent,
   MarketplaceDeliveryWithSignatures as MarketplaceDeliveryWithSignaturesEvent,
   MarketplaceParamsUpdated as MarketplaceParamsUpdatedEvent,
@@ -10,11 +9,10 @@ import {
   OwnerUpdated as OwnerUpdatedEvent,
   SetMechFactoryStatuses as SetMechFactoryStatusesEvent,
   SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEvent,
-} from '../generated/MechMarketplaceV2/MechMarketplaceV2';
-import { Deliver as DeliverWithSignaturesEventV1 } from '../generated/MechMarketplaceV1/MechMarketplaceV1';
+} from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
+import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
 import {
   CreateMech,
-  ImplementationUpdated,
   MarketplaceDelivery,
   MarketplaceDeliveryWithSignatures,
   MarketplaceParamsUpdated,
@@ -24,7 +22,7 @@ import {
   Service,
   SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
-} from '../generated/schema';
+} from '../../generated/schema';
 import {
   getOrCreateSender,
   getGlobal,
@@ -73,21 +71,6 @@ export function handleCreateMech(event: CreateMechEvent): void {
   global.save();
 }
 
-export function handleImplementationUpdated(
-  event: ImplementationUpdatedEvent
-): void {
-  let entity = new ImplementationUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.implementation = event.params.implementation;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
 export function handleMarketplaceDelivery(
   event: MarketplaceDeliveryEvent
 ): void {
@@ -104,25 +87,27 @@ export function handleMarketplaceDelivery(
   entity.transactionHash = event.transaction.hash;
   entity.save();
 
-  let global = getGlobal();
-  global.totalDeliveries = global.totalDeliveries.plus(
-    event.params.numDeliveries
-  );
-  global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
-    BigInt.fromI32(1)
-  );
-  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
-  // On-chain delivery ATA counting: deliveryMech is always a service multisig
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  global.save();
+  // TODO: Done in using timeseries
+  // let global = getGlobal();
+  // global.totalDeliveries = global.totalDeliveries.plus(
+  //   event.params.numDeliveries
+  // );
+  // global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
+  //   BigInt.fromI32(1)
+  // );
+  // global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
-  // Also update mech-level ATA count for the deliveryMech (if it exists)
-  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
-  if (deliveryMech != null) {
-    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-    deliveryMech.save();
-  }
+  // // On-chain delivery ATA counting: deliveryMech is always a service multisig
+  // global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+  // global.save();
+
+  // // Also update mech-level ATA count for the deliveryMech (if it exists)
+  // let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
+  // if (deliveryMech != null) {
+  //   deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+  //   deliveryMech.save();
+  // }
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
