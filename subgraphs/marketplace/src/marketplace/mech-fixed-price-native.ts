@@ -2,12 +2,12 @@ import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
 } from '../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
-import { Deliver, Request, Service } from '../generated/schema';
+import { MarketplaceDeliveryIndividual, MarketplaceRequestIndividual, MarketplaceService } from '../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech } from './utils';
 import { BigInt } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
-  let entity = new Deliver(event.params.requestId.toHexString());
+  let entity = new MarketplaceDeliveryIndividual(event.params.requestId.toHexString());
   entity.mech = event.params.mech;
   entity.mechServiceMultisig = event.params.mechServiceMultisig;
   entity.requestId = event.params.requestId;
@@ -16,9 +16,9 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.request = event.params.requestId.toHexString();
   entity.isOffChain = false;
 
-  let request = Request.load(event.params.requestId.toHexString());
+  let request = MarketplaceRequestIndividual.load(event.params.requestId.toHexString());
   if (request !== null) {
-    entity.sender = request.sender;
+    entity.sender = request.sender.id;
   }
 
   const serviceId = getServiceIdFromMech(event.params.mech);
@@ -26,7 +26,7 @@ export function handleDeliver(event: DeliverEvent): void {
     entity.service = serviceId;
 
     // Update service totalDeliveries counter
-    let service = Service.load(serviceId);
+    let service = MarketplaceService.load(serviceId);
     if (service !== null) {
       service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
       service.save();

@@ -19,7 +19,7 @@ import {
   MarketplaceRequest,
   Mech,
   OwnerUpdated,
-  Service,
+  MarketplaceService,
   SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
 } from '../../generated/schema';
@@ -56,8 +56,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
-  // Get service configHash from Service entity and write it to Mech
-  let service = Service.load(event.params.serviceId.toString());
+  // Get service configHash from MarketplaceService entity and write it to Mech
+  let service = MarketplaceService.load(event.params.serviceId.toString());
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
@@ -130,8 +130,8 @@ export function handleMarketplaceDeliveryWithSignatures(
     let deliver = getOrCreateDeliver(event.params.requestIds[i]);
     deliver.sender = event.params.requester;
     deliver.isOffChain = true;
-    // Intentionally setting to empty string as request was off-chain
-    deliver.request = '';
+    // Intentionally setting to null as request was off-chain
+    deliver.request = null;
     deliver.save();
   }
 
@@ -186,7 +186,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
   if (serviceIDForOffChain !== null) {
-    let serviceEntity = Service.load(serviceIDForOffChain);
+    let serviceEntity = MarketplaceService.load(serviceIDForOffChain);
     if (serviceEntity !== null) {
       let agentIds = serviceEntity.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
@@ -281,7 +281,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       request.service = serviceId;
 
       // Update service totalRequests counter
-      let service = Service.load(serviceId);
+      let service = MarketplaceService.load(serviceId);
       if (service !== null) {
         service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
         service.save();
@@ -311,7 +311,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Increment per-agent counters for all canonical agents of this service (on-chain requests)
   if (serviceId !== null) {
-    let svc = Service.load(serviceId);
+    let svc = MarketplaceService.load(serviceId);
     if (svc !== null) {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {

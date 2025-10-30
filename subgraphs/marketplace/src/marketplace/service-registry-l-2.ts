@@ -37,7 +37,7 @@ import {
   OwnerUpdated,
   Refund,
   RegisterInstance,
-  Service,
+  MarketplaceService,
   TerminateService,
   Transfer,
   UpdateService,
@@ -113,8 +113,8 @@ export function handleCreateMultisigWithAgents(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
 
-  // Update Service entity
-  let service = Service.load(event.params.serviceId.toString());
+  // Update MarketplaceService entity
+  let service = MarketplaceService.load(event.params.serviceId.toString());
   if (service !== null) {
     service.latestMultisig = event.params.multisig;
 
@@ -143,8 +143,8 @@ export function handleCreateService(event: CreateServiceEvent): void {
 
   entity.save();
 
-  // Create Service entity
-  let service = new Service(event.params.serviceId.toString());
+  // Create MarketplaceService entity
+  let service = new MarketplaceService(event.params.serviceId.toString());
   service.configHash = event.params.configHash;
   service.historicalMultisigs = [];
   service.totalRequests = BigInt.fromI32(0);
@@ -292,7 +292,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   entity.save();
 
   // Maintain the current canonical agent set for the service
-  let service = Service.load(event.params.serviceId.toString());
+  let service = MarketplaceService.load(event.params.serviceId.toString());
   if (service !== null) {
     let agentIds = service.agentIds;
     let agentIdFound = false;
@@ -323,7 +323,7 @@ export function handleTerminateService(event: TerminateServiceEvent): void {
   entity.save();
 
   // Clear current canonical agent set on termination
-  let service = Service.load(event.params.serviceId.toString());
+  let service = MarketplaceService.load(event.params.serviceId.toString());
   if (service !== null) {
     service.agentIds = [];
     service.save();
@@ -365,8 +365,8 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
 
   entity.save();
 
-  // Update Service entity
-  let service = Service.load(event.params.serviceId.toString());
+  // Update MarketplaceService entity
+  let service = MarketplaceService.load(event.params.serviceId.toString());
   if (service !== null) {
     service.configHash = event.params.configHash;
     service.save();

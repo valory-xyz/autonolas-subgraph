@@ -7,10 +7,11 @@ import {
 } from '@graphprotocol/graph-ts';
 import {
   Global,
-  Sender,
+  MarketplaceSender,
+  MarketplaceService,
   Metadata,
-  Deliver,
-  Request,
+  MarketplaceDeliveryIndividual,
+  MarketplaceRequestIndividual,
   CreateMultisigWithAgents,
   CreateMech,
   Mech,
@@ -47,10 +48,10 @@ export function getGlobal(): Global {
   return global;
 }
 
-export function getOrCreateSender(address: Bytes): Sender {
-  let sender = Sender.load(address);
+export function getOrCreateSender(address: Bytes): MarketplaceSender {
+  let sender = MarketplaceSender.load(address);
   if (sender == null) {
-    sender = new Sender(address);
+    sender = new MarketplaceSender(address);
     sender.id = address;
     sender.totalTransactions = BigInt.fromI32(0);
     sender.totalAtaRequestsTransactions = BigInt.fromI32(0);
@@ -76,19 +77,20 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   return entity;
 }
 
-export function getOrCreateDeliver(requestId: Bytes): Deliver {
-  let deliver = Deliver.load(requestId.toHexString());
+export function getOrCreateDeliver(requestId: Bytes): MarketplaceDeliveryIndividual {
+  let deliver = MarketplaceDeliveryIndividual.load(requestId.toHexString());
   if (deliver == null) {
-    deliver = new Deliver(requestId.toHexString());
+    deliver = new MarketplaceDeliveryIndividual(requestId.toHexString());
     deliver.requestId = requestId;
+    deliver.isOffChain = false;
   }
   return deliver;
 }
 
-export function getOrCreateRequest(requestId: Bytes): Request {
-  let request = Request.load(requestId.toHexString());
+export function getOrCreateRequest(requestId: Bytes): MarketplaceRequestIndividual {
+  let request = MarketplaceRequestIndividual.load(requestId.toHexString());
   if (request == null) {
-    request = new Request(requestId.toHexString());
+    request = new MarketplaceRequestIndividual(requestId.toHexString());
   }
   return request;
 }
