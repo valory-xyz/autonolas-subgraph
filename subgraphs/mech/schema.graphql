@@ -59,6 +59,8 @@ type Deliver @entity(immutable: true) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
   service: Service
+  toolResponse: String!
+  model: String!
 }
 
 type Approval @entity(immutable: true) {

@@ -7,10 +7,11 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@graphprotocol/graph-cli": "^0.64.0",
+    "@graphprotocol/graph-cli": "^0.98.1",
     "@types/node": "^24.3.1"
   },
   "engines": {
     "node": ">=24.0.0"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

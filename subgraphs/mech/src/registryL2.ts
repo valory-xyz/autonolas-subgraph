@@ -6,7 +6,7 @@ import {
   RegisterInstance as RegisterInstanceEvent,
   TerminateService as TerminateServiceEvent,
 } from '../generated/ServiceRegistryL2/ServiceRegistryL2';
-import { CreateService, UpdateService, Service } from '../generated/schema';
+import { CreateService, UpdateService, Service, MechAgent } from '../generated/schema';
 import { getOrCreateMultisigWithAgents } from './utils';
 
 export function handleCreateService(event: CreateServiceEvent): void {
@@ -69,6 +69,13 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
       ids.push(event.params.agentId);
       service.agentIds = ids;
       service.save();
+    }
+
+    // Update MechAgent.service to link the agent to its registered service
+    let mechAgent = MechAgent.load(event.params.agentId.toHexString());
+    if (mechAgent !== null) {
+      mechAgent.service = event.params.serviceId.toString();
+      mechAgent.save();
     }
   }
 }
