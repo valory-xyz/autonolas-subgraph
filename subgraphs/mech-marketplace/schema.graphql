@@ -245,17 +245,6 @@ type Refund @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type RegisterInstance @entity(immutable: true) {
-  id: Bytes!
-  operator: Bytes! # address
-  serviceId: BigInt! # uint256
-  agentInstance: Bytes! # address
-  agentId: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
 type TerminateService @entity(immutable: true) {
   id: Bytes!
   serviceId: BigInt! # uint256
@@ -302,7 +291,7 @@ type Mech @entity(immutable: false) {
 }
 
 type Service @entity(immutable: false) {
-  id: ID!
+  id: Bytes!
   configHash: Bytes!
   latestMultisig: Bytes
   historicalMultisigs: [Bytes!]!
