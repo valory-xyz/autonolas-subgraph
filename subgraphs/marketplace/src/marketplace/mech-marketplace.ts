@@ -56,7 +56,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   } else {
-    log.critical("Service not found for mech {0}", [event.params.serviceId.toHexString()]);
+    // log.critical("Service not found for mech {0}", [event.params.serviceId.toHexString()]);
   }
 
   mechAgent.save();
