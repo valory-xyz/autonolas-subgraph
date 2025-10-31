@@ -3,7 +3,7 @@ type MechAgent @entity(immutable: false) {
   mech: Bytes # address
   address: Bytes # address
   agentHash: Bytes # bytes32
-  service: MarketplaceService
+  service: Service
   totalTransactions: BigInt!
 }
 
@@ -12,7 +12,7 @@ type MarketplaceMech @entity(immutable: false) {
   mech: Bytes # address
   address: Bytes # address
   agentHash: Bytes # bytes32
-  service: MarketplaceService
+  service: Service
   totalTransactions: BigInt!
 }
 
@@ -198,7 +198,7 @@ type Metadata @entity(immutable: false) {
   serviceId: BigInt! # uint256
   mech: Bytes # address
   metadata: Bytes! # bytes32
-  service: MarketplaceService
+  service: Service
 }
 
 type Mech @entity(immutable: false) {
@@ -207,7 +207,7 @@ type Mech @entity(immutable: false) {
   mechFactory: Bytes!
   configHash: Bytes
   owner: Bytes!
-  service: MarketplaceService
+  service: Service
   totalDeliveriesTransactions: BigInt!
 }
 
@@ -277,7 +277,6 @@ type AtaTransaction @entity(immutable: true) {
   blockTimestamp: BigInt!
 }
 
-
 # Axat's stuff
 
 enum Source {
@@ -288,7 +287,7 @@ enum Source {
 type CreateMech @entity(immutable: false) {
   # Common fields
   id: Bytes!
-  mech: Bytes! 
+  mech: Bytes!
   source: Source # origin discriminator
   blockNumber: BigInt!
   blockTimestamp: BigInt!
@@ -296,15 +295,15 @@ type CreateMech @entity(immutable: false) {
 
   # Mech-only fields
   agentId: BigInt
-  price: BigInt 
+  price: BigInt
 
   # Marketplace-only fields
-  serviceId: BigInt 
-  mechFactory: Bytes 
+  serviceId: BigInt
+  mechFactory: Bytes
 }
 
 type RequestToMech @entity(immutable: false) {
-  id: Bytes! 
+  id: Bytes!
   ipfsHash: String!
   prompt: String
   tool: String
@@ -313,7 +312,8 @@ type RequestToMech @entity(immutable: false) {
 }
 
 type RequestToMarketplace @entity(immutable: false) {
-  id: Bytes! 
+  id: Bytes! # requestId
+  requestId: Bytes! # bytes32
   ipfsHashBytes: Bytes # raw bytes
   isMarketplace: Boolean
   isOffChain: Boolean
@@ -321,8 +321,8 @@ type RequestToMarketplace @entity(immutable: false) {
 }
 
 type Request @entity(immutable: false) {
-  # Common fields
-  id: Bytes!
+  # Common fields only
+  id: ID!
   sender: Sender!
   mech: Bytes! # address
   blockNumber: BigInt!
@@ -331,6 +331,7 @@ type Request @entity(immutable: false) {
   delivery: Deliver @derivedFrom(field: "request")
   service: Service
 
+  # Relationships to specialized entities
   mechRequest: RequestToMech @derivedFrom(field: "request")
   marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
 }
@@ -338,24 +339,24 @@ type Request @entity(immutable: false) {
 type DeliverForMech @entity(immutable: true) {
   id: Bytes! # delivery id
   # Mech-only fields
-  requestId: Bytes! 
-  ipfsHash: String! 
+  requestId: Bytes!
+  ipfsHash: String!
   deliver: Deliver
 }
 
 type DeliverForMarketplace @entity(immutable: true) {
-  id: Bytes! # delivery id
-  requestId: Bytes 
-  ipfsHashBytes: Bytes 
-  mechServiceMultisig: Bytes 
-  deliveryRate: BigInt 
+  id: Bytes! # delivery id (requestId)
+  requestId: Bytes! # bytes32
+  ipfsHashBytes: Bytes
+  mechServiceMultisig: Bytes
+  deliveryRate: BigInt
   isMarketplace: Boolean
   isOffChain: Boolean
   deliver: Deliver
 }
 
 type Deliver @entity(immutable: true) {
-  # Common fields
+  # Common fields only
   id: Bytes!
   sender: Bytes! # address
   mech: Bytes! # address
@@ -365,9 +366,7 @@ type Deliver @entity(immutable: true) {
   transactionHash: Bytes!
   service: Service
 
-  toolResponse: String!
-  model: String!
-
+  # Relationships to specialized entities
   mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
   marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
 }
@@ -378,13 +377,13 @@ type Sender @entity(immutable: false) {
   requests: [Request!] @derivedFrom(field: "sender")
 
   # Mech-only counters
-  totalRequests: BigInt!
-  totalTransactions: BigInt!
-  totalAtaTransactions: BigInt!
+  totalRequests: Int!
+  totalTransactions: Int!
+  totalAtaTransactions: Int!
 
   # Marketplace-only counters
-  totalMarketplaceRequests: BigInt
-  totalOffChainRequests: BigInt
+  totalMarketplaceRequests: Int
+  totalOffChainRequests: Int
 }
 
 type Service @entity(immutable: false) {
