@@ -1,3 +1,11 @@
+type MechRequest @entity(immutable: false) {
+  id: Bytes! # hash converted to Bytes
+  content: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
 type MechAgent @entity(immutable: false) {
   id: ID! # agent Id
   mech: Bytes # address
