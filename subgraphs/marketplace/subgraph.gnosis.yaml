@@ -127,36 +127,30 @@ dataSources:
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - ActivateRegistration
-        - CreateMultisigWithAgents
         - CreateService
-        - DeployService
-        - Deposit
+        - Transfer
+        - UpdateService
+        - Service
+        - CreateMultisigWithAgents
         - RegisterInstance
         - TerminateService
-        - ServiceRegistryL2Transfer
-        - UpdateService
       abis:
         - name: ServiceRegistryL2
           file: ./abis/ServiceRegistryL2.json
       eventHandlers:
-        - event: CreateMultisigWithAgents(indexed uint256,indexed address)
-          handler: handleCreateMultisigWithAgents
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
-        - event: DeployService(indexed uint256)
-          handler: handleDeployService
-        - event: Deposit(indexed address,uint256)
-          handler: handleDeposit
-        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
-          handler: handleRegisterInstance
-        - event: TerminateService(indexed uint256)
-          handler: handleTerminateService
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
         - event: UpdateService(indexed uint256,bytes32)
           handler: handleUpdateService
-      file: ./src/service-registry-l-2.ts
+        - event: CreateMultisigWithAgents(indexed uint256,indexed address)
+          handler: handleCreateMultisigWithAgents
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+        - event: TerminateService(indexed uint256)
+          handler: handleTerminateService
+      file: ./src/registryL2.ts
 
   # we need to support two versions of the ABIs, hence adding two different data sources, the old version (v1)
   # will support b/w the start and end blocks defined in "networks.json", and from the next block the new 

@@ -6,10 +6,12 @@ import {
   afterEach
 } from "matchstick-as/assembly/index"
 
-import { Address, BigInt } from "@graphprotocol/graph-ts"
+import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 
 import { handleCreateMech as marketplaceHandleCreateMech } from "../src/marketplace/mech-marketplace"
 import { createCreateMechEvent } from "./mech-marketplace-utils"
+import { handleCreateService } from "../src/marketplace/service-registry-l-2"
+import { createCreateServiceEvent } from "./service-registry-l-2-utils"
 
 describe("Describe mech-marketplace processing", () => {
     afterEach(() => {
@@ -18,8 +20,15 @@ describe("Describe mech-marketplace processing", () => {
 
     test("Handle create mech existing service", () => {
         // arrange
-        let mech = Address.fromString("0x0000000000000000000000000000000000000001")
+        let configHash = Bytes.fromHexString("0x1234567890abcdef")
         let serviceId = BigInt.fromI32(234)
+        let newCreateServiceEvent = createCreateServiceEvent(serviceId, configHash);
+        handleCreateService(newCreateServiceEvent);
+
+        assert.entityCount("Service", 1)
+        assert.fieldEquals("Service", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "serviceId", "234")
+
+        let mech = Address.fromString("0x0000000000000000000000000000000000000001")
         let mechFactory = Address.fromString("0x0000000000000000000000000000000000000001")
 
         // act
@@ -63,6 +72,12 @@ describe("Describe mech-marketplace processing", () => {
             "0"
         )
 
+        assert.fieldEquals(
+            "Service",
+            serviceId.toHexString(),
+            "configHash",
+            configHash.toHexString()
+        )
 
     })
 })

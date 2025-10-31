@@ -7,11 +7,8 @@ import {
   afterAll
 } from "matchstick-as/assembly/index"
 import { BigInt, Address, Bytes } from "@graphprotocol/graph-ts"
-import { ActivateRegistration } from "../generated/schema"
-import { ActivateRegistration as ActivateRegistrationEvent } from "../generated/ServiceRegistryL2/ServiceRegistryL2"
-import { handleActivateRegistration } from "../src/service-registry-l-2"
-import { createActivateRegistrationEvent, createCreateServiceEvent } from "./service-registry-l-2-utils"
-import { handleCreateService } from "../src/marketplace/service-registry-l-2"
+import { handleCreateService } from "../src/registryL2"
+import { createCreateServiceEvent } from "./service-registry-l-2-utils"
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0

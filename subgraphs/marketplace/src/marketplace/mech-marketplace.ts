@@ -55,6 +55,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (service !== null) {
     mechAgent.configHash = service.configHash;
+  } else {
+    log.critical("Service not found for mech {0}", [event.params.serviceId.toHexString()]);
   }
 
   mechAgent.save();
