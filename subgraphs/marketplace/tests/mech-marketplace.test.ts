@@ -10,7 +10,7 @@ import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 
 import { handleCreateMech as marketplaceHandleCreateMech } from "../src/marketplace/mech-marketplace"
 import { createCreateMechEvent } from "./mech-marketplace-utils"
-import { handleCreateService } from "../src/marketplace/service-registry-l-2"
+import { handleCreateService as registryL2HandleCreateService } from "../src/registryL2"
 import { createCreateServiceEvent } from "./service-registry-l-2-utils"
 
 describe("Describe mech-marketplace processing", () => {
@@ -23,7 +23,7 @@ describe("Describe mech-marketplace processing", () => {
         let configHash = Bytes.fromHexString("0x1234567890abcdef")
         let serviceId = BigInt.fromI32(234)
         let newCreateServiceEvent = createCreateServiceEvent(serviceId, configHash);
-        handleCreateService(newCreateServiceEvent);
+        registryL2HandleCreateService(newCreateServiceEvent);
 
         assert.entityCount("Service", 1)
         assert.fieldEquals("Service", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "serviceId", "234")
