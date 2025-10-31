@@ -53,11 +53,12 @@ export function getOrCreateSender(address: Bytes): Sender {
   if (sender == null) {
     sender = new Sender(address);
     sender.id = address;
-    // Senior's schema uses Int! for mech counters, Int for marketplace counters
+    // All fields are required (BigInt!)
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalTransactions = BigInt.fromI32(0);
     sender.totalAtaTransactions = BigInt.fromI32(0);
-    // Optional fields are left as null (they default to null in AssemblyScript)
+    sender.totalMarketplaceRequests = BigInt.fromI32(0);
+    sender.totalOffChainRequests = BigInt.fromI32(0);
   }
   return sender;
 }
@@ -77,18 +78,16 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   return entity;
 }
 
-export function getOrCreateMarketplaceIndividualDeliver(requestId: Bytes): Deliver {
-  // Senior's schema: Deliver.id is Bytes!, use requestId directly as Bytes
-  let deliver = Deliver.load(requestId);
+export function getOrCreateMarketplaceIndividualDeliver(id: Bytes): Deliver {
+  let deliver = Deliver.load(id);
   if (deliver == null) {
-    deliver = new Deliver(requestId); // ID is Bytes, not string
+    deliver = new Deliver(id); // ID is Bytes, not string
     // Only common fields - no specialized fields here
   }
   return deliver;
 }
 
 export function getOrCreateRequest(requestId: Bytes): Request {
-  // Senior's schema: Request.id is ID! (string), use requestId.toHexString()
   let request = Request.load(requestId);
   if (request == null) {
     request = new Request(requestId);
@@ -115,7 +114,7 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(Bytes.fromHexString(serviceId.toHexString()));
+  let mech = Mech.load(serviceId);
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',

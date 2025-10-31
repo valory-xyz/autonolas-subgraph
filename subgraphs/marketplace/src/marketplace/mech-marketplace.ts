@@ -26,7 +26,7 @@ import {
   RequestToMarketplace,
   DeliverForMarketplace,
   AtaTransaction,
-  Sender,
+  CreateMech,
 } from '../../generated/schema';
 import {
   getOrCreateSender,
@@ -42,21 +42,34 @@ import {
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
+  // Create CreateMech entity (used by getServiceIdFromMech)
+  let createMechEntity = CreateMech.load(event.params.mech);
+  if (createMechEntity === null) {
+    createMechEntity = new CreateMech(event.params.mech);
+  }
+  createMechEntity.mech = event.params.mech;
+  createMechEntity.serviceId = event.params.serviceId;
+  createMechEntity.mechFactory = event.params.mechFactory;
+  createMechEntity.source = 'MARKETPLACE';
+  createMechEntity.blockNumber = event.block.number;
+  createMechEntity.blockTimestamp = event.block.timestamp;
+  createMechEntity.transactionHash = event.transaction.hash;
+  createMechEntity.save();
+
   // Create Mech entity
-  let mechAgent = new Mech(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let serviceIdBytes = Bytes.fromHexString(event.params.serviceId.toHexString());
+  let mechAgent = new Mech(serviceIdBytes);
 
   mechAgent.address = event.params.mech;
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
-  mechAgent.service = Bytes.fromHexString(event.params.serviceId.toHexString());
+  mechAgent.service = serviceIdBytes;
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
-  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = Service.load(serviceIdBytes);
   if (service !== null) {
     mechAgent.configHash = service.configHash;
-  } else {
-    // log.critical("Service not found for mech {0}", [event.params.serviceId.toHexString()]);
   }
 
   mechAgent.save();
@@ -211,7 +224,9 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
   if (serviceIDForOffChain !== null) {
-    let serviceEntity = Service.load(Bytes.fromHexString(serviceIDForOffChain));
+    // serviceIDForOffChain is a decimal string, convert to BigInt then to Bytes
+    let serviceIdBigInt = BigInt.fromString(serviceIDForOffChain);
+    let serviceEntity = Service.load(Bytes.fromHexString(serviceIdBigInt.toHexString()));
     if (serviceEntity !== null) {
       let agentIds = serviceEntity.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
@@ -233,14 +248,10 @@ export function handleDeliverWithSignaturesV1(
   deliver.blockNumber = event.block.number;
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
-
-  // Set sender - try to get from request, otherwise use transaction origin
-  let request = Request.load(event.params.requestId);
-  if (request !== null) {
-    deliver.request = request.id;
-    // request.sender stores the Sender ID (Bytes) directly in relations
-    deliver.sender = request.sender as Bytes;
-  } else {
+  deliver.request = null; // Off-chain signed requests have no Request event
+  // sender will be set by handleMarketplaceDeliveryWithSignatures (which always runs for these events)
+  // We must set something because sender is required, but handleMarketplaceDeliveryWithSignatures will overwrite it
+  if (deliver.sender === null) {
     deliver.sender = event.transaction.from;
   }
 
@@ -248,6 +259,11 @@ export function handleDeliverWithSignaturesV1(
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     deliver.service = serviceId;
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+      service.save();
+    }
   }
 
   deliver.save();
@@ -277,14 +293,10 @@ export function handleDeliverWithSignaturesV2(
   deliver.blockNumber = event.block.number;
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
-
-  // Set sender - try to get from request, otherwise use transaction origin
-  let request = Request.load(event.params.requestId);
-  if (request !== null) {
-    deliver.request = request.id;
-    // request.sender stores the Sender ID (Bytes) directly in relations
-    deliver.sender = request.sender as Bytes;
-  } else {
+  deliver.request = null; // Off-chain signed requests have no Request event
+  // sender will be set by handleMarketplaceDeliveryWithSignatures (which always runs for these events)
+  // We must set something because sender is required, but handleMarketplaceDeliveryWithSignatures will overwrite it
+  if (deliver.sender === null) {
     deliver.sender = event.transaction.from;
   }
 
@@ -292,6 +304,11 @@ export function handleDeliverWithSignaturesV2(
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     deliver.service = serviceId;
+    let service = Service.load(serviceId);
+    if (service !== null) {
+      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+      service.save();
+    }
   }
 
   deliver.save();
@@ -374,8 +391,11 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.transactionHash = event.transaction.hash;
 
     if (serviceId !== null) {
-      request.service = Bytes.fromHexString(serviceId);
-      let service = Service.load(Bytes.fromHexString(serviceId));
+      // serviceId is a decimal string, convert to BigInt then to Bytes
+      let serviceIdBigInt = BigInt.fromString(serviceId);
+      let serviceIdBytes = Bytes.fromHexString(serviceIdBigInt.toHexString());
+      request.service = serviceIdBytes;
+      let service = Service.load(serviceIdBytes);
       if (service !== null) {
         service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
         service.save();

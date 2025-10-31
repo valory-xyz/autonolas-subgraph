@@ -7,7 +7,8 @@ import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreat
 import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
-  let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
+  let deliverId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
   
   // Common fields only
   deliver.mech = event.params.mech;
@@ -21,9 +22,6 @@ export function handleDeliver(event: DeliverEvent): void {
     deliver.request = request.id;
     // request.sender stores the Sender ID (Bytes) directly in relations
     deliver.sender = request.sender as Bytes;
-  } else {
-    // Fallback if request doesn't exist
-    deliver.sender = event.transaction.from;
   }
 
   // Link to service
