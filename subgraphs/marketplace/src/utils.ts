@@ -53,7 +53,7 @@ export function getOrCreateCreateMechEntity(
   return entity;
 }
 
-export function getServiceIdFromAgentId(agentId: BigInt): string | null {
+export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
   let agentMultisigAssociation = AgentMultisigAssociation.load(
     agentId.toHexString()
   );
@@ -63,22 +63,22 @@ export function getServiceIdFromAgentId(agentId: BigInt): string | null {
   return null;
 }
 
-export function getServiceIdFromMultisig(multisig: Bytes): string | null {
+export function getServiceIdFromMultisig(multisig: Bytes): Bytes | null {
   let entity = CreateMultisigWithAgents.load(multisig);
   if (entity !== null) {
-    return entity.serviceId.toString();
+    return Bytes.fromHexString(entity.serviceId.toHexString());
   }
   return null;
 }
 
-export function getServiceIdFromMech(mech: Bytes): string | null {
+export function getServiceIdFromMech(mech: Bytes): Bytes | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
   if (createMechEntity !== null && createMechEntity.agentId !== null) {
     let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
     if (mechAgent !== null) {
       if (mechAgent.service !== null) {
-        return mechAgent.service;
+        return Bytes.fromHexString(mechAgent.service!.toHexString());
       }
       // Fallback: try to get service ID from agent ID
       return getServiceIdFromAgentId(createMechEntity.agentId!);
@@ -94,6 +94,10 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalRequests = BigInt.fromI32(0);
     sender.totalTransactions = BigInt.fromI32(0);
     sender.totalAtaTransactions = BigInt.fromI32(0);
+
+    // Marketplace-only counters
+    sender.totalMarketplaceRequests = BigInt.fromI32(0);
+    sender.totalOffChainRequests = BigInt.fromI32(0);
   }
   return sender as Sender;
 }

@@ -202,7 +202,7 @@ type Metadata @entity(immutable: false) {
 }
 
 type Mech @entity(immutable: false) {
-  id: ID!
+  id: Bytes!
   address: Bytes!
   mechFactory: Bytes!
   configHash: Bytes
@@ -322,7 +322,7 @@ type RequestToMarketplace @entity(immutable: false) {
 
 type Request @entity(immutable: false) {
   # Common fields only
-  id: ID!
+  id: Bytes!
   sender: Sender!
   mech: Bytes! # address
   blockNumber: BigInt!
@@ -366,6 +366,9 @@ type Deliver @entity(immutable: true) {
   transactionHash: Bytes!
   service: Service
 
+  model: String
+  toolResponse: String
+
   # Relationships to specialized entities
   mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
   marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
@@ -377,18 +380,18 @@ type Sender @entity(immutable: false) {
   requests: [Request!] @derivedFrom(field: "sender")
 
   # Mech-only counters
-  totalRequests: Int!
-  totalTransactions: Int!
-  totalAtaTransactions: Int!
+  totalRequests: BigInt!
+  totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
 
   # Marketplace-only counters
-  totalMarketplaceRequests: Int
-  totalOffChainRequests: Int
+  totalMarketplaceRequests: BigInt!
+  totalOffChainRequests: BigInt!
 }
 
 type Service @entity(immutable: false) {
   # Common fields
-  id: ID!
+  id: Bytes!
   serviceId: BigInt! 
   configHash: Bytes 
   latestMultisig: Bytes 

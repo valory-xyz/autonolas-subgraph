@@ -388,3 +388,33 @@ templates:
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
+
+  
+  # - kind: file/ipfs
+  #   name: MechRequest
+  #   network: gnosis
+  #   mapping:
+  #     apiVersion: 0.0.9
+  #     language: wasm/assemblyscript
+  #     file: ./src/mech-request.ts
+  #     handler: handleMechRequest
+  #     entities:
+  #       - MechRequest
+  #     abis:
+  #       - name: AgentMech
+  #         file: ./abis/AgentMech.json
+
+  # - kind: file/ipfs
+  #   name: MechDeliver
+  #   network: gnosis
+  #   mapping:
+  #     apiVersion: 0.0.9
+  #     language: wasm/assemblyscript
+  #     file: ./src/mech-deliver.ts
+  #     handler: handleMechDeliver
+  #     entities:
+  #       - MechDeliver
+  #     abis:
+  #       - name: AgentMech
+  #         file: ./abis/AgentMech.json
+

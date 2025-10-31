@@ -54,9 +54,9 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     // Senior's schema uses Int! for mech counters, Int for marketplace counters
-    sender.totalRequests = 0;
-    sender.totalTransactions = 0;
-    sender.totalAtaTransactions = 0;
+    sender.totalRequests = BigInt.fromI32(0);
+    sender.totalTransactions = BigInt.fromI32(0);
+    sender.totalAtaTransactions = BigInt.fromI32(0);
     // Optional fields are left as null (they default to null in AssemblyScript)
   }
   return sender;
@@ -72,7 +72,7 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   if (entity === null) {
     entity = new Metadata(serviceId.toString());
     entity.serviceId = serviceId;
-    entity.service = serviceId.toString();
+    entity.service = Bytes.fromHexString(serviceId.toHexString());
   }
   return entity;
 }
@@ -89,9 +89,9 @@ export function getOrCreateMarketplaceIndividualDeliver(requestId: Bytes): Deliv
 
 export function getOrCreateRequest(requestId: Bytes): Request {
   // Senior's schema: Request.id is ID! (string), use requestId.toHexString()
-  let request = Request.load(requestId.toHexString());
+  let request = Request.load(requestId);
   if (request == null) {
-    request = new Request(requestId.toHexString());
+    request = new Request(requestId);
     // Only common fields - no specialized fields here
   }
   return request;
@@ -115,13 +115,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(serviceId);
+  let mech = Mech.load(Bytes.fromHexString(serviceId.toHexString()));
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        serviceId,
+        serviceId.toHexString(),
         transactionHash.toHexString(),
         functionName,
       ]
@@ -150,10 +150,10 @@ export function getServiceIdFromMultisig(
   return null;
 }
 
-export function getServiceIdFromMech(mechAddress: Bytes): string | null {
+export function getServiceIdFromMech(mechAddress: Bytes): Bytes | null {
   let createMechEntity = CreateMech.load(mechAddress);
   if (createMechEntity !== null && createMechEntity.serviceId !== null) {
-    return createMechEntity.serviceId!.toString();
+    return Bytes.fromHexString(createMechEntity.serviceId!.toHexString());
   }
   return null;
 }

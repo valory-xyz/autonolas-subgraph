@@ -1,47 +1,29 @@
-import { BigInt } from '@graphprotocol/graph-ts';
+import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 import {
   ActivateRegistration as ActivateRegistrationEvent,
-  Approval as ApprovalEvent,
-  ApprovalForAll as ApprovalForAllEvent,
-  BaseURIChanged as BaseURIChangedEvent,
   CreateMultisigWithAgents as CreateMultisigWithAgentsEvent,
   CreateService as CreateServiceEvent,
   DeployService as DeployServiceEvent,
   Deposit as DepositEvent,
-  Drain as DrainEvent,
-  DrainerUpdated as DrainerUpdatedEvent,
-  ManagerUpdated as ManagerUpdatedEvent,
-  OperatorSlashed as OperatorSlashedEvent,
-  OperatorUnbond as OperatorUnbondEvent,
   OwnerUpdated as OwnerUpdatedEvent,
-  Refund as RefundEvent,
   RegisterInstance as RegisterInstanceEvent,
   TerminateService as TerminateServiceEvent,
   Transfer as TransferEvent,
   UpdateService as UpdateServiceEvent,
-} from '../generated/ServiceRegistryL2/ServiceRegistryL2';
+} from '../../generated/ServiceRegistryL2/ServiceRegistryL2';
 import {
   ActivateRegistration,
-  Approval,
-  ApprovalForAll,
-  BaseURIChanged,
   CreateService,
   DeployService,
   Deposit,
-  Drain,
-  DrainerUpdated,
-  ManagerUpdated,
   Mech,
-  OperatorSlashed,
-  OperatorUnbond,
   OwnerUpdated,
-  Refund,
   RegisterInstance,
-  MarketplaceService,
   TerminateService,
+  Service,
   Transfer,
   UpdateService,
-} from '../generated/schema';
+} from '../../generated/schema';
 import { getOrCreateMultisigWithAgents } from './utils';
 
 export function handleActivateRegistration(
@@ -51,49 +33,6 @@ export function handleActivateRegistration(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
   entity.serviceId = event.params.serviceId;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleApproval(event: ApprovalEvent): void {
-  let entity = new Approval(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.owner = event.params.owner;
-  entity.spender = event.params.spender;
-  entity.ServiceRegistryL2_id = event.params.id;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleApprovalForAll(event: ApprovalForAllEvent): void {
-  let entity = new ApprovalForAll(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.owner = event.params.owner;
-  entity.operator = event.params.operator;
-  entity.approved = event.params.approved;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleBaseURIChanged(event: BaseURIChangedEvent): void {
-  let entity = new BaseURIChanged(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.baseURI = event.params.baseURI;
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -114,7 +53,7 @@ export function handleCreateMultisigWithAgents(
   entity.transactionHash = event.transaction.hash;
 
   // Update MarketplaceService entity
-  let service = MarketplaceService.load(event.params.serviceId.toString());
+  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (service !== null) {
     service.latestMultisig = event.params.multisig;
 
@@ -144,7 +83,8 @@ export function handleCreateService(event: CreateServiceEvent): void {
   entity.save();
 
   // Create MarketplaceService entity
-  let service = new MarketplaceService(event.params.serviceId.toString());
+  let service = new Service(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  service.serviceId = event.params.serviceId;
   service.configHash = event.params.configHash;
   service.historicalMultisigs = [];
   service.totalRequests = BigInt.fromI32(0);
@@ -180,94 +120,12 @@ export function handleDeposit(event: DepositEvent): void {
   entity.save();
 }
 
-export function handleDrain(event: DrainEvent): void {
-  let entity = new Drain(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.drainer = event.params.drainer;
-  entity.amount = event.params.amount;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleDrainerUpdated(event: DrainerUpdatedEvent): void {
-  let entity = new DrainerUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.drainer = event.params.drainer;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleManagerUpdated(event: ManagerUpdatedEvent): void {
-  let entity = new ManagerUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.manager = event.params.manager;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleOperatorSlashed(event: OperatorSlashedEvent): void {
-  let entity = new OperatorSlashed(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.amount = event.params.amount;
-  entity.operator = event.params.operator;
-  entity.serviceId = event.params.serviceId;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleOperatorUnbond(event: OperatorUnbondEvent): void {
-  let entity = new OperatorUnbond(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.operator = event.params.operator;
-  entity.serviceId = event.params.serviceId;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
 
 export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
   let entity = new OwnerUpdated(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
   entity.owner = event.params.owner;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleRefund(event: RefundEvent): void {
-  let entity = new Refund(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.receiver = event.params.receiver;
-  entity.amount = event.params.amount;
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -292,7 +150,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   entity.save();
 
   // Maintain the current canonical agent set for the service
-  let service = MarketplaceService.load(event.params.serviceId.toString());
+  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (service !== null) {
     let agentIds = service.agentIds;
     let agentIdFound = false;
@@ -323,7 +181,7 @@ export function handleTerminateService(event: TerminateServiceEvent): void {
   entity.save();
 
   // Clear current canonical agent set on termination
-  let service = MarketplaceService.load(event.params.serviceId.toString());
+  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (service !== null) {
     service.agentIds = [];
     service.save();
@@ -336,7 +194,7 @@ export function handleTransfer(event: TransferEvent): void {
   );
   entity.from = event.params.from;
   entity.to = event.params.to;
-  entity.ServiceRegistryL2_id = event.params.id;
+  // entity.ServiceRegistryL2_id = event.params.id;
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -366,7 +224,7 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
   entity.save();
 
   // Update MarketplaceService entity
-  let service = MarketplaceService.load(event.params.serviceId.toString());
+  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (service !== null) {
     service.configHash = event.params.configHash;
     service.save();
