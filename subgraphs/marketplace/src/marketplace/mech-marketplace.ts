@@ -18,13 +18,15 @@ import {
   MarketplaceRequest,
   Mech,
   OwnerUpdated,
-  MarketplaceService,
+  Service,
   SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
   Request,
   Deliver,
   RequestToMarketplace,
   DeliverForMarketplace,
+  AtaTransaction,
+  Sender,
 } from '../../generated/schema';
 import {
   getOrCreateSender,
@@ -49,8 +51,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
-  // Get service configHash from MarketplaceService entity and write it to Mech
-  let service = MarketplaceService.load(event.params.serviceId.toString());
+  // Get service configHash from Service entity and write it to Mech
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
@@ -121,17 +123,18 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   for (let i = 0; i < event.params.requestIds.length; i++) {
     let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestIds[i]);
-    deliver.requestId = event.params.requestIds[i];
+    
+    // Common fields only
     deliver.mech = event.params.deliveryMech;
     deliver.sender = event.params.requester;
     deliver.blockNumber = event.block.number;
     deliver.blockTimestamp = event.block.timestamp;
     deliver.transactionHash = event.transaction.hash;
-    // Intentionally setting to null as request was off-chain
-    deliver.request = null;
+    deliver.request = null; // Off-chain, no request
+
     deliver.save();
 
-    // Create marketplace-specific delivery entity
+    // Create marketplace-specific delivery entity (avoids null fields)
     let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestIds[i]);
     if (marketplaceDeliver == null) {
       marketplaceDeliver = new DeliverForMarketplace(event.params.requestIds[i]);
@@ -146,11 +149,10 @@ export function handleMarketplaceDeliveryWithSignatures(
   let sender = getOrCreateSender(event.params.requester);
   /* As these requests are made off-chain we assume that the number of requests 
   is the same as number of deliveries, and add the same to `totalRequests` */
-  sender.totalOffChainRequests = sender.totalOffChainRequests.plus(
-    event.params.numDeliveries
-  );
-  sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  // Use Int operations
+  sender.totalOffChainRequests = (sender.totalOffChainRequests || 0) + event.params.numDeliveries.toI32();
+  sender.totalRequests = sender.totalRequests + event.params.numDeliveries.toI32();
+  sender.totalTransactions = sender.totalTransactions + 1;
   sender.save();
 
   let global = getGlobal();
@@ -169,32 +171,44 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // Off-chain request ATA counting: deliveryMech is always a service multisig
   // So we always count +1 for deliveryMech, and +1 additional if requester is also a service multisig
-  let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
+  // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
+  let txHash = event.transaction.hash;
+  let transaction = AtaTransaction.load(txHash);
+  
+  if (transaction === null) {
+    // Create AtaTransaction entity to track this transaction
+    transaction = new AtaTransaction(txHash);
+    transaction.blockNumber = event.block.number;
+    transaction.blockTimestamp = event.block.timestamp;
+    transaction.save();
 
-  // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
-  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
-  if (deliveryMech != null) {
-    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-    deliveryMech.save();
+    let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
+
+    // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
+    let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
+    if (deliveryMech != null) {
+      deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+      deliveryMech.save();
+    }
+
+    // Check if requester (sender of the request) is a service multisig (additional +1)
+    if (isServiceMultisig(event.params.requester)) {
+      ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
+
+      // Update requester-level ATA count (using existing sender variable) - use Int operations
+      sender.totalAtaTransactions = sender.totalAtaTransactions + 1;
+      sender.save();
+    }
+
+    // Update global ATA count
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
+    global.save();
   }
-
-  // Check if requester (sender of the request) is a service multisig (additional +1)
-  if (isServiceMultisig(event.params.requester)) {
-    ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
-
-    // Update requester-level ATA count (using existing sender variable)
-    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
-    sender.save();
-  }
-
-  // Update global ATA count
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
-  global.save();
 
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
   if (serviceIDForOffChain !== null) {
-    let serviceEntity = MarketplaceService.load(serviceIDForOffChain);
+    let serviceEntity = Service.load(serviceIDForOffChain);
     if (serviceEntity !== null) {
       let agentIds = serviceEntity.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
@@ -210,13 +224,24 @@ export function handleDeliverWithSignaturesV1(
   event: DeliverWithSignaturesEventV1
 ): void {
   let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
-  deliver.requestId = event.params.requestId;
+  
+  // Common fields only
   deliver.mech = event.params.mech;
   deliver.blockNumber = event.block.number;
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
 
-  // Get serviceId from mech if available
+  // Set sender - try to get from request, otherwise use transaction origin
+  let request = Request.load(event.params.requestId.toHexString());
+  if (request !== null) {
+    deliver.request = request.id;
+    // request.sender stores the Sender ID (Bytes) directly in relations
+    deliver.sender = request.sender as Bytes;
+  } else {
+    deliver.sender = event.transaction.from;
+  }
+
+  // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     deliver.service = serviceId;
@@ -224,7 +249,7 @@ export function handleDeliverWithSignaturesV1(
 
   deliver.save();
 
-  // Create marketplace-specific delivery entity
+  // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
   if (marketplaceDeliver == null) {
     marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
@@ -243,13 +268,24 @@ export function handleDeliverWithSignaturesV2(
   event: DeliverWithSignaturesEvent
 ): void {
   let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
-  deliver.requestId = event.params.requestId;
+  
+  // Common fields only
   deliver.mech = event.params.mech;
   deliver.blockNumber = event.block.number;
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
 
-  // Get serviceId from mech if available
+  // Set sender - try to get from request, otherwise use transaction origin
+  let request = Request.load(event.params.requestId.toHexString());
+  if (request !== null) {
+    deliver.request = request.id;
+    // request.sender stores the Sender ID (Bytes) directly in relations
+    deliver.sender = request.sender as Bytes;
+  } else {
+    deliver.sender = event.transaction.from;
+  }
+
+  // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     deliver.service = serviceId;
@@ -257,7 +293,7 @@ export function handleDeliverWithSignaturesV2(
 
   deliver.save();
 
-  // Create marketplace-specific delivery entity
+  // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
   if (marketplaceDeliver == null) {
     marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
@@ -304,11 +340,10 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   entity.save();
 
   let sender = getOrCreateSender(event.params.requester);
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(
-    BigInt.fromI32(1)
-  );
-  sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
+  // Use Int operations
+  sender.totalTransactions = sender.totalTransactions + 1;
+  sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || 0) + 1;
+  sender.totalRequests = sender.totalRequests + event.params.numRequests.toI32();
   sender.save();
 
   // Get service ID from requester's multisig address
@@ -317,7 +352,8 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   // Request entities for each request
   for (let i = 0; i < event.params.numRequests.toI32(); i++) {
     let request = getOrCreateRequest(event.params.requestIds[i]);
-    request.requestId = event.params.requestIds[i];
+    
+    // Common fields only
     request.sender = sender.id;
     request.mech = event.params.priorityMech;
     request.blockNumber = event.block.number;
@@ -326,9 +362,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     if (serviceId !== null) {
       request.service = serviceId;
-
-      // Update service totalRequests counter
-      let service = MarketplaceService.load(serviceId);
+      let service = Service.load(serviceId);
       if (service !== null) {
         service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
         service.save();
@@ -337,11 +371,12 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     request.save();
 
-    // Create marketplace-specific request entity
+    // Create marketplace-specific request entity (avoids null fields)
     let marketplaceRequest = RequestToMarketplace.load(event.params.requestIds[i]);
     if (marketplaceRequest == null) {
       marketplaceRequest = new RequestToMarketplace(event.params.requestIds[i]);
     }
+    marketplaceRequest.requestId = event.params.requestIds[i];
     marketplaceRequest.isMarketplace = true;
     marketplaceRequest.isOffChain = false;
     marketplaceRequest.request = request.id;
@@ -356,19 +391,31 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // Simple transaction-level ATA counting: +1 for the entire transaction
+  // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
   if (serviceId !== null) {
-    global.totalAtaTransactions = global.totalAtaTransactions.plus(
-      BigInt.fromI32(1)
-    );
-    // Also update sender-level ATA count
-    sender.totalAtaRequestsTransactions = sender.totalAtaRequestsTransactions.plus(BigInt.fromI32(1));
-    sender.save();
+    let txHash = event.transaction.hash;
+    let transaction = AtaTransaction.load(txHash);
+    
+    if (transaction === null) {
+      // Create AtaTransaction entity to track this transaction
+      transaction = new AtaTransaction(txHash);
+      transaction.blockNumber = event.block.number;
+      transaction.blockTimestamp = event.block.timestamp;
+      transaction.save();
+
+      global.totalAtaTransactions = global.totalAtaTransactions.plus(
+        BigInt.fromI32(1)
+      );
+      // Also update sender-level ATA count - use Int operations
+      sender.totalAtaTransactions = sender.totalAtaTransactions + 1;
+      sender.save();
+    }
   }
   global.save();
 
   // Increment per-agent counters for all canonical agents of this service (on-chain requests)
   if (serviceId !== null) {
-    let svc = MarketplaceService.load(serviceId);
+    let svc = Service.load(serviceId); // Changed from MarketplaceService
     if (svc !== null) {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {

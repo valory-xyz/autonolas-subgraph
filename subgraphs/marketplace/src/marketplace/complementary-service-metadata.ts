@@ -1,5 +1,5 @@
-import { ComplementaryMetadataUpdated as ComplementaryMetadataUpdatedEvent } from '../generated/ComplementaryServiceMetadata/ComplementaryServiceMetadata';
-import { Mech } from '../generated/schema';
+import { ComplementaryMetadataUpdated as ComplementaryMetadataUpdatedEvent } from '../../generated/ComplementaryServiceMetadata/ComplementaryServiceMetadata';
+import { Mech } from '../../generated/schema';
 import { getOrCreateMetadata } from './utils';
 
 export function handleComplementaryMetadataUpdated(

@@ -8,7 +8,7 @@ import {
 import {
   Global,
   Sender,
-  MarketplaceService,
+  Service,
   Metadata,
   Deliver,
   Request,
@@ -16,13 +16,13 @@ import {
   CreateMech,
   Mech,
   RequestsPerAgent,
-} from '../generated/schema';
+} from '../../generated/schema';
 import {
   MechFixedPriceNative,
   MechFixedPriceToken,
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
-} from '../generated/templates';
+} from '../../generated/templates';
 import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
@@ -53,17 +53,17 @@ export function getOrCreateSender(address: Bytes): Sender {
   if (sender == null) {
     sender = new Sender(address);
     sender.id = address;
-    sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaRequestsTransactions = BigInt.fromI32(0);
-    sender.totalMarketplaceRequests = BigInt.fromI32(0);
-    sender.totalRequests = BigInt.fromI32(0);
-    sender.totalOffChainRequests = BigInt.fromI32(0);
+    // Senior's schema uses Int! for mech counters, Int for marketplace counters
+    sender.totalRequests = 0;
+    sender.totalTransactions = 0;
+    sender.totalAtaTransactions = 0;
+    // Optional fields are left as null (they default to null in AssemblyScript)
   }
   return sender;
 }
 
 export function isServiceMultisig(address: Bytes): boolean {
-  let entity = CreateMultisigWithAgents.load(address.toHexString());
+  let entity = CreateMultisigWithAgents.load(address);
   return entity !== null;
 }
 
@@ -78,19 +78,21 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
 }
 
 export function getOrCreateMarketplaceIndividualDeliver(requestId: Bytes): Deliver {
-  let deliver = Deliver.load(requestId.toHexString());
+  // Senior's schema: Deliver.id is Bytes!, use requestId directly as Bytes
+  let deliver = Deliver.load(requestId);
   if (deliver == null) {
-    deliver = new Deliver(requestId.toHexString());
-    deliver.requestId = requestId;
+    deliver = new Deliver(requestId); // ID is Bytes, not string
+    // Only common fields - no specialized fields here
   }
   return deliver;
 }
 
 export function getOrCreateRequest(requestId: Bytes): Request {
+  // Senior's schema: Request.id is ID! (string), use requestId.toHexString()
   let request = Request.load(requestId.toHexString());
   if (request == null) {
     request = new Request(requestId.toHexString());
-    request.requestId = requestId;
+    // Only common fields - no specialized fields here
   }
   return request;
 }
@@ -131,9 +133,9 @@ export function getMech(
 export function getOrCreateMultisigWithAgents(
   multisig: Bytes
 ): CreateMultisigWithAgents {
-  let entity = CreateMultisigWithAgents.load(multisig.toHexString());
+  let entity = CreateMultisigWithAgents.load(multisig);
   if (entity === null) {
-    entity = new CreateMultisigWithAgents(multisig.toHexString());
+    entity = new CreateMultisigWithAgents(multisig);
   }
   return entity;
 }
@@ -141,9 +143,7 @@ export function getOrCreateMultisigWithAgents(
 export function getServiceIdFromMultisig(
   multisigAddress: Bytes
 ): string | null {
-  let multisigEntity = CreateMultisigWithAgents.load(
-    multisigAddress.toHexString()
-  );
+  let multisigEntity = CreateMultisigWithAgents.load(multisigAddress);
   if (multisigEntity !== null) {
     return multisigEntity.serviceId.toString();
   }
@@ -151,9 +151,9 @@ export function getServiceIdFromMultisig(
 }
 
 export function getServiceIdFromMech(mechAddress: Bytes): string | null {
-  let createMechEntity = CreateMech.load(mechAddress.toHexString());
-  if (createMechEntity !== null) {
-    return createMechEntity.serviceId.toString();
+  let createMechEntity = CreateMech.load(mechAddress);
+  if (createMechEntity !== null && createMechEntity.serviceId !== null) {
+    return createMechEntity.serviceId!.toString();
   }
   return null;
 }
