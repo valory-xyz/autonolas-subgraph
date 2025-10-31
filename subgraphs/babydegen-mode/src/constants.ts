@@ -37,13 +37,13 @@ export const USDC_BRIDGED = USDC // MODE only has one USDC (no bridged version)
 // No Chainlink feeds should be used for MODE network
 
 // DeFi protocol addresses
-export const VELO_NFT_MANAGER = Address.fromString("0x991d5546C4B442B4c5fdc4c8B8d8d131DEB24702")
+export const VELO_NFT_MANAGER = Address.fromString("0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702")
 export const VELO_V2_SUGAR = Address.fromString("0x9ECd2f44f72E969fa3F3C4e4F63bc61E0C08F31F")
 export const VELO_V2_FACTORY = Address.fromString("0x31832f2a97Fd20664D76Cc421207669b55CE4BC0") // Velodrome V2 Factory on MODE
 
 
 // Velodrome CL (Concentrated Liquidity) addresses
-export const VELO_MANAGER = Address.fromString("0x991d5546C4B442B4c5fdc4c8B8d8d131DEB24702") // Velodrome CL NFT Position Manager
+export const VELO_MANAGER = Address.fromString("0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702") // Velodrome CL NFT Position Manager
 export const VELO_FACTORY = Address.fromString("0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F") // Velodrome CL Factory on MODE
 
 // STURDY protocol addresses

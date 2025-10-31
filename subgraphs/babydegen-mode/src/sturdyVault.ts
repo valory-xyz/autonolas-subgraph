@@ -30,8 +30,8 @@ import { STURDY_VAULT } from "./constants"
 import { Deposit, Withdraw, YearnV3Vault } from "../generated/SturdyVault/YearnV3Vault"
 import { ERC20 } from "../generated/SturdyVault/ERC20"
 
-function getSturdyPositionId(agent: Address, timestamp: BigInt): Bytes {
-  const positionId = agent.toHex() + "-sturdy-" + timestamp.toString()
+function getSturdyPositionId(agent: Address, txHash: Bytes): Bytes {
+  const positionId = agent.toHex() + "-sturdy-" + txHash.toHexString()
   return Bytes.fromUTF8(positionId)
 }
 
@@ -44,14 +44,22 @@ function findActiveSturdyPosition(agent: Address): ProtocolPosition | null {
   let positionIds = service.positionIds
   for (let i = 0; i < positionIds.length; i++) {
     let positionIdString = positionIds[i]
-    
-    if (positionIdString.includes("-sturdy-")) {
-      let directId = Bytes.fromUTF8(positionIdString)
-      let position = ProtocolPosition.load(directId)
-      
-      if (position != null && position.isActive && position.protocol == "STURDY") {
-        return position
+    let position: ProtocolPosition | null = null
+
+    let directId = Bytes.fromUTF8(positionIdString)
+    position = ProtocolPosition.load(directId)
+
+    if (position == null) {
+      if (positionIdString.startsWith("0x") && positionIdString.length % 2 == 0) {
+        let hexBytes = Bytes.fromHexString(positionIdString)
+        let decodedString = hexBytes.toString()
+        let decodedId = Bytes.fromUTF8(decodedString)
+        position = ProtocolPosition.load(decodedId)
       }
+    }
+
+    if (position != null && position.isActive && position.protocol == "STURDY") {
+      return position
     }
   }
   
@@ -106,12 +114,13 @@ export function handleSturdyWithdraw(event: Withdraw): void {
   }
 }
 
-function refreshSturdyPosition(
+export function refreshSturdyPosition(
   agent: Address,
   block: ethereum.Block,
   txHash: Bytes,
   assets: BigInt,
-  isDeposit: boolean
+  isDeposit: boolean,
+  updatePortfolio: boolean = true
 ): void {
   let position: ProtocolPosition | null = null
   let positionIdBytes: Bytes
@@ -124,7 +133,7 @@ function refreshSturdyPosition(
       positionIdBytes = position.id
       positionId = positionIdBytes.toString()
     } else {
-      positionIdBytes = getSturdyPositionId(agent, block.timestamp)
+      positionIdBytes = getSturdyPositionId(agent, txHash)
       positionId = positionIdBytes.toString()
     }
   } else {
@@ -178,7 +187,7 @@ function refreshSturdyPosition(
       if (positionIds == null) {
         positionIds = []
       }
-      positionIds.push(positionId)
+      positionIds.push(positionIdBytes.toHexString())
       service.positionIds = positionIds
       service.save()
     }
@@ -253,7 +262,11 @@ function refreshSturdyPosition(
   position.amount0USD = currentUSDValue
   
   position.save()
-  calculatePortfolioMetrics(agent, block)
+  
+  // Only update portfolio if requested (avoid recursion during snapshots)
+  if (updatePortfolio) {
+    calculatePortfolioMetrics(agent, block)
+  }
 }
 
 function calculateSturdyPositionValue(agent: Address, underlyingAsset: Address, timestamp: BigInt): BigDecimal {

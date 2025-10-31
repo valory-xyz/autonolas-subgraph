@@ -93,7 +93,7 @@ function checkServicesForSnapshot(block: ethereum.Block): void {
       
       // Trigger portfolio calculation which will create snapshot
       // Convert Bytes to Address for calculatePortfolioMetrics
-      calculatePortfolioMetrics(Address.fromBytes(serviceAddress), block)
+      calculatePortfolioMetrics(Address.fromBytes(serviceAddress), block, true)
       
       // Update snapshot tracking in portfolio
       updateSnapshotTracking(serviceAddress, block)
