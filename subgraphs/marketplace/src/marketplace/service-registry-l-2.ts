@@ -203,7 +203,7 @@ export function handleTransfer(event: TransferEvent): void {
   entity.save();
 
   // Update Mech entity with owner
-  let mechAgent = Mech.load(event.params.id.toString());
+  let mechAgent = Mech.load(Bytes.fromHexString(event.params.id.toHexString()));
   if (mechAgent !== null) {
     mechAgent.owner = event.params.to;
     mechAgent.save();
@@ -231,7 +231,7 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
   }
 
   // Update Mech entity with hash
-  let mech = Mech.load(event.params.serviceId.toString());
+  let mech = Mech.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
   if (mech !== null) {
     mech.configHash = event.params.configHash;
     mech.save();
