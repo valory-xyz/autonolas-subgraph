@@ -79,6 +79,10 @@ function createMechMapping(
   mechEntity.owner = owner
   mechEntity.service = serviceId.toString()
   mechEntity.totalDeliveriesTransactions = BigInt.fromI32(0)
+  mechEntity.receivedRequests = BigInt.fromI32(0)
+  mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
+  mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
+  mechEntity.undeliveredRequests = BigInt.fromI32(0)
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
 }
@@ -118,6 +122,7 @@ function createRequestEntity(
   request.blockNumber = BigInt.fromI32(0)
   request.blockTimestamp = BigInt.fromI32(0)
   request.transactionHash = requestId
+  request.isDelivered = false
   request.save()
 }
 
