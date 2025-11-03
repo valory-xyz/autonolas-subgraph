@@ -1,8 +1,9 @@
 import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
+  RevokeRequest as RevokeRequestEvent,
 } from '../../generated/templates/MechFixedPriceToken/MechFixedPriceToken';
-import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction } from '../../generated/schema';
+import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig } from './utils';
 import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 
@@ -77,6 +78,7 @@ export function handleRequest(event: RequestEvent): void {
   request.blockNumber = event.block.number;
   request.blockTimestamp = event.block.timestamp;
   request.transactionHash = event.transaction.hash;
+  request.isDelivered = false;
 
   // Get or create sender from transaction origin
   let sender = getOrCreateSender(event.transaction.from);
@@ -134,4 +136,26 @@ export function handleRequest(event: RequestEvent): void {
   marketplaceRequest.isOffChain = false;
   marketplaceRequest.request = request.id;
   marketplaceRequest.save();
+}
+
+export function handleRevokeRequest(event: RevokeRequestEvent): void {
+  const serviceId = getServiceIdFromMech(event.address);
+  if (serviceId === null) {
+    return;
+  }
+
+  let req = Request.load(event.params.requestId);
+  if (req !== null && req.isDelivered) {
+    return;
+  }
+
+  let mechEntity = Mech.load(serviceId.toString());
+  if (mechEntity === null) {
+    return;
+  }
+
+  if (mechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+    mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+    mechEntity.save();
+  }
 }

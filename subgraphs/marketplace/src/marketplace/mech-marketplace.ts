@@ -64,6 +64,10 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.owner = event.transaction.from;
   mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
+  mechAgent.receivedRequests = BigInt.fromI32(0);
+  mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
+  mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
+  mechAgent.undeliveredRequests = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
@@ -95,6 +99,17 @@ export function handleMarketplaceDelivery(
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
+
+  // Mark delivered requests as completed and track who delivered
+  for (let i = 0; i < event.params.requestIds.length; i++) {
+    if (!event.params.deliveredRequests[i]) continue;
+    let request = Request.load(event.params.requestIds[i]);
+    if (request !== null) {
+      request.isDelivered = true;
+      request.deliveredByMech = event.params.deliveryMech;
+      request.save();
+    }
+  }
 
   let global = getGlobal();
   global.totalDeliveries = global.totalDeliveries.plus(
@@ -363,6 +378,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.blockNumber = event.block.number;
     request.blockTimestamp = event.block.timestamp;
     request.transactionHash = event.transaction.hash;
+    request.isDelivered = false;
 
     if (serviceId !== null) {
       request.service = serviceId.toString();
