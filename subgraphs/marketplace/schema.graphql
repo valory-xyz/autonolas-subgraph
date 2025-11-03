@@ -217,6 +217,10 @@ type Mech @entity(immutable: false) {
   owner: Bytes!
   service: Service
   totalDeliveriesTransactions: BigInt!
+  receivedRequests: BigInt!
+  selfDeliveredFromReceived: BigInt!
+  deliveredByOthersFromReceived: BigInt!
+  undeliveredRequests: BigInt!
 }
 
 # type MarketplaceService @entity(immutable: false) {
@@ -343,6 +347,10 @@ type Request @entity(immutable: false) {
   # Relationships to specialized entities
   mechRequest: RequestToMech @derivedFrom(field: "request")
   marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
+
+  # Delivery status
+  isDelivered: Boolean!
+  deliveredByMech: Bytes # address of the mech that delivered the request
 }
 
 type DeliverForMech @entity(immutable: true) {
