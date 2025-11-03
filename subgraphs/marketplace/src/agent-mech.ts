@@ -214,6 +214,7 @@ export function handleRequest(event: RequestEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
+  entity.isDelivered = false;
 
   // Associate request with service
   if (serviceId !== null) {
@@ -277,6 +278,9 @@ export function handleDeliver(event: DeliverEvent): void {
         [deliveryId.toHexString(), event.params.requestId.toHexString()]
       );
     }
+    existingRequest.isDelivered = true;
+    existingRequest.deliveredByMech = event.address;
+    existingRequest.save();
   } else {
     // No matching Request found
     log.warning(
