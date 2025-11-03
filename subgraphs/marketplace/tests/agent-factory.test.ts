@@ -10,7 +10,11 @@ import { Address, BigInt } from "@graphprotocol/graph-ts"
 import { CreateMech } from "../generated/schema"
 import { CreateMech as CreateMechEvent } from "../generated/AgentFactory/AgentFactory"
 import { handleCreateMech } from "../src/agent-factory"
-import { createCreateMechEvent } from "./agent-factory-utils"
+import { createCreateMechEvent, createService } from "./agent-factory-utils"
+import { createTransferEvent } from "./agent-factory-utils"
+import { handleTransfer } from "../src/agent-registry"
+import { createCreateMultisigWithAgentsEvent } from "./service-registry-l-2-utils"
+import { handleCreateMultisigWithAgents } from "../src/registryL2"
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0
@@ -20,14 +24,51 @@ describe("Describe entity assertions", () => {
     clearStore()
   })
 
+  test("Create service and associate with agent", () => {
+    let createMultisigWithAgentsEvent = createCreateMultisigWithAgentsEvent(
+      BigInt.fromI32(234),
+      Address.fromString("0x0000000000000000000000000000000000000002"),
+    )
+
+    handleCreateMultisigWithAgents(createMultisigWithAgentsEvent)
+
+    let transferEvent = createTransferEvent(
+      Address.zero(),
+      Address.fromString("0x0000000000000000000000000000000000000002"),
+      BigInt.fromI32(1)
+    )
+
+    handleTransfer(transferEvent)
+
+    let id = transferEvent.params.id.toString()
+
+    assert.entityCount("AgentMultisigAssociation", 1)
+    assert.fieldEquals(
+      "AgentMultisigAssociation",
+      id,
+      "multisig",
+      Address.fromString("0x0000000000000000000000000000000000000002").toHexString()
+    )
+
+    assert.fieldEquals(
+      "AgentMultisigAssociation",
+      id,
+      "agentId",
+      "1"
+    )
+
+    createService(BigInt.fromI32(234), [BigInt.fromI32(1)]);
+
+  })
+
   // For more test scenarios, see:
   // https://thegraph.com/docs/en/developer/matchstick/#write-a-unit-test
 
   test("CreateMech created and stored", () => {
 
     // arrange
-    let mech = Address.fromString("0x0000000000000000000000000000000000000001")
-    let agentId = BigInt.fromI32(234)
+    let mech = Address.fromString("0x0000000000000000000000000000000000000002")
+    let agentId = BigInt.fromI32(1)
     let price = BigInt.fromI32(234)
     let newCreateMechEvent = createCreateMechEvent(mech, agentId, price)
 
@@ -52,7 +93,7 @@ describe("Describe entity assertions", () => {
       "CreateMech",
       mech.toHexString(),
       "agentId",
-      "234"
+      "1"
     )
     assert.fieldEquals(
       "CreateMech",
@@ -63,20 +104,20 @@ describe("Describe entity assertions", () => {
 
     assert.fieldEquals(
       "MechAgent",
-      agentId.toHexString(),
+      agentId.toString(),
       "mech",
       mech.toHexString()
     )
     assert.fieldEquals(
       "MechAgent",
-      agentId.toHexString(),
+      agentId.toString(),
       "address",
       mech.toHexString()
     )
 
     assert.fieldEquals(
       "MechAgent",
-      agentId.toHexString(),
+      agentId.toString(),
       "totalTransactions",
       "0"
     )

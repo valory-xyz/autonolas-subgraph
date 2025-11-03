@@ -19,10 +19,11 @@ export function handleCreateMech(event: CreateMechEvent): void {
   entity.save();
 
   let mechAgent = MechAgent.load(event.params.agentId.toString());
+  log.info("Mech agent: {}", [event.params.agentId.toString()]);
   let serviceId = getServiceIdFromAgentId(event.params.agentId);
 
   if (serviceId === null) {
-    log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
+    // log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
     return;
   }
 

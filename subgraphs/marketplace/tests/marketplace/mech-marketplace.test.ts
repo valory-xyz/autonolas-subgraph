@@ -5,7 +5,7 @@ import {
   afterEach,
   clearStore,
 } from "matchstick-as/assembly/index"
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
+import { Address, BigInt, Bytes, log } from "@graphprotocol/graph-ts"
 import {
   handleCreateMech,
   handleMarketplaceDelivery,
@@ -72,12 +72,14 @@ function createMechMapping(
   mapping.transactionHash = Bytes.fromHexString("0x02")
   mapping.save()
 
+  log.info("Creating mech entity for service ID: {}", [serviceId.toString()]);
   let mechEntity = new Mech(serviceId.toString())
   mechEntity.address = mech
   mechEntity.mechFactory = mechFactory
   mechEntity.owner = owner
   mechEntity.service = serviceId.toString()
   mechEntity.totalDeliveriesTransactions = BigInt.fromI32(0)
+  log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
 }
 
@@ -133,7 +135,7 @@ describe("Mech Marketplace Handlers", () => {
     handleCreateMech(event)
 
     assert.fieldEquals("CreateMech", mech.toHexString(), "serviceId", "16")
-    assert.fieldEquals("Mech", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "address", mech.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
     assert.fieldEquals("Global", "", "totalMechs", "1")
   })
 
@@ -185,7 +187,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.entityCount("Deliver", 2)
     assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isOffChain", "true")
     assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "2")
-    assert.fieldEquals("Mech", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "totalDeliveriesTransactions", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
     assert.fieldEquals("Global", "", "totalDeliveries", "2")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "2")
@@ -295,7 +297,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Global", "", "totalMarketplaceRequests", "1")
     assert.fieldEquals("Sender", requester.toHexString(), "totalRequests", "2")
     assert.fieldEquals("Sender", requester.toHexString(), "totalAtaTransactions", "1")
-    assert.fieldEquals("Service", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "totalRequests", "2")
+    assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "2")
   })
 
   test("handleOwnerUpdated stores snapshot", () => {
