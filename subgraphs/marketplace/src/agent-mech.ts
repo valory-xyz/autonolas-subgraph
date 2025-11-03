@@ -155,9 +155,9 @@ export function handleRequest(event: RequestEvent): void {
 
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);
-  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
+  // sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  // sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  // sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
 
   let global = getGlobal();
   global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
@@ -175,7 +175,7 @@ export function handleRequest(event: RequestEvent): void {
       transaction.save();
 
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
 
@@ -210,21 +210,21 @@ export function handleRequest(event: RequestEvent): void {
   mechRequest.save();
 
   entity.sender = event.params.sender;
-  entity.mech = event.address;
+  entity.mech = event.address.toHexString();
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
 
   // Associate request with service
   if (serviceId !== null) {
-  entity.service = serviceId;
+  entity.service = serviceId.toString();
   } else {
     // log.critical("Service ID not found for mech {0}", [event.address.toHexString()]);
   }
 
   // Update Service totalRequests counter
   if (serviceId !== null) {
-    let service = Service.load(serviceId);
+    let service = Service.load(serviceId.toString());
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
@@ -288,7 +288,7 @@ export function handleDeliver(event: DeliverEvent): void {
   // Associate deliver with service
   let serviceId = getServiceIdFromMech(event.address);
   if (serviceId !== null) {
-    entity.service = serviceId;
+    entity.service = serviceId.toString();
   } else {
     // log.critical("Service ID not found for mech {0}", [event.address.toHexString()]);
   }
@@ -297,7 +297,7 @@ export function handleDeliver(event: DeliverEvent): void {
 
   // Update Service totalDeliveries counter
   if (serviceId !== null) {
-    let service = Service.load(serviceId);
+    let service = Service.load(serviceId.toString());
     if (service !== null) {
       service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
       service.save();

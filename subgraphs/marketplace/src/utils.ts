@@ -78,7 +78,7 @@ export function getServiceIdFromMech(mech: Bytes): Bytes | null {
     let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
     if (mechAgent !== null) {
       if (mechAgent.service !== null) {
-        return Bytes.fromHexString(mechAgent.service!.toHexString());
+        return Bytes.fromHexString(mechAgent.service!);
       }
       // Fallback: try to get service ID from agent ID
       return getServiceIdFromAgentId(createMechEntity.agentId!);
@@ -91,13 +91,13 @@ export function getOrCreateSender(address: Bytes): Sender {
   let sender = Sender.load(address);
   if (sender === null) {
     sender = new Sender(address);
-    sender.totalRequests = BigInt.fromI32(0);
-    sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaTransactions = BigInt.fromI32(0);
+    // sender.totalRequests = BigInt.fromI32(0);
+    // sender.totalTransactions = BigInt.fromI32(0);
+    // sender.totalAtaTransactions = BigInt.fromI32(0);
 
     // Marketplace-only counters
-    sender.totalMarketplaceRequests = BigInt.fromI32(0);
-    sender.totalOffChainRequests = BigInt.fromI32(0);
+    // sender.totalMarketplaceRequests = BigInt.fromI32(0);
+    // sender.totalOffChainRequests = BigInt.fromI32(0);
   }
   return sender as Sender;
 }

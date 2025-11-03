@@ -223,27 +223,3 @@ templates:
         - event: Deliver(indexed address,uint256,bytes)
           handler: handleDeliver
       file: ./src/agent-mech.ts
-  - name: MechRequest
-    kind: file/ipfs
-    mapping:
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./src/mech-request.ts
-      handler: handleMechRequest
-      entities:
-        - MechRequest
-      abis:
-        - name: AgentMech
-          file: ./abis/AgentMech.json
-  - name: MechDeliver
-    kind: file/ipfs
-    mapping:
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./src/mech-deliver.ts
-      handler: handleMechDeliver
-      entities:
-        - MechDeliver
-      abis:
-        - name: AgentMech
-          file: ./abis/AgentMech.json

@@ -73,7 +73,7 @@ export function getOrCreateMetadata(serviceId: BigInt): Metadata {
   if (entity === null) {
     entity = new Metadata(serviceId.toString());
     entity.serviceId = serviceId;
-    entity.service = Bytes.fromHexString(serviceId.toHexString());
+    entity.service = serviceId.toString();
   }
   return entity;
 }
@@ -114,7 +114,7 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(serviceId);
+  let mech = Mech.load(serviceId.toString());
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',

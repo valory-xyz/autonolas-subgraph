@@ -27,8 +27,8 @@ export function handleDeliver(event: DeliverEvent): void {
   // Link to service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    deliver.service = serviceId;
-    let service = Service.load(serviceId);
+    deliver.service = serviceId.toString();
+    let service = Service.load(serviceId.toString());
     if (service !== null) {
       service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
       service.save();
@@ -73,7 +73,7 @@ export function handleRequest(event: RequestEvent): void {
   let request = getOrCreateRequest(event.params.requestId);
   
   // Common fields only
-  request.mech = event.params.mech;
+  request.mech = event.params.mech.toHexString();
   request.blockNumber = event.block.number;
   request.blockTimestamp = event.block.timestamp;
   request.transactionHash = event.transaction.hash;
@@ -85,8 +85,8 @@ export function handleRequest(event: RequestEvent): void {
   // Link to service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    request.service = serviceId;
-    let service = Service.load(serviceId);
+    request.service = serviceId.toString();
+    let service = Service.load(serviceId.toString());
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
@@ -99,8 +99,8 @@ export function handleRequest(event: RequestEvent): void {
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // Update sender counters - use Int operations
-  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
+  // sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  // sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
   sender.save();
 
   // Identify service multisig (counts toward ATA requests)
@@ -116,7 +116,7 @@ export function handleRequest(event: RequestEvent): void {
       transaction.save();
 
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
   global.save();

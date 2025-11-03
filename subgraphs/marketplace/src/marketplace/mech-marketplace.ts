@@ -57,17 +57,16 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.save();
 
   // Create Mech entity
-  let serviceIdBytes = Bytes.fromHexString(event.params.serviceId.toHexString());
-  let mechAgent = new Mech(serviceIdBytes);
+  let mechAgent = new Mech(event.params.serviceId.toString());
 
   mechAgent.address = event.params.mech;
   mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
-  mechAgent.service = serviceIdBytes;
+  mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
 
   // Get service configHash from Service entity and write it to Mech
-  let service = Service.load(serviceIdBytes);
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
@@ -165,10 +164,10 @@ export function handleMarketplaceDeliveryWithSignatures(
   /* As these requests are made off-chain we assume that the number of requests 
   is the same as number of deliveries, and add the same to `totalRequests` */
   // Use Int operations
-  sender.totalOffChainRequests = (sender.totalOffChainRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
+  // sender.totalOffChainRequests = (sender.totalOffChainRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
 
-  sender.totalRequests = (sender.totalRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
-  sender.totalTransactions = (sender.totalTransactions || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
+  // sender.totalRequests = (sender.totalRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
+  // sender.totalTransactions = (sender.totalTransactions || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
   sender.save();
 
   let global = getGlobal();
@@ -212,7 +211,7 @@ export function handleMarketplaceDeliveryWithSignatures(
       ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
 
       // Update requester-level ATA count (using existing sender variable) - use Int operations
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
 
@@ -224,9 +223,7 @@ export function handleMarketplaceDeliveryWithSignatures(
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
   if (serviceIDForOffChain !== null) {
-    // serviceIDForOffChain is a decimal string, convert to BigInt then to Bytes
-    let serviceIdBigInt = BigInt.fromString(serviceIDForOffChain);
-    let serviceEntity = Service.load(Bytes.fromHexString(serviceIdBigInt.toHexString()));
+    let serviceEntity = Service.load(serviceIDForOffChain.toString());
     if (serviceEntity !== null) {
       let agentIds = serviceEntity.agentIds;
       for (let i = 0; i < agentIds.length; i++) {
@@ -258,12 +255,7 @@ export function handleDeliverWithSignaturesV1(
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    deliver.service = serviceId;
-    let service = Service.load(serviceId);
-    if (service !== null) {
-      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
-      service.save();
-    }
+    deliver.service = serviceId.toString();
   }
 
   deliver.save();
@@ -303,12 +295,7 @@ export function handleDeliverWithSignaturesV2(
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    deliver.service = serviceId;
-    let service = Service.load(serviceId);
-    if (service !== null) {
-      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
-      service.save();
-    }
+    deliver.service = serviceId.toString();
   }
 
   deliver.save();
@@ -361,19 +348,19 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   let sender = getOrCreateSender(event.params.requester);
 
-  if (sender.totalMarketplaceRequests === null) {
-    sender.totalMarketplaceRequests = BigInt.fromI32(0);
-  }
-  if (sender.totalRequests === null) {
-    sender.totalRequests = BigInt.fromI32(0);
-  }
-  if (sender.totalTransactions === null) {
-    sender.totalTransactions = BigInt.fromI32(0);
-  }
-  // Use Int operations
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
-  sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
+  // if (sender.totalMarketplaceRequests === null) {
+  //   sender.totalMarketplaceRequests = BigInt.fromI32(0);
+  // }
+  // if (sender.totalRequests === null) {
+  //   sender.totalRequests = BigInt.fromI32(0);
+  // }
+  // if (sender.totalTransactions === null) {
+  //   sender.totalTransactions = BigInt.fromI32(0);
+  // }
+  // // Use Int operations
+  // sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  // sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
+  // sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
   sender.save();
 
   // Get service ID from requester's multisig address
@@ -385,17 +372,14 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     
     // Common fields only
     request.sender = sender.id;
-    request.mech = event.params.priorityMech;
+    request.mech = event.params.priorityMech.toHexString();
     request.blockNumber = event.block.number;
     request.blockTimestamp = event.block.timestamp;
     request.transactionHash = event.transaction.hash;
 
     if (serviceId !== null) {
-      // serviceId is a decimal string, convert to BigInt then to Bytes
-      let serviceIdBigInt = BigInt.fromString(serviceId);
-      let serviceIdBytes = Bytes.fromHexString(serviceIdBigInt.toHexString());
-      request.service = serviceIdBytes;
-      let service = Service.load(serviceIdBytes);
+      request.service = serviceId.toString();
+      let service = Service.load(serviceId.toString());
       if (service !== null) {
         service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
         service.save();
@@ -440,7 +424,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
         BigInt.fromI32(1)
       );
       // Also update sender-level ATA count - use Int operations
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
   }
@@ -448,7 +432,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Increment per-agent counters for all canonical agents of this service (on-chain requests)
   if (serviceId !== null) {
-    let svc = Service.load(Bytes.fromHexString(serviceId)); // Changed from MarketplaceService
+    let svc = Service.load(serviceId.toString()); // Changed from MarketplaceService
     if (svc !== null) {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {
