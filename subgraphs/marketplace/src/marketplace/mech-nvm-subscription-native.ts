@@ -81,6 +81,10 @@ export function handleDeliver(event: DeliverEvent): void {
 export function handleRequest(event: RequestEvent): void {
   let request = getOrCreateRequest(event.params.requestId);
   
+  // Check if this is a marketplace request (already counted in handleMarketplaceRequest)
+  let existingMarketplaceRequest = RequestToMarketplace.load(event.params.requestId);
+  let isMarketplaceRequest = (existingMarketplaceRequest !== null);
+  
   // Get or create sender from transaction origin
   let sender = getOrCreateSender(event.transaction.from);
   request.sender = sender.id;
@@ -111,28 +115,31 @@ export function handleRequest(event: RequestEvent): void {
   // Update per-mech counters
   updateMechCountersOnRequest(event.params.mech);
 
-  // Update global counters
-  let global = getGlobal();
-  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
-  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+  // Only increment global/sender counters if NOT a marketplace request (to avoid double-counting)
+  if (!isMarketplaceRequest) {
+    // Update global counters
+    let global = getGlobal();
+    global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
+    global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
-  // Update sender counters
-  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
-  sender.save();
+    // Update sender counters
+    sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+    sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
+    sender.save();
 
-  // Identify service multisig (counts toward ATA requests)
-  // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
-  let serviceIdForRequest = getServiceIdFromMultisig(event.transaction.from);
-  if (serviceIdForRequest !== null) {
-    let txHash = event.transaction.hash;
-    if (!ataTransactionExists(txHash)) {
-      getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
-      global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+    // Identify service multisig (counts toward ATA requests)
+    // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
+    let serviceIdForRequest = getServiceIdFromMultisig(event.transaction.from);
+    if (serviceIdForRequest !== null) {
+      let txHash = event.transaction.hash;
+      if (!ataTransactionExists(txHash)) {
+        getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
+        global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+        sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      }
     }
+    global.save();
   }
-  global.save();
 
   request.save();
 
