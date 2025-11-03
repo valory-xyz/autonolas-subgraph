@@ -5,6 +5,8 @@ import {
   JSONValueKind,
   log,
   BigInt,
+  DataSourceContext,
+  DataSourceTemplate,
 } from '@graphprotocol/graph-ts';
 import {
   Request as RequestEvent,
@@ -182,32 +184,29 @@ export function handleRequest(event: RequestEvent): void {
   sender.save();
   global.save();
 
+  let context = new DataSourceContext();
+  context.setBytes('requestId', entity.id);
+
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
 
-  let prompt = '';
-  let tool = '';
-  let questionTitle = '';
+  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsHash], context);
 
-  let metadata = getMetadata(ipfsHash);
-  if (metadata) {
-    prompt = metadata.prompt;
-    tool = metadata.tool;
-    if (metadata.prompt) {
-      const extractedQuestionTitle = extractQuestionTitle(metadata.prompt);
-      if (extractedQuestionTitle) {
-        questionTitle = extractedQuestionTitle;
-      }
-    }
-  }
+  // let prompt = '';
+  // let tool = '';
+  // let questionTitle = '';
 
-  let mechRequest = new RequestToMech(Bytes.fromHexString(event.params.requestId.toHexString()));
-  mechRequest.ipfsHash = ipfsHash;
-  mechRequest.prompt = prompt;
-  mechRequest.tool = tool;
-  mechRequest.questionTitle = questionTitle;
-  mechRequest.request = entity.id;
-  mechRequest.save();
+  // let metadata = getMetadata(ipfsHash);
+  // if (metadata) {
+  //   prompt = metadata.prompt;
+  //   tool = metadata.tool;
+  //   if (metadata.prompt) {
+  //     const extractedQuestionTitle = extractQuestionTitle(metadata.prompt);
+  //     if (extractedQuestionTitle) {
+  //       questionTitle = extractedQuestionTitle;
+  //     }
+  //   }
+  // }
 
   entity.sender = event.params.sender;
   entity.mech = event.address.toHexString();
