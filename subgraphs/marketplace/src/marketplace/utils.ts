@@ -114,13 +114,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(BigInt.fromByteArray(serviceId).toString());
+  let mech = Mech.load(serviceId.toString());
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        BigInt.fromByteArray(serviceId).toString(),
+        serviceId.toString(),
         transactionHash.toHexString(),
         functionName,
       ]
@@ -149,10 +149,10 @@ export function getServiceIdFromMultisig(
   return null;
 }
 
-export function getServiceIdFromMech(mechAddress: Bytes): Bytes | null {
+export function getServiceIdFromMech(mechAddress: Bytes): BigInt | null {
   let createMechEntity = CreateMech.load(mechAddress);
   if (createMechEntity !== null && createMechEntity.serviceId !== null) {
-    return Bytes.fromHexString(createMechEntity.serviceId!.toHexString());
+    return createMechEntity.serviceId;
   }
   return null;
 }

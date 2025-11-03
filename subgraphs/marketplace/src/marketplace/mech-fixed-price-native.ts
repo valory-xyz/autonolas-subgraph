@@ -30,13 +30,26 @@ export function handleDeliver(event: DeliverEvent): void {
       request.deliveredByMech = event.params.mech;
       request.save();
       
-      // Decrement undelivered counter
-      const serviceId = getServiceIdFromMech(event.params.mech);
-      if (serviceId !== null) {
-        let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
-        if (mechEntity !== null && mechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
-          mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
-          mechEntity.save();
+      // Update counters for the priority mech (the one that received the request)
+      if (request.priorityMech !== null) {
+        const priorityServiceId = getServiceIdFromMech(request.priorityMech as Bytes);
+        if (priorityServiceId !== null) {
+          let priorityMechEntity = Mech.load(priorityServiceId.toString());
+          if (priorityMechEntity !== null) {
+            // Check if priority mech delivered its own request or another mech delivered it
+            if (request.priorityMech!.equals(event.params.mech)) {
+              // Self-delivery: decrement undelivered and increment self-delivered counter
+              if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+                priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+              }
+              priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
+            } else {
+              // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
+              priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
+            }
+            
+            priorityMechEntity.save();
+          }
         }
       }
     }
@@ -96,6 +109,7 @@ export function handleRequest(event: RequestEvent): void {
   request.blockTimestamp = event.block.timestamp;
   request.transactionHash = event.transaction.hash;
   request.isDelivered = false;
+  request.priorityMech = event.params.mech;
 
   // Get or create sender from transaction origin
   let sender = getOrCreateSender(event.transaction.from);
@@ -112,12 +126,19 @@ export function handleRequest(event: RequestEvent): void {
     }
 
     // Update per-mech counters
-    let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
+    let mechEntity = Mech.load(serviceId.toString());
     if (mechEntity !== null) {
       mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
       mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
       mechEntity.save();
+    } else {
+      log.warning('handleRequest: Could not find Mech entity for serviceId {} (from mech {})', [
+        serviceId.toString(),
+        event.params.mech.toHexString()
+      ]);
     }
+  } else {
+    log.warning('handleRequest: getServiceIdFromMech returned null for mech {}', [event.params.mech.toHexString()]);
   }
 
   // Update global counters
@@ -177,9 +198,9 @@ export function handleRevokeRequest(event: RevokeRequestEvent): void {
     return;
   }
 
-  let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
+  let mechEntity = Mech.load(serviceId.toString());
   if (mechEntity === null) {
-    log.warning('RevokeRequest: Could not find Mech entity for serviceId {}', [BigInt.fromByteArray(serviceId).toString()]);
+    log.warning('RevokeRequest: Could not find Mech entity for serviceId {}', [serviceId.toString()]);
     return;
   }
 
@@ -188,7 +209,7 @@ export function handleRevokeRequest(event: RevokeRequestEvent): void {
     mechEntity.save();
     log.info('RevokeRequest: Decremented undeliveredRequests for mech {} (serviceId: {}), new value: {}', [
       event.address.toHexString(),
-      BigInt.fromByteArray(serviceId).toString(),
+      serviceId.toString(),
       mechEntity.undeliveredRequests.toString()
     ]);
   }

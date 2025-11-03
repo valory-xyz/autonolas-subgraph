@@ -108,6 +108,29 @@ export function handleMarketplaceDelivery(
       request.isDelivered = true;
       request.deliveredByMech = event.params.deliveryMech;
       request.save();
+      
+      // Update priority mech counters
+      if (request.priorityMech !== null) {
+        const priorityServiceId = getServiceIdFromMech(request.priorityMech!);
+        if (priorityServiceId !== null) {
+          let priorityMechEntity = Mech.load(priorityServiceId.toString());
+          if (priorityMechEntity !== null) {
+            // Decrement undelivered
+            if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+              priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+            }
+            
+            // Track self vs other delivery
+            if (request.priorityMech!.equals(event.params.deliveryMech)) {
+              priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
+            } else {
+              priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
+            }
+            
+            priorityMechEntity.save();
+          }
+        }
+      }
     }
   }
 
@@ -379,6 +402,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.blockTimestamp = event.block.timestamp;
     request.transactionHash = event.transaction.hash;
     request.isDelivered = false;
+    request.priorityMech = event.params.priorityMech;
 
     if (serviceId !== null) {
       request.service = serviceId.toString();
