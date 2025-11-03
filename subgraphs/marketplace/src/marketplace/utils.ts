@@ -16,6 +16,9 @@ import {
   CreateMech,
   Mech,
   RequestsPerAgent,
+  AtaTransaction,
+  RequestToMarketplace,
+  DeliverForMarketplace,
 } from '../../generated/schema';
 import {
   MechFixedPriceNative,
@@ -314,4 +317,54 @@ export function updateMechCountersOnRequest(mechAddress: Bytes): void {
       mechAddress.toHexString()
     ]);
   }
+}
+
+/**
+ * Check if AtaTransaction exists for a given transaction hash
+ * Returns true if transaction already exists, false if newly created
+ */
+export function ataTransactionExists(txHash: Bytes): boolean {
+  return AtaTransaction.load(txHash) !== null;
+}
+
+/**
+ * Get or create AtaTransaction entity
+ */
+export function getOrCreateAtaTransaction(
+  txHash: Bytes,
+  blockNumber: BigInt,
+  blockTimestamp: BigInt
+): AtaTransaction {
+  let transaction = AtaTransaction.load(txHash);
+  if (transaction === null) {
+    transaction = new AtaTransaction(txHash);
+    transaction.blockNumber = blockNumber;
+    transaction.blockTimestamp = blockTimestamp;
+    transaction.save();
+  }
+  return transaction as AtaTransaction;
+}
+
+/**
+ * Get or create RequestToMarketplace entity
+ */
+export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMarketplace {
+  let marketplaceRequest = RequestToMarketplace.load(requestId);
+  if (marketplaceRequest === null) {
+    marketplaceRequest = new RequestToMarketplace(requestId);
+    marketplaceRequest.requestId = requestId;
+  }
+  return marketplaceRequest as RequestToMarketplace;
+}
+
+/**
+ * Get or create DeliverForMarketplace entity
+ */
+export function getOrCreateDeliverForMarketplace(requestId: Bytes): DeliverForMarketplace {
+  let marketplaceDeliver = DeliverForMarketplace.load(requestId);
+  if (marketplaceDeliver === null) {
+    marketplaceDeliver = new DeliverForMarketplace(requestId);
+    marketplaceDeliver.requestId = requestId;
+  }
+  return marketplaceDeliver as DeliverForMarketplace;
 }
