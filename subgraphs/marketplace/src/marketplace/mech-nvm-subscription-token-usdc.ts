@@ -99,8 +99,8 @@ export function handleRequest(event: RequestEvent): void {
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // Update sender counters - use Int operations
-  // sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  // sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
+  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
   sender.save();
 
   // Identify service multisig (counts toward ATA requests)
@@ -116,7 +116,7 @@ export function handleRequest(event: RequestEvent): void {
       transaction.save();
 
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
   global.save();

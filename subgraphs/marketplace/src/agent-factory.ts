@@ -22,7 +22,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let serviceId = getServiceIdFromAgentId(event.params.agentId);
 
   if (serviceId === null) {
-    // log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
+    log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
     return;
   }
 
@@ -31,13 +31,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
   if (mechAgent !== null) {
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
-    mechAgent.service = serviceId.toHexString();
+    mechAgent.service = serviceId.toString();
     mechAgent.save();
   } else {
-    mechAgent = new MechAgent(event.params.agentId.toHexString());
+    mechAgent = new MechAgent(event.params.agentId.toString());
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
-    mechAgent.service = serviceId.toHexString();
+    mechAgent.service = serviceId.toString();
     mechAgent.totalTransactions = BigInt.fromI32(0);
     mechAgent.save();
   }

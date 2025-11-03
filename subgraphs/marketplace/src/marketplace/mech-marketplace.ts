@@ -348,19 +348,10 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   let sender = getOrCreateSender(event.params.requester);
 
-  // if (sender.totalMarketplaceRequests === null) {
-  //   sender.totalMarketplaceRequests = BigInt.fromI32(0);
-  // }
-  // if (sender.totalRequests === null) {
-  //   sender.totalRequests = BigInt.fromI32(0);
-  // }
-  // if (sender.totalTransactions === null) {
-  //   sender.totalTransactions = BigInt.fromI32(0);
-  // }
   // // Use Int operations
-  // sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  // sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
-  // sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
+  sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
   sender.save();
 
   // Get service ID from requester's multisig address

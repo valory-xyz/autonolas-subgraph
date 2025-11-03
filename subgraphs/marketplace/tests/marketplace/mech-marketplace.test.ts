@@ -38,7 +38,7 @@ import {
 } from "../../generated/schema"
 
 function createService(serviceId: BigInt, agentIds: BigInt[]): void {
-  let service = new Service(Bytes.fromHexString(serviceId.toHexString()))
+  let service = new Service(serviceId.toString())
   service.serviceId = serviceId
   service.historicalMultisigs = []
   service.totalRequests = BigInt.fromI32(0)
@@ -72,11 +72,11 @@ function createMechMapping(
   mapping.transactionHash = Bytes.fromHexString("0x02")
   mapping.save()
 
-  let mechEntity = new Mech(Bytes.fromHexString(serviceId.toHexString()))
+  let mechEntity = new Mech(serviceId.toString())
   mechEntity.address = mech
   mechEntity.mechFactory = mechFactory
   mechEntity.owner = owner
-  mechEntity.service = Bytes.fromHexString(serviceId.toHexString())
+  mechEntity.service = serviceId.toString()
   mechEntity.totalDeliveriesTransactions = BigInt.fromI32(0)
   mechEntity.save()
 }
@@ -112,7 +112,7 @@ function createRequestEntity(
   let request = new Request(requestId)
   // request.sender should be the Sender entity ID (Bytes), not the Address
   request.sender = senderEntity.id
-  request.mech = mech
+  request.mech = mech.toHexString()
   request.blockNumber = BigInt.fromI32(0)
   request.blockTimestamp = BigInt.fromI32(0)
   request.transactionHash = requestId

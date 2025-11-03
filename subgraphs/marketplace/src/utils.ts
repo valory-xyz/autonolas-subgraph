@@ -91,13 +91,13 @@ export function getOrCreateSender(address: Bytes): Sender {
   let sender = Sender.load(address);
   if (sender === null) {
     sender = new Sender(address);
-    // sender.totalRequests = BigInt.fromI32(0);
-    // sender.totalTransactions = BigInt.fromI32(0);
-    // sender.totalAtaTransactions = BigInt.fromI32(0);
+    sender.totalRequests = BigInt.fromI32(0);
+    sender.totalTransactions = BigInt.fromI32(0);
+    sender.totalAtaTransactions = BigInt.fromI32(0);
 
     // Marketplace-only counters
-    // sender.totalMarketplaceRequests = BigInt.fromI32(0);
-    // sender.totalOffChainRequests = BigInt.fromI32(0);
+    sender.totalMarketplaceRequests = BigInt.fromI32(0);
+    sender.totalOffChainRequests = BigInt.fromI32(0);
   }
   return sender as Sender;
 }

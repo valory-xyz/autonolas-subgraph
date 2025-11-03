@@ -26,7 +26,7 @@ describe("Describe mech-marketplace processing", () => {
         registryL2HandleCreateService(newCreateServiceEvent);
 
         assert.entityCount("Service", 1)
-        assert.fieldEquals("Service", Bytes.fromHexString(serviceId.toHexString()).toHexString(), "serviceId", "234")
+        assert.fieldEquals("Service", serviceId.toString(), "serviceId", "234")
 
         let mech = Address.fromString("0x0000000000000000000000000000000000000001")
         let mechFactory = Address.fromString("0x0000000000000000000000000000000000000001")
@@ -39,42 +39,42 @@ describe("Describe mech-marketplace processing", () => {
         assert.entityCount("Mech", 1)
         assert.fieldEquals(
             "Mech",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "address",
             mech.toHexString()
         )
 
         assert.fieldEquals(
             "Mech",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "mechFactory",
             mechFactory.toHexString()
         )
 
         assert.fieldEquals(
             "Mech",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "owner",
             event.transaction.from.toHexString()
         )
 
         assert.fieldEquals(
             "Mech",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "service",
-            serviceId.toHexString()
+            serviceId.toString()
         )
 
         assert.fieldEquals(
             "Mech",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "totalDeliveriesTransactions",
             "0"
         )
 
         assert.fieldEquals(
             "Service",
-            serviceId.toHexString(),
+            serviceId.toString(),
             "configHash",
             configHash.toHexString()
         )

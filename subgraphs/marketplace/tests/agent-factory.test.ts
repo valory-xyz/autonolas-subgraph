@@ -24,6 +24,7 @@ describe("Describe entity assertions", () => {
   // https://thegraph.com/docs/en/developer/matchstick/#write-a-unit-test
 
   test("CreateMech created and stored", () => {
+
     // arrange
     let mech = Address.fromString("0x0000000000000000000000000000000000000001")
     let agentId = BigInt.fromI32(234)
