@@ -15,11 +15,36 @@ import {
   TEST_REQUEST_ID_8,
   TEST_REQUEST_ID_7,
   TEST_REQUEST_ID_6,
+  TEST_REQUEST_ID_1,
   TEST_DATA_USDC,
   TEST_DELIVERY_RATE_USDC
 } from "./test-constants"
 
 import { CreateMech as CreateMechEntity, Mech } from "../../generated/schema"
+import { Bytes } from "@graphprotocol/graph-ts"
+
+function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
+  let mapping = new CreateMechEntity(mechAddress)
+  mapping.mech = mechAddress
+  mapping.serviceId = serviceId
+  mapping.mechFactory = Address.zero()
+  mapping.blockNumber = BI.fromI32(0)
+  mapping.blockTimestamp = BI.fromI32(0)
+  mapping.transactionHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000")
+  mapping.save()
+
+  let mechEntity = new Mech(serviceId.toString())
+  mechEntity.address = mechAddress
+  mechEntity.mechFactory = Address.zero()
+  mechEntity.owner = Address.zero()
+  mechEntity.service = serviceId.toString()
+  mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
+  mechEntity.receivedRequests = BI.fromI32(0)
+  mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
+  mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+  mechEntity.undeliveredRequests = BI.fromI32(0)
+  mechEntity.save()
+}
 
 describe("Mech NVM Subscription Token USDC Handler", () => {
   afterEach(() => {
@@ -218,5 +243,94 @@ describe("Mech NVM Subscription Token USDC Handler", () => {
 
     handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_9))
     assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+  })
+
+  test("Self-delivery increments selfDeliveredFromReceived counter", () => {
+    // Arrange
+    let serviceId = BigInt.fromI32(452)
+    let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_USDC)
+    let testMech = Address.fromString("0x0000000000000000000000000000000000000452")
+    createMechWithMapping(testMech, serviceId)
+
+    // Act - Request and deliver by same mech
+    handleRequest(createRequestEvent(testMech, TEST_REQUEST_ID_1, TEST_DATA_USDC))
+    handleDeliver(createDeliverEvent(testMech, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_USDC))
+
+    // Assert
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "priorityMech", testMech.toHexString())
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "deliveredByMech", testMech.toHexString())
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "isDelivered", "true")
+    
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Decremented because self-delivered
+  })
+
+  test("Other-mech delivery increments deliveredByOthersFromReceived counter", () => {
+    // Arrange
+    let priorityMechServiceId = BigInt.fromI32(468)
+    let deliveryMechServiceId = BigInt.fromI32(484)
+    let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_USDC)
+    
+    let priorityMech = Address.fromString("0x0000000000000000000000000000000000000468")
+    let deliveryMech = Address.fromString("0x0000000000000000000000000000000000000484")
+    
+    createMechWithMapping(priorityMech, priorityMechServiceId)
+    createMechWithMapping(deliveryMech, deliveryMechServiceId)
+
+    // Request goes to priority mech
+    let requestEvent = createRequestEvent(priorityMech, TEST_REQUEST_ID_1, TEST_DATA_USDC)
+    
+    // But delivery mech delivers it
+    let deliverEvent = createDeliverEvent(deliveryMech, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_USDC)
+
+    // Act
+    handleRequest(requestEvent)
+    handleDeliver(deliverEvent)
+
+    // Assert - priority mech received but didn't deliver
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "priorityMech", priorityMech.toHexString())
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "deliveredByMech", deliveryMech.toHexString())
+    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "isDelivered", "true")
+    
+    // Priority mech counters - received but delivered by others
+    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "selfDeliveredFromReceived", "0")
+    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "deliveredByOthersFromReceived", "1")
+    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "undeliveredRequests", "1") // Stays 1 because priority mech hasn't delivered it itself
+    
+    // Delivery mech counters - didn't receive this request, so no counter changes
+    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "receivedRequests", "0")
+    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "selfDeliveredFromReceived", "0")
+    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "deliveredByOthersFromReceived", "0")
+    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "undeliveredRequests", "0")
+  })
+
+  test("Multiple self-deliveries increment counter correctly", () => {
+    // Arrange
+    let serviceId = BigInt.fromI32(500)
+    let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_USDC)
+    let testMech = Address.fromString("0x0000000000000000000000000000000000000500")
+    createMechWithMapping(testMech, serviceId)
+
+    let requestId1 = Bytes.fromHexString("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+    let requestId2 = Bytes.fromHexString("0xffffffffffffffffffffffffffffffffffffffff")
+
+    // Act - Two requests and two deliveries by same mech
+    handleRequest(createRequestEvent(testMech, requestId1, TEST_DATA_USDC))
+    handleRequest(createRequestEvent(testMech, requestId2, TEST_DATA_USDC))
+    
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "2")
+    
+    handleDeliver(createDeliverEvent(testMech, requestId1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_USDC))
+    handleDeliver(createDeliverEvent(testMech, requestId2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_USDC))
+
+    // Assert
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
+    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Both delivered by self
   })
 })
