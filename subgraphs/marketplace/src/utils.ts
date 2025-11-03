@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes } from '@graphprotocol/graph-ts';
+import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   AgentMultisigAssociation,
   CreateMech,
@@ -36,9 +36,9 @@ export function getOrCreateMultisigWithAgents(
 export function getOrCreateAgentMultisigAssociation(
   event: TransferEvent
 ): AgentMultisigAssociation {
-  let entity = AgentMultisigAssociation.load(event.params.id.toHexString());
+  let entity = AgentMultisigAssociation.load(event.params.id.toString());
   if (entity === null) {
-    entity = new AgentMultisigAssociation(event.params.id.toHexString());
+    entity = new AgentMultisigAssociation(event.params.id.toString());
   }
   return entity;
 }
@@ -54,12 +54,17 @@ export function getOrCreateCreateMechEntity(
 }
 
 export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
+  log.info("Getting service ID from agent ID: {}", [agentId.toString()]);
   let agentMultisigAssociation = AgentMultisigAssociation.load(
-    agentId.toHexString()
+    agentId.toString()
   );
   if (agentMultisigAssociation !== null) {
+    log.info("Agent multisig association found for agent ID: {}", [agentId.toString()]);
+    log.info("Multisig: {}", [agentMultisigAssociation.multisig.toHexString()]);
     return getServiceIdFromMultisig(agentMultisigAssociation.multisig);
   }
+
+  log.info("No agent multisig association found for agent ID: {}", [agentId.toString()]);
   return null;
 }
 

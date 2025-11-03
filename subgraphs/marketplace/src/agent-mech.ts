@@ -155,9 +155,9 @@ export function handleRequest(event: RequestEvent): void {
 
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);
-  // sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  // sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  // sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
+  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
 
   let global = getGlobal();
   global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
@@ -175,7 +175,7 @@ export function handleRequest(event: RequestEvent): void {
       transaction.save();
 
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
 

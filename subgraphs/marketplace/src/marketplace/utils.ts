@@ -114,13 +114,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(serviceId.toString());
+  let mech = Mech.load(BigInt.fromByteArray(serviceId).toString());
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        serviceId.toHexString(),
+        BigInt.fromByteArray(serviceId).toString(),
         transactionHash.toHexString(),
         functionName,
       ]
