@@ -5,14 +5,17 @@ import {
   clearStore,
   afterEach
 } from "matchstick-as/assembly/index"
-import { BigInt } from "@graphprotocol/graph-ts"
+import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import {
   handleDeliver,
-  handleRequest
+  handleRequest,
+  handleRevokeRequest
 } from "../../src/marketplace/mech-fixed-price-native"
 import {
   createDeliverEvent,
-  createRequestEvent
+  createRequestEvent,
+  createRevokeEvent,
+  createMechWithMapping
 } from "./mech-fixed-price-native-utils"
 import {
   TEST_MECH,
@@ -190,5 +193,51 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Global", "", "totalDeliveries", "1")
       assert.fieldEquals("Global", "", "totalTransactions", "2")
       assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
+    })
+
+  test("Revoke decrements undelivered when not delivered", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(112)
+      createMechWithMapping(TEST_MECH, serviceId)
+
+      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
+
+      // Act
+      handleRequest(requestEvent)
+
+      // Assert request incremented undelivered
+      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
+
+      // Act - revoke
+      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1)
+      handleRevokeRequest(revokeEvent)
+
+      // Assert revoke decremented undelivered
+      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+    })
+
+  test("Revoke is ignored when request is already delivered", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(128)
+      let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
+      createMechWithMapping(TEST_MECH, serviceId)
+
+      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_DATA_NATIVE)
+      let deliverEvent = createDeliverEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
+
+      // Act - create request and deliver it
+      handleRequest(requestEvent)
+      handleDeliver(deliverEvent)
+
+      // Assert request was delivered and undelivered is 0
+      assert.fieldEquals("Request", TEST_REQUEST_ID_2.toHexString(), "isDelivered", "true")
+      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+
+      // Act - try to revoke delivered request
+      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_2)
+      handleRevokeRequest(revokeEvent)
+
+      // Assert undelivered remains 0 (revoke ignored)
+      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
     })
 })

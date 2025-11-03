@@ -5,9 +5,9 @@ import {
   afterEach,
   clearStore
 } from "matchstick-as/assembly/index"
-import { BigInt } from "@graphprotocol/graph-ts"
-import { handleDeliver, handleRequest } from "../../src/marketplace/mech-nvm-subscription-token-usdc"
-import { createDeliverEvent, createRequestEvent } from "./mech-nvm-subscription-token-usdc-utils"
+import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
+import { handleDeliver, handleRequest, handleRevokeRequest } from "../../src/marketplace/mech-nvm-subscription-token-usdc"
+import { createDeliverEvent, createRequestEvent, createRevokeEvent } from "./mech-nvm-subscription-token-usdc-utils"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
@@ -18,6 +18,8 @@ import {
   TEST_DATA_USDC,
   TEST_DELIVERY_RATE_USDC
 } from "./test-constants"
+
+import { CreateMech as CreateMechEntity, Mech } from "../../generated/schema"
 
 describe("Mech NVM Subscription Token USDC Handler", () => {
   afterEach(() => {
@@ -144,5 +146,77 @@ describe("Mech NVM Subscription Token USDC Handler", () => {
     assert.fieldEquals("Global", "", "totalDeliveries", "1")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
+  })
+
+  test("Revoke decrements undelivered when not delivered", () => {
+    const serviceId = BI.fromI32(80)
+
+    let mapping = new CreateMechEntity(TEST_MECH)
+    mapping.mech = TEST_MECH
+    mapping.serviceId = serviceId
+    mapping.mechFactory = Address.zero()
+    mapping.blockNumber = BI.fromI32(0)
+    mapping.blockTimestamp = BI.fromI32(0)
+    mapping.transactionHash = TEST_REQUEST_ID_9
+    mapping.save()
+
+    let mechEntity = new Mech(serviceId.toString())
+    mechEntity.address = TEST_MECH
+    mechEntity.mechFactory = Address.zero()
+    mechEntity.owner = Address.zero()
+    mechEntity.service = serviceId.toString()
+    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
+    mechEntity.receivedRequests = BI.fromI32(0)
+    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
+    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+    mechEntity.undeliveredRequests = BI.fromI32(0)
+    mechEntity.save()
+
+    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_9, TEST_DATA_USDC))
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
+
+    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_9))
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+  })
+
+  test("Revoke ignored when request already delivered", () => {
+    const serviceId = BI.fromI32(96)
+
+    let mapping = new CreateMechEntity(TEST_MECH)
+    mapping.mech = TEST_MECH
+    mapping.serviceId = serviceId
+    mapping.mechFactory = Address.zero()
+    mapping.blockNumber = BI.fromI32(0)
+    mapping.blockTimestamp = BI.fromI32(0)
+    mapping.transactionHash = TEST_REQUEST_ID_9
+    mapping.save()
+
+    let mechEntity = new Mech(serviceId.toString())
+    mechEntity.address = TEST_MECH
+    mechEntity.mechFactory = Address.zero()
+    mechEntity.owner = Address.zero()
+    mechEntity.service = serviceId.toString()
+    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
+    mechEntity.receivedRequests = BI.fromI32(0)
+    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
+    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+    mechEntity.undeliveredRequests = BI.fromI32(0)
+    mechEntity.save()
+
+    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_9, TEST_DATA_USDC))
+    handleDeliver(
+      createDeliverEvent(
+        TEST_MECH,
+        TEST_REQUEST_ID_9,
+        TEST_MECH_SERVICE_MULTISIG,
+        BigInt.fromI32(TEST_DELIVERY_RATE_USDC),
+        TEST_DATA_USDC
+      )
+    )
+
+    assert.fieldEquals("Request", TEST_REQUEST_ID_9.toHexString(), "isDelivered", "true")
+
+    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_9))
+    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
   })
 })
