@@ -130,15 +130,22 @@ export function handleMarketplaceDelivery(
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // On-chain delivery ATA counting: deliveryMech is always a service multisig
-  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  global.save();
-
-  // Also update mech-level ATA count for the deliveryMech (if it exists)
-  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
-  if (deliveryMech != null) {
-    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-    deliveryMech.save();
+  // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
+  let txHash = event.transaction.hash;
+  if (!ataTransactionExists(txHash)) {
+    getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
+    
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+    
+    // Also update mech-level ATA count for the deliveryMech (if it exists)
+    let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
+    if (deliveryMech != null) {
+      deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+      deliveryMech.save();
+    }
   }
+  
+  global.save();
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
