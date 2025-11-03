@@ -350,6 +350,7 @@ type Request @entity(immutable: false) {
 
   # Delivery status
   isDelivered: Boolean!
+  priorityMech: Bytes # address of the mech that was originally requested
   deliveredByMech: Bytes # address of the mech that delivered the request
 }
 
