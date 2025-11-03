@@ -262,3 +262,56 @@ export function getOrCreateRequestsPerAgent(agentId: BigInt): RequestsPerAgent {
   }
   return requestPerAgent as RequestsPerAgent;
 }
+
+/**
+ * Shared logic for updating priority mech counters when a delivery occurs
+ */
+export function updateMechCountersOnDelivery(
+  request: Request,
+  deliveryMech: Bytes
+): void {
+  if (request.priorityMech === null) return;
+  
+  const priorityServiceId = getServiceIdFromMech(request.priorityMech as Bytes);
+  if (priorityServiceId === null) return;
+  
+  let priorityMechEntity = Mech.load(priorityServiceId.toString());
+  if (priorityMechEntity === null) return;
+  
+  // Check if priority mech delivered its own request or another mech delivered it
+  if (request.priorityMech!.equals(deliveryMech)) {
+    // Self-delivery: decrement undelivered and increment self-delivered counter
+    if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+      priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+    }
+    priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
+  } else {
+    // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
+    priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
+  }
+  
+  priorityMechEntity.save();
+}
+
+/**
+ * Shared logic for updating mech counters when a request is received
+ */
+export function updateMechCountersOnRequest(mechAddress: Bytes): void {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.warning('updateMechCountersOnRequest: getServiceIdFromMech returned null for mech {}', [mechAddress.toHexString()]);
+    return;
+  }
+  
+  let mechEntity = Mech.load(serviceId.toString());
+  if (mechEntity !== null) {
+    mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
+    mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
+    mechEntity.save();
+  } else {
+    log.warning('updateMechCountersOnRequest: Could not find Mech entity for serviceId {} (from mech {})', [
+      serviceId.toString(),
+      mechAddress.toHexString()
+    ]);
+  }
+}
