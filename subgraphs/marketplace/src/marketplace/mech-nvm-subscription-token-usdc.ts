@@ -98,9 +98,9 @@ export function handleRequest(event: RequestEvent): void {
   global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
-  // Update sender counters - use Int operations
+  // Update sender counters
   sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  sender.totalMarketplaceRequests = (sender.totalMarketplaceRequests || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
+  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
   sender.save();
 
   // Identify service multisig (counts toward ATA requests)

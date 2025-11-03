@@ -96,27 +96,25 @@ export function handleMarketplaceDelivery(
   entity.transactionHash = event.transaction.hash;
   entity.save();
 
+  let global = getGlobal();
+  global.totalDeliveries = global.totalDeliveries.plus(
+    event.params.numDeliveries
+  );
+  global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
+    BigInt.fromI32(1)
+  );
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
-  // TODO: Done in using timeseries
-  // let global = getGlobal();
-  // global.totalDeliveries = global.totalDeliveries.plus(
-  //   event.params.numDeliveries
-  // );
-  // global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
-  //   BigInt.fromI32(1)
-  // );
-  // global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+  // On-chain delivery ATA counting: deliveryMech is always a service multisig
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+  global.save();
 
-  // // On-chain delivery ATA counting: deliveryMech is always a service multisig
-  // global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  // global.save();
-
-  // // Also update mech-level ATA count for the deliveryMech (if it exists)
-  // let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
-  // if (deliveryMech != null) {
-  //   deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-  //   deliveryMech.save();
-  // }
+  // Also update mech-level ATA count for the deliveryMech (if it exists)
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
+  if (deliveryMech != null) {
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
+    deliveryMech.save();
+  }
 }
 
 export function handleMarketplaceDeliveryWithSignatures(
@@ -161,13 +159,11 @@ export function handleMarketplaceDeliveryWithSignatures(
   }
 
   let sender = getOrCreateSender(event.params.requester);
-  /* As these requests are made off-chain we assume that the number of requests 
-  is the same as number of deliveries, and add the same to `totalRequests` */
-  // Use Int operations
-  // sender.totalOffChainRequests = (sender.totalOffChainRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
-
-  // sender.totalRequests = (sender.totalRequests || BigInt.fromI32(0)).plus(event.params.numDeliveries);
-  // sender.totalTransactions = (sender.totalTransactions || BigInt.fromI32(0)).plus(BigInt.fromI32(1));
+  // As these requests are made off-chain we assume that the number of requests 
+  // is the same as number of deliveries, and add the same to `totalRequests`
+  sender.totalOffChainRequests = sender.totalOffChainRequests.plus(event.params.numDeliveries);
+  sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
   sender.save();
 
   let global = getGlobal();
