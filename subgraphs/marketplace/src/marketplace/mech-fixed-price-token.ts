@@ -4,7 +4,7 @@ import {
   RevokeRequest as RevokeRequestEvent,
 } from '../../generated/templates/MechFixedPriceToken/MechFixedPriceToken';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
-import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig } from './utils';
+import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest } from './utils';
 import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -30,28 +30,8 @@ export function handleDeliver(event: DeliverEvent): void {
       request.deliveredByMech = event.params.mech;
       request.save();
       
-      // Update counters for the priority mech (the one that received the request)
-      if (request.priorityMech !== null) {
-        const priorityServiceId = getServiceIdFromMech(request.priorityMech as Bytes);
-        if (priorityServiceId !== null) {
-          let priorityMechEntity = Mech.load(priorityServiceId.toString());
-          if (priorityMechEntity !== null) {
-            // Check if priority mech delivered its own request or another mech delivered it
-            if (request.priorityMech!.equals(event.params.mech)) {
-              // Self-delivery: decrement undelivered and increment self-delivered counter
-              if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
-                priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
-              }
-              priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
-            } else {
-              // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
-              priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
-            }
-            
-            priorityMechEntity.save();
-          }
-        }
-      }
+      // Update counters for the priority mech
+      updateMechCountersOnDelivery(request, event.params.mech);
     }
   }
 
@@ -115,7 +95,7 @@ export function handleRequest(event: RequestEvent): void {
   let sender = getOrCreateSender(event.transaction.from);
   request.sender = sender.id;
 
-  // Link to service
+  // Link to service and update counters
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
     request.service = serviceId.toString();
@@ -124,15 +104,10 @@ export function handleRequest(event: RequestEvent): void {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
     }
-
-    // Update per-mech counters
-    let mechEntity = Mech.load(serviceId.toString());
-    if (mechEntity !== null) {
-      mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
-      mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
-      mechEntity.save();
-    }
   }
+
+  // Update per-mech counters
+  updateMechCountersOnRequest(event.params.mech);
 
   // Update global counters
   let global = getGlobal();
