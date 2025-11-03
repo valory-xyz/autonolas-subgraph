@@ -53,7 +53,7 @@ export function handleCreateMultisigWithAgents(
   entity.transactionHash = event.transaction.hash;
 
   // Update MarketplaceService entity
-  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.latestMultisig = event.params.multisig;
 
@@ -83,7 +83,7 @@ export function handleCreateService(event: CreateServiceEvent): void {
   entity.save();
 
   // Create MarketplaceService entity
-  let service = new Service(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = new Service(event.params.serviceId.toString());
   service.serviceId = event.params.serviceId;
   service.configHash = event.params.configHash;
   service.historicalMultisigs = [];
@@ -150,7 +150,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   entity.save();
 
   // Maintain the current canonical agent set for the service
-  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     let agentIds = service.agentIds;
     let agentIdFound = false;
@@ -181,7 +181,7 @@ export function handleTerminateService(event: TerminateServiceEvent): void {
   entity.save();
 
   // Clear current canonical agent set on termination
-  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.agentIds = [];
     service.save();
@@ -194,7 +194,7 @@ export function handleTransfer(event: TransferEvent): void {
   );
   entity.from = event.params.from;
   entity.to = event.params.to;
-  // entity.ServiceRegistryL2_id = event.params.id;
+  entity.internal_id = event.params.id; // Required field
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -202,8 +202,8 @@ export function handleTransfer(event: TransferEvent): void {
 
   entity.save();
 
-  // Update Mech entity with owner
-  let mechAgent = Mech.load(Bytes.fromHexString(event.params.id.toHexString()));
+  // Update Mech entity with owner (Mech.id is serviceId as String)
+  let mechAgent = Mech.load(event.params.id.toString());
   if (mechAgent !== null) {
     mechAgent.owner = event.params.to;
     mechAgent.save();
@@ -224,14 +224,14 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
   entity.save();
 
   // Update MarketplaceService entity
-  let service = Service.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     service.configHash = event.params.configHash;
     service.save();
   }
 
-  // Update Mech entity with hash
-  let mech = Mech.load(Bytes.fromHexString(event.params.serviceId.toHexString()));
+  // Update Mech entity with hash (Mech.id is serviceId as String)
+  let mech = Mech.load(event.params.serviceId.toString());
   if (mech !== null) {
     mech.configHash = event.params.configHash;
     mech.save();
