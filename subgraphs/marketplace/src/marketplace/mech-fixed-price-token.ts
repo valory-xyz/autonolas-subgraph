@@ -23,6 +23,23 @@ export function handleDeliver(event: DeliverEvent): void {
     deliver.request = request.id;
     // request.sender stores the Sender ID (Bytes) directly in relations
     deliver.sender = request.sender as Bytes;
+    
+    // Mark request as delivered (only if not already delivered)
+    if (!request.isDelivered) {
+      request.isDelivered = true;
+      request.deliveredByMech = event.params.mech;
+      request.save();
+      
+      // Decrement undelivered counter
+      const serviceId = getServiceIdFromMech(event.params.mech);
+      if (serviceId !== null) {
+        let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
+        if (mechEntity !== null && mechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+          mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+          mechEntity.save();
+        }
+      }
+    }
   }
 
   // Link to service
@@ -93,6 +110,14 @@ export function handleRequest(event: RequestEvent): void {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
     }
+
+    // Update per-mech counters
+    let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
+    if (mechEntity !== null) {
+      mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
+      mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
+      mechEntity.save();
+    }
   }
 
   // Update global counters
@@ -149,7 +174,7 @@ export function handleRevokeRequest(event: RevokeRequestEvent): void {
     return;
   }
 
-  let mechEntity = Mech.load(serviceId.toString());
+  let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
   if (mechEntity === null) {
     return;
   }
