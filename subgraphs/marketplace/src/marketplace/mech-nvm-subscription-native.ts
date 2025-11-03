@@ -76,14 +76,6 @@ export function handleDeliver(event: DeliverEvent): void {
 export function handleRequest(event: RequestEvent): void {
   let request = getOrCreateRequest(event.params.requestId);
   
-  // Common fields only
-  request.mech = event.params.mech.toHexString();
-  request.blockNumber = event.block.number;
-  request.blockTimestamp = event.block.timestamp;
-  request.transactionHash = event.transaction.hash;
-  request.isDelivered = false;
-  request.priorityMech = event.params.mech;
-
   // Get or create sender from transaction origin
   let sender = getOrCreateSender(event.transaction.from);
   request.sender = sender.id;
@@ -91,13 +83,25 @@ export function handleRequest(event: RequestEvent): void {
   // Link to service and update counters
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
+    request.mech = serviceId.toString(); // Mech entity ID (serviceId), not address
     request.service = serviceId.toString();
     let service = Service.load(serviceId.toString());
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
     }
+  } else {
+    // Fallback: if serviceId not found, use address as string (shouldn't happen in normal flow)
+    request.mech = event.params.mech.toHexString();
+    log.warning('Request: Could not find serviceId for mech {}, using address as fallback', [event.params.mech.toHexString()]);
   }
+  
+  // Common fields
+  request.blockNumber = event.block.number;
+  request.blockTimestamp = event.block.timestamp;
+  request.transactionHash = event.transaction.hash;
+  request.isDelivered = false;
+  request.priorityMech = event.params.mech;
 
   // Update per-mech counters
   updateMechCountersOnRequest(event.params.mech);

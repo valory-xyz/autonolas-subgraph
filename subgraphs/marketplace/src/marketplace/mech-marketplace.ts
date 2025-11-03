@@ -369,12 +369,21 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     
     // Common fields only
     request.sender = sender.id;
-    request.mech = event.params.priorityMech.toHexString();
     request.blockNumber = event.block.number;
     request.blockTimestamp = event.block.timestamp;
     request.transactionHash = event.transaction.hash;
     request.isDelivered = false;
     request.priorityMech = event.params.priorityMech;
+
+    // Get serviceId for the priority mech to set request.mech correctly
+    const priorityMechServiceId = getServiceIdFromMech(event.params.priorityMech);
+    if (priorityMechServiceId !== null) {
+      request.mech = priorityMechServiceId.toString(); // Mech entity ID (serviceId), not address
+    } else {
+      // Fallback: if serviceId not found, use address as string (shouldn't happen in normal flow)
+      request.mech = event.params.priorityMech.toHexString();
+      log.warning('MarketplaceRequest: Could not find serviceId for priorityMech {}, using address as fallback', [event.params.priorityMech.toHexString()]);
+    }
 
     if (serviceId !== null) {
       request.service = serviceId.toString();
