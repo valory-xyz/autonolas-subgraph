@@ -265,11 +265,9 @@ export function handleDeliverWithSignaturesV1(
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
   deliver.request = null; // Off-chain signed requests have no Request event
-  // sender will be set by handleMarketplaceDeliveryWithSignatures (which always runs for these events)
-  // We must set something because sender is required, but handleMarketplaceDeliveryWithSignatures will overwrite it
-  if (deliver.sender === null) {
-    deliver.sender = event.transaction.from;
-  }
+  // Sender is required field - set to transaction sender as default
+  // Will be overwritten by handleMarketplaceDeliveryWithSignatures if it provides requester
+  deliver.sender = event.transaction.from;
 
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
@@ -302,11 +300,9 @@ export function handleDeliverWithSignaturesV2(
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
   deliver.request = null; // Off-chain signed requests have no Request event
-  // sender will be set by handleMarketplaceDeliveryWithSignatures (which always runs for these events)
-  // We must set something because sender is required, but handleMarketplaceDeliveryWithSignatures will overwrite it
-  if (deliver.sender === null) {
-    deliver.sender = event.transaction.from;
-  }
+  // Sender is required field - set to transaction sender as default
+  // Will be overwritten by handleMarketplaceDeliveryWithSignatures if it provides requester
+  deliver.sender = event.transaction.from;
 
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);

@@ -17,12 +17,13 @@ export function handleDeliver(event: DeliverEvent): void {
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
 
-  // Set sender
+  // Sender is the one who sent the delivery transaction (the mech service)
+  deliver.sender = event.transaction.from;
+
+  // Link to request if it exists
   let request = Request.load(Bytes.fromHexString(event.params.requestId.toHexString()));
   if (request !== null) {
     deliver.request = request.id;
-    // request.sender stores the Sender ID (Bytes) directly in relations
-    deliver.sender = request.sender as Bytes;
     
     // Mark request as delivered (only if not already delivered)
     if (!request.isDelivered) {
@@ -33,6 +34,10 @@ export function handleDeliver(event: DeliverEvent): void {
       // Update counters for the priority mech
       updateMechCountersOnDelivery(request, event.params.mech);
     }
+  } else {
+    log.warning('Deliver: Request {} not found for delivery transaction', [
+      event.params.requestId.toHexString()
+    ]);
   }
 
   // Link to service
