@@ -104,7 +104,7 @@ export function handleMarketplaceDelivery(
   for (let i = 0; i < event.params.requestIds.length; i++) {
     if (!event.params.deliveredRequests[i]) continue;
     let request = Request.load(event.params.requestIds[i]);
-    if (request !== null) {
+    if (request !== null && !request.isDelivered) {
       request.isDelivered = true;
       request.deliveredByMech = event.params.deliveryMech;
       request.save();
