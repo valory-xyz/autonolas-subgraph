@@ -41,6 +41,10 @@ import {
   getOrCreateRequestsPerAgent,
   updateMechCountersOnDelivery,
   updateMechCountersOnRequest,
+  getOrCreateAtaTransaction,
+  getOrCreateRequestToMarketplace,
+  getOrCreateDeliverForMarketplace,
+  ataTransactionExists,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -167,10 +171,7 @@ export function handleMarketplaceDeliveryWithSignatures(
     deliver.save();
 
     // Create marketplace-specific delivery entity (avoids null fields)
-    let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestIds[i]);
-    if (marketplaceDeliver == null) {
-      marketplaceDeliver = new DeliverForMarketplace(event.params.requestIds[i]);
-    }
+    let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestIds[i]);
     marketplaceDeliver.requestId = event.params.requestIds[i];
     marketplaceDeliver.isMarketplace = true;
     marketplaceDeliver.isOffChain = true;
@@ -204,14 +205,9 @@ export function handleMarketplaceDeliveryWithSignatures(
   // So we always count +1 for deliveryMech, and +1 additional if requester is also a service multisig
   // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
   let txHash = event.transaction.hash;
-  let transaction = AtaTransaction.load(txHash);
   
-  if (transaction === null) {
-    // Create AtaTransaction entity to track this transaction
-    transaction = new AtaTransaction(txHash);
-    transaction.blockNumber = event.block.number;
-    transaction.blockTimestamp = event.block.timestamp;
-    transaction.save();
+  if (!ataTransactionExists(txHash)) {
+    getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
 
     let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
 
@@ -277,10 +273,7 @@ export function handleDeliverWithSignaturesV1(
   deliver.save();
 
   // Create marketplace-specific delivery entity (avoids null fields)
-  let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
-  if (marketplaceDeliver == null) {
-    marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
-  }
+  let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
   marketplaceDeliver.requestId = event.params.requestId;
   marketplaceDeliver.ipfsHashBytes = event.params.data;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
@@ -317,10 +310,7 @@ export function handleDeliverWithSignaturesV2(
   deliver.save();
 
   // Create marketplace-specific delivery entity (avoids null fields)
-  let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
-  if (marketplaceDeliver == null) {
-    marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
-  }
+  let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
   marketplaceDeliver.requestId = event.params.requestId;
   marketplaceDeliver.ipfsHashBytes = event.params.deliveryData;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
@@ -401,10 +391,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.save();
 
     // Create marketplace-specific request entity (avoids null fields)
-    let marketplaceRequest = RequestToMarketplace.load(event.params.requestIds[i]);
-    if (marketplaceRequest == null) {
-      marketplaceRequest = new RequestToMarketplace(event.params.requestIds[i]);
-    }
+    let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestIds[i]);
     marketplaceRequest.requestId = event.params.requestIds[i];
     marketplaceRequest.isMarketplace = true;
     marketplaceRequest.isOffChain = false;
@@ -423,14 +410,9 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   // Use AtaTransaction to avoid double-counting if Request and Deliver happen in same transaction
   if (serviceId !== null) {
     let txHash = event.transaction.hash;
-    let transaction = AtaTransaction.load(txHash);
     
-    if (transaction === null) {
-      // Create AtaTransaction entity to track this transaction
-      transaction = new AtaTransaction(txHash);
-      transaction.blockNumber = event.block.number;
-      transaction.blockTimestamp = event.block.timestamp;
-      transaction.save();
+    if (!ataTransactionExists(txHash)) {
+      getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
 
       global.totalAtaTransactions = global.totalAtaTransactions.plus(
         BigInt.fromI32(1)

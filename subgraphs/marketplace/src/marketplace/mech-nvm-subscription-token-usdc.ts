@@ -4,7 +4,7 @@ import {
   RevokeRequest as RevokeRequestEvent,
 } from '../../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
-import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest } from './utils';
+import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest, getOrCreateAtaTransaction, getOrCreateRequestToMarketplace, getOrCreateDeliverForMarketplace, ataTransactionExists } from './utils';
 import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -55,21 +55,14 @@ export function handleDeliver(event: DeliverEvent): void {
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   let txHash = event.transaction.hash;
-  let transaction = AtaTransaction.load(txHash);
-  if (transaction === null) {
-    transaction = new AtaTransaction(txHash);
-    transaction.blockNumber = event.block.number;
-    transaction.blockTimestamp = event.block.timestamp;
-    transaction.save();
+  if (!ataTransactionExists(txHash)) {
+    getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
     global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   }
   global.save();
 
   // Create marketplace-specific delivery entity (avoids null fields)
-  let marketplaceDeliver = DeliverForMarketplace.load(event.params.requestId);
-  if (marketplaceDeliver == null) {
-    marketplaceDeliver = new DeliverForMarketplace(event.params.requestId);
-  }
+  let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
   marketplaceDeliver.requestId = event.params.requestId;
   marketplaceDeliver.ipfsHashBytes = event.params.data;
   marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
@@ -124,13 +117,8 @@ export function handleRequest(event: RequestEvent): void {
   let serviceIdForRequest = getServiceIdFromMultisig(event.transaction.from);
   if (serviceIdForRequest !== null) {
     let txHash = event.transaction.hash;
-    let transaction = AtaTransaction.load(txHash);
-    if (transaction === null) {
-      transaction = new AtaTransaction(txHash);
-      transaction.blockNumber = event.block.number;
-      transaction.blockTimestamp = event.block.timestamp;
-      transaction.save();
-
+    if (!ataTransactionExists(txHash)) {
+      getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
@@ -140,10 +128,7 @@ export function handleRequest(event: RequestEvent): void {
   request.save();
 
   // Create marketplace-specific request entity (avoids null fields)
-  let marketplaceRequest = RequestToMarketplace.load(event.params.requestId);
-  if (marketplaceRequest == null) {
-    marketplaceRequest = new RequestToMarketplace(event.params.requestId);
-  }
+  let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestId);
   marketplaceRequest.requestId = event.params.requestId;
   marketplaceRequest.ipfsHashBytes = event.params.data;
   marketplaceRequest.isMarketplace = true;
