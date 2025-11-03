@@ -5,7 +5,7 @@ import {
 } from '../../generated/templates/MechNvmSubscriptionNative/MechNvmSubscriptionNative';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig } from './utils';
-import { BigInt, Bytes } from '@graphprotocol/graph-ts';
+import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
   let deliverId = event.transaction.hash.concatI32(event.logIndex.toI32());
@@ -166,21 +166,29 @@ export function handleRequest(event: RequestEvent): void {
 export function handleRevokeRequest(event: RevokeRequestEvent): void {
   const serviceId = getServiceIdFromMech(event.address);
   if (serviceId === null) {
+    log.warning('RevokeRequest: Could not find serviceId for mech {}', [event.address.toHexString()]);
     return;
   }
 
   let req = Request.load(event.params.requestId);
   if (req !== null && req.isDelivered) {
+    log.info('RevokeRequest: Request {} already delivered, ignoring revoke', [event.params.requestId.toHexString()]);
     return;
   }
 
   let mechEntity = Mech.load(BigInt.fromByteArray(serviceId).toString());
   if (mechEntity === null) {
+    log.warning('RevokeRequest: Could not find Mech entity for serviceId {}', [BigInt.fromByteArray(serviceId).toString()]);
     return;
   }
 
   if (mechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
     mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
     mechEntity.save();
+    log.info('RevokeRequest: Decremented undeliveredRequests for mech {} (serviceId: {}), new value: {}', [
+      event.address.toHexString(),
+      BigInt.fromByteArray(serviceId).toString(),
+      mechEntity.undeliveredRequests.toString()
+    ]);
   }
 }
