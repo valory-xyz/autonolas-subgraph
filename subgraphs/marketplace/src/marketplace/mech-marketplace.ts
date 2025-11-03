@@ -39,6 +39,8 @@ import {
   getServiceIdFromMech,
   isServiceMultisig,
   getOrCreateRequestsPerAgent,
+  updateMechCountersOnDelivery,
+  updateMechCountersOnRequest,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -110,26 +112,7 @@ export function handleMarketplaceDelivery(
       request.save();
       
       // Update priority mech counters
-      if (request.priorityMech !== null) {
-        const priorityServiceId = getServiceIdFromMech(request.priorityMech!);
-        if (priorityServiceId !== null) {
-          let priorityMechEntity = Mech.load(priorityServiceId.toString());
-          if (priorityMechEntity !== null) {
-            // Track self vs other delivery
-            if (request.priorityMech!.equals(event.params.deliveryMech)) {
-              // Self-delivery: decrement undelivered and increment self-delivered counter
-              if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
-                priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
-              }
-              priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
-            } else {
-              priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
-            }
-            
-            priorityMechEntity.save();
-          }
-        }
-      }
+      updateMechCountersOnDelivery(request, event.params.deliveryMech);
     }
   }
 
@@ -413,15 +396,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     }
 
     // Update per-mech counters for the priority mech
-    const priorityServiceId = getServiceIdFromMech(event.params.priorityMech);
-    if (priorityServiceId !== null) {
-      let priorityMechEntity = Mech.load(priorityServiceId.toString());
-      if (priorityMechEntity !== null) {
-        priorityMechEntity.receivedRequests = priorityMechEntity.receivedRequests.plus(BigInt.fromI32(1));
-        priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
-        priorityMechEntity.save();
-      }
-    }
+    updateMechCountersOnRequest(event.params.priorityMech);
 
     request.save();
 
