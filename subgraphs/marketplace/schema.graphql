@@ -1,9 +1,8 @@
-type MechRequest @entity(immutable: false) {
+type ParsedRequest @entity(immutable: false) {
   id: Bytes! # hash converted to Bytes
-  content: Bytes!
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+  content: String!
+  request: Request!
+  hash: String!
 }
 
 type MechAgent @entity(immutable: false) {
@@ -338,6 +337,7 @@ type Request @entity(immutable: false) {
   transactionHash: Bytes!
 
   delivery: Deliver @derivedFrom(field: "request")
+  parsedRequest: ParsedRequest @derivedFrom(field: "request")
   service: Service
 
   # Relationships to specialized entities
