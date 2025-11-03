@@ -206,8 +206,8 @@ export function handleMarketplaceDeliveryWithSignatures(
     if (isServiceMultisig(event.params.requester)) {
       ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
 
-      // Update requester-level ATA count (using existing sender variable) - use Int operations
-      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // Update requester-level ATA count (using existing sender variable)
+      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
 
@@ -410,8 +410,8 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       global.totalAtaTransactions = global.totalAtaTransactions.plus(
         BigInt.fromI32(1)
       );
-      // Also update sender-level ATA count - use Int operations
-      // sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      // Also update sender-level ATA count
+      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
   }
