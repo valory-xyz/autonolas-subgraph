@@ -231,6 +231,7 @@ type Mech @entity(immutable: false) {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
+  maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
 }
 
 type LegacyGlobal @entity(immutable: false) {
