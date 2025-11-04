@@ -2,6 +2,7 @@ import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
   RevokeRequest as RevokeRequestEvent,
+  MaxDeliveryRateUpdated as MaxDeliveryRateUpdatedEvent,
 } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest, getOrCreateAtaTransaction, getOrCreateRequestToMarketplace, getOrCreateDeliverForMarketplace, ataTransactionExists } from './utils';
@@ -163,4 +164,19 @@ export function handleRevokeRequest(event: RevokeRequestEvent): void {
     event.address.toHexString(),
     event.params.requestId.toHexString()
   ]);
+}
+
+export function handleMaxDeliveryRateUpdated(event: MaxDeliveryRateUpdatedEvent): void {
+  const serviceId = getServiceIdFromMech(event.address);
+  if (serviceId === null) {
+    throw new Error(`MaxDeliveryRateUpdated: Could not find serviceId for mech ${event.address.toHexString()}. CreateMech mapping missing.`);
+  }
+  
+  let mech = Mech.load(serviceId.toString());
+  if (mech === null) {
+    throw new Error(`MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId.toString()}`);
+  }
+  
+  mech.maxDeliveryRate = event.params.maxDeliveryRate;
+  mech.save();
 }
