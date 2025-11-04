@@ -232,6 +232,7 @@ type Mech @entity(immutable: false) {
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
   maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
+  karma: BigInt! # Cumulative karma (sum of all karmaChange values from MechKarmaChanged events)
 }
 
 type LegacyGlobal @entity(immutable: false) {
