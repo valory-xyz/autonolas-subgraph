@@ -13,18 +13,19 @@ import {
 } from '../../generated/ServiceRegistryL2/ServiceRegistryL2';
 import {
   ActivateRegistration,
+  CreateMultisigWithAgents,
   CreateService,
   DeployService,
   Deposit,
   Mech,
   OwnerUpdated,
   RegisterInstance,
-  TerminateService,
   Service,
+  TerminateService,
   Transfer,
   UpdateService,
 } from '../../generated/schema';
-import { getOrCreateMultisigWithAgents } from './utils';
+import { updateServiceMultisig } from '../utils';
 
 export function handleActivateRegistration(
   event: ActivateRegistrationEvent
@@ -44,29 +45,21 @@ export function handleActivateRegistration(
 export function handleCreateMultisigWithAgents(
   event: CreateMultisigWithAgentsEvent
 ): void {
-  let entity = getOrCreateMultisigWithAgents(event.params.multisig);
+  let existing = CreateMultisigWithAgents.load(event.params.multisig);
+  if (existing !== null) {
+    updateServiceMultisig(event.params.serviceId, event.params.multisig);
+    return;
+  }
+
+  let entity = new CreateMultisigWithAgents(event.params.multisig);
   entity.serviceId = event.params.serviceId;
   entity.multisig = event.params.multisig;
-
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-
-  // Update MarketplaceService entity
-  let service = Service.load(event.params.serviceId.toString());
-  if (service !== null) {
-    service.latestMultisig = event.params.multisig;
-
-    let historicalMultisigs = service.historicalMultisigs;
-    if (!historicalMultisigs.includes(event.params.multisig)) {
-      historicalMultisigs.push(event.params.multisig);
-      service.historicalMultisigs = historicalMultisigs;
-    }
-
-    service.save();
-  }
-
   entity.save();
+
+  updateServiceMultisig(event.params.serviceId, event.params.multisig);
 }
 
 export function handleCreateService(event: CreateServiceEvent): void {
