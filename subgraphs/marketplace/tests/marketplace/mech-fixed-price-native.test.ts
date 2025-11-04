@@ -9,7 +9,6 @@ import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import {
   handleDeliver,
   handleRequest,
-  handleRevokeRequest,
   handleMaxDeliveryRateUpdated
 } from "../../src/marketplace/mech-fixed-price-native"
 import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
@@ -17,7 +16,6 @@ import { Service } from "../../generated/schema"
 import {
   createDeliverEvent,
   createRequestEvent,
-  createRevokeEvent,
   createMechWithMapping,
   createMaxDeliveryRateUpdatedEvent
 } from "./mech-fixed-price-native-utils"
@@ -212,60 +210,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Global", "", "totalDeliveries", "1")
       assert.fieldEquals("Global", "", "totalTransactions", "2")
       assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
-    })
-
-  test("RevokeRequest is informational only (no counter changes)", () => {
-      // Arrange
-      let serviceId = BigInt.fromI32(112)
-      createMechWithMapping(TEST_MECH, serviceId)
-
-      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
-
-      // Act
-      handleRequest(requestEvent)
-
-      // Assert initial counters
-      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-
-      // Act - revoke (RevokeRequest is emitted when marketplace rejects delivery attempt)
-      // Note: RevokeRequest and Deliver are mutually exclusive - if RevokeRequest is emitted,
-      // Deliver was NOT emitted, so no counters were incremented and nothing needs to be rolled back
-      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1)
-      handleRevokeRequest(revokeEvent)
-
-      // Assert - counters remain unchanged (RevokeRequest is purely informational)
-      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-    })
-
-  test("RevokeRequest on already delivered request is informational only", () => {
-      // Arrange
-      let serviceId = BigInt.fromI32(128)
-      let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
-      createMechWithMapping(TEST_MECH, serviceId)
-
-      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_DATA_NATIVE)
-      let deliverEvent = createDeliverEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
-
-      // Act - create request and deliver it
-      handleRequest(requestEvent)
-      handleDeliver(deliverEvent)
-
-      // Assert request was delivered
-      assert.fieldEquals("Request", TEST_REQUEST_ID_2.toHexString(), "isDelivered", "true")
-      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
-
-      // Act - revoke (informational only - RevokeRequest and Deliver are mutually exclusive)
-      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_2)
-      handleRevokeRequest(revokeEvent)
-
-      // Assert - counters remain unchanged (RevokeRequest doesn't roll back anything)
-      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
     })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {

@@ -6,8 +6,8 @@ import {
   clearStore
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
-import { handleDeliver, handleRequest, handleRevokeRequest, handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-fixed-price-token"
-import { createDeliverEvent, createRequestEvent, createRevokeEvent, createMaxDeliveryRateUpdatedEvent } from "./mech-fixed-price-token-utils"
+import { handleDeliver, handleRequest, handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-fixed-price-token"
+import { createDeliverEvent, createRequestEvent, createMaxDeliveryRateUpdatedEvent } from "./mech-fixed-price-token-utils"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
@@ -42,6 +42,7 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
   mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
   mechEntity.maxDeliveryRate = null
+  mechEntity.karma = BI.fromI32(0)
   mechEntity.save()
 }
 
@@ -185,93 +186,6 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Global", "", "totalDeliveries", "1")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
-  })
-
-  test("Revoke decrements undelivered when not delivered", () => {
-    const serviceId = BI.fromI32(16)
-
-    let mapping = new CreateMechEntity(TEST_MECH)
-    mapping.mech = TEST_MECH
-    mapping.serviceId = serviceId
-    mapping.mechFactory = Address.zero()
-    mapping.blockNumber = BI.fromI32(0)
-    mapping.blockTimestamp = BI.fromI32(0)
-    mapping.transactionHash = TEST_REQUEST_ID_1
-    mapping.save()
-
-    let mechEntity = new Mech(serviceId.toString())
-    mechEntity.address = TEST_MECH
-    mechEntity.mechFactory = Address.zero()
-    mechEntity.owner = Address.zero()
-    mechEntity.service = serviceId.toString()
-    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
-    mechEntity.receivedRequests = BI.fromI32(0)
-    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
-    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.maxDeliveryRate = null
-    mechEntity.save()
-
-    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
-
-    // Assert initial counters
-    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-
-    // RevokeRequest is informational only - RevokeRequest and Deliver are mutually exclusive
-    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1))
-
-    // Assert counters remain unchanged
-    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-  })
-
-  test("RevokeRequest on already delivered request is informational only", () => {
-    const serviceId = BI.fromI32(32)
-
-    let mapping = new CreateMechEntity(TEST_MECH)
-    mapping.mech = TEST_MECH
-    mapping.serviceId = serviceId
-    mapping.mechFactory = Address.zero()
-    mapping.blockNumber = BI.fromI32(0)
-    mapping.blockTimestamp = BI.fromI32(0)
-    mapping.transactionHash = TEST_REQUEST_ID_1
-    mapping.save()
-
-    let mechEntity = new Mech(serviceId.toString())
-    mechEntity.address = TEST_MECH
-    mechEntity.mechFactory = Address.zero()
-    mechEntity.owner = Address.zero()
-    mechEntity.service = serviceId.toString()
-    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
-    mechEntity.receivedRequests = BI.fromI32(0)
-    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
-    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.maxDeliveryRate = null
-    mechEntity.save()
-
-    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
-    handleDeliver(
-      createDeliverEvent(
-        TEST_MECH,
-        TEST_REQUEST_ID_1,
-        TEST_MECH_SERVICE_MULTISIG,
-        BigInt.fromI32(TEST_DELIVERY_RATE_TOKEN),
-        TEST_DATA_TOKEN
-      )
-    )
-
-    assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "isDelivered", "true")
-    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
-
-    // RevokeRequest is informational only - RevokeRequest and Deliver are mutually exclusive
-    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1))
-
-    // Assert counters remain unchanged
-    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
   })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
