@@ -99,6 +99,5 @@ export function createMechWithMapping(
   mechEntity.receivedRequests = BigInt.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
-  mechEntity.undeliveredRequests = BigInt.fromI32(0)
   mechEntity.save()
 }
