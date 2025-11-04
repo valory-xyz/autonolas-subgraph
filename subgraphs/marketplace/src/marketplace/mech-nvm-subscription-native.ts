@@ -42,13 +42,15 @@ export function handleDeliver(event: DeliverEvent): void {
 
   // Link to service
   const serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    deliver.service = serviceId.toString();
-    let service = Service.load(serviceId.toString());
-    if (service !== null) {
-      service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
-      service.save();
-    }
+  if (serviceId === null) {
+    throw new Error(`Deliver: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
+  }
+  
+  deliver.service = serviceId.toString();
+  let service = Service.load(serviceId.toString());
+  if (service !== null) {
+    service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+    service.save();
   }
 
   deliver.save();
@@ -91,19 +93,12 @@ export function handleRequest(event: RequestEvent): void {
 
   // Link to service and update counters
   const serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    request.mech = serviceId.toString(); // Mech entity ID (serviceId), not address
-    request.service = serviceId.toString();
-    let service = Service.load(serviceId.toString());
-    if (service !== null) {
-      service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
-      service.save();
-    }
-  } else {
-    // Fallback: if serviceId not found, use address as string (shouldn't happen in normal flow)
-    request.mech = event.params.mech.toHexString();
-    log.warning('Request: Could not find serviceId for mech {}, using address as fallback', [event.params.mech.toHexString()]);
+  if (serviceId === null) {
+    throw new Error(`Request: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
   }
+  
+  request.mech = serviceId.toString(); // Mech entity ID (serviceId), not address
+  request.service = serviceId.toString();
   
   // Common fields
   request.blockNumber = event.block.number;
@@ -115,8 +110,14 @@ export function handleRequest(event: RequestEvent): void {
   // Update per-mech counters
   updateMechCountersOnRequest(event.params.mech);
 
-  // Only increment global/sender counters if NOT a marketplace request (to avoid double-counting)
+  // Only increment global/sender/service counters if NOT a marketplace request (to avoid double-counting)
   if (!isMarketplaceRequest) {
+    // Update service counters
+    let service = Service.load(serviceId.toString());
+    if (service !== null) {
+      service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+      service.save();
+    }
     // Update global counters
     let global = getGlobal();
     global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
@@ -139,18 +140,18 @@ export function handleRequest(event: RequestEvent): void {
       }
     }
     global.save();
+    
+    // Create RequestToMarketplace for standalone mech direct request
+    let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestId);
+    marketplaceRequest.requestId = event.params.requestId;
+    marketplaceRequest.ipfsHashBytes = event.params.data;
+    marketplaceRequest.isMarketplace = false; // Mark as direct mech request (not from marketplace)
+    marketplaceRequest.isOffChain = false;
+    marketplaceRequest.request = request.id;
+    marketplaceRequest.save();
   }
 
   request.save();
-
-  // Create marketplace-specific request entity (avoids null fields)
-  let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestId);
-  marketplaceRequest.requestId = event.params.requestId;
-  marketplaceRequest.ipfsHashBytes = event.params.data;
-  marketplaceRequest.isMarketplace = true;
-  marketplaceRequest.isOffChain = false;
-  marketplaceRequest.request = request.id;
-  marketplaceRequest.save();
 }
 
 export function handleRevokeRequest(event: RevokeRequestEvent): void {

@@ -11,15 +11,20 @@ import {
   handleRequest,
   handleRevokeRequest
 } from "../../src/marketplace/mech-fixed-price-native"
+import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
+import { Service } from "../../generated/schema"
 import {
   createDeliverEvent,
   createRequestEvent,
   createRevokeEvent,
   createMechWithMapping
 } from "./mech-fixed-price-native-utils"
+import { createMarketplaceRequestEvent } from "./mech-marketplace-utils"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
+  TEST_REQUESTER,
+  TEST_OWNER,
   TEST_REQUEST_ID_1,
   TEST_REQUEST_ID_2,
   TEST_REQUEST_ID_3,
@@ -35,6 +40,9 @@ describe("Mech Fixed Price Native Handler", () => {
 
   test("Request creates Request and RequestToMarketplace entities", () => {
       // Arrange
+      let serviceId = BigInt.fromI32(1)
+      createMechWithMapping(TEST_MECH, serviceId)
+      
       let requestId = TEST_REQUEST_ID_1
       let data = TEST_DATA_NATIVE
 
@@ -56,7 +64,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Global", 1)
 
       // Check Request entity
-      assert.fieldEquals("Request", requestId.toHexString(), "mech", TEST_MECH.toHexString())
+      assert.fieldEquals("Request", requestId.toHexString(), "mech", serviceId.toString())
       assert.fieldEquals("Request", requestId.toHexString(), "blockNumber", requestEvent.block.number.toString())
       assert.fieldEquals("Request", requestId.toHexString(), "blockTimestamp", requestEvent.block.timestamp.toString())
       assert.fieldEquals("Request", requestId.toHexString(), "transactionHash", requestEvent.transaction.hash.toHexString())
@@ -65,7 +73,7 @@ describe("Mech Fixed Price Native Handler", () => {
       // Check RequestToMarketplace entity
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "requestId", requestId.toHexString())
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isMarketplace", "true")
+      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isMarketplace", "false")
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isOffChain", "false")
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "request", requestId.toHexString())
 
@@ -80,6 +88,9 @@ describe("Mech Fixed Price Native Handler", () => {
 
   test("Delivery creates Deliver and DeliverForMarketplace entities", () => {
       // Arrange - create request first (required for delivery)
+      let serviceId = BigInt.fromI32(2)
+      createMechWithMapping(TEST_MECH, serviceId)
+      
       let requestId = TEST_REQUEST_ID_2
       let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
       let data = TEST_DATA_NATIVE
@@ -124,6 +135,9 @@ describe("Mech Fixed Price Native Handler", () => {
 
   test("Request and delivery together", () => {
       // Arrange
+      let serviceId = BigInt.fromI32(3)
+      createMechWithMapping(TEST_MECH, serviceId)
+      
       let requestId = TEST_REQUEST_ID_3
       let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
       let data = TEST_DATA_NATIVE
@@ -155,6 +169,9 @@ describe("Mech Fixed Price Native Handler", () => {
 
   test("Full request-delivery cycle", () => {
       // Arrange
+      let serviceId = BigInt.fromI32(4)
+      createMechWithMapping(TEST_MECH, serviceId)
+      
       let requestId = TEST_REQUEST_ID_4
       let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
       let data = TEST_DATA_NATIVE
@@ -334,5 +351,45 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
       assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
       assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+    })
+
+    test("Service counters are not double-counted for marketplace requests", () => {
+      // Setup: Create a Service entity
+      let serviceId = BigInt.fromI32(250)
+      let service = new Service(serviceId.toString())
+      service.serviceId = serviceId
+      service.latestMultisig = TEST_REQUESTER
+      service.historicalMultisigs = [TEST_REQUESTER]
+      service.agentIds = []
+      service.totalRequests = BigInt.fromI32(0)
+      service.totalDeliveries = BigInt.fromI32(0)
+      service.save()
+
+      // Create mech mapping
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000250")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Simulate marketplace request flow:
+      // 1. MarketplaceRequest event increments service.totalRequests
+      let marketplaceRequestEvent = createMarketplaceRequestEvent(
+        mechAddress,
+        TEST_REQUESTER,
+        [TEST_REQUEST_ID_1],
+        [TEST_DATA_NATIVE]
+      )
+      handleMarketplaceRequest(marketplaceRequestEvent)
+
+      // Service counter should be incremented to 1 by marketplace handler
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+
+      // 2. Individual mech Request event fires (but should NOT increment service counter)
+      let requestEvent = createRequestEvent(mechAddress, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
+      handleRequest(requestEvent)
+
+      // Service counter should STILL be 1 (no double counting!)
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+
+      // Global counter should also be 1 (no double counting)
+      assert.fieldEquals("Global", "", "totalRequests", "1")
     })
 })

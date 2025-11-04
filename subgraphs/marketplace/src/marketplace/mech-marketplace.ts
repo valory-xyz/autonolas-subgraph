@@ -384,21 +384,16 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     // Get serviceId for the priority mech to set request.mech correctly
     const priorityMechServiceId = getServiceIdFromMech(event.params.priorityMech);
-    if (priorityMechServiceId !== null) {
-      request.mech = priorityMechServiceId.toString(); // Mech entity ID (serviceId), not address
-    } else {
-      // Fallback: if serviceId not found, use address as string (shouldn't happen in normal flow)
-      request.mech = event.params.priorityMech.toHexString();
-      log.warning('MarketplaceRequest: Could not find serviceId for priorityMech {}, using address as fallback', [event.params.priorityMech.toHexString()]);
+    if (priorityMechServiceId === null) {
+      throw new Error(`MarketplaceRequest: Could not find serviceId for priorityMech ${event.params.priorityMech.toHexString()}. CreateMech mapping missing.`);
     }
-
-    if (serviceId !== null) {
-      request.service = serviceId.toString();
-      let service = Service.load(serviceId.toString());
-      if (service !== null) {
-        service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
-        service.save();
-      }
+    
+    request.mech = priorityMechServiceId.toString(); // Mech entity ID (serviceId), not address
+    request.service = priorityMechServiceId.toString();
+    let service = Service.load(priorityMechServiceId.toString());
+    if (service !== null) {
+      service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+      service.save();
     }
 
     // Update per-mech counters for the priority mech

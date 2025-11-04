@@ -51,6 +51,9 @@ describe("Mech Fixed Price Token Handler", () => {
   })
 
   test("Request creates Request and RequestToMarketplace entities", () => {
+    let serviceId = BigInt.fromI32(1)
+    createMechWithMapping(TEST_MECH, serviceId)
+    
     let requestId = TEST_REQUEST_ID_1
     let data = TEST_DATA_TOKEN
 
@@ -68,7 +71,7 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.entityCount("Sender", 1)
     assert.entityCount("Global", 1)
 
-    assert.fieldEquals("Request", requestId.toHexString(), "mech", TEST_MECH.toHexString())
+    assert.fieldEquals("Request", requestId.toHexString(), "mech", serviceId.toString())
     assert.fieldEquals("Request", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
 
@@ -81,6 +84,9 @@ describe("Mech Fixed Price Token Handler", () => {
 
   test("Delivery creates Deliver and DeliverForMarketplace entities", () => {
     // Arrange - create request first (required for delivery)
+    let serviceId = BigInt.fromI32(2)
+    createMechWithMapping(TEST_MECH, serviceId)
+    
     let requestId = TEST_REQUEST_ID_2
     let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_TOKEN)
     let data = TEST_DATA_TOKEN
@@ -117,6 +123,9 @@ describe("Mech Fixed Price Token Handler", () => {
   })
 
   test("Request and delivery together", () => {
+    let serviceId = BigInt.fromI32(3)
+    createMechWithMapping(TEST_MECH, serviceId)
+    
     let requestId = TEST_REQUEST_ID_3
     let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_TOKEN)
     let data = TEST_DATA_TOKEN
@@ -142,6 +151,9 @@ describe("Mech Fixed Price Token Handler", () => {
   })
 
   test("Full request-delivery cycle", () => {
+    let serviceId = BigInt.fromI32(4)
+    createMechWithMapping(TEST_MECH, serviceId)
+    
     let requestId = TEST_REQUEST_ID_4
     let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_TOKEN)
     let data = TEST_DATA_TOKEN

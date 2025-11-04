@@ -3,6 +3,8 @@ import { Address, Bytes } from "@graphprotocol/graph-ts"
 // Common test addresses
 export const TEST_MECH = Address.fromString("0x0000000000000000000000000000000000000001")
 export const TEST_MECH_SERVICE_MULTISIG = Address.fromString("0x0000000000000000000000000000000000000002")
+export const TEST_REQUESTER = Address.fromString("0x0000000000000000000000000000000000000003")
+export const TEST_OWNER = Address.fromString("0x0000000000000000000000000000000000000004")
 
 // Common test request IDs (20 bytes = 40 hex chars, matching test usage)
 export const TEST_REQUEST_ID_1 = Bytes.fromHexString("0x1111111111111111111111111111111111111111")
