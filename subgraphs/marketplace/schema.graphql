@@ -2,6 +2,8 @@ type ParsedRequest @entity(immutable: false) {
   id: Bytes! # hash converted to Bytes
   content: String!
   request: Request!
+  tool: String!
+  prompt: String!
   hash: String!
 }
 
