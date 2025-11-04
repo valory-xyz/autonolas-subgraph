@@ -273,13 +273,26 @@ export function updateMechCountersOnDelivery(
   request: Request,
   deliveryMech: Bytes
 ): void {
-  if (request.priorityMech === null) return;
+  if (request.priorityMech === null) {
+    log.debug("updateMechCountersOnDelivery: request.priorityMech is null, skipping mech counter update", []);
+    return;
+  }
   
   const priorityServiceId = getServiceIdFromMech(request.priorityMech as Bytes);
-  if (priorityServiceId === null) return;
+  if (priorityServiceId === null) {
+    log.debug("updateMechCountersOnDelivery: getServiceIdFromMech returned null for priorityMech {}", [
+      (request.priorityMech as Bytes).toHexString(),
+    ]);
+    return;
+  }
   
   let priorityMechEntity = Mech.load(priorityServiceId.toString());
-  if (priorityMechEntity === null) return;
+  if (priorityMechEntity === null) {
+    log.debug("updateMechCountersOnDelivery: No Mech entity found for priorityServiceId {}", [
+      priorityServiceId.toString(),
+    ]);
+    return;
+  }
   
   // Check if priority mech delivered its own request or another mech delivered it
   if (request.priorityMech!.equals(deliveryMech)) {
@@ -292,7 +305,6 @@ export function updateMechCountersOnDelivery(
     // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
     priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
   }
-  
   priorityMechEntity.save();
 }
 
