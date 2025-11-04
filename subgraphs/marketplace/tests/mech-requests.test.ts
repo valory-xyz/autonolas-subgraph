@@ -61,16 +61,11 @@ describe("Describe mech requests processing", () => {
         dataSourceMock.resetValues();
         dataSourceMock.setAddressAndContext(cid, context);
 
-        let request = Bytes.fromHexString("0xdeadbeef");
+        let request = Bytes.fromHexString("0x1234567890abcdef");
         log.info("request: {}", [request.toString()]);
 
         handleMechRequest(request);
 
-        assert.entityCount("ParsedRequest", 1);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "content", request.toString());
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "hash", cid);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "request", requestId.toHexString());
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "prompt", "[unhandled type]");
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "tool", "[unhandled type]");
+        assert.entityCount("ParsedRequest", 0);
     })
 })  

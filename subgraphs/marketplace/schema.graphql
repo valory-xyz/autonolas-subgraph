@@ -1,9 +1,19 @@
-type ParsedRequest @entity(immutable: false) {
+type ParsedRequest @entity(immutable: true) {
   id: Bytes! # hash converted to Bytes
   content: String!
   request: Request!
   tool: String!
   prompt: String!
+  hash: String!
+}
+
+type ParsedDeliver @entity(immutable: true) {
+  id: Bytes! # hash converted to Bytes
+  content: String!
+  deliver: Deliver!
+  request: Request!
+  response: String!
+  model: String!
   hash: String!
 }
 

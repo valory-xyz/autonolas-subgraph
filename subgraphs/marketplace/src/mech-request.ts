@@ -13,14 +13,18 @@ export function handleMechRequest(content: Bytes): void {
   let requestId = context.getBytes('requestId');
   let parsedRequest = new ParsedRequest(requestId);
 
-  let obj = json.fromBytes(content)
+  let obj = json.try_fromBytes(content)
+  if (obj.isError) {
+    log.error("Error parsing request: {}", [content.toString()]);
+    return;
+  }
 
   // Empty by default
   parsedRequest.prompt = UNHANDLED_TYPE;
   parsedRequest.tool = UNHANDLED_TYPE;
 
-  if (obj.kind === JSONValueKind.OBJECT) {
-    let parsed = obj.toObject();
+  if (obj.value.kind === JSONValueKind.OBJECT) {
+    let parsed = obj.value.toObject();
     let prompt = parsed.get('prompt');
     let tool = parsed.get('tool');
     if (prompt !== null && prompt.kind === JSONValueKind.STRING) {

@@ -405,19 +405,19 @@ templates:
         - name: AgentMech
           file: ./abis/AgentMech.json
 
-  # - kind: file/ipfs
-  #   name: MechDeliver
-  #   network: gnosis
-  #   mapping:
-  #     apiVersion: 0.0.9
-  #     language: wasm/assemblyscript
-  #     file: ./src/mech-deliver.ts
-  #     handler: handleMechDeliver
-  #     entities:
-  #       - MechDeliver
-  #     abis:
-  #       - name: AgentMech
-  #         file: ./abis/AgentMech.json
+  - kind: file/ipfs
+    name: MechParsedDeliver
+    network: gnosis
+    mapping:
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mech-deliver.ts
+      handler: handleMechDeliver
+      entities:
+        - MechDeliver
+      abis:
+        - name: AgentMech
+          file: ./abis/AgentMech.json
 features:
   - fullTextSearch
   - ipfsOnEthereumContracts

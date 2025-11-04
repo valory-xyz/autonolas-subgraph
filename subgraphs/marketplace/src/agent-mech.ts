@@ -260,10 +260,9 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.request = Bytes.fromHexString(event.params.requestId.toHexString());
   entity.transactionHash = event.transaction.hash;
 
-  let responseMetadata = getResponseMetadata(mechDelivery.ipfsHash, BigInt.fromI32(event.params.requestId.toI32()));
-
-  entity.toolResponse = responseMetadata.response
-  entity.model = responseMetadata.model
+  let context = new DataSourceContext();
+  context.setBytes('deliveryId', entity.id);
+  DataSourceTemplate.createWithContext("MechParsedDeliver", [mechDelivery.ipfsHash], context);
 
   // Connecting delivery with request
   let existingRequest = Request.load(Bytes.fromHexString(event.params.requestId.toHexString()));
