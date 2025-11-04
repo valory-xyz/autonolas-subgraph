@@ -28,7 +28,8 @@ export function handleMechKarmaChanged(event: MechKarmaChangedEvent): void {
     mech.karma = BigInt.fromI32(0);
   }
   
-  // Update cumulative karma
+  // Update cumulative karma (karmaChange can be positive or negative)
+  // BigInt.plus() handles negative values correctly (effectively subtracts)
   mech.karma = mech.karma.plus(karmaChange);
   mech.save();
 }
