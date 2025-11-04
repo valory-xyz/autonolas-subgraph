@@ -2,7 +2,8 @@ import { newMockEvent } from "matchstick-as"
 import {
   Deliver,
   Request,
-  RevokeRequest
+  RevokeRequest,
+  MaxDeliveryRateUpdated
 } from "../../generated/templates/MechFixedPriceNative/MechFixedPriceNative"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 import { CreateMech, Mech } from "../../generated/schema"
@@ -99,5 +100,21 @@ export function createMechWithMapping(
   mechEntity.receivedRequests = BigInt.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
+  mechEntity.maxDeliveryRate = null
   mechEntity.save()
+}
+
+export function createMaxDeliveryRateUpdatedEvent(
+  mech: Address,
+  maxDeliveryRate: BigInt
+): MaxDeliveryRateUpdated {
+  let event = changetype<MaxDeliveryRateUpdated>(newMockEvent())
+  event.address = mech
+  event.parameters = new Array()
+
+  event.parameters.push(
+    new ethereum.EventParam("maxDeliveryRate", ethereum.Value.fromUnsignedBigInt(maxDeliveryRate))
+  )
+
+  return event
 }

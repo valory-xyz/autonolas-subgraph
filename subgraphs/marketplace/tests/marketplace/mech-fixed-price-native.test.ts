@@ -9,7 +9,8 @@ import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import {
   handleDeliver,
   handleRequest,
-  handleRevokeRequest
+  handleRevokeRequest,
+  handleMaxDeliveryRateUpdated
 } from "../../src/marketplace/mech-fixed-price-native"
 import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
 import { Service } from "../../generated/schema"
@@ -17,7 +18,8 @@ import {
   createDeliverEvent,
   createRequestEvent,
   createRevokeEvent,
-  createMechWithMapping
+  createMechWithMapping,
+  createMaxDeliveryRateUpdatedEvent
 } from "./mech-fixed-price-native-utils"
 import { createMarketplaceRequestEvent } from "./mech-marketplace-utils"
 import {
@@ -475,5 +477,44 @@ describe("Mech Fixed Price Native Handler", () => {
       // Service delivery counter should be incremented
       assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "1")
       assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+    })
+
+    test("MaxDeliveryRateUpdated updates Mech entity maxDeliveryRate", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(300)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000300")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Initial state: maxDeliveryRate should be null
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "null")
+
+      // Act: Emit MaxDeliveryRateUpdated event
+      let maxDeliveryRate = BigInt.fromI32(1000)
+      let updateEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, maxDeliveryRate)
+      handleMaxDeliveryRateUpdated(updateEvent)
+
+      // Assert: maxDeliveryRate should be updated
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
+    })
+
+    test("MaxDeliveryRateUpdated updates maxDeliveryRate multiple times", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(301)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000301")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Act: First update
+      let firstRate = BigInt.fromI32(1000)
+      let firstEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, firstRate)
+      handleMaxDeliveryRateUpdated(firstEvent)
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", firstRate.toString())
+
+      // Act: Second update
+      let secondRate = BigInt.fromI32(2000)
+      let secondEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, secondRate)
+      handleMaxDeliveryRateUpdated(secondEvent)
+
+      // Assert: Should reflect latest value
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
     })
 })

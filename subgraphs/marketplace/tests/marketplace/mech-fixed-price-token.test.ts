@@ -6,8 +6,8 @@ import {
   clearStore
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
-import { handleDeliver, handleRequest, handleRevokeRequest } from "../../src/marketplace/mech-fixed-price-token"
-import { createDeliverEvent, createRequestEvent, createRevokeEvent } from "./mech-fixed-price-token-utils"
+import { handleDeliver, handleRequest, handleRevokeRequest, handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-fixed-price-token"
+import { createDeliverEvent, createRequestEvent, createRevokeEvent, createMaxDeliveryRateUpdatedEvent } from "./mech-fixed-price-token-utils"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
@@ -41,6 +41,7 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
   mechEntity.receivedRequests = BI.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+  mechEntity.maxDeliveryRate = null
   mechEntity.save()
 }
 
@@ -207,6 +208,7 @@ describe("Mech Fixed Price Token Handler", () => {
     mechEntity.receivedRequests = BI.fromI32(0)
     mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
     mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+    mechEntity.maxDeliveryRate = null
     mechEntity.save()
 
     handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
@@ -246,6 +248,7 @@ describe("Mech Fixed Price Token Handler", () => {
     mechEntity.receivedRequests = BI.fromI32(0)
     mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
     mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
+    mechEntity.maxDeliveryRate = null
     mechEntity.save()
 
     handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
@@ -353,5 +356,36 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
+  })
+
+  test("MaxDeliveryRateUpdated updates Mech entity maxDeliveryRate", () => {
+    let serviceId = BigInt.fromI32(300)
+    let mechAddress = Address.fromString("0x0000000000000000000000000000000000000300")
+    createMechWithMapping(mechAddress, serviceId)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "null")
+
+    let maxDeliveryRate = BigInt.fromI32(1000)
+    let updateEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, maxDeliveryRate)
+    handleMaxDeliveryRateUpdated(updateEvent)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
+  })
+
+  test("MaxDeliveryRateUpdated updates maxDeliveryRate multiple times", () => {
+    let serviceId = BigInt.fromI32(301)
+    let mechAddress = Address.fromString("0x0000000000000000000000000000000000000301")
+    createMechWithMapping(mechAddress, serviceId)
+
+    let firstRate = BigInt.fromI32(1000)
+    let firstEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, firstRate)
+    handleMaxDeliveryRateUpdated(firstEvent)
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", firstRate.toString())
+
+    let secondRate = BigInt.fromI32(2000)
+    let secondEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, secondRate)
+    handleMaxDeliveryRateUpdated(secondEvent)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
   })
 })
