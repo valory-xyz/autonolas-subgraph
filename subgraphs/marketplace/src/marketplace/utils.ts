@@ -296,13 +296,10 @@ export function updateMechCountersOnDelivery(
   
   // Check if priority mech delivered its own request or another mech delivered it
   if (request.priorityMech!.equals(deliveryMech)) {
-    // Self-delivery: decrement undelivered and increment self-delivered counter
-    if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
-      priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
-    }
+    // Self-delivery: increment self-delivered counter
     priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
   } else {
-    // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
+    // Other-mech delivery: increment delivered-by-others counter
     priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
   }
   priorityMechEntity.save();
@@ -321,7 +318,6 @@ export function updateMechCountersOnRequest(mechAddress: Bytes): void {
   let mechEntity = Mech.load(serviceId.toString());
   if (mechEntity !== null) {
     mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
-    mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
     mechEntity.save();
   } else {
     log.warning('updateMechCountersOnRequest: Could not find Mech entity for serviceId {} (from mech {})', [

@@ -231,7 +231,6 @@ type Mech @entity(immutable: false) {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  undeliveredRequests: BigInt! # This is the count of request which were not Delivered By this mech but request was made to this 
 }
 
 type LegacyGlobal @entity(immutable: false) {
