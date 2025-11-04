@@ -392,4 +392,85 @@ describe("Mech Fixed Price Native Handler", () => {
       // Global counter should also be 1 (no double counting)
       assert.fieldEquals("Global", "", "totalRequests", "1")
     })
+
+    test("Service delivery counter incremented for standalone mech deliveries", () => {
+      // Setup: Create a Service entity
+      let serviceId = BigInt.fromI32(260)
+      let service = new Service(serviceId.toString())
+      service.serviceId = serviceId
+      service.latestMultisig = TEST_REQUESTER
+      service.historicalMultisigs = [TEST_REQUESTER]
+      service.agentIds = []
+      service.totalRequests = BigInt.fromI32(0)
+      service.totalDeliveries = BigInt.fromI32(0)
+      service.save()
+
+      // Create mech mapping
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000260")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Create and handle request first
+      let requestEvent = createRequestEvent(mechAddress, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
+      handleRequest(requestEvent)
+
+      // Verify service.totalRequests incremented
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+      assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "0")
+
+      // Now handle delivery
+      let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
+      let deliverEvent = createDeliverEvent(mechAddress, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
+      handleDeliver(deliverEvent)
+
+      // Verify service.totalDeliveries incremented
+      assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "1")
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+    })
+
+    test("Service delivery counter incremented for marketplace deliveries", () => {
+      // Setup: Create a Service entity
+      let serviceId = BigInt.fromI32(270)
+      let service = new Service(serviceId.toString())
+      service.serviceId = serviceId
+      service.latestMultisig = TEST_REQUESTER
+      service.historicalMultisigs = [TEST_REQUESTER]
+      service.agentIds = []
+      service.totalRequests = BigInt.fromI32(0)
+      service.totalDeliveries = BigInt.fromI32(0)
+      service.save()
+
+      // Create mech mapping
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000270")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Simulate marketplace request flow:
+      // 1. MarketplaceRequest event increments service.totalRequests
+      let marketplaceRequestEvent = createMarketplaceRequestEvent(
+        mechAddress,
+        TEST_REQUESTER,
+        [TEST_REQUEST_ID_1],
+        [TEST_DATA_NATIVE]
+      )
+      handleMarketplaceRequest(marketplaceRequestEvent)
+
+      // Service request counter should be incremented
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+      assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "0")
+
+      // 2. Individual mech Request event fires (should NOT increment service counter)
+      let requestEvent = createRequestEvent(mechAddress, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
+      handleRequest(requestEvent)
+
+      // Service request counter should STILL be 1 (no double counting)
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+
+      // 3. Delivery happens
+      let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
+      let deliverEvent = createDeliverEvent(mechAddress, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
+      handleDeliver(deliverEvent)
+
+      // Service delivery counter should be incremented
+      assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "1")
+      assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+    })
 })

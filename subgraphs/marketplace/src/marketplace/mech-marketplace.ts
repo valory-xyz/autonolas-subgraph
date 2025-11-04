@@ -117,6 +117,16 @@ export function handleMarketplaceDelivery(
       
       // Update priority mech counters
       updateMechCountersOnDelivery(request, event.params.deliveryMech);
+      
+      // Update service delivery counter for the delivery mech's service
+      const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
+      if (deliveryServiceId !== null) {
+        let service = Service.load(deliveryServiceId.toString());
+        if (service !== null) {
+          service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+          service.save();
+        }
+      }
     }
   }
 
