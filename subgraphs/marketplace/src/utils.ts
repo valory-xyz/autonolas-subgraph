@@ -4,9 +4,10 @@ import {
   CreateMech,
   CreateMultisigWithAgents,
   LegacyGlobal as Global,
-  Sender,
   MechAgent,
   RequestsPerAgentOnchain,
+  Sender,
+  Service,
 } from '../generated/schema';
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
 import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
@@ -31,6 +32,26 @@ export function getOrCreateMultisigWithAgents(
     entity = new CreateMultisigWithAgents(multisig);
   }
   return entity;
+}
+
+export function updateServiceMultisig(
+  serviceId: BigInt,
+  multisig: Bytes
+): void {
+  let service = Service.load(serviceId.toString());
+  if (service === null) {
+    return;
+  }
+
+  service.latestMultisig = multisig;
+
+  let historicalMultisigs = service.historicalMultisigs;
+  if (!historicalMultisigs.includes(multisig)) {
+    historicalMultisigs.push(multisig);
+    service.historicalMultisigs = historicalMultisigs;
+  }
+
+  service.save();
 }
 
 export function getOrCreateAgentMultisigAssociation(
