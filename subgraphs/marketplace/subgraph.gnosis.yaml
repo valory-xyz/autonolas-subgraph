@@ -262,6 +262,26 @@ dataSources:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
       file: ./src/marketplace/complementary-service-metadata.ts
+  - kind: ethereum
+    name: Karma
+    network: gnosis
+    source:
+      address: "0xEB2A22b27C7Ad5eeE424Fd90b376c745E60f914E"
+      abi: Karma
+      startBlock: 38661913
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Mech
+      abis:
+        - name: Karma
+          file: ./abis/marketplace/Karma.json
+      eventHandlers:
+        - event: MechKarmaChanged(indexed address,int256)
+          handler: handleMechKarmaChanged
+      file: ./src/marketplace/karma.ts
 templates:
 
   # Legacy stuff
