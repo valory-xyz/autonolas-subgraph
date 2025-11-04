@@ -312,6 +312,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: RevokeRequest(bytes32)
+          handler: handleRevokeRequest
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
@@ -335,6 +337,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: RevokeRequest(bytes32)
+          handler: handleRevokeRequest
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
@@ -358,6 +362,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: RevokeRequest(bytes32)
+          handler: handleRevokeRequest
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
@@ -381,6 +387,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: RevokeRequest(bytes32)
+          handler: handleRevokeRequest
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
   
   - kind: file/ipfs

@@ -216,31 +216,11 @@ type Mech @entity(immutable: false) {
   owner: Bytes!
   service: Service
   totalDeliveriesTransactions: BigInt!
+  receivedRequests: BigInt!
+  selfDeliveredFromReceived: BigInt!
+  deliveredByOthersFromReceived: BigInt!
+  undeliveredRequests: BigInt! # This is the count of request which were not Delivered By this mech but request was made to this 
 }
-
-# type MarketplaceService @entity(immutable: false) {
-#   id: ID!
-#   configHash: Bytes!
-#   latestMultisig: Bytes
-#   historicalMultisigs: [Bytes!]!
-#   mechs: [Mech!] @derivedFrom(field: "service")
-#   metadata: Metadata @derivedFrom(field: "service")
-#   requests: [Request!] @derivedFrom(field: "service")
-#   deliveries: [Deliver!] @derivedFrom(field: "service")
-#   totalRequests: BigInt!
-#   totalDeliveries: BigInt!
-#   agentIds: [BigInt!]!
-# }
-
-# type MarketplaceSender @entity(immutable: false) {
-#   id: Bytes! # address
-#   requests: [Request!]! @derivedFrom(field: "sender")
-#   totalMarketplaceRequests: BigInt!
-#   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
-#   totalRequests: BigInt!
-#   totalTransactions: BigInt!
-#   totalAtaRequestsTransactions: BigInt!
-# }
 
 type LegacyGlobal @entity(immutable: false) {
   id: ID! # uint256
@@ -331,7 +311,7 @@ type Request @entity(immutable: false) {
   # Common fields only
   id: Bytes!
   sender: Sender!
-  mech: Mech! # address
+  mech: Mech! # Relation to Mech entity (by serviceId)
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -343,6 +323,11 @@ type Request @entity(immutable: false) {
   # Relationships to specialized entities
   mechRequest: RequestToMech @derivedFrom(field: "request")
   marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
+
+  # Delivery status
+  isDelivered: Boolean!
+  priorityMech: Bytes # address of the mech that was originally requested
+  deliveredByMech: Bytes # address of the mech that delivered the request
 }
 
 type DeliverForMech @entity(immutable: true) {

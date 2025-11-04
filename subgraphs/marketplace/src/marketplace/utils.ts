@@ -16,6 +16,9 @@ import {
   CreateMech,
   Mech,
   RequestsPerAgent,
+  AtaTransaction,
+  RequestToMarketplace,
+  DeliverForMarketplace,
 } from '../../generated/schema';
 import {
   MechFixedPriceNative,
@@ -114,13 +117,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(BigInt.fromByteArray(serviceId).toString());
+  let mech = Mech.load(serviceId.toString());
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        BigInt.fromByteArray(serviceId).toString(),
+        serviceId.toString(),
         transactionHash.toHexString(),
         functionName,
       ]
@@ -149,10 +152,10 @@ export function getServiceIdFromMultisig(
   return null;
 }
 
-export function getServiceIdFromMech(mechAddress: Bytes): Bytes | null {
+export function getServiceIdFromMech(mechAddress: Bytes): BigInt | null {
   let createMechEntity = CreateMech.load(mechAddress);
   if (createMechEntity !== null && createMechEntity.serviceId !== null) {
-    return Bytes.fromHexString(createMechEntity.serviceId!.toHexString());
+    return createMechEntity.serviceId;
   }
   return null;
 }
@@ -261,4 +264,119 @@ export function getOrCreateRequestsPerAgent(agentId: BigInt): RequestsPerAgent {
     requestPerAgent.requestsCount = BigInt.fromI32(0);
   }
   return requestPerAgent as RequestsPerAgent;
+}
+
+/**
+ * Shared logic for updating priority mech counters when a delivery occurs
+ */
+export function updateMechCountersOnDelivery(
+  request: Request,
+  deliveryMech: Bytes
+): void {
+  if (request.priorityMech === null) {
+    log.debug("updateMechCountersOnDelivery: request.priorityMech is null, skipping mech counter update", []);
+    return;
+  }
+  
+  const priorityServiceId = getServiceIdFromMech(request.priorityMech as Bytes);
+  if (priorityServiceId === null) {
+    log.debug("updateMechCountersOnDelivery: getServiceIdFromMech returned null for priorityMech {}", [
+      (request.priorityMech as Bytes).toHexString(),
+    ]);
+    return;
+  }
+  
+  let priorityMechEntity = Mech.load(priorityServiceId.toString());
+  if (priorityMechEntity === null) {
+    log.debug("updateMechCountersOnDelivery: No Mech entity found for priorityServiceId {}", [
+      priorityServiceId.toString(),
+    ]);
+    return;
+  }
+  
+  // Check if priority mech delivered its own request or another mech delivered it
+  if (request.priorityMech!.equals(deliveryMech)) {
+    // Self-delivery: decrement undelivered and increment self-delivered counter
+    if (priorityMechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
+      priorityMechEntity.undeliveredRequests = priorityMechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
+    }
+    priorityMechEntity.selfDeliveredFromReceived = priorityMechEntity.selfDeliveredFromReceived.plus(BigInt.fromI32(1));
+  } else {
+    // Other-mech delivery: only increment delivered-by-others counter (undelivered stays same)
+    priorityMechEntity.deliveredByOthersFromReceived = priorityMechEntity.deliveredByOthersFromReceived.plus(BigInt.fromI32(1));
+  }
+  priorityMechEntity.save();
+}
+
+/**
+ * Shared logic for updating mech counters when a request is received
+ */
+export function updateMechCountersOnRequest(mechAddress: Bytes): void {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.warning('updateMechCountersOnRequest: getServiceIdFromMech returned null for mech {}', [mechAddress.toHexString()]);
+    return;
+  }
+  
+  let mechEntity = Mech.load(serviceId.toString());
+  if (mechEntity !== null) {
+    mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
+    mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.plus(BigInt.fromI32(1));
+    mechEntity.save();
+  } else {
+    log.warning('updateMechCountersOnRequest: Could not find Mech entity for serviceId {} (from mech {})', [
+      serviceId.toString(),
+      mechAddress.toHexString()
+    ]);
+  }
+}
+
+/**
+ * Check if AtaTransaction exists for a given transaction hash
+ * Returns true if transaction already exists, false if newly created
+ */
+export function ataTransactionExists(txHash: Bytes): boolean {
+  return AtaTransaction.load(txHash) !== null;
+}
+
+/**
+ * Get or create AtaTransaction entity
+ */
+export function getOrCreateAtaTransaction(
+  txHash: Bytes,
+  blockNumber: BigInt,
+  blockTimestamp: BigInt
+): AtaTransaction {
+  let transaction = AtaTransaction.load(txHash);
+  if (transaction === null) {
+    transaction = new AtaTransaction(txHash);
+    transaction.blockNumber = blockNumber;
+    transaction.blockTimestamp = blockTimestamp;
+    transaction.save();
+  }
+  return transaction as AtaTransaction;
+}
+
+/**
+ * Get or create RequestToMarketplace entity
+ */
+export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMarketplace {
+  let marketplaceRequest = RequestToMarketplace.load(requestId);
+  if (marketplaceRequest === null) {
+    marketplaceRequest = new RequestToMarketplace(requestId);
+    marketplaceRequest.requestId = requestId;
+  }
+  return marketplaceRequest as RequestToMarketplace;
+}
+
+/**
+ * Get or create DeliverForMarketplace entity
+ */
+export function getOrCreateDeliverForMarketplace(requestId: Bytes): DeliverForMarketplace {
+  let marketplaceDeliver = DeliverForMarketplace.load(requestId);
+  if (marketplaceDeliver === null) {
+    marketplaceDeliver = new DeliverForMarketplace(requestId);
+    marketplaceDeliver.requestId = requestId;
+  }
+  return marketplaceDeliver as DeliverForMarketplace;
 }

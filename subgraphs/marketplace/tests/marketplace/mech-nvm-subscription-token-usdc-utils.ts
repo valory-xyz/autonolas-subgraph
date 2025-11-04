@@ -1,7 +1,8 @@
 import { newMockEvent } from "matchstick-as"
 import {
   Deliver,
-  Request
+  Request,
+  RevokeRequest
 } from "../../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 
@@ -57,5 +58,21 @@ export function createRequestEvent(
   )
 
   return requestEvent
+}
+
+export function createRevokeEvent(
+  mech: Address,
+  requestId: Bytes
+): RevokeRequest {
+  let revokeEvent = changetype<RevokeRequest>(newMockEvent())
+  revokeEvent.address = mech
+  revokeEvent.transaction.hash = requestId
+  revokeEvent.parameters = new Array()
+
+  revokeEvent.parameters.push(
+    new ethereum.EventParam("requestId", ethereum.Value.fromBytes(requestId))
+  )
+
+  return revokeEvent
 }
 

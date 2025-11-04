@@ -79,6 +79,10 @@ function createMechMapping(
   mechEntity.owner = owner
   mechEntity.service = serviceId.toString()
   mechEntity.totalDeliveriesTransactions = BigInt.fromI32(0)
+  mechEntity.receivedRequests = BigInt.fromI32(0)
+  mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
+  mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
+  mechEntity.undeliveredRequests = BigInt.fromI32(0)
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
 }
@@ -118,6 +122,7 @@ function createRequestEntity(
   request.blockNumber = BigInt.fromI32(0)
   request.blockTimestamp = BigInt.fromI32(0)
   request.transactionHash = requestId
+  request.isDelivered = false
   request.save()
 }
 
@@ -140,7 +145,14 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleMarketplaceDelivery persists aggregated delivery snapshot", () => {
+    let serviceId = BigInt.fromI32(200)
     let mech = Address.fromString("0x00000000000000000000000000000000000000cc")
+    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000cd")
+    let owner = Address.fromString("0x00000000000000000000000000000000000000ce")
+    
+    // Create the mech so the handler can update its counters
+    createMechMapping(mech, serviceId, mechFactory, owner)
+    
     let requestIds = [
       Bytes.fromHexString("0x1000000000000000000000000000000000000000000000000000000000000001"),
       Bytes.fromHexString("0x2000000000000000000000000000000000000000000000000000000000000002"),
@@ -158,6 +170,9 @@ describe("Mech Marketplace Handlers", () => {
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
     assert.fieldEquals("MarketplaceDelivery", id, "deliveryMech", mech.toHexString())
     assert.fieldEquals("MarketplaceDelivery", id, "numDeliveries", "2")
+    
+    // Verify mech counter was updated
+    assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
   })
 
   test("handleMarketplaceDeliveryWithSignatures records off-chain deliveries", () => {

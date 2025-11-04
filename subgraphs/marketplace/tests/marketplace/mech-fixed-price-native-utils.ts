@@ -1,9 +1,11 @@
 import { newMockEvent } from "matchstick-as"
 import {
   Deliver,
-  Request
+  Request,
+  RevokeRequest
 } from "../../generated/templates/MechFixedPriceNative/MechFixedPriceNative"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
+import { CreateMech, Mech } from "../../generated/schema"
 
 export function createDeliverEvent(
   mech: Address,
@@ -57,4 +59,46 @@ export function createRequestEvent(
   )
 
   return requestEvent
+}
+
+export function createRevokeEvent(
+  mech: Address,
+  requestId: Bytes
+): RevokeRequest {
+  let revokeEvent = changetype<RevokeRequest>(newMockEvent())
+  revokeEvent.address = mech
+  revokeEvent.transaction.hash = requestId
+  revokeEvent.parameters = new Array()
+
+  revokeEvent.parameters.push(
+    new ethereum.EventParam("requestId", ethereum.Value.fromBytes(requestId))
+  )
+
+  return revokeEvent
+}
+
+export function createMechWithMapping(
+  mech: Address,
+  serviceId: BigInt
+): void {
+  let mapping = new CreateMech(mech)
+  mapping.mech = mech
+  mapping.serviceId = serviceId
+  mapping.mechFactory = Address.zero()
+  mapping.blockNumber = BigInt.fromI32(0)
+  mapping.blockTimestamp = BigInt.fromI32(0)
+  mapping.transactionHash = Bytes.fromHexString("0x00")
+  mapping.save()
+
+  let mechEntity = new Mech(serviceId.toString())
+  mechEntity.address = mech
+  mechEntity.mechFactory = Address.zero()
+  mechEntity.owner = Address.zero()
+  mechEntity.service = serviceId.toString()
+  mechEntity.totalDeliveriesTransactions = BigInt.fromI32(0)
+  mechEntity.receivedRequests = BigInt.fromI32(0)
+  mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
+  mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
+  mechEntity.undeliveredRequests = BigInt.fromI32(0)
+  mechEntity.save()
 }
