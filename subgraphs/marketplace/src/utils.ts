@@ -71,7 +71,7 @@ export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
 export function getServiceIdFromMultisig(multisig: Bytes): Bytes | null {
   let entity = CreateMultisigWithAgents.load(multisig);
   if (entity !== null) {
-    return Bytes.fromHexString(entity.serviceId.toHexString());
+    return Bytes.fromHexString(Bytes.fromBigInt(entity.serviceId).toHexString());
   }
   return null;
 }
