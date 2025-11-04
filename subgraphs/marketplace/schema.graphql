@@ -219,32 +219,8 @@ type Mech @entity(immutable: false) {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  undeliveredRequests: BigInt!
+  undeliveredRequests: BigInt! # This is the count of request which were not Delivered By this mech but request was made to this 
 }
-
-# type MarketplaceService @entity(immutable: false) {
-#   id: ID!
-#   configHash: Bytes!
-#   latestMultisig: Bytes
-#   historicalMultisigs: [Bytes!]!
-#   mechs: [Mech!] @derivedFrom(field: "service")
-#   metadata: Metadata @derivedFrom(field: "service")
-#   requests: [Request!] @derivedFrom(field: "service")
-#   deliveries: [Deliver!] @derivedFrom(field: "service")
-#   totalRequests: BigInt!
-#   totalDeliveries: BigInt!
-#   agentIds: [BigInt!]!
-# }
-
-# type MarketplaceSender @entity(immutable: false) {
-#   id: Bytes! # address
-#   requests: [Request!]! @derivedFrom(field: "sender")
-#   totalMarketplaceRequests: BigInt!
-#   totalOffChainRequests: BigInt! # Requests whose deliveries are captured by the MarketplaceDeliveryWithSignatures event
-#   totalRequests: BigInt!
-#   totalTransactions: BigInt!
-#   totalAtaRequestsTransactions: BigInt!
-# }
 
 type LegacyGlobal @entity(immutable: false) {
   id: ID! # uint256
