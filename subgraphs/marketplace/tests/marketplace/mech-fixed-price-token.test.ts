@@ -41,7 +41,6 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
   mechEntity.receivedRequests = BI.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-  mechEntity.undeliveredRequests = BI.fromI32(0)
   mechEntity.save()
 }
 
@@ -208,17 +207,25 @@ describe("Mech Fixed Price Token Handler", () => {
     mechEntity.receivedRequests = BI.fromI32(0)
     mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
     mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.undeliveredRequests = BI.fromI32(0)
     mechEntity.save()
 
     handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
 
+    // Assert initial counters
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
+    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
+
+    // RevokeRequest is informational only - RevokeRequest and Deliver are mutually exclusive
     handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+
+    // Assert counters remain unchanged
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
+    assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
   })
 
-  test("Revoke ignored when request already delivered", () => {
+  test("RevokeRequest on already delivered request is informational only", () => {
     const serviceId = BI.fromI32(32)
 
     let mapping = new CreateMechEntity(TEST_MECH)
@@ -239,7 +246,6 @@ describe("Mech Fixed Price Token Handler", () => {
     mechEntity.receivedRequests = BI.fromI32(0)
     mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
     mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.undeliveredRequests = BI.fromI32(0)
     mechEntity.save()
 
     handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_TOKEN))
@@ -254,9 +260,15 @@ describe("Mech Fixed Price Token Handler", () => {
     )
 
     assert.fieldEquals("Request", TEST_REQUEST_ID_1.toHexString(), "isDelivered", "true")
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
 
+    // RevokeRequest is informational only - RevokeRequest and Deliver are mutually exclusive
     handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+
+    // Assert counters remain unchanged
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
   })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
@@ -278,7 +290,6 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
     assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
     assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Decremented because self-delivered
   })
 
   test("Other-mech delivery increments deliveredByOthersFromReceived counter", () => {
@@ -312,13 +323,11 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "receivedRequests", "1")
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "selfDeliveredFromReceived", "0")
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "deliveredByOthersFromReceived", "1")
-    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "undeliveredRequests", "1") // Stays 1 because priority mech hasn't delivered it itself
     
     // Delivery mech counters - didn't receive this request, so no counter changes
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "receivedRequests", "0")
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "selfDeliveredFromReceived", "0")
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "undeliveredRequests", "0")
   })
 
   test("Multiple self-deliveries increment counter correctly", () => {
@@ -336,7 +345,6 @@ describe("Mech Fixed Price Token Handler", () => {
     handleRequest(createRequestEvent(testMech, requestId2, TEST_DATA_TOKEN))
     
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "2")
     
     handleDeliver(createDeliverEvent(testMech, requestId1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_TOKEN))
     handleDeliver(createDeliverEvent(testMech, requestId2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_TOKEN))
@@ -345,6 +353,5 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Both delivered by self
   })
 })

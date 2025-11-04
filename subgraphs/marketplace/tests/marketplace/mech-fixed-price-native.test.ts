@@ -212,7 +212,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
     })
 
-  test("Revoke decrements undelivered when not delivered", () => {
+  test("RevokeRequest is informational only (no counter changes)", () => {
       // Arrange
       let serviceId = BigInt.fromI32(112)
       createMechWithMapping(TEST_MECH, serviceId)
@@ -222,18 +222,24 @@ describe("Mech Fixed Price Native Handler", () => {
       // Act
       handleRequest(requestEvent)
 
-      // Assert request incremented undelivered
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
+      // Assert initial counters
+      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
+      assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
 
-      // Act - revoke
+      // Act - revoke (RevokeRequest is emitted when marketplace rejects delivery attempt)
+      // Note: RevokeRequest and Deliver are mutually exclusive - if RevokeRequest is emitted,
+      // Deliver was NOT emitted, so no counters were incremented and nothing needs to be rolled back
       let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1)
       handleRevokeRequest(revokeEvent)
 
-      // Assert revoke decremented undelivered
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+      // Assert - counters remain unchanged (RevokeRequest is purely informational)
+      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "0")
+      assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
     })
 
-  test("Revoke is ignored when request is already delivered", () => {
+  test("RevokeRequest on already delivered request is informational only", () => {
       // Arrange
       let serviceId = BigInt.fromI32(128)
       let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
@@ -246,16 +252,18 @@ describe("Mech Fixed Price Native Handler", () => {
       handleRequest(requestEvent)
       handleDeliver(deliverEvent)
 
-      // Assert request was delivered and undelivered is 0
+      // Assert request was delivered
       assert.fieldEquals("Request", TEST_REQUEST_ID_2.toHexString(), "isDelivered", "true")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
 
-      // Act - try to revoke delivered request
+      // Act - revoke (informational only - RevokeRequest and Deliver are mutually exclusive)
       let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_2)
       handleRevokeRequest(revokeEvent)
 
-      // Assert undelivered remains 0 (revoke ignored)
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
+      // Assert - counters remain unchanged (RevokeRequest doesn't roll back anything)
+      assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
+      assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
     })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
@@ -273,7 +281,6 @@ describe("Mech Fixed Price Native Handler", () => {
       
       // Debug: check state after request
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
       
       handleDeliver(deliverEvent)
 
@@ -284,7 +291,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
       assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
       assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
     })
 
   test("Other-mech delivery increments deliveredByOthersFromReceived counter", () => {
@@ -318,13 +324,11 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "receivedRequests", "1")
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "selfDeliveredFromReceived", "0")
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "deliveredByOthersFromReceived", "1")
-      assert.fieldEquals("Mech", priorityMechServiceId.toString(), "undeliveredRequests", "1") // Stays 1 because priority mech hasn't delivered it itself
       
       // Delivery mech counters - didn't receive this request, so no counter changes
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "receivedRequests", "0")
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "selfDeliveredFromReceived", "0")
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "undeliveredRequests", "0")
     })
 
   test("Multiple self-deliveries increment counter correctly", () => {
@@ -350,7 +354,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
       assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
       assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
     })
 
     test("Service counters are not double-counted for marketplace requests", () => {

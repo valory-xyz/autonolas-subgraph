@@ -82,7 +82,6 @@ function createMechMapping(
   mechEntity.receivedRequests = BigInt.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
-  mechEntity.undeliveredRequests = BigInt.fromI32(0)
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
 }
