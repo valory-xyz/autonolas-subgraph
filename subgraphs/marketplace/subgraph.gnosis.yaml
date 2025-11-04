@@ -304,6 +304,7 @@ templates:
         - Deliver
         - RequestToMarketplace
         - DeliverForMarketplace
+        - Mech
       abis:
         - name: MechFixedPriceNative
           file: ./abis/marketplace/MechFixedPriceNative.json
@@ -314,6 +315,8 @@ templates:
           handler: handleRequest
         - event: RevokeRequest(bytes32)
           handler: handleRevokeRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
@@ -329,6 +332,7 @@ templates:
         - Deliver
         - RequestToMarketplace
         - DeliverForMarketplace
+        - Mech
       abis:
         - name: MechFixedPriceToken
           file: ./abis/marketplace/MechFixedPriceToken.json
@@ -339,6 +343,8 @@ templates:
           handler: handleRequest
         - event: RevokeRequest(bytes32)
           handler: handleRevokeRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
@@ -354,6 +360,7 @@ templates:
         - Deliver
         - RequestToMarketplace
         - DeliverForMarketplace
+        - Mech
       abis:
         - name: MechNvmSubscriptionNative
           file: ./abis/marketplace/MechNvmSubscriptionNative.json
@@ -364,6 +371,8 @@ templates:
           handler: handleRequest
         - event: RevokeRequest(bytes32)
           handler: handleRevokeRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
@@ -379,6 +388,7 @@ templates:
         - Deliver
         - RequestToMarketplace
         - DeliverForMarketplace
+        - Mech
       abis:
         - name: MechNvmSubscriptionTokenUSDC
           file: ./abis/marketplace/MechNvmSubscriptionTokenUSDC.json
@@ -389,6 +399,8 @@ templates:
           handler: handleRequest
         - event: RevokeRequest(bytes32)
           handler: handleRevokeRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
   
   - kind: file/ipfs
