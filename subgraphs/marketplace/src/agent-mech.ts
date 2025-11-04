@@ -153,7 +153,8 @@ function extractQuestionTitle(prompt: string): string | null {
 }
 
 export function handleRequest(event: RequestEvent): void {
-  let entity = new Request(Bytes.fromHexString(event.params.requestId.toHexString()));
+  let id = Bytes.fromBigInt(event.params.requestId);
+  let entity = new Request(Bytes.fromHexString(id.toHexString()));
 
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);

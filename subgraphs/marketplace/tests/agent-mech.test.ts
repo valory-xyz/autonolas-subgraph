@@ -59,39 +59,41 @@ describe("Describe agent-mech processing", () => {
         //     "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
         // )
 
+        let reqId = Bytes.fromHexString(Bytes.fromBigInt(requestId).toHexString());
+
         assert.entityCount("Request", 1)
 
         assert.fieldEquals(
             "Request",
-            requestId.toHexString(),
+            reqId.toHexString(),
             "sender",
             sender.toHexString()
         )
 
         assert.fieldEquals(
             "Request",
-            requestId.toHexString(),
+            reqId.toHexString(),
             "mech",
             "0xa16081f360e3847006db660bae1c6d1b2e17ec2a"
         )
 
         assert.fieldEquals(
             "Request",
-            requestId.toHexString(),
+            reqId.toHexString(),
             "blockNumber",
             event.block.number.toString()
         )
 
         assert.fieldEquals(
             "Request",
-            requestId.toHexString(),
+            reqId.toHexString(),
             "blockTimestamp",
             event.block.timestamp.toString()
         )
         
         assert.fieldEquals(
             "Request",
-            requestId.toHexString(),
+            reqId.toHexString(),
             "transactionHash",
             event.transaction.hash.toHexString()
         )
