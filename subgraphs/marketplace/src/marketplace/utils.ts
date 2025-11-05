@@ -26,6 +26,7 @@ import {
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
 } from '../../generated/templates';
+import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
@@ -363,6 +364,28 @@ export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMark
     marketplaceRequest.requestId = requestId;
   }
   return marketplaceRequest as RequestToMarketplace;
+}
+
+/**
+ * Generic function to get paymentType from any payment type contract
+ * All payment type contracts implement the same paymentType() function interface,
+ * so we can use any binding (MechFixedPriceNative) as a generic binding
+ * Returns Bytes if successful, throws error if the call fails
+ */
+export function getPaymentType(mechAddress: Address): Bytes {
+  // All payment type contracts share the same paymentType() interface
+  // So we can use any contract binding as a generic binding
+  let contract = MechFixedPriceNativeContract.bind(mechAddress);
+  let result = contract.try_paymentType();
+  if (!result.reverted) {
+    return result.value;
+  }
+
+  // PaymentType is required - if we can't get it, the subgraph should crash
+  log.critical('Failed to get paymentType for mech: {}', [
+    mechAddress.toHexString(),
+  ]);
+  throw new Error(`Failed to get paymentType for mech: ${mechAddress.toHexString()}`);
 }
 
 /**

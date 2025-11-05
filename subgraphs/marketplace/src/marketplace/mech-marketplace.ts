@@ -45,6 +45,7 @@ import {
   getOrCreateRequestToMarketplace,
   getOrCreateDeliverForMarketplace,
   ataTransactionExists,
+  getPaymentType,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -81,6 +82,11 @@ export function handleCreateMech(event: CreateMechEvent): void {
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
+
+  // Call paymentType function on the newly deployed mech contract using generic function
+  // This function tries all payment type contract bindings until one succeeds
+  let paymentType = getPaymentType(event.params.mech);
+  mechAgent.paymentType = paymentType;
 
   mechAgent.save();
 
