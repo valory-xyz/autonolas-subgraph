@@ -107,8 +107,8 @@ export function getServiceIdFromMech(mech: Bytes): Bytes | null {
   if (createMechEntity !== null && createMechEntity.agentId !== null) {
     let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
     if (mechAgent !== null) {
-      if (mechAgent.service !== null) {
-        let serviceId = BigInt.fromString(mechAgent.service!);
+      if (mechAgent.service !== null && mechAgent.service.toString().length > 0) {
+        let serviceId = BigInt.fromString(mechAgent.service.toString());
         return getOddBigIntBytes(serviceId);
       }
       // Fallback: try to get service ID from agent ID
