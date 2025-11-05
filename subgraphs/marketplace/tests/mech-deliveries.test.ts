@@ -9,7 +9,6 @@ import {
 } from "matchstick-as/assembly/index"
 import { Bytes, DataSourceContext, log } from "@graphprotocol/graph-ts"
 import { MechParsedDeliver } from "../generated/templates"
-import { ParsedDeliver } from "../generated/schema"
 import { handleMechDeliver } from "../src/mech-deliver"
 
 
@@ -41,13 +40,13 @@ describe("Describe mech deliveries processing", () => {
         log.info("delivery: {}", [delivery.toString()]);
         handleMechDeliver(delivery);
 
-        assert.entityCount("ParsedDeliver", 1);
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "content", delivery.toString());
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "hash", cid);
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "deliver", deliveryId.toHexString());
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "request", requestId.toHexString());
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "model", "gpt-4.1-2025-04-14");
-        assert.fieldEquals("ParsedDeliver", deliveryId.toHexString(), "response", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
+        assert.entityCount("ParsedDelivery", 1);
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "content", delivery.toString());
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "hash", cid);
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "deliver", deliveryId.toHexString());
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "request", requestId.toHexString());
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "model", "gpt-4.1-2025-04-14");
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "response", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
     })
 
     test("Handle mech request invalid object", () => {
