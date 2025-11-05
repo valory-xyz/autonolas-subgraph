@@ -12,6 +12,10 @@ import {
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
 import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
 
+export function getOddBigIntBytes(bigInt: BigInt): Bytes {
+  return Bytes.fromHexString(Bytes.fromBigInt(bigInt).toHexString());
+}
+
 export function getGlobal(): Global {
   let global = Global.load('');
   if (global == null) {
@@ -92,7 +96,7 @@ export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
 export function getServiceIdFromMultisig(multisig: Bytes): Bytes | null {
   let entity = CreateMultisigWithAgents.load(multisig);
   if (entity !== null) {
-    return Bytes.fromHexString(Bytes.fromBigInt(entity.serviceId).toHexString());
+    return getOddBigIntBytes(entity.serviceId);
   }
   return null;
 }
@@ -101,10 +105,11 @@ export function getServiceIdFromMech(mech: Bytes): Bytes | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
   if (createMechEntity !== null && createMechEntity.agentId !== null) {
-    let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
+    let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
     if (mechAgent !== null) {
       if (mechAgent.service !== null) {
-        return Bytes.fromHexString(mechAgent.service!);
+        let serviceId = BigInt.fromString(mechAgent.service!);
+        return getOddBigIntBytes(serviceId);
       }
       // Fallback: try to get service ID from agent ID
       return getServiceIdFromAgentId(createMechEntity.agentId!);

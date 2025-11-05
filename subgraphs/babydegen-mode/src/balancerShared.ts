@@ -63,8 +63,8 @@ export function detectTransactionType(deltas: Array<BigInt>): string {
   return "no-change"
 }
 
-export function getBalancerPositionId(userAddress: Address, poolAddress: Address): Bytes {
-  const positionId = userAddress.toHex() + "-balancer-" + poolAddress.toHex()
+export function getBalancerPositionId(userAddress: Address, poolAddress: Address, txHash: Bytes): Bytes {
+  const positionId = userAddress.toHex() + "-balancer-" + txHash.toHexString()
   return Bytes.fromUTF8(positionId)
 }
 
@@ -91,7 +91,7 @@ export function refreshBalancerPositionWithEventAmounts(
   block: ethereum.Block,
   txHash: Bytes
 ): void {
-  const positionId = getBalancerPositionId(userAddress, poolAddress)
+  const positionId = getBalancerPositionId(userAddress, poolAddress, txHash)
   
   const service = getServiceByAgent(userAddress)
   if (service == null) {
@@ -280,9 +280,10 @@ export function refreshBalancerPosition(
   poolAddress: Address,
   poolId: Bytes,
   block: ethereum.Block,
-  txHash: Bytes
+  txHash: Bytes,
+  updatePortfolio: boolean = true
 ): void {
-  const positionId = getBalancerPositionId(userAddress, poolAddress)
+  const positionId = getBalancerPositionId(userAddress, poolAddress, txHash)
   
   const service = getServiceByAgent(userAddress)
   if (service == null) {
@@ -441,5 +442,9 @@ export function refreshBalancerPosition(
   }
   
   pp.save()
-  calculatePortfolioMetrics(userAddress, block)
+  
+  // Only update portfolio if requested
+  if (updatePortfolio) {
+    calculatePortfolioMetrics(userAddress, block)
+  }
 }

@@ -278,7 +278,7 @@ export function handleDeliverWithSignaturesV1(
   deliver.request = null; // Off-chain signed requests have no Request event
   // Sender: use transaction sender if not already set by handleMarketplaceDeliveryWithSignatures
   // (handleMarketplaceDeliveryWithSignatures may run first and set sender to requester)
-  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000") {
+  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000" || deliver.sender === null) {
     deliver.sender = event.transaction.from;
   }
 
@@ -315,7 +315,7 @@ export function handleDeliverWithSignaturesV2(
   deliver.request = null; // Off-chain signed requests have no Request event
   // Sender: use transaction sender if not already set by handleMarketplaceDeliveryWithSignatures
   // (handleMarketplaceDeliveryWithSignatures may run first and set sender to requester)
-  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000") {
+  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000" || deliver.sender === null) {
     deliver.sender = event.transaction.from;
   }
 
