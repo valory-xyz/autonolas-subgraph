@@ -9,6 +9,7 @@ import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { handleDeliver, handleRequest } from "../src/agent-mech"
 import { createMechDeliveryEvent, createMechRequestEvent } from "./agent-mech-utilts"
 import { mockIpfsFile } from "matchstick-as"
+import { getOddBigIntBytes } from "../src/utils"
 
 
 describe("Describe agent-mech processing", () => {
@@ -197,7 +198,7 @@ describe("Describe agent-mech processing", () => {
             "DeliverForMech",
             deliveryId.toHexString(),
             "requestId",
-            requestId.toHexString()
+            getOddBigIntBytes(requestId).toHexString()
         )
 
         assert.fieldEquals(
@@ -218,7 +219,7 @@ describe("Describe agent-mech processing", () => {
             "Deliver",
             deliveryId.toHexString(),
             "request",
-            requestId.toHexString()
+            getOddBigIntBytes(requestId).toHexString()
         )
 
         assert.entityCount("Request", 1)
