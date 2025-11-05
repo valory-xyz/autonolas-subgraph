@@ -4,8 +4,9 @@ import {
   test,
   afterEach,
   clearStore,
+  createMockedFunction,
 } from "matchstick-as/assembly/index"
-import { Address, BigInt, Bytes, log } from "@graphprotocol/graph-ts"
+import { Address, BigInt, Bytes, log, ethereum } from "@graphprotocol/graph-ts"
 import {
   handleCreateMech,
   handleMarketplaceDelivery,
@@ -83,6 +84,8 @@ function createMechMapping(
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
   mechEntity.karma = BigInt.fromI32(0)
+  
+  mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
 }
@@ -135,13 +138,38 @@ describe("Mech Marketplace Handlers", () => {
     let mech = Address.fromString("0x00000000000000000000000000000000000000aa")
     let serviceId = BigInt.fromI32(16) 
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000bb")
+    let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+
+    // Mock the paymentType() function call
+    createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
+      .returns([ethereum.Value.fromBytes(paymentType)])
 
     let event = createCreateMechEvent(mech, serviceId, mechFactory)
     handleCreateMech(event)
 
     assert.fieldEquals("CreateMech", mech.toHexString(), "serviceId", "16")
     assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
     assert.fieldEquals("Global", "", "totalMechs", "1")
+  })
+
+  test("handleCreateMech retrieves and stores paymentType correctly", () => {
+    let mech = Address.fromString("0x00000000000000000000000000000000000000ff")
+    let serviceId = BigInt.fromI32(999)
+    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000fe")
+    let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+
+    // Mock the paymentType() function call to return the paymentType
+    createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
+      .returns([ethereum.Value.fromBytes(paymentType)])
+
+    let event = createCreateMechEvent(mech, serviceId, mechFactory)
+    handleCreateMech(event)
+
+    // Verify paymentType was stored correctly
+    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "mechFactory", mechFactory.toHexString())
   })
 
   test("handleMarketplaceDelivery persists aggregated delivery snapshot", () => {
