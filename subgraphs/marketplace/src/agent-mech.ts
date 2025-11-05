@@ -248,7 +248,9 @@ export function handleDeliver(event: DeliverEvent): void {
 
   let context = new DataSourceContext();
   context.setBytes('deliveryId', entity.id);
-  DataSourceTemplate.createWithContext("MechParsedDeliver", [mechDelivery.ipfsHash], context);
+
+  let ipfsRoute = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
+  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
 
   // Connecting delivery with request
   let existingRequest = Request.load(getOddBigIntBytes(event.params.requestId));
