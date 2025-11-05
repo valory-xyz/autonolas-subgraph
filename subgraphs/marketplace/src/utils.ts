@@ -78,7 +78,7 @@ export function getOrCreateCreateMechEntity(
   return entity;
 }
 
-export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
+export function getServiceIdFromAgentId(agentId: BigInt): string | null {
   log.info("Getting service ID from agent ID: {}", [agentId.toString()]);
   let agentMultisigAssociation = AgentMultisigAssociation.load(
     agentId.toString()
@@ -93,23 +93,22 @@ export function getServiceIdFromAgentId(agentId: BigInt): Bytes | null {
   return null;
 }
 
-export function getServiceIdFromMultisig(multisig: Bytes): Bytes | null {
+export function getServiceIdFromMultisig(multisig: Bytes): string | null {
   let entity = CreateMultisigWithAgents.load(multisig);
   if (entity !== null) {
-    return getOddBigIntBytes(entity.serviceId);
+    return entity.serviceId.toString();
   }
   return null;
 }
 
-export function getServiceIdFromMech(mech: Bytes): Bytes | null {
+export function getServiceIdFromMech(mech: Bytes): string | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
-  if (createMechEntity !== null && createMechEntity.agentId !== null && createMechEntity.agentId!.toString().length > 0) {
+  if (createMechEntity !== null && createMechEntity.agentId !== null) {
     let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
     if (mechAgent !== null) {
-      if (mechAgent.service !== null && mechAgent.service!.toString().length > 0) {
-        let serviceId = BigInt.fromString(mechAgent.service!.toString());
-        return getOddBigIntBytes(serviceId);
+      if (mechAgent.service !== null) {
+        return mechAgent.service;
       }
       // Fallback: try to get service ID from agent ID
       return getServiceIdFromAgentId(createMechEntity.agentId!);

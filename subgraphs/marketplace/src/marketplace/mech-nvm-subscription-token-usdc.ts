@@ -47,8 +47,8 @@ export function handleDeliver(event: DeliverEvent): void {
     throw new Error(`Deliver: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
   }
   
-  deliver.service = serviceId.toString();
-  let service = Service.load(serviceId.toString());
+  deliver.service = serviceId;
+  let service = Service.load(serviceId);
   if (service !== null) {
     service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
     service.save();
@@ -98,8 +98,8 @@ export function handleRequest(event: RequestEvent): void {
     throw new Error(`Request: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
   }
   
-  request.mech = serviceId.toString(); // Mech entity ID (serviceId), not address
-  request.service = serviceId.toString();
+  request.mech = serviceId; // Mech entity ID (serviceId), not address
+  request.service = serviceId;
   
   // Common fields
   request.blockNumber = event.block.number;
@@ -114,7 +114,7 @@ export function handleRequest(event: RequestEvent): void {
   // Only increment global/sender/service counters if NOT a marketplace request (to avoid double-counting)
   if (!isMarketplaceRequest) {
     // Update service counters
-    let service = Service.load(serviceId.toString());
+    let service = Service.load(serviceId);
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
@@ -172,9 +172,9 @@ export function handleMaxDeliveryRateUpdated(event: MaxDeliveryRateUpdatedEvent)
     throw new Error(`MaxDeliveryRateUpdated: Could not find serviceId for mech ${event.address.toHexString()}. CreateMech mapping missing.`);
   }
   
-  let mech = Mech.load(serviceId.toString());
+  let mech = Mech.load(serviceId);
   if (mech === null) {
-    throw new Error(`MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId.toString()}`);
+    throw new Error(`MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId}`);
   }
   
   mech.maxDeliveryRate = event.params.maxDeliveryRate;

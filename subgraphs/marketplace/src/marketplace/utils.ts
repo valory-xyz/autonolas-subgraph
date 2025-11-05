@@ -26,6 +26,7 @@ import {
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
 } from '../../generated/templates';
+import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
@@ -117,13 +118,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(serviceId.toString());
+  let mech = Mech.load(serviceId);
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        serviceId.toString(),
+        serviceId,
         transactionHash.toHexString(),
         functionName,
       ]
@@ -152,10 +153,10 @@ export function getServiceIdFromMultisig(
   return null;
 }
 
-export function getServiceIdFromMech(mechAddress: Bytes): BigInt | null {
+export function getServiceIdFromMech(mechAddress: Bytes): string | null {
   let createMechEntity = CreateMech.load(mechAddress);
   if (createMechEntity !== null && createMechEntity.serviceId !== null) {
-    return createMechEntity.serviceId;
+    return createMechEntity.serviceId!.toString();
   }
   return null;
 }
@@ -286,10 +287,10 @@ export function updateMechCountersOnDelivery(
     return;
   }
   
-  let priorityMechEntity = Mech.load(priorityServiceId.toString());
+  let priorityMechEntity = Mech.load(priorityServiceId);
   if (priorityMechEntity === null) {
     log.debug("updateMechCountersOnDelivery: No Mech entity found for priorityServiceId {}", [
-      priorityServiceId.toString(),
+      priorityServiceId,
     ]);
     return;
   }
@@ -315,13 +316,13 @@ export function updateMechCountersOnRequest(mechAddress: Bytes): void {
     return;
   }
   
-  let mechEntity = Mech.load(serviceId.toString());
+  let mechEntity = Mech.load(serviceId);
   if (mechEntity !== null) {
     mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
     mechEntity.save();
   } else {
     log.warning('updateMechCountersOnRequest: Could not find Mech entity for serviceId {} (from mech {})', [
-      serviceId.toString(),
+      serviceId,
       mechAddress.toHexString()
     ]);
   }
@@ -363,6 +364,28 @@ export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMark
     marketplaceRequest.requestId = requestId;
   }
   return marketplaceRequest as RequestToMarketplace;
+}
+
+/**
+ * Generic function to get paymentType from any payment type contract
+ * All payment type contracts implement the same paymentType() function interface,
+ * so we can use any binding (MechFixedPriceNative) as a generic binding
+ * Returns Bytes if successful, throws error if the call fails
+ */
+export function getPaymentType(mechAddress: Address): Bytes {
+  // All payment type contracts share the same paymentType() interface
+  // So we can use any contract binding as a generic binding
+  let contract = MechFixedPriceNativeContract.bind(mechAddress);
+  let result = contract.try_paymentType();
+  if (!result.reverted) {
+    return result.value;
+  }
+
+  // PaymentType is required - if we can't get it, the subgraph should crash
+  log.critical('Failed to get paymentType for mech: {}', [
+    mechAddress.toHexString(),
+  ]);
+  throw new Error(`Failed to get paymentType for mech: ${mechAddress.toHexString()}`);
 }
 
 /**

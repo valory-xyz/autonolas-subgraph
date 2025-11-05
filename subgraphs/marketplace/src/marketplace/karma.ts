@@ -15,10 +15,10 @@ export function handleMechKarmaChanged(event: MechKarmaChangedEvent): void {
     return;
   }
   
-  let mech = Mech.load(serviceId.toString());
+  let mech = Mech.load(serviceId);
   if (mech === null) {
     log.warning('MechKarmaChanged: Mech entity not found for serviceId {}. Skipping karma update.', [
-      serviceId.toString()
+      serviceId
     ]);
     return;
   }

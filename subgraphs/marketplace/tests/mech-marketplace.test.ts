@@ -3,10 +3,11 @@ import {
   describe,
   test,
   clearStore,
-  afterEach
+  afterEach,
+  createMockedFunction,
 } from "matchstick-as/assembly/index"
 
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
+import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 
 import { handleCreateMech as marketplaceHandleCreateMech } from "../src/marketplace/mech-marketplace"
 import { createCreateMechEvent } from "./mech-marketplace-utils"
@@ -30,6 +31,11 @@ describe("Describe mech-marketplace processing", () => {
 
         let mech = Address.fromString("0x0000000000000000000000000000000000000001")
         let mechFactory = Address.fromString("0x0000000000000000000000000000000000000001")
+        let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+
+        // Mock the paymentType() function call
+        createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
+          .returns([ethereum.Value.fromBytes(paymentType)])
 
         // act
         let event = createCreateMechEvent(mech, serviceId, mechFactory)
@@ -70,6 +76,13 @@ describe("Describe mech-marketplace processing", () => {
             serviceId.toString(),
             "totalDeliveriesTransactions",
             "0"
+        )
+
+        assert.fieldEquals(
+            "Mech",
+            serviceId.toString(),
+            "paymentType",
+            paymentType.toHexString()
         )
 
         assert.fieldEquals(
