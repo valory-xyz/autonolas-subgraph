@@ -7,9 +7,10 @@ import {
     dataSourceMock,
     readFile
 } from "matchstick-as/assembly/index"
-import { Bytes, DataSourceContext, log } from "@graphprotocol/graph-ts"
+import { Bytes, DataSourceContext, BigInt, log } from "@graphprotocol/graph-ts"
 import { MechParsedDeliver } from "../generated/templates"
 import { handleMechDeliver } from "../src/mech-deliver"
+import { getOddBigIntBytes } from "../src/utils"
 
 
 
@@ -21,7 +22,8 @@ describe("Describe mech deliveries processing", () => {
     test("Handle mech delivery", () => {
         // arrange
         const cid = "f01701220deadbeef/234";
-        let requestId = Bytes.fromHexString("0xc51fdb9278ea5dac88b9cef72bd211e7cfa31517b1cb29f275090ec92d1cca72");
+        const requestIdBigInt = BigInt.fromString("89161918861247656506307074754335742257461958235371918534377414398583737469554");
+        let requestId = getOddBigIntBytes(requestIdBigInt);
         let deliveryId = Bytes.fromHexString("0x1234567890abcdef");
 
         let context = new DataSourceContext();
