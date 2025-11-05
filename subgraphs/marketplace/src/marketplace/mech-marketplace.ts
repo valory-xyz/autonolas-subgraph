@@ -73,8 +73,9 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.undeliveredRequests = BigInt.fromI32(0);
-
+  mechAgent.maxDeliveryRate = null;
+  mechAgent.karma = BigInt.fromI32(0);
+  
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {

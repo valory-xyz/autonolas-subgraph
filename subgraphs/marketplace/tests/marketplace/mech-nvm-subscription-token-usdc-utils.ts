@@ -2,7 +2,8 @@ import { newMockEvent } from "matchstick-as"
 import {
   Deliver,
   Request,
-  RevokeRequest
+  RevokeRequest,
+  MaxDeliveryRateUpdated
 } from "../../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 
@@ -74,5 +75,20 @@ export function createRevokeEvent(
   )
 
   return revokeEvent
+}
+
+export function createMaxDeliveryRateUpdatedEvent(
+  mech: Address,
+  maxDeliveryRate: BigInt
+): MaxDeliveryRateUpdated {
+  let event = changetype<MaxDeliveryRateUpdated>(newMockEvent())
+  event.address = mech
+  event.parameters = new Array()
+
+  event.parameters.push(
+    new ethereum.EventParam("maxDeliveryRate", ethereum.Value.fromUnsignedBigInt(maxDeliveryRate))
+  )
+
+  return event
 }
 

@@ -6,8 +6,8 @@ import {
   clearStore
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
-import { handleDeliver, handleRequest, handleRevokeRequest } from "../../src/marketplace/mech-nvm-subscription-native"
-import { createDeliverEvent, createRequestEvent, createRevokeEvent } from "./mech-nvm-subscription-native-utils"
+import { handleDeliver, handleRequest, handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-nvm-subscription-native"
+import { createDeliverEvent, createRequestEvent, createMaxDeliveryRateUpdatedEvent } from "./mech-nvm-subscription-native-utils"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
@@ -44,7 +44,8 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
   mechEntity.receivedRequests = BI.fromI32(0)
   mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-  mechEntity.undeliveredRequests = BI.fromI32(0)
+  mechEntity.maxDeliveryRate = null
+  mechEntity.karma = BI.fromI32(0)
   mechEntity.save()
 }
 
@@ -187,78 +188,6 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
   })
 
-  test("Revoke decrements undelivered when not delivered", () => {
-    const serviceId = BI.fromI32(48)
-
-    let mapping = new CreateMechEntity(TEST_MECH)
-    mapping.mech = TEST_MECH
-    mapping.serviceId = serviceId
-    mapping.mechFactory = Address.zero()
-    mapping.blockNumber = BI.fromI32(0)
-    mapping.blockTimestamp = BI.fromI32(0)
-    mapping.transactionHash = TEST_REQUEST_ID_A
-    mapping.save()
-
-    let mechEntity = new Mech(serviceId.toString())
-    mechEntity.address = TEST_MECH
-    mechEntity.mechFactory = Address.zero()
-    mechEntity.owner = Address.zero()
-    mechEntity.service = serviceId.toString()
-    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
-    mechEntity.receivedRequests = BI.fromI32(0)
-    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
-    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.undeliveredRequests = BI.fromI32(0)
-    mechEntity.save()
-
-    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_A, TEST_DATA_NVM))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
-
-    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_A))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
-  })
-
-  test("Revoke ignored when request already delivered", () => {
-    const serviceId = BI.fromI32(64)
-
-    let mapping = new CreateMechEntity(TEST_MECH)
-    mapping.mech = TEST_MECH
-    mapping.serviceId = serviceId
-    mapping.mechFactory = Address.zero()
-    mapping.blockNumber = BI.fromI32(0)
-    mapping.blockTimestamp = BI.fromI32(0)
-    mapping.transactionHash = TEST_REQUEST_ID_A
-    mapping.save()
-
-    let mechEntity = new Mech(serviceId.toString())
-    mechEntity.address = TEST_MECH
-    mechEntity.mechFactory = Address.zero()
-    mechEntity.owner = Address.zero()
-    mechEntity.service = serviceId.toString()
-    mechEntity.totalDeliveriesTransactions = BI.fromI32(0)
-    mechEntity.receivedRequests = BI.fromI32(0)
-    mechEntity.selfDeliveredFromReceived = BI.fromI32(0)
-    mechEntity.deliveredByOthersFromReceived = BI.fromI32(0)
-    mechEntity.undeliveredRequests = BI.fromI32(0)
-    mechEntity.save()
-
-    handleRequest(createRequestEvent(TEST_MECH, TEST_REQUEST_ID_A, TEST_DATA_NVM))
-    handleDeliver(
-      createDeliverEvent(
-        TEST_MECH,
-        TEST_REQUEST_ID_A,
-        TEST_MECH_SERVICE_MULTISIG,
-        BigInt.fromI32(TEST_DELIVERY_RATE_NVM),
-        TEST_DATA_NVM
-      )
-    )
-
-    assert.fieldEquals("Request", TEST_REQUEST_ID_A.toHexString(), "isDelivered", "true")
-
-    handleRevokeRequest(createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_A))
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
-  })
-
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
     // Arrange
     let serviceId = BigInt.fromI32(388)
@@ -278,7 +207,6 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
     assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
     assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Decremented because self-delivered
   })
 
   test("Other-mech delivery increments deliveredByOthersFromReceived counter", () => {
@@ -312,13 +240,11 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "receivedRequests", "1")
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "selfDeliveredFromReceived", "0")
     assert.fieldEquals("Mech", priorityMechServiceId.toString(), "deliveredByOthersFromReceived", "1")
-    assert.fieldEquals("Mech", priorityMechServiceId.toString(), "undeliveredRequests", "1") // Stays 1 because priority mech hasn't delivered it itself
     
     // Delivery mech counters - didn't receive this request, so no counter changes
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "receivedRequests", "0")
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "selfDeliveredFromReceived", "0")
     assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "undeliveredRequests", "0")
   })
 
   test("Multiple self-deliveries increment counter correctly", () => {
@@ -336,7 +262,6 @@ describe("Mech NVM Subscription Native Handler", () => {
     handleRequest(createRequestEvent(testMech, requestId2, TEST_DATA_NATIVE))
     
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "2")
     
     handleDeliver(createDeliverEvent(testMech, requestId1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE))
     handleDeliver(createDeliverEvent(testMech, requestId2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE))
@@ -345,6 +270,36 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-    assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0") // Both delivered by self
+  })
+
+  test("MaxDeliveryRateUpdated updates Mech entity maxDeliveryRate", () => {
+    let serviceId = BigInt.fromI32(300)
+    let mechAddress = Address.fromString("0x0000000000000000000000000000000000000300")
+    createMechWithMapping(mechAddress, serviceId)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "null")
+
+    let maxDeliveryRate = BigInt.fromI32(1000)
+    let updateEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, maxDeliveryRate)
+    handleMaxDeliveryRateUpdated(updateEvent)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
+  })
+
+  test("MaxDeliveryRateUpdated updates maxDeliveryRate multiple times", () => {
+    let serviceId = BigInt.fromI32(301)
+    let mechAddress = Address.fromString("0x0000000000000000000000000000000000000301")
+    createMechWithMapping(mechAddress, serviceId)
+
+    let firstRate = BigInt.fromI32(1000)
+    let firstEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, firstRate)
+    handleMaxDeliveryRateUpdated(firstEvent)
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", firstRate.toString())
+
+    let secondRate = BigInt.fromI32(2000)
+    let secondEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, secondRate)
+    handleMaxDeliveryRateUpdated(secondEvent)
+
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
   })
 })

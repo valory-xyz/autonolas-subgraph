@@ -231,7 +231,8 @@ type Mech @entity(immutable: false) {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  undeliveredRequests: BigInt! # This is the count of request which were not Delivered By this mech but request was made to this 
+  maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
+  karma: BigInt! # Cumulative karma (sum of all karmaChange values from MechKarmaChanged events)
 }
 
 type LegacyGlobal @entity(immutable: false) {

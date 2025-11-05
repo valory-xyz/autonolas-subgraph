@@ -9,15 +9,15 @@ import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import {
   handleDeliver,
   handleRequest,
-  handleRevokeRequest
+  handleMaxDeliveryRateUpdated
 } from "../../src/marketplace/mech-fixed-price-native"
 import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
 import { Service } from "../../generated/schema"
 import {
   createDeliverEvent,
   createRequestEvent,
-  createRevokeEvent,
-  createMechWithMapping
+  createMechWithMapping,
+  createMaxDeliveryRateUpdatedEvent
 } from "./mech-fixed-price-native-utils"
 import { createMarketplaceRequestEvent } from "./mech-marketplace-utils"
 import {
@@ -212,52 +212,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
     })
 
-  test("Revoke decrements undelivered when not delivered", () => {
-      // Arrange
-      let serviceId = BigInt.fromI32(112)
-      createMechWithMapping(TEST_MECH, serviceId)
-
-      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
-
-      // Act
-      handleRequest(requestEvent)
-
-      // Assert request incremented undelivered
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
-
-      // Act - revoke
-      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_1)
-      handleRevokeRequest(revokeEvent)
-
-      // Assert revoke decremented undelivered
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
-    })
-
-  test("Revoke is ignored when request is already delivered", () => {
-      // Arrange
-      let serviceId = BigInt.fromI32(128)
-      let deliveryRate = BigInt.fromI32(TEST_DELIVERY_RATE_NATIVE)
-      createMechWithMapping(TEST_MECH, serviceId)
-
-      let requestEvent = createRequestEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_DATA_NATIVE)
-      let deliverEvent = createDeliverEvent(TEST_MECH, TEST_REQUEST_ID_2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
-
-      // Act - create request and deliver it
-      handleRequest(requestEvent)
-      handleDeliver(deliverEvent)
-
-      // Assert request was delivered and undelivered is 0
-      assert.fieldEquals("Request", TEST_REQUEST_ID_2.toHexString(), "isDelivered", "true")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
-
-      // Act - try to revoke delivered request
-      let revokeEvent = createRevokeEvent(TEST_MECH, TEST_REQUEST_ID_2)
-      handleRevokeRequest(revokeEvent)
-
-      // Assert undelivered remains 0 (revoke ignored)
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
-    })
-
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
       // Arrange
       let serviceId = BigInt.fromI32(144)
@@ -273,7 +227,6 @@ describe("Mech Fixed Price Native Handler", () => {
       
       // Debug: check state after request
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "1")
       
       handleDeliver(deliverEvent)
 
@@ -284,7 +237,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
       assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "1")
       assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
     })
 
   test("Other-mech delivery increments deliveredByOthersFromReceived counter", () => {
@@ -318,13 +270,11 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "receivedRequests", "1")
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "selfDeliveredFromReceived", "0")
       assert.fieldEquals("Mech", priorityMechServiceId.toString(), "deliveredByOthersFromReceived", "1")
-      assert.fieldEquals("Mech", priorityMechServiceId.toString(), "undeliveredRequests", "1") // Stays 1 because priority mech hasn't delivered it itself
       
       // Delivery mech counters - didn't receive this request, so no counter changes
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "receivedRequests", "0")
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "selfDeliveredFromReceived", "0")
       assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", deliveryMechServiceId.toString(), "undeliveredRequests", "0")
     })
 
   test("Multiple self-deliveries increment counter correctly", () => {
@@ -350,7 +300,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
       assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
       assert.fieldEquals("Mech", serviceId.toString(), "deliveredByOthersFromReceived", "0")
-      assert.fieldEquals("Mech", serviceId.toString(), "undeliveredRequests", "0")
     })
 
     test("Service counters are not double-counted for marketplace requests", () => {
@@ -472,5 +421,44 @@ describe("Mech Fixed Price Native Handler", () => {
       // Service delivery counter should be incremented
       assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "1")
       assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
+    })
+
+    test("MaxDeliveryRateUpdated updates Mech entity maxDeliveryRate", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(300)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000300")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Initial state: maxDeliveryRate should be null
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "null")
+
+      // Act: Emit MaxDeliveryRateUpdated event
+      let maxDeliveryRate = BigInt.fromI32(1000)
+      let updateEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, maxDeliveryRate)
+      handleMaxDeliveryRateUpdated(updateEvent)
+
+      // Assert: maxDeliveryRate should be updated
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
+    })
+
+    test("MaxDeliveryRateUpdated updates maxDeliveryRate multiple times", () => {
+      // Arrange
+      let serviceId = BigInt.fromI32(301)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000301")
+      createMechWithMapping(mechAddress, serviceId)
+
+      // Act: First update
+      let firstRate = BigInt.fromI32(1000)
+      let firstEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, firstRate)
+      handleMaxDeliveryRateUpdated(firstEvent)
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", firstRate.toString())
+
+      // Act: Second update
+      let secondRate = BigInt.fromI32(2000)
+      let secondEvent = createMaxDeliveryRateUpdatedEvent(mechAddress, secondRate)
+      handleMaxDeliveryRateUpdated(secondEvent)
+
+      // Assert: Should reflect latest value
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
     })
 })

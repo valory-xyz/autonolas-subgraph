@@ -2,6 +2,7 @@ import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
   RevokeRequest as RevokeRequestEvent,
+  MaxDeliveryRateUpdated as MaxDeliveryRateUpdatedEvent,
 } from '../../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest, getOrCreateAtaTransaction, getOrCreateRequestToMarketplace, getOrCreateDeliverForMarketplace, ataTransactionExists } from './utils';
@@ -155,32 +156,28 @@ export function handleRequest(event: RequestEvent): void {
 }
 
 export function handleRevokeRequest(event: RevokeRequestEvent): void {
+  // RevokeRequest is emitted when marketplace rejects the delivery (e.g., already delivered by another mech).
+  // This is mutually exclusive with Deliver event - if RevokeRequest is emitted, Deliver was NOT emitted.
+  // Therefore, no counters were incremented and nothing needs to be rolled back.
+  // This is purely informational logging.
+  log.info('RevokeRequest: Mech {} failed to deliver request {} (rejected by marketplace)', [
+    event.address.toHexString(),
+    event.params.requestId.toHexString()
+  ]);
+}
+
+export function handleMaxDeliveryRateUpdated(event: MaxDeliveryRateUpdatedEvent): void {
   const serviceId = getServiceIdFromMech(event.address);
   if (serviceId === null) {
-    log.warning('RevokeRequest: Could not find serviceId for mech {}', [event.address.toHexString()]);
-    return;
+    throw new Error(`MaxDeliveryRateUpdated: Could not find serviceId for mech ${event.address.toHexString()}. CreateMech mapping missing.`);
   }
-
-  let req = Request.load(event.params.requestId);
-  if (req !== null && req.isDelivered) {
-    log.info('RevokeRequest: Request {} already delivered, ignoring revoke', [event.params.requestId.toHexString()]);
-    return;
+  
+  let mech = Mech.load(serviceId.toString());
+  if (mech === null) {
+    throw new Error(`MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId.toString()}`);
   }
-
-  let mechEntity = Mech.load(serviceId.toString());
-  if (mechEntity === null) {
-    log.warning('RevokeRequest: Could not find Mech entity for serviceId {}', [serviceId.toString()]);
-    return;
-  }
-
-  if (mechEntity.undeliveredRequests.gt(BigInt.fromI32(0))) {
-    mechEntity.undeliveredRequests = mechEntity.undeliveredRequests.minus(BigInt.fromI32(1));
-    mechEntity.save();
-    log.info('RevokeRequest: Decremented undeliveredRequests for mech {} (serviceId: {}), new value: {}', [
-      event.address.toHexString(),
-      serviceId.toString(),
-      mechEntity.undeliveredRequests.toString()
-    ]);
-  }
+  
+  mech.maxDeliveryRate = event.params.maxDeliveryRate;
+  mech.save();
 }
 

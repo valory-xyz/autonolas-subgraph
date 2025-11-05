@@ -21,7 +21,7 @@ The subgraph monitors contracts on **MODE Mainnet**:
 - **Safe**: Dynamic multisig wallet tracking via templates
 
 ### DeFi Protocol Contracts
-- **Velodrome NFT Manager**: `0x991d5546C4B442B4c5fdc4c8B8d8d131DEB24702`
+- **Velodrome NFT Manager**: `0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702`
 - **Velodrome CL Factory**: `0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F`
 - **Velodrome V2 Factory**: `0x31832f2a97Fd20664D76Cc421207669b55CE4BC0`
 - **Balancer V2 Vault**: `0xBA12222222228d8Ba445958a75a0704d566BF2C8`
