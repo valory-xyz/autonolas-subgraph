@@ -7,16 +7,6 @@ type ParsedRequest @entity(immutable: true) {
   hash: String!
 }
 
-type ParsedDeliver @entity(immutable: true) {
-  id: Bytes! # hash converted to Bytes
-  content: String!
-  deliver: Deliver!
-  request: Request!
-  response: String!
-  model: String!
-  hash: String!
-}
-
 type MechAgent @entity(immutable: false) {
   id: ID! # agent Id
   mech: Bytes # address
@@ -380,6 +370,16 @@ type Deliver @entity(immutable: false) {
   # Relationships to specialized entities
   mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
   marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
+}
+
+type ParsedDelivery @entity(immutable: true) {
+  id: Bytes! # hash converted to Bytes
+  content: String!
+  deliver: Deliver!
+  request: Request!
+  response: String!
+  model: String!
+  hash: String!
 }
 
 type Sender @entity(immutable: false) {

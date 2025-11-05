@@ -1,5 +1,5 @@
 import { Bytes, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
-import { ParsedDeliver } from "../generated/schema";
+import { ParsedDelivery } from "../generated/schema";
 
 let UNHANDLED_TYPE = '[unhandled type]';
 
@@ -7,7 +7,7 @@ export function handleMechDeliver(content: Bytes): void {
   let hash = dataSource.stringParam();
   let context = dataSource.context();
   let deliveryId = context.getBytes('deliveryId');
-  let parsedDeliver = new ParsedDeliver(deliveryId);
+  let parsedDeliver = new ParsedDelivery(deliveryId);
 
   let obj = json.try_fromBytes(content);
   if (obj.isError) {
