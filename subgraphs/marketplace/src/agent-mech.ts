@@ -204,14 +204,14 @@ export function handleRequest(event: RequestEvent): void {
 
   // Associate request with service
   if (serviceId !== null) {
-  entity.service = serviceId.toString();
+    entity.service = serviceId;
   } else {
     // log.critical("Service ID not found for mech {0}", [event.address.toHexString()]);
   }
 
   // Update Service totalRequests counter
   if (serviceId !== null) {
-    let service = Service.load(serviceId.toString());
+    let service = Service.load(serviceId);
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
@@ -279,7 +279,7 @@ export function handleDeliver(event: DeliverEvent): void {
   // Associate deliver with service
   let serviceId = getServiceIdFromMech(event.address);
   if (serviceId !== null) {
-    entity.service = serviceId.toString();
+    entity.service = serviceId;
   } else {
     // log.critical("Service ID not found for mech {0}", [event.address.toHexString()]);
   }
@@ -288,7 +288,7 @@ export function handleDeliver(event: DeliverEvent): void {
 
   // Update Service totalDeliveries counter
   if (serviceId !== null) {
-    let service = Service.load(serviceId.toString());
+    let service = Service.load(serviceId);
     if (service !== null) {
       service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
       service.save();

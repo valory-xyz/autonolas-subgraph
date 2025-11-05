@@ -32,13 +32,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
   if (mechAgent !== null) {
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
-    mechAgent.service = serviceId.toString();
+    mechAgent.service = serviceId;
     mechAgent.save();
   } else {
     mechAgent = new MechAgent(event.params.agentId.toString());
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
-    mechAgent.service = serviceId.toString();
+    mechAgent.service = serviceId;
     mechAgent.totalTransactions = BigInt.fromI32(0);
     mechAgent.save();
   }

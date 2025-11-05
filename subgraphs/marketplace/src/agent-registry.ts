@@ -83,7 +83,7 @@ export function handleTransfer(event: TransferEvent): void {
     if (mechAgent !== null && mechAgent.service === null) {
       let serviceId = getServiceIdFromMultisig(event.params.to);
       if (serviceId !== null) {
-        mechAgent.service = serviceId.toString();
+        mechAgent.service = serviceId;
         mechAgent.save();
       }
     }

@@ -128,7 +128,7 @@ export function handleMarketplaceDelivery(
       // Update service delivery counter for the delivery mech's service
       const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
       if (deliveryServiceId !== null) {
-        let service = Service.load(deliveryServiceId.toString());
+        let service = Service.load(deliveryServiceId);
         if (service !== null) {
           service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
           service.save();
@@ -291,7 +291,7 @@ export function handleDeliverWithSignaturesV1(
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    deliver.service = serviceId.toString();
+    deliver.service = serviceId;
   }
 
   deliver.save();
@@ -328,7 +328,7 @@ export function handleDeliverWithSignaturesV2(
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
   if (serviceId !== null) {
-    deliver.service = serviceId.toString();
+    deliver.service = serviceId;
   }
 
   deliver.save();
@@ -405,9 +405,9 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       throw new Error(`MarketplaceRequest: Could not find serviceId for priorityMech ${event.params.priorityMech.toHexString()}. CreateMech mapping missing.`);
     }
     
-    request.mech = priorityMechServiceId.toString(); // Mech entity ID (serviceId), not address
-    request.service = priorityMechServiceId.toString();
-    let service = Service.load(priorityMechServiceId.toString());
+    request.mech = priorityMechServiceId; // Mech entity ID (serviceId), not address
+    request.service = priorityMechServiceId;
+    let service = Service.load(priorityMechServiceId);
     if (service !== null) {
       service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
       service.save();
@@ -454,7 +454,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Increment per-agent counters for all canonical agents of this service (on-chain requests)
   if (serviceId !== null) {
-    let svc = Service.load(serviceId.toString()); // Changed from MarketplaceService
+    let svc = Service.load(serviceId); // Changed from MarketplaceService
     if (svc !== null) {
       let ids = svc.agentIds;
       for (let i = 0; i < ids.length; i++) {

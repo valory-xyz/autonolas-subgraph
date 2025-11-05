@@ -118,13 +118,13 @@ export function getMech(
     return null;
   }
 
-  let mech = Mech.load(serviceId.toString());
+  let mech = Mech.load(serviceId);
   if (mech == null) {
     log.error(
       'Mech not found - attempted to access mech {} (serviceId {}) in transaction {} in function {} which was not created yet',
       [
         mechAddress.toHexString(),
-        serviceId.toString(),
+        serviceId,
         transactionHash.toHexString(),
         functionName,
       ]
@@ -153,10 +153,10 @@ export function getServiceIdFromMultisig(
   return null;
 }
 
-export function getServiceIdFromMech(mechAddress: Bytes): BigInt | null {
+export function getServiceIdFromMech(mechAddress: Bytes): string | null {
   let createMechEntity = CreateMech.load(mechAddress);
   if (createMechEntity !== null && createMechEntity.serviceId !== null) {
-    return createMechEntity.serviceId;
+    return createMechEntity.serviceId!.toString();
   }
   return null;
 }
@@ -287,10 +287,10 @@ export function updateMechCountersOnDelivery(
     return;
   }
   
-  let priorityMechEntity = Mech.load(priorityServiceId.toString());
+  let priorityMechEntity = Mech.load(priorityServiceId);
   if (priorityMechEntity === null) {
     log.debug("updateMechCountersOnDelivery: No Mech entity found for priorityServiceId {}", [
-      priorityServiceId.toString(),
+      priorityServiceId,
     ]);
     return;
   }
@@ -316,13 +316,13 @@ export function updateMechCountersOnRequest(mechAddress: Bytes): void {
     return;
   }
   
-  let mechEntity = Mech.load(serviceId.toString());
+  let mechEntity = Mech.load(serviceId);
   if (mechEntity !== null) {
     mechEntity.receivedRequests = mechEntity.receivedRequests.plus(BigInt.fromI32(1));
     mechEntity.save();
   } else {
     log.warning('updateMechCountersOnRequest: Could not find Mech entity for serviceId {} (from mech {})', [
-      serviceId.toString(),
+      serviceId,
       mechAddress.toHexString()
     ]);
   }
