@@ -104,11 +104,11 @@ export function getServiceIdFromMultisig(multisig: Bytes): Bytes | null {
 export function getServiceIdFromMech(mech: Bytes): Bytes | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
-  if (createMechEntity !== null && createMechEntity.agentId !== null) {
+  if (createMechEntity !== null && createMechEntity.agentId !== null && createMechEntity.agentId!.toString().length > 0) {
     let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
     if (mechAgent !== null) {
-      if (mechAgent.service !== null && mechAgent.service.toString().length > 0) {
-        let serviceId = BigInt.fromString(mechAgent.service.toString());
+      if (mechAgent.service !== null && mechAgent.service!.toString().length > 0) {
+        let serviceId = BigInt.fromString(mechAgent.service!.toString());
         return getOddBigIntBytes(serviceId);
       }
       // Fallback: try to get service ID from agent ID
