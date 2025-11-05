@@ -102,6 +102,8 @@ export function createMechWithMapping(
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
   mechEntity.maxDeliveryRate = null
   mechEntity.karma = BigInt.fromI32(0)
+  
+  mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
   mechEntity.save()
 }
 
