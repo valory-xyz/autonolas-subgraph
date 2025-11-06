@@ -8,6 +8,13 @@ export function handleMechDeliver(content: Bytes): void {
   let hash = dataSource.stringParam();
   let context = dataSource.context();
   let deliveryId = context.getBytes('deliveryId');
+  let baseHash = context.getString('ipfsBase');
+
+  if (baseHash === null) {
+    log.error("Missing ipfsBase for delivery: {}", [hash]);
+    return;
+  }
+
   let parsedDeliver = new ParsedDelivery(deliveryId);
 
   let obj = json.try_fromBytes(content);
@@ -17,7 +24,7 @@ export function handleMechDeliver(content: Bytes): void {
   }
 
   parsedDeliver.content = content.toString();
-  parsedDeliver.hash = hash;
+  parsedDeliver.hash = baseHash;
   parsedDeliver.deliver = deliveryId;
   parsedDeliver.model = UNHANDLED_TYPE;
   parsedDeliver.response = UNHANDLED_TYPE;

@@ -11,6 +11,13 @@ export function handleMechRequest(content: Bytes): void {
   let hash = dataSource.stringParam();
   let context = dataSource.context();
   let requestId = context.getBytes('requestId');
+  let baseHash = context.getString('ipfsBase');
+
+  if (baseHash === null) {
+    log.error("Missing ipfsBase for request: {}", [hash]);
+    return;
+  }
+
   let parsedRequest = new ParsedRequest(requestId);
 
   let obj = json.try_fromBytes(content)
@@ -38,6 +45,6 @@ export function handleMechRequest(content: Bytes): void {
 
   parsedRequest.request = requestId;
   parsedRequest.content = content.toString();
-  parsedRequest.hash = hash;
+  parsedRequest.hash = baseHash;
   parsedRequest.save();
 }
