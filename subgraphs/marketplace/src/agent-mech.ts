@@ -191,8 +191,11 @@ export function handleRequest(event: RequestEvent): void {
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
+  let ipfsHashWithMetadata = ipfsHash + '/metadata.json';
+  context.setString('ipfsBase', ipfsHash);
 
-  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsHash], context);
+  // Try both paths: directory with metadata.json first, then bare CID
+  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsHashWithMetadata, ipfsHash], context);
 
 
   entity.sender = event.params.sender;
@@ -250,7 +253,11 @@ export function handleDeliver(event: DeliverEvent): void {
   context.setBytes('deliveryId', entity.id);
 
   let ipfsRoute = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
-  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
+  let ipfsRouteWithMetadata = ipfsRoute + '/metadata.json';
+  context.setString('ipfsBase', mechDelivery.ipfsHash);
+
+  // Try both paths: directory with metadata.json first, then bare route
+  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRouteWithMetadata, ipfsRoute], context);
 
   // Connecting delivery with request
   let existingRequest = Request.load(getOddBigIntBytes(event.params.requestId));
