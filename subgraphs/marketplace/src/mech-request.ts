@@ -8,7 +8,6 @@ export function handleMechRequest(content: Bytes): void {
   // stringParam() will be mocked in the handler test
   // for more info https://thegraph.com/docs/en/developing/creating-a-subgraph/#create-a-new-handler-to-process-files
 
-  let hash = dataSource.stringParam();
   let context = dataSource.context();
   let requestId = context.getBytes('requestId');
   let baseHash = context.getString('ipfsBase');
@@ -39,6 +38,6 @@ export function handleMechRequest(content: Bytes): void {
 
   parsedRequest.request = requestId;
   parsedRequest.content = content.toString();
-  parsedRequest.hash = baseHash !== null ? baseHash : hash;
+  parsedRequest.hash = baseHash;
   parsedRequest.save();
 }
