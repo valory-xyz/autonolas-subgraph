@@ -101,7 +101,7 @@ export function getServiceIdFromMech(mech: Bytes): string | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
   if (createMechEntity !== null && createMechEntity.agentId !== null) {
-    let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
+    let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
     if (mechAgent !== null) {
       if (mechAgent.service !== null) {
         return mechAgent.service;

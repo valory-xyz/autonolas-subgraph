@@ -411,6 +411,7 @@ type Service @entity(immutable: false) {
   # Common relationships
   requests: [Request!] @derivedFrom(field: "service")
   deliveries: [Deliver!] @derivedFrom(field: "service")
+  metadata: [Metadata!] @derivedFrom(field: "service")
 
   # Mech-only relationships
   mechs: [MechAgent!] @derivedFrom(field: "service")
