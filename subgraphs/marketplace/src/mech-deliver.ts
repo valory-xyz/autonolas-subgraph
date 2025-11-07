@@ -1,6 +1,5 @@
 import { Bytes, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
 import { ParsedDelivery } from "../generated/schema";
-import { getOddBigIntBytes } from "./utils";
 
 let UNHANDLED_TYPE = '[unhandled type]';
 
@@ -36,7 +35,7 @@ export function handleMechDeliver(content: Bytes): void {
     let requestId = parsed.get('requestId');
 
     if (requestId !== null && requestId.kind === JSONValueKind.NUMBER) {
-      parsedDeliver.request = getOddBigIntBytes(requestId.toBigInt());
+      parsedDeliver.request = requestId.toBigInt().toHexString();
     }
 
     let metadata = parsed.get('metadata');

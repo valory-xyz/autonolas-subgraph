@@ -116,7 +116,7 @@ export function handleMarketplaceDelivery(
   // Mark delivered requests as completed and track who delivered
   for (let i = 0; i < event.params.requestIds.length; i++) {
     if (!event.params.deliveredRequests[i]) continue;
-    let request = Request.load(event.params.requestIds[i]);
+    let request = Request.load(event.params.requestIds[i].toHexString());
     if (request !== null && !request.isDelivered) {
       request.isDelivered = true;
       request.deliveredByMech = event.params.deliveryMech;

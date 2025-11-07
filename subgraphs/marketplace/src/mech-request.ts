@@ -10,15 +10,15 @@ export function handleMechRequest(content: Bytes): void {
 
   let hash = dataSource.stringParam();
   let context = dataSource.context();
-  let requestId = context.getBytes('requestId');
+  let requestId = context.getString('requestId');
   let baseHash = context.getString('ipfsBase');
 
-  if (baseHash === null) {
-    log.error("Missing ipfsBase for request: {}", [hash]);
+  if (baseHash === null || requestId === null) {
+    log.error("Missing context for request: {}", [hash]);
     return;
   }
 
-  let parsedRequest = new ParsedRequest(requestId);
+  let parsedRequest = new ParsedRequest(Bytes.fromHexString(requestId));
 
   let obj = json.try_fromBytes(content)
   if (obj.isError) {

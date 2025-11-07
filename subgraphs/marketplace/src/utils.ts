@@ -12,10 +12,6 @@ import {
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
 import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
 
-export function getOddBigIntBytes(bigInt: BigInt): Bytes {
-  return Bytes.fromHexString(Bytes.fromBigInt(bigInt).toHexString());
-}
-
 export function getGlobal(): Global {
   let global = Global.load('');
   if (global == null) {

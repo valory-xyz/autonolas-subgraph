@@ -313,7 +313,7 @@ type RequestToMarketplace @entity(immutable: false) {
 
 type Request @entity(immutable: false) {
   # Common fields only
-  id: Bytes!
+  id: String!
   sender: Sender!
   mech: Mech! # Relation to Mech entity (by serviceId)
   blockNumber: BigInt!
@@ -337,7 +337,7 @@ type Request @entity(immutable: false) {
 type DeliverForMech @entity(immutable: true) {
   id: Bytes! # delivery id
   # Mech-only fields
-  requestId: Bytes!
+  requestId: String!
   ipfsHash: String!
   deliver: Deliver
 }
