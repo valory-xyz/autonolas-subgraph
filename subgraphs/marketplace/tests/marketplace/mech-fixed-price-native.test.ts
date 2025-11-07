@@ -64,7 +64,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Global", 1)
 
       // Check Request entity
-      assert.fieldEquals("Request", requestId.toHexString(), "mech", serviceId.toString())
+      assert.fieldEquals("Request", requestId.toHexString(), "mech", TEST_MECH.toHexString())
       assert.fieldEquals("Request", requestId.toHexString(), "blockNumber", requestEvent.block.number.toString())
       assert.fieldEquals("Request", requestId.toHexString(), "blockTimestamp", requestEvent.block.timestamp.toString())
       assert.fieldEquals("Request", requestId.toHexString(), "transactionHash", requestEvent.transaction.hash.toHexString())

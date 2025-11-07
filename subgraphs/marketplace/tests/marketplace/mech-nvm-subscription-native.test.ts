@@ -77,7 +77,7 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.entityCount("Sender", 1)
     assert.entityCount("Global", 1)
 
-    assert.fieldEquals("Request", requestId.toHexString(), "mech", serviceId.toString())
+    assert.fieldEquals("Request", requestId.toHexString(), "mech", TEST_MECH.toHexString())
     assert.fieldEquals("Request", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
 
