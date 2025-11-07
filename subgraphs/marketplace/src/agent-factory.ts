@@ -22,13 +22,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   log.info("Mech agent: {}", [event.params.agentId.toString()]);
   let serviceId = getServiceIdFromAgentId(event.params.agentId);
 
-  if (serviceId === null) {
-    // log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
-    return;
-  }
 
-  // Mech is created after agent, which already handles mechAgent creation
-  // add this check just in case
   if (mechAgent !== null) {
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
