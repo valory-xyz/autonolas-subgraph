@@ -1,5 +1,5 @@
 type ParsedRequest @entity(immutable: true) {
-  id: Bytes! # hash converted to Bytes
+  id: ID! # Same as Request.id
   content: String!
   request: Request!
   tool: String!
@@ -211,7 +211,7 @@ type Metadata @entity(immutable: false) {
 }
 
 type Mech @entity(immutable: false) {
-  id: String!
+  id: ID!
   address: Bytes!
   mechFactory: Bytes!
   configHash: Bytes
@@ -313,7 +313,7 @@ type RequestToMarketplace @entity(immutable: false) {
 
 type Request @entity(immutable: false) {
   # Common fields only
-  id: String!
+  id: ID!
   sender: Sender!
   mech: Bytes! # address
   blockNumber: BigInt!
@@ -337,7 +337,7 @@ type Request @entity(immutable: false) {
 type DeliverForMech @entity(immutable: true) {
   id: Bytes! # delivery id
   # Mech-only fields
-  requestId: String!
+  requestId: ID!
   ipfsHash: String!
   deliver: Deliver
 }
@@ -399,10 +399,10 @@ type Sender @entity(immutable: false) {
 
 type Service @entity(immutable: false) {
   # Common fields
-  id: String!
-  serviceId: BigInt! 
-  configHash: Bytes 
-  latestMultisig: Bytes 
+  id: ID!
+  serviceId: BigInt!
+  configHash: Bytes
+  latestMultisig: Bytes
   historicalMultisigs: [Bytes!]!
   totalRequests: BigInt!
   totalDeliveries: BigInt!

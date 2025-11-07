@@ -18,7 +18,7 @@ export function handleMechRequest(content: Bytes): void {
     return;
   }
 
-  let parsedRequest = new ParsedRequest(Bytes.fromHexString(requestId));
+  let parsedRequest = new ParsedRequest(requestId);
 
   let obj = json.try_fromBytes(content)
   if (obj.isError) {
