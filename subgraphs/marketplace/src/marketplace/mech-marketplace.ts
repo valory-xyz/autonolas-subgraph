@@ -399,13 +399,13 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.isDelivered = false;
     request.priorityMech = event.params.priorityMech;
 
-    // Get serviceId for the priority mech to set request.mech correctly
+    // Get serviceId for the priority mech to set request.service
     const priorityMechServiceId = getServiceIdFromMech(event.params.priorityMech);
     if (priorityMechServiceId === null) {
       throw new Error(`MarketplaceRequest: Could not find serviceId for priorityMech ${event.params.priorityMech.toHexString()}. CreateMech mapping missing.`);
     }
     
-    request.mech = priorityMechServiceId; // Mech entity ID (serviceId), not address
+    request.mech = event.params.priorityMech; // Mech address
     request.service = priorityMechServiceId;
     let service = Service.load(priorityMechServiceId);
     if (service !== null) {

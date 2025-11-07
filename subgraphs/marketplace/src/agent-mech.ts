@@ -208,7 +208,7 @@ export function handleRequest(event: RequestEvent): void {
 
 
   entity.sender = event.params.sender;
-  entity.mech = event.address.toHexString();
+  entity.mech = event.address;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;

@@ -98,7 +98,7 @@ export function handleRequest(event: RequestEvent): void {
     throw new Error(`Request: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
   }
   
-  request.mech = serviceId; // Mech entity ID (serviceId), not address
+  request.mech = event.params.mech; // Mech address
   request.service = serviceId;
   
   // Common fields

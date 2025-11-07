@@ -315,7 +315,7 @@ type Request @entity(immutable: false) {
   # Common fields only
   id: String!
   sender: Sender!
-  mech: Mech! # Relation to Mech entity (by serviceId)
+  mech: Bytes! # address
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
