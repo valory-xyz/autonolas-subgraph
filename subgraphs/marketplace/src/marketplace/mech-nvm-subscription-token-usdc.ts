@@ -6,7 +6,7 @@ import {
 } from '../../generated/templates/MechNvmSubscriptionTokenUSDC/MechNvmSubscriptionTokenUSDC';
 import { Deliver, Request, Service, RequestToMarketplace, DeliverForMarketplace, AtaTransaction, Mech } from '../../generated/schema';
 import { getOrCreateRequest, getServiceIdFromMech, getOrCreateSender, getOrCreateMarketplaceIndividualDeliver, getGlobal, getServiceIdFromMultisig, updateMechCountersOnDelivery, updateMechCountersOnRequest, getOrCreateAtaTransaction, getOrCreateRequestToMarketplace, getOrCreateDeliverForMarketplace, ataTransactionExists } from './utils';
-import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { BigInt, log } from '@graphprotocol/graph-ts';
 
 export function handleDeliver(event: DeliverEvent): void {
   let deliverId = event.transaction.hash.concatI32(event.logIndex.toI32());
@@ -22,7 +22,7 @@ export function handleDeliver(event: DeliverEvent): void {
   deliver.sender = event.transaction.from;
 
   // Link to request if it exists
-  let request = Request.load(Bytes.fromHexString(event.params.requestId.toHexString()));
+  let request = Request.load(event.params.requestId.toHexString());
   if (request !== null) {
     deliver.request = request.id;
     
@@ -98,7 +98,7 @@ export function handleRequest(event: RequestEvent): void {
     throw new Error(`Request: Could not find serviceId for mech ${event.params.mech.toHexString()}. CreateMech mapping missing.`);
   }
   
-  request.mech = serviceId; // Mech entity ID (serviceId), not address
+  request.mech = event.params.mech; // Mech address
   request.service = serviceId;
   
   // Common fields

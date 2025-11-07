@@ -104,20 +104,20 @@ describe("Describe entity assertions", () => {
 
     assert.fieldEquals(
       "MechAgent",
-      agentId.toString(),
+      agentId.toHexString(),
       "mech",
       mech.toHexString()
     )
     assert.fieldEquals(
       "MechAgent",
-      agentId.toString(),
+      agentId.toHexString(),
       "address",
       mech.toHexString()
     )
 
     assert.fieldEquals(
       "MechAgent",
-      agentId.toString(),
+      agentId.toHexString(),
       "totalTransactions",
       "0"
     )

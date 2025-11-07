@@ -19,7 +19,6 @@ import {
   getServiceIdFromMultisig,
   getOrCreateSender,
   getOrCreateRequestsPerAgentOnchain,
-  getOddBigIntBytes,
 } from './utils';
 
 let UNHANDLED_TYPE = '[unhandled type]';
@@ -41,6 +40,16 @@ const MetadataNotFound: Metadata = {
 
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
+}
+
+function resolveIpfsRoute(base: string): string {
+  let metadataPath = base + '/metadata.json';
+
+  if (ipfs.cat(metadataPath) !== null) {
+    return metadataPath;
+  }
+
+  return base;
 }
 
 function tryGetIpfsResponse(requestHash: string): Bytes | null {
@@ -154,7 +163,7 @@ function extractQuestionTitle(prompt: string): string | null {
 }
 
 export function handleRequest(event: RequestEvent): void {
-  let id = getOddBigIntBytes(event.params.requestId);
+  let id = event.params.requestId.toHexString();
   let entity = new Request(id);
 
   // Create / update Sender
@@ -186,17 +195,20 @@ export function handleRequest(event: RequestEvent): void {
   sender.save();
   global.save();
 
-  let context = new DataSourceContext();
-  context.setBytes('requestId', entity.id);
-
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
 
-  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsHash], context);
+  let context = new DataSourceContext();
+  context.setString('requestId', entity.id);
+  context.setString('ipfsBase', ipfsHash);
+
+  let ipfsRoute = resolveIpfsRoute(ipfsHash);
+
+  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsRoute], context);
 
 
   entity.sender = event.params.sender;
-  entity.mech = event.address.toHexString();
+  entity.mech = event.address;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
@@ -234,7 +246,7 @@ export function handleDeliver(event: DeliverEvent): void {
   let entity = new Deliver(deliveryId);
   let mechDelivery = new DeliverForMech(deliveryId);
 
-  mechDelivery.requestId = getOddBigIntBytes(event.params.requestId);
+  mechDelivery.requestId = event.params.requestId.toHexString();
   mechDelivery.ipfsHash = getIpfsHash(event.params.data);
   mechDelivery.deliver = entity.id;
   mechDelivery.save();
@@ -243,22 +255,24 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.mech = event.address;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
-  entity.request = getOddBigIntBytes(event.params.requestId);
+  entity.request = event.params.requestId.toHexString();
   entity.transactionHash = event.transaction.hash;
 
   let context = new DataSourceContext();
   context.setBytes('deliveryId', entity.id);
+  context.setString('ipfsBase', mechDelivery.ipfsHash);
 
-  let ipfsRoute = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
+  let ipfsRouteBase = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
+  let ipfsRoute = resolveIpfsRoute(ipfsRouteBase);
   DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
 
   // Connecting delivery with request
-  let existingRequest = Request.load(getOddBigIntBytes(event.params.requestId));
+  let existingRequest = Request.load(event.params.requestId.toHexString());
   if (existingRequest !== null) {
     // If the Request exists and has no delivery, attach the delivery to the request
     const deliveries = existingRequest.delivery.load();
     if (deliveries.length === 0) {
-      entity.request = getOddBigIntBytes(event.params.requestId);
+      entity.request = event.params.requestId.toHexString();
     } else {
       log.warning(
         "Duplicated delivery {0} for the same request {1}",

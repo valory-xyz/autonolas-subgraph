@@ -121,7 +121,7 @@ function createRequestEntity(
   let request = new Request(requestId)
   // request.sender should be the Sender entity ID (Bytes), not the Address
   request.sender = senderEntity.id
-  request.mech = mech.toHexString()
+  request.mech = mech
   request.blockNumber = BigInt.fromI32(0)
   request.blockTimestamp = BigInt.fromI32(0)
   request.transactionHash = requestId

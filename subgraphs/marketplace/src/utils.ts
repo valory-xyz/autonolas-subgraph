@@ -12,10 +12,6 @@ import {
 import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
 import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
 
-export function getOddBigIntBytes(bigInt: BigInt): Bytes {
-  return Bytes.fromHexString(Bytes.fromBigInt(bigInt).toHexString());
-}
-
 export function getGlobal(): Global {
   let global = Global.load('');
   if (global == null) {
@@ -105,7 +101,7 @@ export function getServiceIdFromMech(mech: Bytes): string | null {
   let createMechEntity = CreateMech.load(mech);
   // if null then it's new mech marketplace
   if (createMechEntity !== null && createMechEntity.agentId !== null) {
-    let mechAgent = MechAgent.load(createMechEntity.agentId!.toString());
+    let mechAgent = MechAgent.load(createMechEntity.agentId!.toHexString());
     if (mechAgent !== null) {
       if (mechAgent.service !== null) {
         return mechAgent.service;

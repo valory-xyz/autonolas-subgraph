@@ -92,9 +92,9 @@ export function getOrCreateMarketplaceIndividualDeliver(id: Bytes): Deliver {
 }
 
 export function getOrCreateRequest(requestId: Bytes): Request {
-  let request = Request.load(requestId);
+  let request = Request.load(requestId.toHexString());
   if (request == null) {
-    request = new Request(requestId);
+    request = new Request(requestId.toHexString());
     // Only common fields - no specialized fields here
   }
   return request;

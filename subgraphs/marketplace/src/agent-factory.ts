@@ -11,6 +11,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   entity.mech = event.params.mech;
   entity.agentId = event.params.agentId;
   entity.price = event.params.price;
+  entity.source = 'MECH';
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
@@ -18,24 +19,18 @@ export function handleCreateMech(event: CreateMechEvent): void {
 
   entity.save();
 
-  let mechAgent = MechAgent.load(event.params.agentId.toString());
-  log.info("Mech agent: {}", [event.params.agentId.toString()]);
+  let mechAgent = MechAgent.load(event.params.agentId.toHexString());
+  log.info("Mech agent: {}", [event.params.agentId.toHexString()]);
   let serviceId = getServiceIdFromAgentId(event.params.agentId);
 
-  if (serviceId === null) {
-    // log.critical("Service ID not found for agent {0}", [event.params.agentId.toHexString()]);
-    return;
-  }
 
-  // Mech is created after agent, which already handles mechAgent creation
-  // add this check just in case
   if (mechAgent !== null) {
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
     mechAgent.service = serviceId;
     mechAgent.save();
   } else {
-    mechAgent = new MechAgent(event.params.agentId.toString());
+    mechAgent = new MechAgent(event.params.agentId.toHexString());
     mechAgent.mech = event.params.mech;
     mechAgent.address = event.params.mech;
     mechAgent.service = serviceId;
