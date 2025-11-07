@@ -9,7 +9,6 @@ import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { handleDeliver, handleRequest } from "../src/agent-mech"
 import { createMechDeliveryEvent, createMechRequestEvent } from "./agent-mech-utilts"
 import { mockIpfsFile } from "matchstick-as"
-import { getOddBigIntBytes } from "../src/utils"
 
 
 describe("Describe agent-mech processing", () => {
@@ -60,41 +59,39 @@ describe("Describe agent-mech processing", () => {
         //     "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
         // )
 
-        let reqId = Bytes.fromHexString(Bytes.fromBigInt(requestId).toHexString());
-
         assert.entityCount("Request", 1)
 
         assert.fieldEquals(
             "Request",
-            reqId.toHexString(),
+            requestId.toHexString(),
             "sender",
             sender.toHexString()
         )
 
         assert.fieldEquals(
             "Request",
-            reqId.toHexString(),
+            requestId.toHexString(),
             "mech",
             "0xa16081f360e3847006db660bae1c6d1b2e17ec2a"
         )
 
         assert.fieldEquals(
             "Request",
-            reqId.toHexString(),
+            requestId.toHexString(),
             "blockNumber",
             event.block.number.toString()
         )
 
         assert.fieldEquals(
             "Request",
-            reqId.toHexString(),
+            requestId.toHexString(),
             "blockTimestamp",
             event.block.timestamp.toString()
         )
         
         assert.fieldEquals(
             "Request",
-            reqId.toHexString(),
+            requestId.toHexString(),
             "transactionHash",
             event.transaction.hash.toHexString()
         )
@@ -198,7 +195,7 @@ describe("Describe agent-mech processing", () => {
             "DeliverForMech",
             deliveryId.toHexString(),
             "requestId",
-            getOddBigIntBytes(requestId).toHexString()
+            requestId.toHexString()
         )
 
         assert.fieldEquals(
@@ -219,7 +216,7 @@ describe("Describe agent-mech processing", () => {
             "Deliver",
             deliveryId.toHexString(),
             "request",
-            getOddBigIntBytes(requestId).toHexString()
+            requestId.toHexString()
         )
 
         assert.entityCount("Request", 1)

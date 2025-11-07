@@ -26,7 +26,7 @@ describe("Describe mech requests processing", () => {
         let requestId = Bytes.fromHexString("0x1234567890abcdef");
 
         let context = new DataSourceContext();
-        context.setBytes('requestId', requestId);
+        context.setString('requestId', requestId.toHexString());
         context.setString('ipfsBase', baseCid);
 
         MechParsedRequest.create(route);
@@ -58,7 +58,7 @@ describe("Describe mech requests processing", () => {
         let requestId = Bytes.fromHexString("0xabcdef0123456789");
 
         let context = new DataSourceContext();
-        context.setBytes('requestId', requestId);
+        context.setString('requestId', requestId.toHexString());
         context.setString('ipfsBase', baseCid);
 
         MechParsedRequest.create(route);
@@ -84,7 +84,7 @@ describe("Describe mech requests processing", () => {
         let requestId = Bytes.fromHexString("0x1234567890abcdef");
 
         let context = new DataSourceContext();
-        context.setBytes('requestId', requestId);
+        context.setString('requestId', requestId.toHexString());
         context.setString('ipfsBase', baseCid);
 
         dataSourceMock.resetValues();

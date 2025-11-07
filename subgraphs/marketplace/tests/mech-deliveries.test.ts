@@ -10,7 +10,6 @@ import {
 import { Bytes, DataSourceContext, BigInt, log } from "@graphprotocol/graph-ts"
 import { MechParsedDeliver } from "../generated/templates"
 import { handleMechDeliver } from "../src/mech-deliver"
-import { getOddBigIntBytes } from "../src/utils"
 
 
 
@@ -24,7 +23,7 @@ describe("Describe mech deliveries processing", () => {
         const baseCid = "f01701220deadbeef";
         const route = baseCid + "/234";
         const requestIdBigInt = BigInt.fromString("89161918861247656506307074754335742257461958235371918534377414398583737469554");
-        let requestId = getOddBigIntBytes(requestIdBigInt);
+        let requestId = requestIdBigInt.toHexString();
         let deliveryId = Bytes.fromHexString("0x1234567890abcdef");
 
         let context = new DataSourceContext();
@@ -48,7 +47,7 @@ describe("Describe mech deliveries processing", () => {
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "content", delivery.toString());
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "hash", baseCid);
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "deliver", deliveryId.toHexString());
-        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "request", requestId.toHexString());
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "request", requestId);
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "model", "gpt-4.1-2025-04-14");
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "response", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
     })
@@ -57,7 +56,7 @@ describe("Describe mech deliveries processing", () => {
         const baseCid = "f01701220deadbeef";
         const route = baseCid + "/234/metadata.json";
         const requestIdBigInt = BigInt.fromString("89161918861247656506307074754335742257461958235371918534377414398583737469554");
-        let requestId = getOddBigIntBytes(requestIdBigInt);
+        let requestId = requestIdBigInt.toHexString();
         let deliveryId = Bytes.fromHexString("0xabcdef1234567890");
 
         let context = new DataSourceContext();
@@ -75,7 +74,7 @@ describe("Describe mech deliveries processing", () => {
 
         assert.entityCount("ParsedDelivery", 1);
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "hash", baseCid);
-        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "request", requestId.toHexString());
+        assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "request", requestId);
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "model", "gpt-4.1-2025-04-14");
         assert.fieldEquals("ParsedDelivery", deliveryId.toHexString(), "response", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
     })
