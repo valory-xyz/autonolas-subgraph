@@ -1,10 +1,4 @@
-import {
-  Address,
-  BigInt,
-  Bytes,
-  dataSource,
-  log,
-} from '@graphprotocol/graph-ts';
+import { Address, BigInt, Bytes, dataSource, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -399,3 +393,291 @@ export function getOrCreateDeliverForMarketplace(requestId: Bytes): DeliverForMa
   }
   return marketplaceDeliver as DeliverForMarketplace;
 }
+export class OnChainDeliverArgs {
+  txHash: Bytes;
+  logIndex: i32;
+  mech: Bytes;
+  requestId: Bytes;
+  payload: Bytes;
+  deliveryRate: BigInt;
+  mechServiceMultisig: Bytes;
+  sender: Bytes;
+  blockNumber: BigInt;
+  blockTimestamp: BigInt;
+
+  constructor(
+    txHash: Bytes,
+    logIndex: i32,
+    mech: Bytes,
+    requestId: Bytes,
+    payload: Bytes,
+    deliveryRate: BigInt,
+    mechServiceMultisig: Bytes,
+    sender: Bytes,
+    blockNumber: BigInt,
+    blockTimestamp: BigInt
+  ) {
+    this.txHash = txHash;
+    this.logIndex = logIndex;
+    this.mech = mech;
+    this.requestId = requestId;
+    this.payload = payload;
+    this.deliveryRate = deliveryRate;
+    this.mechServiceMultisig = mechServiceMultisig;
+    this.sender = sender;
+    this.blockNumber = blockNumber;
+    this.blockTimestamp = blockTimestamp;
+  }
+}
+
+export class OnChainRequestArgs {
+  requestId: Bytes;
+  mech: Bytes;
+  payload: Bytes;
+  sender: Bytes;
+  blockNumber: BigInt;
+  blockTimestamp: BigInt;
+  transactionHash: Bytes;
+
+  constructor(
+    requestId: Bytes,
+    mech: Bytes,
+    payload: Bytes,
+    sender: Bytes,
+    blockNumber: BigInt,
+    blockTimestamp: BigInt,
+    transactionHash: Bytes
+  ) {
+    this.requestId = requestId;
+    this.mech = mech;
+    this.payload = payload;
+    this.sender = sender;
+    this.blockNumber = blockNumber;
+    this.blockTimestamp = blockTimestamp;
+    this.transactionHash = transactionHash;
+  }
+}
+
+export function processOnChainDeliver(args: OnChainDeliverArgs): void {
+  const deliverId = args.txHash.concatI32(args.logIndex);
+  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
+
+  assignDeliverBasics(deliver, args);
+  attachRequestToDeliver(deliver, args);
+  const serviceId = ensureServiceForDeliver(deliver, args.mech);
+  incrementServiceDeliveries(serviceId);
+  deliver.save();
+
+  finalizeGlobalForDeliver(args);
+  persistMarketplaceDeliver(args, deliver.id);
+}
+
+export function processOnChainRequest(args: OnChainRequestArgs): void {
+  let request = getOrCreateRequest(args.requestId);
+  let sender = getOrCreateSender(args.sender);
+  request.sender = sender.id;
+
+  const serviceId = requireServiceId(args.mech, 'Request');
+  populateRequestCoreFields(request, args, serviceId);
+  updateMechCountersOnRequest(args.mech);
+
+  if (!isMarketplaceRequestEntity(args.requestId)) {
+    applyDirectRequestCounters(sender, serviceId, args, request);
+  }
+
+  request.save();
+}
+
+export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
+  log.info(
+    'RevokeRequest: Mech {} failed to deliver request {} (rejected by marketplace)',
+    [mechAddress.toHexString(), requestId.toHexString()]
+  );
+}
+
+export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigInt): void {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    throw new Error(
+      `MaxDeliveryRateUpdated: Could not find serviceId for mech ${mechAddress.toHexString()}. CreateMech mapping missing.`
+    );
+  }
+
+  let mech = Mech.load(serviceId);
+  if (mech === null) {
+    throw new Error(
+      `MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId}`
+    );
+  }
+
+  mech.maxDeliveryRate = maxDeliveryRate;
+  mech.save();
+}
+
+function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
+  deliver.mech = args.mech;
+  deliver.blockNumber = args.blockNumber;
+  deliver.blockTimestamp = args.blockTimestamp;
+  deliver.transactionHash = args.txHash;
+  deliver.sender = args.sender;
+}
+
+function attachRequestToDeliver(deliver: Deliver, args: OnChainDeliverArgs): void {
+  let request = Request.load(args.requestId.toHexString());
+  if (request === null) {
+    log.warning('Deliver: Request {} not found for delivery transaction', [
+      args.requestId.toHexString(),
+    ]);
+    return;
+  }
+
+  deliver.request = request.id;
+
+  if (request.isDelivered) {
+    return;
+  }
+
+  request.isDelivered = true;
+  request.deliveredByMech = args.mech;
+  request.save();
+  updateMechCountersOnDelivery(request, args.mech);
+}
+
+function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {
+  const serviceId = requireServiceId(mech, 'Deliver');
+  deliver.service = serviceId;
+  return serviceId;
+}
+
+function incrementServiceDeliveries(serviceId: string): void {
+  let service = Service.load(serviceId);
+  if (service === null) {
+    return;
+  }
+  service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+  service.save();
+}
+
+function finalizeGlobalForDeliver(args: OnChainDeliverArgs): void {
+  let global = getGlobal();
+  global.totalDeliveries = global.totalDeliveries.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+
+  if (!ataTransactionExists(args.txHash)) {
+    getOrCreateAtaTransaction(args.txHash, args.blockNumber, args.blockTimestamp);
+    global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+  }
+  global.save();
+}
+
+function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): void {
+  let marketplaceDeliver = getOrCreateDeliverForMarketplace(args.requestId);
+  marketplaceDeliver.requestId = args.requestId;
+  marketplaceDeliver.ipfsHashBytes = args.payload;
+  marketplaceDeliver.mechServiceMultisig = args.mechServiceMultisig;
+  marketplaceDeliver.deliveryRate = args.deliveryRate;
+  marketplaceDeliver.isMarketplace = true;
+  marketplaceDeliver.isOffChain = false;
+  marketplaceDeliver.deliver = deliverId;
+  marketplaceDeliver.save();
+}
+
+function requireServiceId(mech: Bytes, context: string): string {
+  const serviceId = getServiceIdFromMech(mech);
+  if (serviceId === null) {
+    throw new Error(
+      `${context}: Could not find serviceId for mech ${mech.toHexString()}. CreateMech mapping missing.`
+    );
+  }
+  return serviceId;
+}
+
+function populateRequestCoreFields(
+  request: Request,
+  args: OnChainRequestArgs,
+  serviceId: string
+): void {
+  request.mech = args.mech;
+  request.service = serviceId;
+  request.blockNumber = args.blockNumber;
+  request.blockTimestamp = args.blockTimestamp;
+  request.transactionHash = args.transactionHash;
+  request.isDelivered = false;
+  request.priorityMech = args.mech;
+}
+
+function isMarketplaceRequestEntity(requestId: Bytes): boolean {
+  return store.get('RequestToMarketplace', requestId.toHexString()) !== null;
+}
+
+function applyDirectRequestCounters(
+  sender: Sender,
+  serviceId: string,
+  args: OnChainRequestArgs,
+  request: Request
+): void {
+  incrementServiceRequests(serviceId);
+  let global = incrementGlobalRequests(args);
+  incrementSenderRequests(sender);
+  countAtaRequestIfNeeded(args, sender, global);
+  createStandaloneMarketplaceRequest(args, request);
+  global.save();
+}
+
+function incrementServiceRequests(serviceId: string): void {
+  let service = Service.load(serviceId);
+  if (service === null) {
+    return;
+  }
+  service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
+  service.save();
+}
+
+function incrementGlobalRequests(args: OnChainRequestArgs): Global {
+  let global = getGlobal();
+  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
+  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+  return global;
+}
+
+function incrementSenderRequests(sender: Sender): void {
+  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(
+    BigInt.fromI32(1)
+  );
+  sender.save();
+}
+
+function countAtaRequestIfNeeded(
+  args: OnChainRequestArgs,
+  sender: Sender,
+  global: Global
+): void {
+  let serviceIdForRequest = getServiceIdFromMultisig(args.sender);
+  if (serviceIdForRequest === null) {
+    return;
+  }
+
+  if (ataTransactionExists(args.transactionHash)) {
+    return;
+  }
+
+  getOrCreateAtaTransaction(args.transactionHash, args.blockNumber, args.blockTimestamp);
+  global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
+  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+  sender.save();
+}
+
+function createStandaloneMarketplaceRequest(
+  args: OnChainRequestArgs,
+  request: Request
+): void {
+  let marketplaceRequest = getOrCreateRequestToMarketplace(args.requestId);
+  marketplaceRequest.requestId = args.requestId;
+  marketplaceRequest.ipfsHashBytes = args.payload;
+  marketplaceRequest.isMarketplace = false;
+  marketplaceRequest.isOffChain = false;
+  marketplaceRequest.request = request.id;
+  marketplaceRequest.save();
+}
+
