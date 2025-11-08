@@ -1,11 +1,16 @@
-import { newMockEvent } from "matchstick-as"
 import {
   Deliver,
   Request,
   RevokeRequest,
-  MaxDeliveryRateUpdated
-} from "../../generated/templates/MechNvmSubscriptionNative/MechNvmSubscriptionNative"
-import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
+  MaxDeliveryRateUpdated,
+} from '../../generated/templates/MechNvmSubscriptionNative/MechNvmSubscriptionNative';
+import { Address, BigInt, Bytes } from '@graphprotocol/graph-ts';
+import {
+  createBaseDeliverEvent,
+  createBaseMaxDeliveryRateUpdatedEvent,
+  createBaseRequestEvent,
+  createBaseRevokeRequestEvent,
+} from './shared-mech-event-helpers';
 
 export function createDeliverEvent(
   mech: Address,
@@ -14,28 +19,15 @@ export function createDeliverEvent(
   deliveryRate: BigInt,
   data: Bytes
 ): Deliver {
-  let deliverEvent = changetype<Deliver>(newMockEvent())
-
-  deliverEvent.transaction.hash = requestId
-  deliverEvent.parameters = new Array()
-
-  deliverEvent.parameters.push(
-    new ethereum.EventParam("mech", ethereum.Value.fromAddress(mech))
-  )
-  deliverEvent.parameters.push(
-    new ethereum.EventParam("mechServiceMultisig", ethereum.Value.fromAddress(mechServiceMultisig))
-  )
-  deliverEvent.parameters.push(
-    new ethereum.EventParam("requestId", ethereum.Value.fromBytes(requestId))
-  )
-  deliverEvent.parameters.push(
-    new ethereum.EventParam("deliveryRate", ethereum.Value.fromUnsignedBigInt(deliveryRate))
-  )
-  deliverEvent.parameters.push(
-    new ethereum.EventParam("data", ethereum.Value.fromBytes(data))
-  )
-
-  return deliverEvent
+  return changetype<Deliver>(
+    createBaseDeliverEvent(
+      mech,
+      requestId,
+      mechServiceMultisig,
+      deliveryRate,
+      data
+    )
+  );
 }
 
 export function createRequestEvent(
@@ -43,52 +35,24 @@ export function createRequestEvent(
   requestId: Bytes,
   data: Bytes
 ): Request {
-  let requestEvent = changetype<Request>(newMockEvent())
-
-  requestEvent.transaction.hash = requestId
-  requestEvent.parameters = new Array()
-
-  requestEvent.parameters.push(
-    new ethereum.EventParam("mech", ethereum.Value.fromAddress(mech))
-  )
-  requestEvent.parameters.push(
-    new ethereum.EventParam("requestId", ethereum.Value.fromBytes(requestId))
-  )
-  requestEvent.parameters.push(
-    new ethereum.EventParam("data", ethereum.Value.fromBytes(data))
-  )
-
-  return requestEvent
+  return changetype<Request>(createBaseRequestEvent(mech, requestId, data));
 }
 
 export function createRevokeEvent(
   mech: Address,
   requestId: Bytes
 ): RevokeRequest {
-  let revokeEvent = changetype<RevokeRequest>(newMockEvent())
-  revokeEvent.address = mech
-  revokeEvent.transaction.hash = requestId
-  revokeEvent.parameters = new Array()
-
-  revokeEvent.parameters.push(
-    new ethereum.EventParam("requestId", ethereum.Value.fromBytes(requestId))
-  )
-
-  return revokeEvent
+  return changetype<RevokeRequest>(
+    createBaseRevokeRequestEvent(mech, requestId)
+  );
 }
 
 export function createMaxDeliveryRateUpdatedEvent(
   mech: Address,
   maxDeliveryRate: BigInt
 ): MaxDeliveryRateUpdated {
-  let event = changetype<MaxDeliveryRateUpdated>(newMockEvent())
-  event.address = mech
-  event.parameters = new Array()
-
-  event.parameters.push(
-    new ethereum.EventParam("maxDeliveryRate", ethereum.Value.fromUnsignedBigInt(maxDeliveryRate))
-  )
-
-  return event
+  return changetype<MaxDeliveryRateUpdated>(
+    createBaseMaxDeliveryRateUpdatedEvent(mech, maxDeliveryRate)
+  );
 }
 
