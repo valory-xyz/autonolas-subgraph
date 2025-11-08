@@ -198,6 +198,15 @@ export function handleRequest(event: RequestEvent): void {
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
 
+  // Create RequestToMech entity for legacy-specific data
+  // Follow mech subgraph pattern: use event.params.requestId.toHexString() and convert to Bytes
+  // Bytes.fromHexString() requires hex string without "0x" prefix (toHexString() always includes "0x")
+  let requestToMechIdHex = event.params.requestId.toHexString();
+  let requestToMech = new RequestToMech(Bytes.fromHexString(requestToMechIdHex.slice(2)));
+  requestToMech.ipfsHash = ipfsHash;
+  requestToMech.request = entity.id;
+  requestToMech.save();
+
   let context = new DataSourceContext();
   context.setString('requestId', entity.id);
   context.setString('ipfsBase', ipfsHash);
@@ -255,7 +264,6 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.mech = event.address;
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
-  entity.request = event.params.requestId.toHexString();
   entity.transactionHash = event.transaction.hash;
 
   let context = new DataSourceContext();
@@ -269,10 +277,13 @@ export function handleDeliver(event: DeliverEvent): void {
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
   if (existingRequest !== null) {
+    // Link Deliver to Request
+    entity.request = event.params.requestId.toHexString();
+    
     // If the Request exists and has no delivery, attach the delivery to the request
     const deliveries = existingRequest.delivery.load();
     if (deliveries.length === 0) {
-      entity.request = event.params.requestId.toHexString();
+      // Already linked above, this is just for duplicate check
     } else {
       log.warning(
         "Duplicated delivery {0} for the same request {1}",
@@ -283,11 +294,15 @@ export function handleDeliver(event: DeliverEvent): void {
     existingRequest.deliveredByMech = event.address;
     existingRequest.save();
   } else {
-    // No matching Request found
     log.warning(
-      "Delivery {0} received for non-existing request {1}",
-      [deliveryId.toHexString(), event.params.requestId.toHexString()]
+      "Delivery {0} received for non-existing request {1} on mech {2}. This indicates the Request event was not processed. Check if AgentMech template exists for this mech.",
+      [
+        deliveryId.toHexString(),
+        event.params.requestId.toHexString(),
+        event.address.toHexString()
+      ]
     );
+    // Don't set entity.request - it's nullable, so this is acceptable
   }
 
   // Associate deliver with service

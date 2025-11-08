@@ -1,5 +1,5 @@
 import { Bytes, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
-import { ParsedRequest } from "../generated/schema";
+import { ParsedRequest, Request } from "../generated/schema";
 
 let UNHANDLED_TYPE = '[unhandled type]';
 
@@ -15,6 +15,16 @@ export function handleMechRequest(content: Bytes): void {
 
   if (baseHash === null || requestId === null) {
     log.error("Missing context for request: {}", [hash]);
+    return;
+  }
+
+  // Check if Request exists before creating ParsedRequest (ParsedRequest.request is non-nullable)
+  let existingRequest = Request.load(requestId);
+  if (existingRequest === null) {
+    log.error(
+      "ParsedRequest: Request {0} not found, cannot create ParsedRequest. Request event was not processed yet.",
+      [requestId]
+    );
     return;
   }
 
