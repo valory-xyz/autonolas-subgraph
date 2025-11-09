@@ -352,11 +352,12 @@ export function getOrCreateAtaTransaction(
  * Get or create RequestToMarketplace entity
  */
 export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMarketplace {
-  let marketplaceRequest = RequestToMarketplace.load(requestId);
+  let requestIdHex = requestId.toHexString();
+  let marketplaceRequest = RequestToMarketplace.load(requestIdHex);
   if (marketplaceRequest === null) {
-    marketplaceRequest = new RequestToMarketplace(requestId);
-    marketplaceRequest.requestId = requestId;
+    marketplaceRequest = new RequestToMarketplace(requestIdHex);
   }
+  marketplaceRequest.requestIdBytes = requestId;
   return marketplaceRequest as RequestToMarketplace;
 }
 
@@ -389,8 +390,9 @@ export function getOrCreateDeliverForMarketplace(requestId: Bytes): DeliverForMa
   let marketplaceDeliver = DeliverForMarketplace.load(requestId);
   if (marketplaceDeliver === null) {
     marketplaceDeliver = new DeliverForMarketplace(requestId);
-    marketplaceDeliver.requestId = requestId;
   }
+  marketplaceDeliver.requestId = requestId.toHexString();
+  marketplaceDeliver.requestIdBytes = requestId;
   return marketplaceDeliver as DeliverForMarketplace;
 }
 export class OnChainDeliverArgs {
@@ -572,7 +574,6 @@ function finalizeGlobalForDeliver(args: OnChainDeliverArgs): void {
 
 function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): void {
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(args.requestId);
-  marketplaceDeliver.requestId = args.requestId;
   marketplaceDeliver.ipfsHashBytes = args.payload;
   marketplaceDeliver.mechServiceMultisig = args.mechServiceMultisig;
   marketplaceDeliver.deliveryRate = args.deliveryRate;
@@ -673,7 +674,6 @@ function createStandaloneMarketplaceRequest(
   request: Request
 ): void {
   let marketplaceRequest = getOrCreateRequestToMarketplace(args.requestId);
-  marketplaceRequest.requestId = args.requestId;
   marketplaceRequest.ipfsHashBytes = args.payload;
   marketplaceRequest.isMarketplace = false;
   marketplaceRequest.isOffChain = false;
