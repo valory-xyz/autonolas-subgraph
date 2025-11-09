@@ -50,9 +50,9 @@ dataSources:
     name: AgentFactoryV3
     network: gnosis
     source:
-      address: "0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94"
+      address: "0x2acd313b892c9922e470e4950e907d5eaa70fc2a"
       abi: AgentFactory
-      startBlock: 30662989
+      startBlock: 35714019
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
