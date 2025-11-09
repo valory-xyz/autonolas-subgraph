@@ -209,7 +209,6 @@ export function handleRequest(event: RequestEvent): void {
   }
 
   // Create RequestToMech entity for legacy-specific data
-  // Follow mech subgraph pattern: reuse requestId hex string as identifier
   let requestToMechId = event.params.requestId.toHexString();
   let requestToMech = new RequestToMech(requestToMechId);
   requestToMech.ipfsHash = ipfsHash;
