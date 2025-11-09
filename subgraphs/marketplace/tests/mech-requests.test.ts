@@ -22,9 +22,9 @@ describe("Describe mech requests processing", () => {
     test("Handle mech request", () => {
         // arrange
         const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/234";
-        let requestIdBytes = Bytes.fromHexString("0x1234567890abcdef");
-        let requestId = requestIdBytes.toHexString();
+        const requestIdBigInt = BigInt.fromI32(564);
+        const route = baseCid + "/" + requestIdBigInt.toString();
+        let requestId = requestIdBigInt.toHexString();
         let mechAddress = Address.fromString("0xa16081f360e3847006db660bae1c6d1b2e17ec2a");
         let senderAddress = Address.fromString("0x0000000000000000000000000000000000000001");
 
@@ -83,9 +83,9 @@ describe("Describe mech requests processing", () => {
 
     test("Handle mech request with metadata route", () => {
         const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/metadata.json";
-        let requestIdBytes = Bytes.fromHexString("0xabcdef0123456789");
-        let requestId = requestIdBytes.toHexString();
+        const requestIdBigInt = BigInt.fromI32(1337);
+        const route = baseCid + "/" + requestIdBigInt.toString() + "/metadata.json";
+        let requestId = requestIdBigInt.toHexString();
         let mechAddress = Address.fromString("0xa16081f360e3847006db660bae1c6d1b2e17ec2a");
         let senderAddress = Address.fromString("0x0000000000000000000000000000000000000001");
 
@@ -138,9 +138,9 @@ describe("Describe mech requests processing", () => {
     test("Handle mech request invalid object", () => {
         // arrange
         const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/234";
-        let requestIdBytes = Bytes.fromHexString("0x1234567890abcdef");
-        let requestId = requestIdBytes.toHexString();
+        const requestIdBigInt = BigInt.fromI32(564);
+        const route = baseCid + "/" + requestIdBigInt.toString();
+        let requestId = requestIdBigInt.toHexString();
 
         let context = new DataSourceContext();
         context.setString('requestId', requestId);

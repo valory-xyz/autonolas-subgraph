@@ -1,5 +1,5 @@
-import { Bytes, JSONValue, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
-import { ParsedDelivery, Deliver, Request, DeliverForMech } from "../generated/schema";
+import { BigInt, Bytes, JSONValue, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
+import { ParsedDelivery, Deliver, Request } from "../generated/schema";
 
 let UNHANDLED_TYPE = '[unhandled type]';
 
@@ -10,87 +10,53 @@ export function handleMechDeliver(content: Bytes): void {
   let baseHash = context.getString('ipfsBase');
 
   if (baseHash === null || deliveryId === null) {
-    log.error("Missing context for delivery: {}", [hash]);
+    log.critical("ParsedDelivery: Missing context for delivery {}", [hash]);
     return;
   }
 
   let deliver = Deliver.load(deliveryId);
   if (deliver === null) {
-    log.error("Deliver entity not found for deliveryId: {}", [deliveryId.toHexString()]);
+    log.critical("ParsedDelivery: Deliver entity not found for deliveryId {}", [deliveryId.toHexString()]);
     return;
   }
 
-  let fallbackRequestId = getFallbackRequestId(deliveryId);
-
   let obj = json.try_fromBytes(content);
   if (obj.isError) {
-    log.error("Error parsing deliver: {}", [content.toString()]);
-    handleParseFailure(deliver, fallbackRequestId, deliveryId.toHexString());
+    log.critical("ParsedDelivery: Error parsing delivery {0}: {1}", [
+      deliveryId.toHexString(),
+      content.toString(),
+    ]);
     return;
   }
 
   if (obj.value.kind !== JSONValueKind.OBJECT) {
-    log.warning(
+    log.critical(
       "ParsedDelivery: Unexpected JSON kind for delivery {0}, received kind {1}",
       [deliveryId.toHexString(), obj.value.kind.toString()]
     );
-    handleParseFailure(deliver, fallbackRequestId, deliveryId.toHexString());
     return;
   }
 
   let parsedDeliver = createParsedDelivery(deliveryId, baseHash, content);
   let parsedObject = obj.value.toObject();
 
-  let requestIdStr = resolveRequestId(parsedObject.get('requestId'), fallbackRequestId);
-  let canCreateParsedDelivery = false;
+  let requestIdStr = resolveRequestId(parsedObject.get('requestId'));
+  if (requestIdStr === null) {
+    log.critical("ParsedDelivery: requestId not found in IPFS content for delivery {0}", [
+      deliveryId.toHexString(),
+    ]);
+    return;
+  }
 
-  if (requestIdStr !== null) {
-    canCreateParsedDelivery = linkDeliverToRequest(
-      deliver,
-      parsedDeliver,
-      requestIdStr,
-      deliveryId.toHexString()
-    );
-  } else {
-    log.warning(
-      "ParsedDelivery: requestId not found in IPFS content or DeliverForMech for delivery {0}",
-      [deliveryId.toHexString()]
-    );
+  if (!linkDeliverToRequest(deliver, parsedDeliver, requestIdStr, deliveryId.toHexString())) {
+    return;
   }
 
   applyModel(parsedObject.get('metadata'), deliver, parsedDeliver);
   applyResponse(parsedObject.get('result'), deliver, parsedDeliver);
 
-  if (canCreateParsedDelivery) {
-    parsedDeliver.save();
-  }
+  parsedDeliver.save();
   deliver.save();
-}
-
-function getFallbackRequestId(deliveryId: Bytes): string | null {
-  let mechDelivery = DeliverForMech.load(deliveryId);
-  if (mechDelivery === null || mechDelivery.requestId === null) {
-    return null;
-  }
-  return mechDelivery.requestId;
-}
-
-function handleParseFailure(
-  deliver: Deliver,
-  fallbackRequestId: string | null,
-  deliveryIdHex: string
-): void {
-  if (fallbackRequestId === null) {
-    log.warning(
-      "ParsedDelivery: Unable to link delivery {0} because no requestId was found in IPFS or DeliverForMech",
-      [deliveryIdHex]
-    );
-    return;
-  }
-
-  if (linkDeliverWithRequestOnly(deliver, fallbackRequestId, deliveryIdHex)) {
-    deliver.save();
-  }
 }
 
 function createParsedDelivery(
@@ -107,19 +73,48 @@ function createParsedDelivery(
   return parsedDeliver;
 }
 
-function resolveRequestId(
-  requestIdValue: JSONValue | null,
-  fallbackRequestId: string | null
-): string | null {
-  if (requestIdValue !== null) {
-    if (requestIdValue.kind === JSONValueKind.NUMBER) {
-      return requestIdValue.toBigInt().toHexString();
-    }
-    if (requestIdValue.kind === JSONValueKind.STRING) {
-      return requestIdValue.toString();
+function resolveRequestId(requestIdValue: JSONValue | null): string | null {
+  if (requestIdValue === null) {
+    return null;
+  }
+
+  if (requestIdValue.kind === JSONValueKind.NUMBER) {
+    return requestIdValue.toBigInt().toHexString();
+  }
+
+  if (requestIdValue.kind !== JSONValueKind.STRING) {
+    return null;
+  }
+
+  return normalizeRequestId(requestIdValue.toString());
+}
+
+function normalizeRequestId(value: string): string | null {
+  let trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  let lower = trimmed.toLowerCase();
+  if (lower.startsWith('0x')) {
+    return lower;
+  }
+
+  if (!isDecimalString(trimmed)) {
+    return null;
+  }
+
+  return BigInt.fromString(trimmed).toHexString();
+}
+
+function isDecimalString(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    let code = value.charCodeAt(i);
+    if (code < 48 || code > 57) {
+      return false;
     }
   }
-  return fallbackRequestId;
+  return true;
 }
 
 function linkDeliverToRequest(
@@ -142,7 +137,7 @@ function linkDeliverWithRequestOnly(
 ): boolean {
   let existingRequest = Request.load(requestId);
   if (existingRequest === null) {
-    log.warning(
+    log.critical(
       "ParsedDelivery: Request {0} not found for delivery {1}. Request event was not processed.",
       [requestId, deliveryIdHex]
     );
