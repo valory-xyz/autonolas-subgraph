@@ -1,8 +1,6 @@
 import {
-  json,
   ipfs,
   Bytes,
-  JSONValueKind,
   log,
   BigInt,
   DataSourceContext,
@@ -21,23 +19,6 @@ import {
   getOrCreateRequestsPerAgentOnchain,
 } from './utils';
 
-let UNHANDLED_TYPE = '[unhandled type]';
-
-class Metadata {
-  tool: string;
-  prompt: string;
-}
-
-class ResponseMetadata {
-  model: string
-  response: string
-}
-
-const MetadataNotFound: Metadata = {
-  tool: '',
-  prompt: '',
-};
-
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
 }
@@ -50,116 +31,6 @@ function resolveIpfsRoute(base: string): string {
   }
 
   return base;
-}
-
-function tryGetIpfsResponse(requestHash: string): Bytes | null {
-  let response = ipfs.cat(requestHash + '/' + 'metadata.json');
-
-  if (response) {
-    return response;
-  }
-  return ipfs.cat(requestHash);
-}
-
-function getResponseMetadata(
-  requestHash: string,
-  requestId: BigInt
-): ResponseMetadata {
-  let url = requestHash + '/' + requestId.toString();
-  let response = tryGetIpfsResponse(url);
-  
-  if (response === null) {
-    return {
-      model: UNHANDLED_TYPE,
-      response: UNHANDLED_TYPE
-    }
-  }
-
-  let jsonObj = json.fromBytes(response).toObject();
-
-  let metadataObj = jsonObj.get('metadata');
-
-  if (metadataObj === null) {
-    return {
-      model: UNHANDLED_TYPE,
-      response: UNHANDLED_TYPE
-    }
-  }
-
-  let metadata = metadataObj.toObject();
-  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
-
-  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
-
-  return {
-    model: model,
-    response: toolResponse
-  }
-}
-
-function getMetadata(requestHash: string): Metadata {
-  let response = tryGetIpfsResponse(requestHash);
-
-  if (response) {
-    let promptStr = '';
-    let toolStr = '';
-    let metadataString = json.fromString(response.toString());
-
-    if (metadataString) {
-      let metadata = metadataString.toObject();
-
-      // Getting prompt info
-      let promptJson = metadata.get('prompt');
-      if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
-        promptStr = promptJson.toString();
-      } else {
-        promptStr = UNHANDLED_TYPE;
-      }
-
-      // Getting tool info
-      let toolJson = metadata.get('tool');
-      if (toolJson !== null && toolJson.kind === JSONValueKind.ARRAY) {
-        let toolsArray = toolJson.toArray();
-        let tools: string[] = [];
-
-        for (let i = 0; i < toolsArray.length; i++) {
-          let item = toolsArray[i];
-          if (item.kind === JSONValueKind.STRING) {
-            tools.push(item.toString());
-          }
-        }
-
-        toolStr = tools.join(', ');
-      } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
-        toolStr = toolJson.toString();
-      } else {
-        toolStr = UNHANDLED_TYPE;
-      }
-    }
-
-    return {
-      prompt: promptStr,
-      tool: toolStr,
-    };
-  }
-
-  log.warning('Could not retrieve metadata for {}', [requestHash]);
-  return MetadataNotFound;
-}
-
-function extractQuestionTitle(prompt: string): string | null {
-  const marker = 'With the given question';
-  const markerIndex = prompt.indexOf(marker);
-  if (markerIndex === -1) return null;
-
-  const afterMarker = prompt.slice(markerIndex + marker.length);
-  const firstQuote = afterMarker.indexOf('"');
-  if (firstQuote === -1) return null;
-
-  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
-  if (secondQuote === -1) return null;
-
-  return afterMarker.slice(firstQuote + 1, secondQuote);
 }
 
 export function handleRequest(event: RequestEvent): void {
@@ -195,33 +66,12 @@ export function handleRequest(event: RequestEvent): void {
   sender.save();
   global.save();
 
-  // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
-  let metadata = getMetadata(ipfsHash);
-  let prompt = metadata.prompt;
-  let tool = metadata.tool;
-  let questionTitle = '';
-  if (prompt.length > 0) {
-    let extracted = extractQuestionTitle(prompt);
-    if (extracted !== null) {
-      questionTitle = extracted;
-    }
-  }
 
-  // Create RequestToMech entity for legacy-specific data
   let requestToMechId = event.params.requestId.toHexString();
   let requestToMech = new RequestToMech(requestToMechId);
   requestToMech.ipfsHash = ipfsHash;
   requestToMech.request = entity.id;
-  if (prompt.length > 0) {
-    requestToMech.prompt = prompt;
-  }
-  if (tool.length > 0) {
-    requestToMech.tool = tool;
-  }
-  if (questionTitle.length > 0) {
-    requestToMech.questionTitle = questionTitle;
-  }
   requestToMech.save();
 
   let context = new DataSourceContext();
