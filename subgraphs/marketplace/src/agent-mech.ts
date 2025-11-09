@@ -1,6 +1,8 @@
 import {
+  json,
   ipfs,
   Bytes,
+  JSONValueKind,
   log,
   BigInt,
   DataSourceContext,
@@ -19,6 +21,23 @@ import {
   getOrCreateRequestsPerAgentOnchain,
 } from './utils';
 
+let UNHANDLED_TYPE = '[unhandled type]';
+
+class Metadata {
+  tool: string;
+  prompt: string;
+}
+
+class ResponseMetadata {
+  model: string
+  response: string
+}
+
+const MetadataNotFound: Metadata = {
+  tool: '',
+  prompt: '',
+};
+
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
 }
@@ -31,6 +50,116 @@ function resolveIpfsRoute(base: string): string {
   }
 
   return base;
+}
+
+function tryGetIpfsResponse(requestHash: string): Bytes | null {
+  let response = ipfs.cat(requestHash + '/' + 'metadata.json');
+
+  if (response) {
+    return response;
+  }
+  return ipfs.cat(requestHash);
+}
+
+function getResponseMetadata(
+  requestHash: string,
+  requestId: BigInt
+): ResponseMetadata {
+  let url = requestHash + '/' + requestId.toString();
+  let response = tryGetIpfsResponse(url);
+  
+  if (response === null) {
+    return {
+      model: UNHANDLED_TYPE,
+      response: UNHANDLED_TYPE
+    }
+  }
+
+  let jsonObj = json.fromBytes(response).toObject();
+
+  let metadataObj = jsonObj.get('metadata');
+
+  if (metadataObj === null) {
+    return {
+      model: UNHANDLED_TYPE,
+      response: UNHANDLED_TYPE
+    }
+  }
+
+  let metadata = metadataObj.toObject();
+  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
+
+  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
+
+  return {
+    model: model,
+    response: toolResponse
+  }
+}
+
+function getMetadata(requestHash: string): Metadata {
+  let response = tryGetIpfsResponse(requestHash);
+
+  if (response) {
+    let promptStr = '';
+    let toolStr = '';
+    let metadataString = json.fromString(response.toString());
+
+    if (metadataString) {
+      let metadata = metadataString.toObject();
+
+      // Getting prompt info
+      let promptJson = metadata.get('prompt');
+      if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
+        promptStr = promptJson.toString();
+      } else {
+        promptStr = UNHANDLED_TYPE;
+      }
+
+      // Getting tool info
+      let toolJson = metadata.get('tool');
+      if (toolJson !== null && toolJson.kind === JSONValueKind.ARRAY) {
+        let toolsArray = toolJson.toArray();
+        let tools: string[] = [];
+
+        for (let i = 0; i < toolsArray.length; i++) {
+          let item = toolsArray[i];
+          if (item.kind === JSONValueKind.STRING) {
+            tools.push(item.toString());
+          }
+        }
+
+        toolStr = tools.join(', ');
+      } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
+        toolStr = toolJson.toString();
+      } else {
+        toolStr = UNHANDLED_TYPE;
+      }
+    }
+
+    return {
+      prompt: promptStr,
+      tool: toolStr,
+    };
+  }
+
+  log.warning('Could not retrieve metadata for {}', [requestHash]);
+  return MetadataNotFound;
+}
+
+function extractQuestionTitle(prompt: string): string | null {
+  const marker = 'With the given question';
+  const markerIndex = prompt.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  const afterMarker = prompt.slice(markerIndex + marker.length);
+  const firstQuote = afterMarker.indexOf('"');
+  if (firstQuote === -1) return null;
+
+  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
+  if (secondQuote === -1) return null;
+
+  return afterMarker.slice(firstQuote + 1, secondQuote);
 }
 
 export function handleRequest(event: RequestEvent): void {
@@ -66,6 +195,7 @@ export function handleRequest(event: RequestEvent): void {
   sender.save();
   global.save();
 
+  // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
 
   let requestToMechId = event.params.requestId.toHexString();
@@ -73,16 +203,6 @@ export function handleRequest(event: RequestEvent): void {
   requestToMech.ipfsHash = ipfsHash;
   requestToMech.request = entity.id;
   requestToMech.save();
-
-  let context = new DataSourceContext();
-  context.setString('requestId', entity.id);
-  context.setString('ipfsBase', ipfsHash);
-
-  // For requests, use just the ipfsHash without requestId (matches mech subgraph pattern)
-  let ipfsRoute = resolveIpfsRoute(ipfsHash);
-
-  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsRoute], context);
-
 
   entity.sender = event.params.sender;
   entity.mech = event.address;
@@ -114,7 +234,16 @@ export function handleRequest(event: RequestEvent): void {
     }
   }
 
+  // Save entity BEFORE creating data source template
   entity.save();
+
+  // Create IPFS data source template to parse request content
+  let context = new DataSourceContext();
+  context.setString('requestId', entity.id);
+  context.setString('ipfsBase', ipfsHash);
+
+  let ipfsRoute = resolveIpfsRoute(ipfsHash);
+  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsRoute], context);
 }
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -134,25 +263,15 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
 
-  let context = new DataSourceContext();
-  context.setBytes('deliveryId', entity.id);
-  context.setString('ipfsBase', mechDelivery.ipfsHash);
-
-  let ipfsRouteBase = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
-  let ipfsRoute = resolveIpfsRoute(ipfsRouteBase);
-  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
-
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
   if (existingRequest !== null) {
     // Link Deliver to Request
     entity.request = event.params.requestId.toHexString();
     
-    // If the Request exists and has no delivery, attach the delivery to the request
+    // Check for duplicates
     const deliveries = existingRequest.delivery.load();
-    if (deliveries.length === 0) {
-      // Already linked above, this is just for duplicate check
-    } else {
+    if (deliveries.length > 0) {
       log.warning(
         "Duplicated delivery {0} for the same request {1}",
         [deliveryId.toHexString(), event.params.requestId.toHexString()]
@@ -163,25 +282,31 @@ export function handleDeliver(event: DeliverEvent): void {
     existingRequest.save();
   } else {
     log.warning(
-      "Delivery {0} received for non-existing request {1} on mech {2}. This indicates the Request event was not processed. Check if AgentMech template exists for this mech.",
+      "Delivery {0} received for non-existing request {1}. This indicates the Request event was not processed. Check if AgentMech template exists for this mech.",
       [
         deliveryId.toHexString(),
-        event.params.requestId.toHexString(),
-        event.address.toHexString()
+        event.params.requestId.toHexString()
       ]
     );
-    // Don't set entity.request - it's nullable, so this is acceptable
   }
 
   // Associate deliver with service
   let serviceId = getServiceIdFromMech(event.address);
   if (serviceId !== null) {
     entity.service = serviceId;
-  } else {
-    // log.critical("Service ID not found for mech {0}", [event.address.toHexString()]);
   }
 
+  // Save entity BEFORE creating data source template
   entity.save();
+
+  // Create IPFS data source template to parse delivery content
+  let context = new DataSourceContext();
+  context.setBytes('deliveryId', entity.id);
+  context.setString('ipfsBase', mechDelivery.ipfsHash);
+
+  let ipfsRouteBase = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
+  let ipfsRoute = resolveIpfsRoute(ipfsRouteBase);
+  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
 
   // Update Service totalDeliveries counter
   if (serviceId !== null) {
