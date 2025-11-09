@@ -196,7 +196,6 @@ export function handleMarketplaceDeliveryWithSignatures(
 
     // Create marketplace-specific delivery entity (avoids null fields)
     let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestIds[i]);
-    marketplaceDeliver.requestId = event.params.requestIds[i];
     marketplaceDeliver.isMarketplace = true;
     marketplaceDeliver.isOffChain = true;
     marketplaceDeliver.deliver = deliver.id;
@@ -298,7 +297,6 @@ export function handleDeliverWithSignaturesV1(
 
   // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.requestId = event.params.requestId;
   marketplaceDeliver.ipfsHashBytes = event.params.data;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
   marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
@@ -335,7 +333,6 @@ export function handleDeliverWithSignaturesV2(
 
   // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.requestId = event.params.requestId;
   marketplaceDeliver.ipfsHashBytes = event.params.deliveryData;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
   marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
@@ -420,7 +417,6 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
     // Create marketplace-specific request entity (avoids null fields)
     let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestIds[i]);
-    marketplaceRequest.requestId = event.params.requestIds[i];
     marketplaceRequest.isMarketplace = true;
     marketplaceRequest.isOffChain = false;
     marketplaceRequest.request = request.id;
