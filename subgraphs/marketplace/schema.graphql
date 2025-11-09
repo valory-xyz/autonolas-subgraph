@@ -294,7 +294,7 @@ type CreateMech @entity(immutable: false) {
 }
 
 type RequestToMech @entity(immutable: false) {
-  id: Bytes!
+  id: ID!
   ipfsHash: String!
   prompt: String
   tool: String
