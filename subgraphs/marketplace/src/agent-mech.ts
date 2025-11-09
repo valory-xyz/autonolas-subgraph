@@ -197,14 +197,32 @@ export function handleRequest(event: RequestEvent): void {
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
+  let metadata = getMetadata(ipfsHash);
+  let prompt = metadata.prompt;
+  let tool = metadata.tool;
+  let questionTitle = '';
+  if (prompt.length > 0) {
+    let extracted = extractQuestionTitle(prompt);
+    if (extracted !== null) {
+      questionTitle = extracted;
+    }
+  }
 
   // Create RequestToMech entity for legacy-specific data
-  // Follow mech subgraph pattern: use event.params.requestId.toHexString() and convert to Bytes
-  // Bytes.fromHexString() requires hex string without "0x" prefix (toHexString() always includes "0x")
-  let requestToMechIdHex = event.params.requestId.toHexString();
-  let requestToMech = new RequestToMech(Bytes.fromHexString(requestToMechIdHex.slice(2)));
+  // Follow mech subgraph pattern: reuse requestId hex string as identifier
+  let requestToMechId = event.params.requestId.toHexString();
+  let requestToMech = new RequestToMech(requestToMechId);
   requestToMech.ipfsHash = ipfsHash;
   requestToMech.request = entity.id;
+  if (prompt.length > 0) {
+    requestToMech.prompt = prompt;
+  }
+  if (tool.length > 0) {
+    requestToMech.tool = tool;
+  }
+  if (questionTitle.length > 0) {
+    requestToMech.questionTitle = questionTitle;
+  }
   requestToMech.save();
 
   let context = new DataSourceContext();
