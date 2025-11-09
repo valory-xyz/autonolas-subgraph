@@ -53,10 +53,24 @@ export function handleMechRequest(content: Bytes): void {
       parsedRequest.prompt = promptString;
       promptValue = promptString;
     }
-    if (tool !== null && tool.kind === JSONValueKind.STRING) {
-      let toolString = tool.toString();
-      parsedRequest.tool = toolString;
-      toolValue = toolString;
+    if (tool !== null) {
+      if (tool.kind === JSONValueKind.ARRAY) {
+        let toolsArray = tool.toArray();
+        let tools: string[] = [];
+        for (let i = 0; i < toolsArray.length; i++) {
+          let item = toolsArray[i];
+          if (item.kind === JSONValueKind.STRING) {
+            tools.push(item.toString());
+          }
+        }
+        let toolString = tools.join(', ');
+        parsedRequest.tool = toolString;
+        toolValue = toolString;
+      } else if (tool.kind === JSONValueKind.STRING) {
+        let toolString = tool.toString();
+        parsedRequest.tool = toolString;
+        toolValue = toolString;
+      }
     }
   }
 

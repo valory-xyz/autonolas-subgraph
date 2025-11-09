@@ -23,7 +23,7 @@ describe("Describe mech requests processing", () => {
         // arrange
         const baseCid = "f01701220deadbeef";
         const requestIdBigInt = BigInt.fromI32(564);
-        const route = baseCid + "/" + requestIdBigInt.toString();
+        const route = baseCid;
         let requestId = requestIdBigInt.toHexString();
         let mechAddress = Address.fromString("0xa16081f360e3847006db660bae1c6d1b2e17ec2a");
         let senderAddress = Address.fromString("0x0000000000000000000000000000000000000001");
@@ -84,7 +84,7 @@ describe("Describe mech requests processing", () => {
     test("Handle mech request with metadata route", () => {
         const baseCid = "f01701220deadbeef";
         const requestIdBigInt = BigInt.fromI32(1337);
-        const route = baseCid + "/" + requestIdBigInt.toString() + "/metadata.json";
+        const route = baseCid + "/metadata.json";
         let requestId = requestIdBigInt.toHexString();
         let mechAddress = Address.fromString("0xa16081f360e3847006db660bae1c6d1b2e17ec2a");
         let senderAddress = Address.fromString("0x0000000000000000000000000000000000000001");
@@ -139,7 +139,7 @@ describe("Describe mech requests processing", () => {
         // arrange
         const baseCid = "f01701220deadbeef";
         const requestIdBigInt = BigInt.fromI32(564);
-        const route = baseCid + "/" + requestIdBigInt.toString();
+        const route = baseCid;
         let requestId = requestIdBigInt.toHexString();
 
         let context = new DataSourceContext();

@@ -18,7 +18,7 @@ describe("Describe agent-mech processing", () => {
 
     test("Request created and stored", () => {
         // arrange
-        mockIpfsFile("f017012201234567890abcdef/234/metadata.json", "tests/ipfs_mocks/mech-request.json")
+        mockIpfsFile("f017012201234567890abcdef/metadata.json", "tests/ipfs_mocks/mech-request.json")
 
         let requestId = BigInt.fromI32(234)
         let sender = Address.fromString("0x0000000000000000000000000000000000000001")
@@ -112,7 +112,7 @@ describe("Describe agent-mech processing", () => {
     })
 
     test("Request handles odd-length requestId hex representation", () => {
-        mockIpfsFile("f017012201234567890abcdef/15/metadata.json", "tests/ipfs_mocks/mech-request.json")
+        mockIpfsFile("f017012201234567890abcdef/metadata.json", "tests/ipfs_mocks/mech-request.json")
 
         let requestId = BigInt.fromI32(15)
         let sender = Address.fromString("0x0000000000000000000000000000000000000001")
@@ -163,7 +163,7 @@ describe("Describe agent-mech processing", () => {
         let requestId = BigInt.fromI32(234)
         let data = Bytes.fromHexString("0xdeadbeef")
 
-        mockIpfsFile("f01701220deadbeef/234/metadata.json", "tests/ipfs_mocks/mech-request.json")
+        mockIpfsFile("f01701220deadbeef/metadata.json", "tests/ipfs_mocks/mech-request.json")
         mockIpfsFile("f01701220deadbeef/234/metadata.json", "tests/ipfs_mocks/mech-response.json")
 
         let event = createMechRequestEvent(

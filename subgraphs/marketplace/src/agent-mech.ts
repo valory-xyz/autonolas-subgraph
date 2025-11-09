@@ -78,8 +78,8 @@ export function handleRequest(event: RequestEvent): void {
   context.setString('requestId', entity.id);
   context.setString('ipfsBase', ipfsHash);
 
-  let ipfsRouteBase = ipfsHash + '/' + event.params.requestId.toString();
-  let ipfsRoute = resolveIpfsRoute(ipfsRouteBase);
+  // For requests, use just the ipfsHash without requestId (matches mech subgraph pattern)
+  let ipfsRoute = resolveIpfsRoute(ipfsHash);
 
   DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsRoute], context);
 
