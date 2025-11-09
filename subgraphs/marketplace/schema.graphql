@@ -303,8 +303,8 @@ type RequestToMech @entity(immutable: false) {
 }
 
 type RequestToMarketplace @entity(immutable: false) {
-  id: Bytes! # requestId
-  requestId: Bytes! # bytes32
+  id: ID!
+  requestIdBytes: Bytes! # raw bytes32
   ipfsHashBytes: Bytes # raw bytes
   isMarketplace: Boolean
   isOffChain: Boolean
@@ -344,7 +344,8 @@ type DeliverForMech @entity(immutable: true) {
 
 type DeliverForMarketplace @entity(immutable: true) {
   id: Bytes! # delivery id (requestId)
-  requestId: Bytes! # bytes32
+  requestId: ID!
+  requestIdBytes: Bytes! # raw bytes32
   ipfsHashBytes: Bytes
   mechServiceMultisig: Bytes
   deliveryRate: BigInt
