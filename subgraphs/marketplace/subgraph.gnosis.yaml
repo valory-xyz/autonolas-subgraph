@@ -437,6 +437,7 @@ templates:
       handler: handleMechRequest
       entities:
         - ParsedRequest
+        - Request
       abis:
         - name: AgentMech
           file: ./abis/AgentMech.json
@@ -451,6 +452,9 @@ templates:
       handler: handleMechDeliver
       entities:
         - ParsedDelivery
+        - Deliver
+        - DeliverForMech
+        - Request
       abis:
         - name: AgentMech
           file: ./abis/AgentMech.json

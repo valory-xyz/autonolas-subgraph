@@ -1,4 +1,4 @@
-import { Bytes, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
+import { Bytes, JSONValue, dataSource, json, JSONValueKind, log } from "@graphprotocol/graph-ts";
 import { ParsedDelivery, Deliver, Request, DeliverForMech } from "../generated/schema";
 
 let UNHANDLED_TYPE = '[unhandled type]';
@@ -14,112 +14,172 @@ export function handleMechDeliver(content: Bytes): void {
     return;
   }
 
-  // Load the Deliver entity to update it
   let deliver = Deliver.load(deliveryId);
   if (deliver === null) {
     log.error("Deliver entity not found for deliveryId: {}", [deliveryId.toHexString()]);
     return;
   }
 
-  // Try to get requestId from DeliverForMech as fallback
-  let mechDelivery = DeliverForMech.load(deliveryId);
-  let fallbackRequestId: string | null = null;
-  if (mechDelivery !== null && mechDelivery.requestId !== null) {
-    fallbackRequestId = mechDelivery.requestId;
-  }
-
-  let parsedDeliver = new ParsedDelivery(deliveryId);
+  let fallbackRequestId = getFallbackRequestId(deliveryId);
 
   let obj = json.try_fromBytes(content);
   if (obj.isError) {
     log.error("Error parsing deliver: {}", [content.toString()]);
-    // Try to link using fallback requestId
-    if (fallbackRequestId !== null) {
-      let existingRequest = Request.load(fallbackRequestId);
-      if (existingRequest !== null) {
-        deliver.request = fallbackRequestId;
-        deliver.save();
-      } else {
-        log.warning(
-          "ParsedDelivery: Request {0} not found for delivery {1}. Request event was not processed.",
-          [fallbackRequestId, deliveryId.toHexString()]
-        );
-      }
-    }
+    handleParseFailure(deliver, fallbackRequestId, deliveryId.toHexString());
     return;
   }
 
+  if (obj.value.kind !== JSONValueKind.OBJECT) {
+    log.warning(
+      "ParsedDelivery: Unexpected JSON kind for delivery {0}, received kind {1}",
+      [deliveryId.toHexString(), obj.value.kind.toString()]
+    );
+    handleParseFailure(deliver, fallbackRequestId, deliveryId.toHexString());
+    return;
+  }
+
+  let parsedDeliver = createParsedDelivery(deliveryId, baseHash, content);
+  let parsedObject = obj.value.toObject();
+
+  let requestIdStr = resolveRequestId(parsedObject.get('requestId'), fallbackRequestId);
+  let canCreateParsedDelivery = false;
+
+  if (requestIdStr !== null) {
+    canCreateParsedDelivery = linkDeliverToRequest(
+      deliver,
+      parsedDeliver,
+      requestIdStr,
+      deliveryId.toHexString()
+    );
+  } else {
+    log.warning(
+      "ParsedDelivery: requestId not found in IPFS content or DeliverForMech for delivery {0}",
+      [deliveryId.toHexString()]
+    );
+  }
+
+  applyModel(parsedObject.get('metadata'), deliver, parsedDeliver);
+  applyResponse(parsedObject.get('result'), deliver, parsedDeliver);
+
+  if (canCreateParsedDelivery) {
+    parsedDeliver.save();
+  }
+  deliver.save();
+}
+
+function getFallbackRequestId(deliveryId: Bytes): string | null {
+  let mechDelivery = DeliverForMech.load(deliveryId);
+  if (mechDelivery === null || mechDelivery.requestId === null) {
+    return null;
+  }
+  return mechDelivery.requestId;
+}
+
+function handleParseFailure(
+  deliver: Deliver,
+  fallbackRequestId: string | null,
+  deliveryIdHex: string
+): void {
+  if (fallbackRequestId === null) {
+    log.warning(
+      "ParsedDelivery: Unable to link delivery {0} because no requestId was found in IPFS or DeliverForMech",
+      [deliveryIdHex]
+    );
+    return;
+  }
+
+  if (linkDeliverWithRequestOnly(deliver, fallbackRequestId, deliveryIdHex)) {
+    deliver.save();
+  }
+}
+
+function createParsedDelivery(
+  deliveryId: Bytes,
+  baseHash: string,
+  content: Bytes
+): ParsedDelivery {
+  let parsedDeliver = new ParsedDelivery(deliveryId);
   parsedDeliver.content = content.toString();
   parsedDeliver.hash = baseHash;
   parsedDeliver.deliver = deliveryId;
   parsedDeliver.model = UNHANDLED_TYPE;
   parsedDeliver.response = UNHANDLED_TYPE;
+  return parsedDeliver;
+}
 
-  // Default values for Deliver entity
-  deliver.model = UNHANDLED_TYPE;
-  deliver.toolResponse = UNHANDLED_TYPE;
-
-  if (obj.value.kind === JSONValueKind.OBJECT) {
-    let parsed = obj.value.toObject();
-    let response = parsed.get('result');
-    let requestId = parsed.get('requestId');
-
-    let canCreateParsedDelivery = false;
-    let requestIdStr: string | null = null;
-    
-    if (requestId !== null && requestId.kind === JSONValueKind.NUMBER) {
-      requestIdStr = requestId.toBigInt().toHexString();
-    } else if (fallbackRequestId !== null) {
-      // Use fallback from DeliverForMech if IPFS doesn't have requestId
-      requestIdStr = fallbackRequestId;
+function resolveRequestId(
+  requestIdValue: JSONValue | null,
+  fallbackRequestId: string | null
+): string | null {
+  if (requestIdValue !== null) {
+    if (requestIdValue.kind === JSONValueKind.NUMBER) {
+      return requestIdValue.toBigInt().toHexString();
     }
-
-    if (requestIdStr !== null) {
-      // Check if Request exists before linking (ParsedDelivery.request is non-nullable)
-      let existingRequest = Request.load(requestIdStr);
-      if (existingRequest !== null) {
-        // Link ParsedDelivery to Request (non-nullable, so Request must exist)
-        // We can create ParsedDelivery if we have requestIdStr (from IPFS or fallback) and Request exists
-        parsedDeliver.request = requestIdStr;
-        canCreateParsedDelivery = true;
-        // Always link Deliver to Request if Request exists (nullable field)
-        deliver.request = requestIdStr;
-      } else {
-        log.warning(
-          "ParsedDelivery: Request {0} not found for delivery {1}, cannot create ParsedDelivery. Request event was not processed.",
-          [requestIdStr, deliveryId.toHexString()]
-        );
-      }
-    } else {
-      log.warning(
-        "ParsedDelivery: requestId not found in IPFS content or DeliverForMech for delivery {0}",
-        [deliveryId.toHexString()]
-      );
+    if (requestIdValue.kind === JSONValueKind.STRING) {
+      return requestIdValue.toString();
     }
-
-    let metadata = parsed.get('metadata');
-
-    if (metadata !== null && metadata.kind === JSONValueKind.OBJECT) {
-      let metadataObj = metadata.toObject();
-      let model = metadataObj.get('model');
-      if (model !== null && model.kind === JSONValueKind.STRING) {
-        let modelStr = model.toString();
-        parsedDeliver.model = modelStr;
-        deliver.model = modelStr; // Update Deliver entity
-      }
-    }
-
-    if (response !== null && response.kind === JSONValueKind.STRING) {
-      let responseStr = response.toString();
-      parsedDeliver.response = responseStr;
-      deliver.toolResponse = responseStr; // Update Deliver entity
-    }
-
-    // Only save ParsedDelivery if Request exists and we have a valid requestIdStr (from IPFS or fallback)
-    if (canCreateParsedDelivery) {
-      parsedDeliver.save();
-    }
-    // Always save Deliver entity (request field is nullable, but we link it if Request exists)
-    deliver.save();
   }
+  return fallbackRequestId;
+}
+
+function linkDeliverToRequest(
+  deliver: Deliver,
+  parsedDeliver: ParsedDelivery,
+  requestId: string,
+  deliveryIdHex: string
+): boolean {
+  if (!linkDeliverWithRequestOnly(deliver, requestId, deliveryIdHex)) {
+    return false;
+  }
+  parsedDeliver.request = requestId;
+  return true;
+}
+
+function linkDeliverWithRequestOnly(
+  deliver: Deliver,
+  requestId: string,
+  deliveryIdHex: string
+): boolean {
+  let existingRequest = Request.load(requestId);
+  if (existingRequest === null) {
+    log.warning(
+      "ParsedDelivery: Request {0} not found for delivery {1}. Request event was not processed.",
+      [requestId, deliveryIdHex]
+    );
+    return false;
+  }
+  deliver.request = requestId;
+  return true;
+}
+
+function applyModel(
+  metadataValue: JSONValue | null,
+  deliver: Deliver,
+  parsedDeliver: ParsedDelivery
+): void {
+  if (metadataValue === null || metadataValue.kind !== JSONValueKind.OBJECT) {
+    return;
+  }
+
+  let metadataObj = metadataValue.toObject();
+  let model = metadataObj.get('model');
+  if (model !== null && model.kind === JSONValueKind.STRING) {
+    let value = model.toString();
+    parsedDeliver.model = value;
+    deliver.model = value;
+  }
+}
+
+function applyResponse(
+  responseValue: JSONValue | null,
+  deliver: Deliver,
+  parsedDeliver: ParsedDelivery
+): void {
+  if (responseValue === null || responseValue.kind !== JSONValueKind.STRING) {
+    return;
+  }
+
+  let responseStr = responseValue.toString();
+  parsedDeliver.response = responseStr;
+  deliver.toolResponse = responseStr;
 }
