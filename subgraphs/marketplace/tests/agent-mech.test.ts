@@ -32,32 +32,31 @@ describe("Describe agent-mech processing", () => {
         // act
         handleRequest(event)
 
-        // assert
-        // assert.entityCount("RequestToMech", 1)
-        // assert.fieldEquals(
-        //     "RequestToMech",
-        //     requestId.toHexString(),
-        //     "ipfsHash",
-        //     "f017012201234567890abcdef"
-        // )
-        // assert.fieldEquals(
-        //     "RequestToMech",
-        //     requestId.toHexString(),
-        //     "prompt",
-        //     "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
-        // )
-        // assert.fieldEquals(
-        //     "RequestToMech",
-        //     requestId.toHexString(),
-        //     "tool",
-        //     "prediction-request-rag"
-        // )
-        // assert.fieldEquals(
-        //     "RequestToMech",
-        //     requestId.toHexString(),
-        //     "questionTitle",
-        //     "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
-        // )
+        assert.entityCount("RequestToMech", 1)
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "ipfsHash",
+            "f017012201234567890abcdef"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "prompt",
+            "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "tool",
+            "prediction-request-rag"
+        )
+        assert.fieldEquals(
+            "RequestToMech",
+            requestId.toHexString(),
+            "questionTitle",
+            "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
+        )
 
         assert.entityCount("Request", 1)
 
@@ -128,6 +127,24 @@ describe("Describe agent-mech processing", () => {
             "1"
         )
 
+    })
+
+    test("Request handles odd-length requestId hex representation", () => {
+        mockIpfsFile("f017012201234567890abcdef/metadata.json", "tests/ipfs_mocks/mech-request.json")
+
+        let requestId = BigInt.fromI32(15)
+        let sender = Address.fromString("0x0000000000000000000000000000000000000001")
+
+        let event = createMechRequestEvent(
+            sender,
+            requestId,
+            Bytes.fromHexString("0x1234567890abcdef"),
+        )
+
+        handleRequest(event)
+
+        assert.entityCount("RequestToMech", 1)
+        assert.fieldEquals("RequestToMech", requestId.toHexString(), "ipfsHash", "f017012201234567890abcdef")
     })
 
     test("Response indexed and stored", () => {
