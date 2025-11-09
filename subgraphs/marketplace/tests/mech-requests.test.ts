@@ -10,7 +10,7 @@ import {
 import { Bytes, DataSourceContext, log, Address, BigInt } from "@graphprotocol/graph-ts"
 import { handleMechRequest } from "../src/mech-request"
 import { MechParsedRequest } from "../generated/templates"
-import { ParsedRequest, Request, Sender } from "../generated/schema"
+import { ParsedRequest, Request, RequestToMech, Sender } from "../generated/schema"
 
 
 
@@ -45,6 +45,11 @@ describe("Describe mech requests processing", () => {
         request.isDelivered = false;
         request.save();
 
+        let requestToMech = new RequestToMech(requestId);
+        requestToMech.ipfsHash = baseCid;
+        requestToMech.request = requestId;
+        requestToMech.save();
+
         let context = new DataSourceContext();
         context.setString('requestId', requestId);
         context.setString('ipfsBase', baseCid);
@@ -70,6 +75,10 @@ describe("Describe mech requests processing", () => {
 
         assert.fieldEquals("ParsedRequest", requestId, "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
         assert.fieldEquals("ParsedRequest", requestId, "tool", "prediction-request-rag");
+
+        assert.fieldEquals("RequestToMech", requestId, "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
+        assert.fieldEquals("RequestToMech", requestId, "tool", "prediction-request-rag");
+        assert.fieldEquals("RequestToMech", requestId, "questionTitle", "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?");
     })
 
     test("Handle mech request with metadata route", () => {
@@ -97,6 +106,11 @@ describe("Describe mech requests processing", () => {
         request.isDelivered = false;
         request.save();
 
+        let requestToMech = new RequestToMech(requestId);
+        requestToMech.ipfsHash = baseCid;
+        requestToMech.request = requestId;
+        requestToMech.save();
+
         let context = new DataSourceContext();
         context.setString('requestId', requestId);
         context.setString('ipfsBase', baseCid);
@@ -115,6 +129,10 @@ describe("Describe mech requests processing", () => {
         assert.fieldEquals("ParsedRequest", requestId, "hash", baseCid);
         assert.fieldEquals("ParsedRequest", requestId, "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
         assert.fieldEquals("ParsedRequest", requestId, "tool", "prediction-request-rag");
+
+        assert.fieldEquals("RequestToMech", requestId, "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
+        assert.fieldEquals("RequestToMech", requestId, "tool", "prediction-request-rag");
+        assert.fieldEquals("RequestToMech", requestId, "questionTitle", "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?");
     })
 
     test("Handle mech request invalid object", () => {

@@ -39,24 +39,6 @@ describe("Describe agent-mech processing", () => {
             "ipfsHash",
             "f017012201234567890abcdef"
         )
-        assert.fieldEquals(
-            "RequestToMech",
-            requestId.toHexString(),
-            "prompt",
-            "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
-        )
-        assert.fieldEquals(
-            "RequestToMech",
-            requestId.toHexString(),
-            "tool",
-            "prediction-request-rag"
-        )
-        assert.fieldEquals(
-            "RequestToMech",
-            requestId.toHexString(),
-            "questionTitle",
-            "Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?"
-        )
 
         assert.entityCount("Request", 1)
 

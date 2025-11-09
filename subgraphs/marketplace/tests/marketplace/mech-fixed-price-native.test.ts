@@ -71,7 +71,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Request", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
 
       // Check RequestToMarketplace entity
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "requestId", requestId.toHexString())
+      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "requestIdBytes", requestId.toHexString())
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isMarketplace", "false")
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isOffChain", "false")
@@ -120,6 +120,7 @@ describe("Mech Fixed Price Native Handler", () => {
 
       // Check DeliverForMarketplace entity
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "requestId", requestId.toHexString())
+      assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "requestIdBytes", requestId.toHexString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "mechServiceMultisig", TEST_MECH_SERVICE_MULTISIG.toHexString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", deliveryRate.toString())
