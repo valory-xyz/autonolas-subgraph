@@ -10,19 +10,13 @@ export function handleMechDeliver(content: Bytes): void {
   let baseHash = context.getString('ipfsBase');
 
   if (baseHash === null || deliveryId === null) {
-    log.critical("ParsedDelivery: Missing context for delivery {}", [hash]);
-    return;
-  }
-
-  let deliver = Deliver.load(deliveryId);
-  if (deliver === null) {
-    log.critical("ParsedDelivery: Deliver entity not found for deliveryId {}", [deliveryId.toHexString()]);
+    log.error("ParsedDelivery: Missing context for delivery {}", [hash]);
     return;
   }
 
   let obj = json.try_fromBytes(content);
   if (obj.isError) {
-    log.critical("ParsedDelivery: Error parsing delivery {0}: {1}", [
+    log.error("ParsedDelivery: Error parsing delivery {0}: {1}", [
       deliveryId.toHexString(),
       content.toString(),
     ]);
@@ -30,7 +24,7 @@ export function handleMechDeliver(content: Bytes): void {
   }
 
   if (obj.value.kind !== JSONValueKind.OBJECT) {
-    log.critical(
+    log.error(
       "ParsedDelivery: Unexpected JSON kind for delivery {0}, received kind {1}",
       [deliveryId.toHexString(), obj.value.kind.toString()]
     );
@@ -40,23 +34,53 @@ export function handleMechDeliver(content: Bytes): void {
   let parsedDeliver = createParsedDelivery(deliveryId, baseHash, content);
   let parsedObject = obj.value.toObject();
 
-  let requestIdStr = resolveRequestId(parsedObject.get('requestId'));
-  if (requestIdStr === null) {
-    log.critical("ParsedDelivery: requestId not found in IPFS content for delivery {0}", [
+  let requestIdValue = parsedObject.get('requestId');
+  if (requestIdValue === null) {
+    log.warning("ParsedDelivery: requestId not found in IPFS content for delivery {0}", [
       deliveryId.toHexString(),
     ]);
     return;
   }
 
-  if (!linkDeliverToRequest(deliver, parsedDeliver, requestIdStr, deliveryId.toHexString())) {
+  // Handle requestId as number or string
+  let requestIdStr: string;
+  if (requestIdValue.kind === JSONValueKind.NUMBER) {
+    requestIdStr = requestIdValue.toBigInt().toHexString();
+  } else if (requestIdValue.kind === JSONValueKind.STRING) {
+    requestIdStr = requestIdValue.toString().toLowerCase();
+  } else {
+    log.warning("ParsedDelivery: requestId has unexpected type for delivery {0}", [
+      deliveryId.toHexString(),
+    ]);
     return;
   }
 
-  applyModel(parsedObject.get('metadata'), deliver, parsedDeliver);
-  applyResponse(parsedObject.get('result'), deliver, parsedDeliver);
-
+  parsedDeliver.request = requestIdStr;
+  applyModel(parsedObject.get('metadata'), parsedDeliver);
+  applyResponse(parsedObject.get('result'), parsedDeliver);
   parsedDeliver.save();
-  deliver.save();
+
+  // Try to update Deliver entity if it exists (it should, but may not due to reorg)
+  let deliver = Deliver.load(deliveryId);
+  if (deliver !== null) {
+    deliver.model = parsedDeliver.model;
+    deliver.toolResponse = parsedDeliver.response;
+    
+    // Link to request if not already linked (usually already done in handleDeliver)
+    if (deliver.request === null) {
+      let existingRequest = Request.load(requestIdStr);
+      if (existingRequest !== null) {
+        deliver.request = requestIdStr;
+      }
+    }
+    
+    deliver.save();
+  } else {
+    log.warning(
+      "ParsedDelivery: Deliver entity not found for deliveryId {}. ParsedDelivery saved but Deliver entity not updated. This may occur due to blockchain reorg.",
+      [deliveryId.toHexString()]
+    );
+  }
 }
 
 function createParsedDelivery(
@@ -73,83 +97,8 @@ function createParsedDelivery(
   return parsedDeliver;
 }
 
-function resolveRequestId(requestIdValue: JSONValue | null): string | null {
-  if (requestIdValue === null) {
-    return null;
-  }
-
-  if (requestIdValue.kind === JSONValueKind.NUMBER) {
-    return requestIdValue.toBigInt().toHexString();
-  }
-
-  if (requestIdValue.kind !== JSONValueKind.STRING) {
-    return null;
-  }
-
-  return normalizeRequestId(requestIdValue.toString());
-}
-
-function normalizeRequestId(value: string): string | null {
-  let trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  let lower = trimmed.toLowerCase();
-  if (lower.startsWith('0x')) {
-    return lower;
-  }
-
-  if (!isDecimalString(trimmed)) {
-    return null;
-  }
-
-  return BigInt.fromString(trimmed).toHexString();
-}
-
-function isDecimalString(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    let code = value.charCodeAt(i);
-    if (code < 48 || code > 57) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function linkDeliverToRequest(
-  deliver: Deliver,
-  parsedDeliver: ParsedDelivery,
-  requestId: string,
-  deliveryIdHex: string
-): boolean {
-  if (!linkDeliverWithRequestOnly(deliver, requestId, deliveryIdHex)) {
-    return false;
-  }
-  parsedDeliver.request = requestId;
-  return true;
-}
-
-function linkDeliverWithRequestOnly(
-  deliver: Deliver,
-  requestId: string,
-  deliveryIdHex: string
-): boolean {
-  let existingRequest = Request.load(requestId);
-  if (existingRequest === null) {
-    log.critical(
-      "ParsedDelivery: Request {0} not found for delivery {1}. Request event was not processed.",
-      [requestId, deliveryIdHex]
-    );
-    return false;
-  }
-  deliver.request = requestId;
-  return true;
-}
-
 function applyModel(
   metadataValue: JSONValue | null,
-  deliver: Deliver,
   parsedDeliver: ParsedDelivery
 ): void {
   if (metadataValue === null || metadataValue.kind !== JSONValueKind.OBJECT) {
@@ -159,22 +108,17 @@ function applyModel(
   let metadataObj = metadataValue.toObject();
   let model = metadataObj.get('model');
   if (model !== null && model.kind === JSONValueKind.STRING) {
-    let value = model.toString();
-    parsedDeliver.model = value;
-    deliver.model = value;
+    parsedDeliver.model = model.toString();
   }
 }
 
 function applyResponse(
   responseValue: JSONValue | null,
-  deliver: Deliver,
   parsedDeliver: ParsedDelivery
 ): void {
   if (responseValue === null || responseValue.kind !== JSONValueKind.STRING) {
     return;
   }
 
-  let responseStr = responseValue.toString();
-  parsedDeliver.response = responseStr;
-  deliver.toolResponse = responseStr;
+  parsedDeliver.response = responseValue.toString();
 }
