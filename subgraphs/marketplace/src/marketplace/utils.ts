@@ -448,7 +448,9 @@ function createDeliverParser(
   let context = new DataSourceContext();
   context.setBytes('deliveryId', deliveryId);
   context.setString('ipfsBase', baseHash);
-  let route = baseHash + '/' + requestIdToDecimal(requestId);
+
+  let baseRoute = baseHash + '/' + requestIdToDecimal(requestId);
+  let route = resolveIpfsRoute(baseRoute);
   DataSourceTemplate.createWithContext('MechParsedDeliver', [route], context);
 }
 
