@@ -20,12 +20,12 @@ export const TEST_REQUEST_ID_B = Bytes.fromHexString("0xbbbbbbbbbbbbbbbbbbbbbbbb
 export const TEST_REQUEST_ID_C = Bytes.fromHexString("0xcccccccccccccccccccccccccccccccccccccccc")
 export const TEST_REQUEST_ID_D = Bytes.fromHexString("0xdddddddddddddddddddddddddddddddddddddddd")
 
-// Common test data (hex strings must use only valid hex digits: 0-9, a-f, A-F, and have even length)
-export const TEST_DATA = Bytes.fromHexString("0xdeadsecc")
-export const TEST_DATA_NATIVE = Bytes.fromHexString("0xdeadsecc")
-export const TEST_DATA_TOKEN = Bytes.fromHexString("0xdeadsecc")
-export const TEST_DATA_NVM = Bytes.fromHexString("0xpuppyy")
-export const TEST_DATA_USDC = Bytes.fromHexString("0xdendee")
+// Common test data (must be 32-byte payloads to emulate real IPFS digests)
+export const TEST_DATA = Bytes.fromHexString("0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+export const TEST_DATA_NATIVE = Bytes.fromHexString("0x1111111111111111111111111111111111111111111111111111111111111111")
+export const TEST_DATA_TOKEN = Bytes.fromHexString("0x2222222222222222222222222222222222222222222222222222222222222222")
+export const TEST_DATA_NVM = Bytes.fromHexString("0x3333333333333333333333333333333333333333333333333333333333333333")
+export const TEST_DATA_USDC = Bytes.fromHexString("0x4444444444444444444444444444444444444444444444444444444444444444")
 
 // Common test values
 export const TEST_DELIVERY_RATE_NATIVE = 100

@@ -118,7 +118,7 @@ function createRequestEntity(
     }
   }
   
-  let request = new Request(requestId)
+  let request = new Request(requestId.toHexString())
   // request.sender should be the Sender entity ID (Bytes), not the Address
   request.sender = senderEntity.id
   request.mech = mech
@@ -256,12 +256,13 @@ describe("Mech Marketplace Handlers", () => {
       [requestId]
     )
     // Use same transaction hash so events appear in same transaction
+    let deliverPayload = Bytes.fromHexString("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
     let deliverEvent = createDeliverWithSignaturesV1Event(
       mech,
       multisig,
       requestId,
       BigInt.fromI32(10),
-      Bytes.fromHexString("0xdeadbeef")
+      deliverPayload
     )
     deliverEvent.transaction.hash = deliveryEvent.transaction.hash
 
@@ -271,7 +272,7 @@ describe("Mech Marketplace Handlers", () => {
 
     assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requester.toHexString())
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "true")
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", "0xdeadbeef")
+    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", deliverPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", "10")
   })
 
@@ -295,13 +296,15 @@ describe("Mech Marketplace Handlers", () => {
       [requestId]
     )
     // Use same transaction hash so events appear in same transaction
+    let requestPayload = Bytes.fromHexString("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    let deliveryPayload = Bytes.fromHexString("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
     let deliverEvent = createDeliverWithSignaturesV2Event(
       mech,
       multisig,
       requestId,
       BigInt.fromI32(12),
-      Bytes.fromHexString("0xaaaa"),
-      Bytes.fromHexString("0xbbbb")
+      requestPayload,
+      deliveryPayload
     )
     deliverEvent.transaction.hash = deliveryEvent.transaction.hash
 
@@ -310,7 +313,7 @@ describe("Mech Marketplace Handlers", () => {
     handleDeliverWithSignaturesV2(deliverEvent)
 
     assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requester.toHexString())
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", "0xbbbb")
+    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", deliveryPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", "12")
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "true")
   })
@@ -330,7 +333,10 @@ describe("Mech Marketplace Handlers", () => {
       Bytes.fromHexString("0x7000000000000000000000000000000000000000000000000000000000000007"),
       Bytes.fromHexString("0x8000000000000000000000000000000000000000000000000000000000000008"),
     ]
-    let datas = [Bytes.fromHexString("0x1234"), Bytes.fromHexString("0x5678")]
+    let datas = [
+      Bytes.fromHexString("0x1234123412341234123412341234123412341234123412341234123412341234"),
+      Bytes.fromHexString("0x5678567856785678567856785678567856785678567856785678567856785678"),
+    ]
 
     let event = createMarketplaceRequestEvent(priorityMech, requester, requestIds, datas)
     handleMarketplaceRequest(event)

@@ -1,5 +1,9 @@
 import { newMockEvent } from 'matchstick-as';
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts';
+import {
+  mockMarketplaceDeliverIpfs,
+  mockMarketplaceRequestIpfs,
+} from './ipfs-mock-helpers';
 
 export function createBaseDeliverEvent(
   mech: Address,
@@ -35,6 +39,8 @@ export function createBaseDeliverEvent(
     new ethereum.EventParam('data', ethereum.Value.fromBytes(data))
   );
 
+  mockMarketplaceDeliverIpfs(data, requestId);
+
   return event;
 }
 
@@ -57,6 +63,8 @@ export function createBaseRequestEvent(
   event.parameters.push(
     new ethereum.EventParam('data', ethereum.Value.fromBytes(data))
   );
+
+  mockMarketplaceRequestIpfs(data);
 
   return event;
 }

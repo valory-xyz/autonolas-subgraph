@@ -12,6 +12,10 @@ import {
 } from "../../generated/MechMarketplaceV2/MechMarketplaceV2"
 import { Deliver as DeliverWithSignaturesV1 } from "../../generated/MechMarketplaceV1/MechMarketplaceV1"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
+import {
+  mockMarketplaceDeliverIpfs,
+  mockMarketplaceRequestIpfs,
+} from "./ipfs-mock-helpers"
 
 export function createCreateMechEvent(
   mech: Address,
@@ -118,6 +122,8 @@ export function createDeliverWithSignaturesV1Event(
     new ethereum.EventParam("data", ethereum.Value.fromBytes(data))
   )
 
+  mockMarketplaceDeliverIpfs(data, requestId)
+
   return event
 }
 
@@ -152,6 +158,9 @@ export function createDeliverWithSignaturesV2Event(
     new ethereum.EventParam("deliveryData", ethereum.Value.fromBytes(deliveryData))
   )
 
+  mockMarketplaceRequestIpfs(requestData)
+  mockMarketplaceDeliverIpfs(deliveryData, requestId)
+
   return event
 }
 
@@ -183,6 +192,10 @@ export function createMarketplaceRequestEvent(
   event.parameters.push(
     new ethereum.EventParam("requestDatas", ethereum.Value.fromBytesArray(requestDatas))
   )
+
+  for (let i = 0; i < requestDatas.length; i++) {
+    mockMarketplaceRequestIpfs(requestDatas[i])
+  }
 
   return event
 }
