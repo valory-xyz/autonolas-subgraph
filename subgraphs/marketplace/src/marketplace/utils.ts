@@ -452,12 +452,15 @@ function createDeliverParser(
   context.setBytes('deliveryId', deliveryId);
   context.setString('ipfsBase', baseHash);
 
-  let baseRoute = baseHash + '/' + requestId.toHexString();
+  // Convert bytes32 requestId to decimal string for IPFS path
+  let requestIdDecimal = BigInt.fromUnsignedBytes(requestId).toString();
+  let baseRoute = baseHash + '/' + requestIdDecimal;
   let route = resolveIpfsRoute(baseRoute);
   
-  log.info('Scheduling Deliver IPFS parsing: deliveryId={}, requestId={}, baseHash={}, route={}', [
+  log.info('Scheduling Deliver IPFS parsing: deliveryId={}, requestId(hex)={}, requestId(decimal)={}, baseHash={}, route={}', [
     deliveryId.toHexString(),
     requestId.toHexString(),
+    requestIdDecimal,
     baseHash,
     route
   ]);
