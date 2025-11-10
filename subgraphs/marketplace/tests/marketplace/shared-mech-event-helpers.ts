@@ -64,7 +64,7 @@ export function createBaseRequestEvent(
     new ethereum.EventParam('data', ethereum.Value.fromBytes(data))
   );
 
-  mockMarketplaceRequestIpfs(data);
+  mockMarketplaceRequestIpfs(data, requestId);
 
   return event;
 }

@@ -428,15 +428,18 @@ function resolveIpfsRoute(baseHash: string): string {
   return baseHash;
 }
 
-function requestIdToDecimal(requestId: Bytes): string {
-  return BigInt.fromUnsignedBytes(requestId).toString();
-}
-
 function createRequestParser(requestId: string, baseHash: string): void {
   let context = new DataSourceContext();
   context.setString('requestId', requestId);
   context.setString('ipfsBase', baseHash);
   let route = resolveIpfsRoute(baseHash);
+  
+  log.info('Scheduling Request IPFS parsing: requestId={}, baseHash={}, route={}', [
+    requestId,
+    baseHash,
+    route
+  ]);
+  
   DataSourceTemplate.createWithContext('MechParsedRequest', [route], context);
 }
 
@@ -448,7 +451,22 @@ function createDeliverParser(
   let context = new DataSourceContext();
   context.setBytes('deliveryId', deliveryId);
   context.setString('ipfsBase', baseHash);
-  let route = baseHash + '/' + requestIdToDecimal(requestId);
+
+  // Convert bytes32 requestId to decimal string for IPFS path
+  // bytes32 in Ethereum is big-endian, need to reverse for BigInt
+  let reversedBytes = Bytes.fromUint8Array(requestId.reverse());
+  let requestIdDecimal = BigInt.fromUnsignedBytes(reversedBytes).toString();
+  let baseRoute = baseHash + '/' + requestIdDecimal;
+  let route = resolveIpfsRoute(baseRoute);
+  
+  log.info('Scheduling Deliver IPFS parsing: deliveryId={}, requestId(hex)={}, requestId(decimal)={}, baseHash={}, route={}', [
+    deliveryId.toHexString(),
+    requestId.toHexString(),
+    requestIdDecimal,
+    baseHash,
+    route
+  ]);
+  
   DataSourceTemplate.createWithContext('MechParsedDeliver', [route], context);
 }
 

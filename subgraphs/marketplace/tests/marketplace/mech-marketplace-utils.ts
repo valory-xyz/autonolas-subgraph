@@ -158,7 +158,7 @@ export function createDeliverWithSignaturesV2Event(
     new ethereum.EventParam("deliveryData", ethereum.Value.fromBytes(deliveryData))
   )
 
-  mockMarketplaceRequestIpfs(requestData)
+  mockMarketplaceRequestIpfs(requestData, requestId)
   mockMarketplaceDeliverIpfs(deliveryData, requestId)
 
   return event
@@ -194,7 +194,7 @@ export function createMarketplaceRequestEvent(
   )
 
   for (let i = 0; i < requestDatas.length; i++) {
-    mockMarketplaceRequestIpfs(requestDatas[i])
+    mockMarketplaceRequestIpfs(requestDatas[i], requestIds[i])
   }
 
   return event

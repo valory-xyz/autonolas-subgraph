@@ -50,6 +50,13 @@ import {
   scheduleDeliverParser,
 } from './utils';
 
+function ensureDeliverSender(deliver: Deliver, fallback: Bytes): void {
+  let current = deliver.get('sender');
+  if (current === null) {
+    deliver.sender = fallback;
+  }
+}
+
 export function handleCreateMech(event: CreateMechEvent): void {
   // Create CreateMech entity (used by getServiceIdFromMech)
   let createMechEntity = CreateMech.load(event.params.mech);
@@ -283,11 +290,7 @@ export function handleDeliverWithSignaturesV1(
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
   deliver.request = null; // Off-chain signed requests have no Request event
-  // Sender: use transaction sender if not already set by handleMarketplaceDeliveryWithSignatures
-  // (handleMarketplaceDeliveryWithSignatures may run first and set sender to requester)
-  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000" || deliver.sender === null) {
-    deliver.sender = event.transaction.from;
-  }
+  ensureDeliverSender(deliver, event.transaction.from);
 
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
@@ -322,11 +325,7 @@ export function handleDeliverWithSignaturesV2(
   deliver.blockTimestamp = event.block.timestamp;
   deliver.transactionHash = event.transaction.hash;
   deliver.request = null; // Off-chain signed requests have no Request event
-  // Sender: use transaction sender if not already set by handleMarketplaceDeliveryWithSignatures
-  // (handleMarketplaceDeliveryWithSignatures may run first and set sender to requester)
-  if (deliver.sender.toHexString() == "0x0000000000000000000000000000000000000000" || deliver.sender === null) {
-    deliver.sender = event.transaction.from;
-  }
+  ensureDeliverSender(deliver, event.transaction.from);
 
   // Link service
   const serviceId = getServiceIdFromMech(event.params.mech);
