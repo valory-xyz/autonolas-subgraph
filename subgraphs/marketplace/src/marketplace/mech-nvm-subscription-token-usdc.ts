@@ -1,3 +1,4 @@
+import { log } from '@graphprotocol/graph-ts';
 import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
@@ -14,6 +15,12 @@ import {
 } from './utils';
 
 export function handleDeliver(event: DeliverEvent): void {
+  log.info('MechNvmSubscriptionTokenUSDC Deliver event: tx={}, requestId={}, mech={}', [
+    event.transaction.hash.toHexString(),
+    event.params.requestId.toHexString(),
+    event.params.mech.toHexString()
+  ]);
+  
   processOnChainDeliver(
     new OnChainDeliverArgs(
       event.transaction.hash,
@@ -31,6 +38,12 @@ export function handleDeliver(event: DeliverEvent): void {
 }
 
 export function handleRequest(event: RequestEvent): void {
+  log.info('MechNvmSubscriptionTokenUSDC Request event: tx={}, requestId={}, mech={}', [
+    event.transaction.hash.toHexString(),
+    event.params.requestId.toHexString(),
+    event.params.mech.toHexString()
+  ]);
+  
   processOnChainRequest(
     new OnChainRequestArgs(
       event.params.requestId,
