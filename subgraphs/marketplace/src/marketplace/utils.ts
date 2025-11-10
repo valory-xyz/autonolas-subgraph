@@ -428,15 +428,18 @@ function resolveIpfsRoute(baseHash: string): string {
   return baseHash;
 }
 
-function requestIdToDecimal(requestId: Bytes): string {
-  return BigInt.fromUnsignedBytes(requestId).toString();
-}
-
 function createRequestParser(requestId: string, baseHash: string): void {
   let context = new DataSourceContext();
   context.setString('requestId', requestId);
   context.setString('ipfsBase', baseHash);
   let route = resolveIpfsRoute(baseHash);
+  
+  log.info('Scheduling Request IPFS parsing: requestId={}, baseHash={}, route={}', [
+    requestId,
+    baseHash,
+    route
+  ]);
+  
   DataSourceTemplate.createWithContext('MechParsedRequest', [route], context);
 }
 
@@ -449,8 +452,16 @@ function createDeliverParser(
   context.setBytes('deliveryId', deliveryId);
   context.setString('ipfsBase', baseHash);
 
-  let baseRoute = baseHash + '/' + requestIdToDecimal(requestId);
+  let baseRoute = baseHash + '/' + requestId.toHexString();
   let route = resolveIpfsRoute(baseRoute);
+  
+  log.info('Scheduling Deliver IPFS parsing: deliveryId={}, requestId={}, baseHash={}, route={}', [
+    deliveryId.toHexString(),
+    requestId.toHexString(),
+    baseHash,
+    route
+  ]);
+  
   DataSourceTemplate.createWithContext('MechParsedDeliver', [route], context);
 }
 
