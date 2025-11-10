@@ -296,9 +296,6 @@ type CreateMech @entity(immutable: false) {
 type RequestToMech @entity(immutable: false) {
   id: ID!
   ipfsHash: String!
-  prompt: String
-  tool: String
-  questionTitle: String
   request: Request!
 }
 
