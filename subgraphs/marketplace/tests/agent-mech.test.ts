@@ -93,17 +93,31 @@ describe("Describe agent-mech processing", () => {
             "1"
         )
 
-        assert.entityCount("LegacyGlobal", 1)
+        assert.entityCount("Global", 1)
 
         assert.fieldEquals(
-            "LegacyGlobal",
+            "Global",
+            "",
+            "totalLegacyRequests",
+            "1"
+        )
+
+        assert.fieldEquals(
+            "Global",
+            "",
+            "totalLegacyTransactions",
+            "1"
+        )
+        
+        assert.fieldEquals(
+            "Global",
             "",
             "totalRequests",
             "1"
         )
 
         assert.fieldEquals(
-            "LegacyGlobal",
+            "Global",
             "",
             "totalTransactions",
             "1"
