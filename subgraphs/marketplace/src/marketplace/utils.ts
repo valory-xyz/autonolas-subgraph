@@ -453,7 +453,9 @@ function createDeliverParser(
   context.setString('ipfsBase', baseHash);
 
   // Convert bytes32 requestId to decimal string for IPFS path
-  let requestIdDecimal = BigInt.fromUnsignedBytes(requestId).toString();
+  // bytes32 in Ethereum is big-endian, need to reverse for BigInt
+  let reversedBytes = Bytes.fromUint8Array(requestId.reverse());
+  let requestIdDecimal = BigInt.fromUnsignedBytes(reversedBytes).toString();
   let baseRoute = baseHash + '/' + requestIdDecimal;
   let route = resolveIpfsRoute(baseRoute);
   
