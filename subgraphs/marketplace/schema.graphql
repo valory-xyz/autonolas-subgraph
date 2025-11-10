@@ -226,20 +226,22 @@ type Mech @entity(immutable: false) {
   paymentType: Bytes! # Payment type from the payment type contract (required)
 }
 
-type LegacyGlobal @entity(immutable: false) {
-  id: ID! # uint256
-  totalRequests: BigInt!
-  totalDeliveries: BigInt!
-  totalTransactions: BigInt!
-  totalAtaTransactions: BigInt!
-}
-
 type Global @entity(immutable: false) {
   id: ID!
+
+  # Marketplace-specific counters
   totalMechs: BigInt!
   totalMarketplaceRequests: BigInt!
   totalMarketplaceDeliveries: BigInt!
   totalMarketplaceDeliveriesWithSignatures: BigInt!
+
+  # Legacy AgentMech-specific counters
+  totalLegacyRequests: BigInt!
+  totalLegacyDeliveries: BigInt!
+  totalLegacyTransactions: BigInt!
+  totalLegacyAtaTransactions: BigInt!
+
+  # Combined/aggregate counters (marketplace + legacy)
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   totalTransactions: BigInt!

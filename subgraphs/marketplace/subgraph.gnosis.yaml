@@ -302,7 +302,7 @@ templates:
       entities:
         - Request
         - Deliver
-        - LegacyGlobal
+        - Global
       abis:
         - name: AgentMech
           file: ./abis/AgentMech.json

@@ -173,6 +173,12 @@ export function handleRequest(event: RequestEvent): void {
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
 
   let global = getGlobal();
+  
+  // Update legacy-specific counters
+  global.totalLegacyRequests = global.totalLegacyRequests.plus(BigInt.fromI32(1));
+  global.totalLegacyTransactions = global.totalLegacyTransactions.plus(BigInt.fromI32(1));
+  
+  // Update aggregate counters
   global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
@@ -187,6 +193,7 @@ export function handleRequest(event: RequestEvent): void {
       transaction.blockTimestamp = event.block.timestamp;
       transaction.save();
 
+      global.totalLegacyAtaTransactions = global.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
       sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
     }
@@ -331,8 +338,15 @@ export function handleDeliver(event: DeliverEvent): void {
   }
 
   let global = getGlobal();
+  
+  // Update legacy-specific counters
+  global.totalLegacyDeliveries = global.totalLegacyDeliveries.plus(BigInt.fromI32(1));
+  global.totalLegacyTransactions = global.totalLegacyTransactions.plus(BigInt.fromI32(1));
+  
+  // Update aggregate counters
   global.totalDeliveries = global.totalDeliveries.plus(BigInt.fromI32(1));
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
+  
   // Deliveries are always ATA (mech is always a service multisig)
   // We check the transaction hash here as well to avoid double-counting
   // if a Request and Deliver happen in the same transaction.
@@ -343,6 +357,8 @@ export function handleDeliver(event: DeliverEvent): void {
     transaction.blockNumber = event.block.number;
     transaction.blockTimestamp = event.block.timestamp;
     transaction.save();
+    
+    global.totalLegacyAtaTransactions = global.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
     global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
   }
 

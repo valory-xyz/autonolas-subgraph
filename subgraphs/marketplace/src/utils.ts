@@ -3,7 +3,7 @@ import {
   AgentMultisigAssociation,
   CreateMech,
   CreateMultisigWithAgents,
-  LegacyGlobal as Global,
+  Global,
   MechAgent,
   RequestsPerAgentOnchain,
   Sender,
@@ -16,6 +16,20 @@ export function getGlobal(): Global {
   let global = Global.load('');
   if (global == null) {
     global = new Global('');
+    
+    // Marketplace-specific counters
+    global.totalMechs = BigInt.fromI32(0);
+    global.totalMarketplaceRequests = BigInt.fromI32(0);
+    global.totalMarketplaceDeliveries = BigInt.fromI32(0);
+    global.totalMarketplaceDeliveriesWithSignatures = BigInt.fromI32(0);
+    
+    // Legacy AgentMech-specific counters
+    global.totalLegacyRequests = BigInt.fromI32(0);
+    global.totalLegacyDeliveries = BigInt.fromI32(0);
+    global.totalLegacyTransactions = BigInt.fromI32(0);
+    global.totalLegacyAtaTransactions = BigInt.fromI32(0);
+    
+    // Combined/aggregate counters
     global.totalRequests = BigInt.fromI32(0);
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
