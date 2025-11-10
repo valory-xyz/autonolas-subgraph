@@ -37,6 +37,10 @@ import {
   Service,
   Sender,
 } from "../../generated/schema"
+import {
+  TEST_REQUEST_ID_A,
+  TEST_REQUEST_ID_B,
+} from "./test-constants"
 
 function createService(serviceId: BigInt, agentIds: BigInt[]): void {
   let service = new Service(serviceId.toString())
@@ -241,7 +245,7 @@ describe("Mech Marketplace Handlers", () => {
     let mech = Address.fromString("0x00000000000000000000000000000000000000f1")
     let multisig = Address.fromString("0x00000000000000000000000000000000000000f2")
     let requester = Address.fromString("0x00000000000000000000000000000000000000f3")
-    let requestId = Bytes.fromHexString("0x5000000000000000000000000000000000000000000000000000000000000005")
+    let requestId = TEST_REQUEST_ID_A
     let agentId = BigInt.fromI32(50)
 
     createService(serviceId, [agentId])
@@ -270,10 +274,13 @@ describe("Mech Marketplace Handlers", () => {
     handleMarketplaceDeliveryWithSignatures(deliveryEvent)
     handleDeliverWithSignaturesV1(deliverEvent)
 
-    assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requester.toHexString())
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "true")
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", deliverPayload.toHexString())
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", "10")
+    assert.entityCount("Deliver", 1)
+    // Use the requestId from the event params to match what the handler uses
+    let deliverRequestId = deliverEvent.params.requestId
+    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", requester.toHexString())
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliverPayload.toHexString())
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "10")
   })
 
   test("handleDeliverWithSignaturesV2 stores delivery data and links to requester", () => {
@@ -281,7 +288,7 @@ describe("Mech Marketplace Handlers", () => {
     let mech = Address.fromString("0x00000000000000000000000000000000000000f4")
     let multisig = Address.fromString("0x00000000000000000000000000000000000000f5")
     let requester = Address.fromString("0x00000000000000000000000000000000000000f6")
-    let requestId = Bytes.fromHexString("0x6000000000000000000000000000000000000000000000000000000000000006")
+    let requestId = TEST_REQUEST_ID_B
     let agentId = BigInt.fromI32(55)
 
     createService(serviceId, [agentId])
@@ -312,10 +319,13 @@ describe("Mech Marketplace Handlers", () => {
     handleMarketplaceDeliveryWithSignatures(deliveryEvent)
     handleDeliverWithSignaturesV2(deliverEvent)
 
-    assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requester.toHexString())
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", deliveryPayload.toHexString())
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", "12")
-    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "true")
+    assert.entityCount("Deliver", 1)
+    // Use the requestId from the event params to match what the handler uses
+    let deliverRequestId = deliverEvent.params.requestId
+    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", requester.toHexString())
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliveryPayload.toHexString())
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "12")
+    assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")
   })
 
   test("handleMarketplaceRequest creates per-request records and updates counters", () => {
