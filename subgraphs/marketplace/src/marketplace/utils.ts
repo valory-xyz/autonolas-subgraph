@@ -1,4 +1,14 @@
-import { Address, BigInt, Bytes, dataSource, log, store } from '@graphprotocol/graph-ts';
+import {
+  Address,
+  BigInt,
+  Bytes,
+  DataSourceContext,
+  DataSourceTemplate,
+  dataSource,
+  ipfs,
+  log,
+  store,
+} from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -395,6 +405,94 @@ export function getOrCreateDeliverForMarketplace(requestId: Bytes): DeliverForMa
   marketplaceDeliver.requestIdBytes = requestId;
   return marketplaceDeliver as DeliverForMarketplace;
 }
+
+function toIpfsHash(payload: Bytes): string {
+  return 'f01701220' + payload.toHexString().slice(2);
+}
+
+function resolveIpfsRoute(baseHash: string): string {
+  let metadataPath = baseHash + '/metadata.json';
+  if (ipfs.cat(metadataPath) !== null) {
+    return metadataPath;
+  }
+  return baseHash;
+}
+
+function requestIdToDecimal(requestId: Bytes): string {
+  return BigInt.fromUnsignedBytes(requestId).toString();
+}
+
+function createRequestParser(requestId: string, baseHash: string): void {
+  let context = new DataSourceContext();
+  context.setString('requestId', requestId);
+  context.setString('ipfsBase', baseHash);
+  let route = resolveIpfsRoute(baseHash);
+  DataSourceTemplate.createWithContext('MechParsedRequest', [route], context);
+}
+
+function createDeliverParser(
+  deliveryId: Bytes,
+  requestId: Bytes,
+  baseHash: string
+): void {
+  let context = new DataSourceContext();
+  context.setBytes('deliveryId', deliveryId);
+  context.setString('ipfsBase', baseHash);
+  let route = baseHash + '/' + requestIdToDecimal(requestId);
+  DataSourceTemplate.createWithContext('MechParsedDeliver', [route], context);
+}
+
+export function scheduleDeliverParser(
+  deliveryId: Bytes,
+  requestId: Bytes,
+  baseHash: string
+): void {
+  createDeliverParser(deliveryId, requestId, baseHash);
+}
+
+export function scheduleRequestParser(
+  requestId: string,
+  baseHash: string
+): void {
+  createRequestParser(requestId, baseHash);
+}
+
+function attachRequestIpfs(
+  requestId: Bytes,
+  payload: Bytes,
+  request: Request
+): string | null {
+  if (payload.length !== 32) {
+    log.warning('Request {} has payload of length {}, skipping IPFS parsing.', [
+      requestId.toHexString(),
+      payload.length.toString(),
+    ]);
+    return null;
+  }
+
+  let baseHash = toIpfsHash(payload);
+  let marketplaceRequest = getOrCreateRequestToMarketplace(requestId);
+  marketplaceRequest.ipfsHashBytes = payload;
+  marketplaceRequest.request = request.id;
+  marketplaceRequest.save();
+  return baseHash;
+}
+
+export function attachDeliverIpfs(
+  deliver: DeliverForMarketplace,
+  payload: Bytes
+): string | null {
+  if (payload.length !== 32) {
+    log.warning('Deliver payload has length {}, skipping IPFS parsing.', [
+      payload.length.toString(),
+    ]);
+    return null;
+  }
+
+  let baseHash = toIpfsHash(payload);
+  deliver.ipfsHashBytes = payload;
+  return baseHash;
+}
 export class OnChainDeliverArgs {
   txHash: Bytes;
   logIndex: i32;
@@ -488,6 +586,10 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   }
 
   request.save();
+  let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
+  if (requestBaseHash !== null) {
+    scheduleRequestParser(request.id, requestBaseHash);
+  }
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
@@ -574,13 +676,16 @@ function finalizeGlobalForDeliver(args: OnChainDeliverArgs): void {
 
 function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): void {
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(args.requestId);
-  marketplaceDeliver.ipfsHashBytes = args.payload;
   marketplaceDeliver.mechServiceMultisig = args.mechServiceMultisig;
   marketplaceDeliver.deliveryRate = args.deliveryRate;
   marketplaceDeliver.isMarketplace = true;
   marketplaceDeliver.isOffChain = false;
   marketplaceDeliver.deliver = deliverId;
+  let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
   marketplaceDeliver.save();
+  if (baseHash !== null) {
+    createDeliverParser(deliverId, args.requestId, baseHash);
+  }
 }
 
 function requireServiceId(mech: Bytes, context: string): string {

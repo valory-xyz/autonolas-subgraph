@@ -46,6 +46,8 @@ import {
   getOrCreateDeliverForMarketplace,
   ataTransactionExists,
   getPaymentType,
+  attachDeliverIpfs,
+  scheduleDeliverParser,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -297,13 +299,16 @@ export function handleDeliverWithSignaturesV1(
 
   // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.ipfsHashBytes = event.params.data;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
   marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
   marketplaceDeliver.isMarketplace = true;
   marketplaceDeliver.isOffChain = true;
   marketplaceDeliver.deliver = deliver.id;
+  let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.data);
   marketplaceDeliver.save();
+  if (baseHash !== null) {
+    scheduleDeliverParser(deliver.id, event.params.requestId, baseHash);
+  }
 }
 
 export function handleDeliverWithSignaturesV2(
@@ -333,13 +338,16 @@ export function handleDeliverWithSignaturesV2(
 
   // Create marketplace-specific delivery entity (avoids null fields)
   let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.ipfsHashBytes = event.params.deliveryData;
   marketplaceDeliver.deliveryRate = event.params.deliveryRate;
   marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
   marketplaceDeliver.isMarketplace = true;
   marketplaceDeliver.isOffChain = true;
   marketplaceDeliver.deliver = deliver.id;
+  let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.deliveryData);
   marketplaceDeliver.save();
+  if (baseHash !== null) {
+    scheduleDeliverParser(deliver.id, event.params.requestId, baseHash);
+  }
 }
 
 export function handleMarketplaceParamsUpdated(
