@@ -6,7 +6,7 @@ import { BigInt, log } from '@graphprotocol/graph-ts';
 export function handleMechKarmaChanged(event: MechKarmaChangedEvent): void {
   const mechAddress = event.params.mech;
   const karmaChange = event.params.karmaChange;
-  
+
   const serviceId = getServiceIdFromMech(mechAddress);
   if (serviceId === null) {
     log.warning('MechKarmaChanged: Could not find serviceId for mech {}. Skipping karma update.', [
@@ -22,12 +22,6 @@ export function handleMechKarmaChanged(event: MechKarmaChangedEvent): void {
     ]);
     return;
   }
-  
-  // Initialize karma to 0 if null (shouldn't happen, but defensive)
-  if (mech.karma === null) {
-    mech.karma = BigInt.fromI32(0);
-  }
-  
   // Update cumulative karma (karmaChange can be positive or negative)
   // BigInt.plus() handles negative values correctly (effectively subtracts)
   mech.karma = mech.karma.plus(karmaChange);

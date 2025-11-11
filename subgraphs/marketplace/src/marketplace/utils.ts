@@ -381,6 +381,18 @@ export function getOrCreateRequestToMarketplace(requestId: Bytes): RequestToMark
   return marketplaceRequest as RequestToMarketplace;
 }
 
+export function getMaxDeliveryRate(mechAddress: Address): BigInt | null {
+  let contract = MechFixedPriceNativeContract.bind(mechAddress);
+  let result = contract.try_maxDeliveryRate();
+  if (result.reverted) {
+    log.warning('Failed to read maxDeliveryRate for mech {}', [
+      mechAddress.toHexString(),
+    ]);
+    return null;
+  }
+  return result.value;
+}
+
 /**
  * Generic function to get paymentType from any payment type contract
  * All payment type contracts implement the same paymentType() function interface,

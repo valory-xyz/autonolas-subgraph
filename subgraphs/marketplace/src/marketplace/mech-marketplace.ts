@@ -48,6 +48,7 @@ import {
   getPaymentType,
   attachDeliverIpfs,
   scheduleDeliverParser,
+  getMaxDeliveryRate,
 } from './utils';
 
 function ensureDeliverSender(deliver: Deliver, fallback: Bytes): void {
@@ -86,6 +87,11 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
   
+  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
+  if (initialMaxDeliveryRate !== null) {
+    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  }
+
   // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {

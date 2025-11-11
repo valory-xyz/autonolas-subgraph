@@ -42,6 +42,11 @@ import {
   TEST_REQUEST_ID_B,
 } from "./test-constants"
 
+function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
+  createMockedFunction(mech, "maxDeliveryRate", "maxDeliveryRate():(uint256)")
+    .returns([ethereum.Value.fromUnsignedBigInt(maxDeliveryRate)])
+}
+
 function createService(serviceId: BigInt, agentIds: BigInt[]): void {
   let service = new Service(serviceId.toString())
   service.serviceId = serviceId
@@ -143,10 +148,12 @@ describe("Mech Marketplace Handlers", () => {
     let serviceId = BigInt.fromI32(16) 
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000bb")
     let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+    let maxDeliveryRate = BigInt.fromI32(500)
 
     // Mock the paymentType() function call
     createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
       .returns([ethereum.Value.fromBytes(paymentType)])
+    mockMaxDeliveryRate(mech, maxDeliveryRate)
 
     let event = createCreateMechEvent(mech, serviceId, mechFactory)
     handleCreateMech(event)
@@ -154,6 +161,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("CreateMech", mech.toHexString(), "serviceId", "16")
     assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
     assert.fieldEquals("Global", "", "totalMechs", "1")
   })
 
@@ -162,10 +170,12 @@ describe("Mech Marketplace Handlers", () => {
     let serviceId = BigInt.fromI32(999)
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000fe")
     let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+    let maxDeliveryRate = BigInt.fromI32(750)
 
     // Mock the paymentType() function call to return the paymentType
     createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
       .returns([ethereum.Value.fromBytes(paymentType)])
+    mockMaxDeliveryRate(mech, maxDeliveryRate)
 
     let event = createCreateMechEvent(mech, serviceId, mechFactory)
     handleCreateMech(event)
@@ -174,6 +184,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "mechFactory", mechFactory.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
   })
 
   test("handleMarketplaceDelivery persists aggregated delivery snapshot", () => {
