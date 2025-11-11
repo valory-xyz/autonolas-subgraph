@@ -270,7 +270,7 @@ dataSources:
     name: Karma
     network: gnosis
     source:
-      address: "0xEB2A22b27C7Ad5eeE424Fd90b376c745E60f914E"
+      address: "0x2C602C7B590ABFc148d8c7c5e4d58c56Be1d304a"
       abi: Karma
       startBlock: 38661913
     mapping:
