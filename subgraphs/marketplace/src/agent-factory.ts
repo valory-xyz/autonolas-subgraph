@@ -3,7 +3,6 @@ import {
   CreateMech as CreateMechEvent,
 } from '../generated/AgentFactory/AgentFactory';
 import { MechAgent } from '../generated/schema';
-import { AgentMech } from '../generated/templates';
 import { getOrCreateCreateMechEntity, getServiceIdFromAgentId } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -37,6 +36,4 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechAgent.totalTransactions = BigInt.fromI32(0);
     mechAgent.save();
   }
-
-  AgentMech.create(event.params.mech);
 }

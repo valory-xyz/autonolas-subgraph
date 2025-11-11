@@ -14,6 +14,11 @@ import { createCreateMechEvent } from "./mech-marketplace-utils"
 import { handleCreateService as registryL2HandleCreateService } from "../src/registryL2"
 import { createCreateServiceEvent } from "./service-registry-l-2-utils"
 
+function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
+  createMockedFunction(mech, "maxDeliveryRate", "maxDeliveryRate():(uint256)")
+    .returns([ethereum.Value.fromUnsignedBigInt(maxDeliveryRate)])
+}
+
 describe("Describe mech-marketplace processing", () => {
     afterEach(() => {
         clearStore()
@@ -32,10 +37,12 @@ describe("Describe mech-marketplace processing", () => {
         let mech = Address.fromString("0x0000000000000000000000000000000000000001")
         let mechFactory = Address.fromString("0x0000000000000000000000000000000000000001")
         let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+        let maxDeliveryRate = BigInt.fromI32(600)
 
         // Mock the paymentType() function call
         createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
           .returns([ethereum.Value.fromBytes(paymentType)])
+        mockMaxDeliveryRate(mech, maxDeliveryRate)
 
         // act
         let event = createCreateMechEvent(mech, serviceId, mechFactory)
@@ -83,6 +90,13 @@ describe("Describe mech-marketplace processing", () => {
             serviceId.toString(),
             "paymentType",
             paymentType.toHexString()
+        )
+
+        assert.fieldEquals(
+            "Mech",
+            serviceId.toString(),
+            "maxDeliveryRate",
+            maxDeliveryRate.toString()
         )
 
         assert.fieldEquals(
