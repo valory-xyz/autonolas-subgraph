@@ -2,10 +2,10 @@ import {
   Address,
   BigInt,
   Bytes,
-  DataSourceContext,
-  DataSourceTemplate,
+  JSONValueKind,
   dataSource,
   ipfs,
+  json,
   log,
   store,
 } from '@graphprotocol/graph-ts';
@@ -23,6 +23,8 @@ import {
   AtaTransaction,
   RequestToMarketplace,
   DeliverForMarketplace,
+  ParsedRequest,
+  ParsedDelivery,
 } from '../../generated/schema';
 import {
   MechFixedPriceNative,
@@ -39,6 +41,32 @@ import {
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
 } from './constants';
+
+const UNHANDLED_TYPE = '[unhandled type]';
+
+class RequestPayload {
+  content: string;
+  prompt: string;
+  tool: string;
+
+  constructor(content: string, prompt: string, tool: string) {
+    this.content = content;
+    this.prompt = prompt;
+    this.tool = tool;
+  }
+}
+
+class DeliveryPayload {
+  content: string;
+  model: string;
+  response: string;
+
+  constructor(content: string, model: string, response: string) {
+    this.content = content;
+    this.model = model;
+    this.response = response;
+  }
+}
 
 export function getGlobal(): Global {
   let global = Global.load('');
@@ -432,69 +460,177 @@ function toIpfsHash(payload: Bytes): string {
   return 'f01701220' + payload.toHexString().slice(2);
 }
 
-function resolveIpfsRoute(baseHash: string): string {
-  let metadataPath = baseHash + '/metadata.json';
-  if (ipfs.cat(metadataPath) !== null) {
-    return metadataPath;
+function readIpfsContent(route: string): Bytes | null {
+  let metadataRoute = route + '/metadata.json';
+  let metadataBytes = ipfs.cat(metadataRoute);
+  if (metadataBytes !== null) {
+    return metadataBytes;
   }
-  return baseHash;
+  return ipfs.cat(route);
 }
 
-function createRequestParser(requestId: string, baseHash: string): void {
-  let context = new DataSourceContext();
-  context.setString('requestId', requestId);
-  context.setString('ipfsBase', baseHash);
-  let route = resolveIpfsRoute(baseHash);
-  
-  log.info('Scheduling Request IPFS parsing: requestId={}, baseHash={}, route={}', [
-    requestId,
-    baseHash,
-    route
-  ]);
-  
-  DataSourceTemplate.createWithContext('MechParsedRequest', [route], context);
+function loadRequestPayload(baseHash: string): RequestPayload | null {
+  let data = readIpfsContent(baseHash);
+  if (data === null) {
+    log.warning('Request IPFS payload not found for {}', [baseHash]);
+    return null;
+  }
+
+  let payload = new RequestPayload(
+    data.toString(),
+    UNHANDLED_TYPE,
+    UNHANDLED_TYPE
+  );
+
+  let result = json.try_fromBytes(data);
+  if (result.isError) {
+    return payload;
+  }
+
+  let value = result.value;
+  if (value.kind !== JSONValueKind.OBJECT) {
+    return payload;
+  }
+
+  let obj = value.toObject();
+  let promptValue = obj.get('prompt');
+  if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
+    payload.prompt = promptValue.toString();
+  }
+
+  let toolValue = obj.get('tool');
+  if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
+    payload.tool = toolValue.toString();
+  }
+
+  return payload;
 }
 
-function createDeliverParser(
-  deliveryId: Bytes,
-  requestId: Bytes,
-  baseHash: string
-): void {
-  let context = new DataSourceContext();
-  context.setBytes('deliveryId', deliveryId);
-  context.setString('ipfsBase', baseHash);
-
-  // Convert bytes32 requestId to decimal string for IPFS path
-  // bytes32 in Ethereum is big-endian, need to reverse for BigInt
-  let reversedBytes = Bytes.fromUint8Array(requestId.reverse());
-  let requestIdDecimal = BigInt.fromUnsignedBytes(reversedBytes).toString();
-  let baseRoute = baseHash + '/' + requestIdDecimal;
-  let route = resolveIpfsRoute(baseRoute);
-  
-  log.info('Scheduling Deliver IPFS parsing: deliveryId={}, requestId(hex)={}, requestId(decimal)={}, baseHash={}, route={}', [
-    deliveryId.toHexString(),
-    requestId.toHexString(),
-    requestIdDecimal,
-    baseHash,
-    route
-  ]);
-  
-  DataSourceTemplate.createWithContext('MechParsedDeliver', [route], context);
-}
-
-export function scheduleDeliverParser(
-  deliveryId: Bytes,
-  requestId: Bytes,
-  baseHash: string
-): void {
-  createDeliverParser(deliveryId, requestId, baseHash);
-}
-
-export function scheduleRequestParser(
+function saveParsedRequestEntity(
   requestId: string,
+  baseHash: string,
+  payload: RequestPayload
+): void {
+  if (ParsedRequest.load(requestId) !== null) {
+    return;
+  }
+
+  let parsedRequest = new ParsedRequest(requestId);
+  parsedRequest.hash = baseHash;
+  parsedRequest.request = requestId;
+  parsedRequest.content = payload.content;
+  parsedRequest.prompt = payload.prompt;
+  parsedRequest.tool = payload.tool;
+  parsedRequest.save();
+}
+
+function requestIdToDecimal(requestId: Bytes): string {
+  let copy = new Uint8Array(requestId.length);
+  for (let i = 0; i < requestId.length; i++) {
+    copy[i] = requestId[i];
+  }
+  copy.reverse();
+  let reversedBytes = Bytes.fromUint8Array(copy);
+  return BigInt.fromUnsignedBytes(reversedBytes).toString();
+}
+
+function loadDeliverPayload(
+  baseHash: string,
+  requestId: Bytes
+): DeliveryPayload | null {
+  let route = baseHash + '/' + requestIdToDecimal(requestId);
+  let data = readIpfsContent(route);
+  if (data === null) {
+    log.warning(
+      'Deliver IPFS payload not found for base {} and request {}',
+      [baseHash, requestId.toHexString()]
+    );
+    return null;
+  }
+
+  let payload = new DeliveryPayload(
+    data.toString(),
+    UNHANDLED_TYPE,
+    UNHANDLED_TYPE
+  );
+
+  let result = json.try_fromBytes(data);
+  if (result.isError) {
+    return payload;
+  }
+
+  let value = result.value;
+  if (value.kind !== JSONValueKind.OBJECT) {
+    return payload;
+  }
+
+  let obj = value.toObject();
+  let metadataValue = obj.get('metadata');
+  if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
+    let metadataObj = metadataValue.toObject();
+    let modelValue = metadataObj.get('model');
+    if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
+      payload.model = modelValue.toString();
+    }
+  }
+
+  let responseValue = obj.get('result');
+  if (responseValue !== null && responseValue.kind === JSONValueKind.STRING) {
+    payload.response = responseValue.toString();
+  }
+
+  return payload;
+}
+
+function saveParsedDeliveryEntity(
+  deliverId: Bytes,
+  requestId: Bytes,
+  baseHash: string,
+  payload: DeliveryPayload
+): void {
+  if (ParsedDelivery.load(deliverId) !== null) {
+    return;
+  }
+
+  let parsedDelivery = new ParsedDelivery(deliverId);
+  parsedDelivery.deliver = deliverId;
+  parsedDelivery.request = requestId.toHexString();
+  parsedDelivery.hash = baseHash;
+  parsedDelivery.content = payload.content;
+  parsedDelivery.model = payload.model;
+  parsedDelivery.response = payload.response;
+  parsedDelivery.save();
+}
+
+export function parseRequestIpfs(requestId: string, baseHash: string): void {
+  let payload = loadRequestPayload(baseHash);
+  if (payload === null) {
+    return;
+  }
+
+  saveParsedRequestEntity(requestId, baseHash, payload);
+}
+
+export function parseDeliverIpfs(
+  deliverId: Bytes,
+  requestId: Bytes,
   baseHash: string
 ): void {
-  createRequestParser(requestId, baseHash);
+  let payload = loadDeliverPayload(baseHash, requestId);
+  if (payload === null) {
+    return;
+  }
+
+  saveParsedDeliveryEntity(deliverId, requestId, baseHash, payload);
+
+  let deliverEntity = Deliver.load(deliverId);
+  if (deliverEntity === null) {
+    return;
+  }
+
+  deliverEntity.model = payload.model;
+  deliverEntity.toolResponse = payload.response;
+  deliverEntity.save();
 }
 
 function attachRequestIpfs(
@@ -627,9 +763,11 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
 
   request.save();
   let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
-  if (requestBaseHash !== null) {
-    scheduleRequestParser(request.id, requestBaseHash);
+  if (requestBaseHash === null) {
+    return;
   }
+
+  parseRequestIpfs(request.id, requestBaseHash);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
@@ -723,9 +861,11 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   marketplaceDeliver.deliver = deliverId;
   let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
   marketplaceDeliver.save();
-  if (baseHash !== null) {
-    createDeliverParser(deliverId, args.requestId, baseHash);
+  if (baseHash === null) {
+    return;
   }
+
+  parseDeliverIpfs(deliverId, args.requestId, baseHash);
 }
 
 function requireServiceId(mech: Bytes, context: string): string {

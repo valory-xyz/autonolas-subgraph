@@ -47,7 +47,7 @@ import {
   ataTransactionExists,
   getPaymentType,
   attachDeliverIpfs,
-  scheduleDeliverParser,
+  parseDeliverIpfs,
   getMaxDeliveryRate,
 } from './utils';
 
@@ -315,9 +315,11 @@ export function handleDeliverWithSignaturesV1(
   marketplaceDeliver.deliver = deliver.id;
   let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.data);
   marketplaceDeliver.save();
-  if (baseHash !== null) {
-    scheduleDeliverParser(deliver.id, event.params.requestId, baseHash);
+  if (baseHash === null) {
+    return;
   }
+
+  parseDeliverIpfs(deliver.id, event.params.requestId, baseHash);
 }
 
 export function handleDeliverWithSignaturesV2(
@@ -350,9 +352,11 @@ export function handleDeliverWithSignaturesV2(
   marketplaceDeliver.deliver = deliver.id;
   let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.deliveryData);
   marketplaceDeliver.save();
-  if (baseHash !== null) {
-    scheduleDeliverParser(deliver.id, event.params.requestId, baseHash);
+  if (baseHash === null) {
+    return;
   }
+
+  parseDeliverIpfs(deliver.id, event.params.requestId, baseHash);
 }
 
 export function handleMarketplaceParamsUpdated(

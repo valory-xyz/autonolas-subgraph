@@ -427,37 +427,6 @@ templates:
           handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
   
-  - kind: file/ipfs
-    name: MechParsedRequest
-    network: gnosis
-    mapping:
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./src/mech-request.ts
-      handler: handleMechRequest
-      entities:
-        - ParsedRequest
-        - Request
-      abis:
-        - name: AgentMech
-          file: ./abis/AgentMech.json
-
-  - kind: file/ipfs
-    name: MechParsedDeliver
-    network: gnosis
-    mapping:
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      file: ./src/mech-deliver.ts
-      handler: handleMechDeliver
-      entities:
-        - ParsedDelivery
-        - Deliver
-        - DeliverForMech
-        - Request
-      abis:
-        - name: AgentMech
-          file: ./abis/AgentMech.json
 features:
   - fullTextSearch
   - ipfsOnEthereumContracts

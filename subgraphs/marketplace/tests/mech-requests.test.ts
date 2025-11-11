@@ -4,97 +4,53 @@ import {
     test,
     clearStore,
     afterEach,
-    dataSourceMock,
+    mockIpfsFile,
     readFile
-} from "matchstick-as/assembly/index"
-import { Bytes, DataSourceContext, log } from "@graphprotocol/graph-ts"
-import { handleMechRequest } from "../src/mech-request"
-import { MechParsedRequest } from "../generated/templates"
-import { ParsedRequest } from "../generated/schema"
+} from "matchstick-as/assembly/index";
+import { parseRequestIpfs } from "../src/marketplace/utils";
 
-
+const UNHANDLED_TYPE = "[unhandled type]";
 
 describe("Describe mech requests processing", () => {
-    afterEach(() => {
-        clearStore()
-    })
+    afterEach((): void => {
+        clearStore();
+    });
 
-    test("Handle mech request", () => {
-        // arrange
+    test("parse request metadata from metadata.json path", () => {
         const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/234";
-        let requestId = Bytes.fromHexString("0x1234567890abcdef");
+        const requestId = "0x1234567890abcdef";
 
-        let context = new DataSourceContext();
-        context.setString('requestId', requestId.toHexString());
-        context.setString('ipfsBase', baseCid);
+        mockIpfsFile(baseCid + "/metadata.json", "tests/ipfs_mocks/mech-request.json");
+        mockIpfsFile(baseCid, "tests/ipfs_mocks/mech-request.json");
 
-        MechParsedRequest.create(route);
-        // Assert the dataSource has been created
-        assert.dataSourceCount('MechParsedRequest', 1);
-        assert.dataSourceExists('MechParsedRequest', route);
-        // logDataSources('GraphTokenLockMetadata')
+        parseRequestIpfs(requestId, baseCid);
 
-        dataSourceMock.resetValues();
-        dataSourceMock.setAddressAndContext(route, context);
-
-        let request = readFile("tests/ipfs_mocks/mech-request.json");
-        log.info("request: {}", [request.toString()]);
-
-        handleMechRequest(request);
+        const requestContent = readFile("tests/ipfs_mocks/mech-request.json").toString();
 
         assert.entityCount("ParsedRequest", 1);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "content", request.toString());
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "hash", baseCid);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "request", requestId.toHexString());
+        assert.fieldEquals("ParsedRequest", requestId, "content", requestContent);
+        assert.fieldEquals("ParsedRequest", requestId, "hash", baseCid);
+        assert.fieldEquals("ParsedRequest", requestId, "request", requestId);
+        assert.fieldEquals(
+            "ParsedRequest",
+            requestId,
+            "prompt",
+            "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?"
+        );
+        assert.fieldEquals("ParsedRequest", requestId, "tool", "prediction-request-rag");
+    });
 
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "tool", "prediction-request-rag");
-    })
+    test("parse request metadata with unexpected structure", () => {
+        const baseCid = "f01701220badbad00";
+        const requestId = "0x0000000000000000000000000000000000000001";
 
-    test("Handle mech request with metadata route", () => {
-        const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/metadata.json";
-        let requestId = Bytes.fromHexString("0xabcdef0123456789");
+        mockIpfsFile(baseCid + "/metadata.json", "tests/ipfs_mocks/mech-invalid-response.json");
+        mockIpfsFile(baseCid, "tests/ipfs_mocks/mech-invalid-response.json");
 
-        let context = new DataSourceContext();
-        context.setString('requestId', requestId.toHexString());
-        context.setString('ipfsBase', baseCid);
-
-        MechParsedRequest.create(route);
-        assert.dataSourceExists('MechParsedRequest', route);
-
-        dataSourceMock.resetValues();
-        dataSourceMock.setAddressAndContext(route, context);
-
-        let request = readFile("tests/ipfs_mocks/mech-request.json");
-
-        handleMechRequest(request);
+        parseRequestIpfs(requestId, baseCid);
 
         assert.entityCount("ParsedRequest", 1);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "hash", baseCid);
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "prompt", "With the given question \"Will the average price of a gallon of gas in the United States reach at least $3.30 by June 19, 2025, in response to the Israel-Iran conflict?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?");
-        assert.fieldEquals("ParsedRequest", requestId.toHexString(), "tool", "prediction-request-rag");
-    })
-
-    test("Handle mech request invalid object", () => {
-        // arrange
-        const baseCid = "f01701220deadbeef";
-        const route = baseCid + "/234";
-        let requestId = Bytes.fromHexString("0x1234567890abcdef");
-
-        let context = new DataSourceContext();
-        context.setString('requestId', requestId.toHexString());
-        context.setString('ipfsBase', baseCid);
-
-        dataSourceMock.resetValues();
-        dataSourceMock.setAddressAndContext(route, context);
-
-        let request = Bytes.fromHexString("0x1234567890abcdef");
-        log.info("request: {}", [request.toString()]);
-
-        handleMechRequest(request);
-
-        assert.entityCount("ParsedRequest", 0);
-    })
-})  
+        assert.fieldEquals("ParsedRequest", requestId, "prompt", UNHANDLED_TYPE);
+        assert.fieldEquals("ParsedRequest", requestId, "tool", UNHANDLED_TYPE);
+    });
+});

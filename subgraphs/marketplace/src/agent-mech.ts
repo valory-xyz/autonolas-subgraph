@@ -5,14 +5,24 @@ import {
   JSONValueKind,
   log,
   BigInt,
-  DataSourceContext,
-  DataSourceTemplate,
 } from '@graphprotocol/graph-ts';
 import {
   Request as RequestEvent,
   Deliver as DeliverEvent,
 } from '../generated/templates/AgentMech/AgentMech';
-import { Request, Deliver, Sender, Service, CreateMech, MechAgent, AtaTransaction, RequestToMech, DeliverForMech } from '../generated/schema';
+import {
+  Request,
+  Deliver,
+  Sender,
+  Service,
+  CreateMech,
+  MechAgent,
+  AtaTransaction,
+  RequestToMech,
+  DeliverForMech,
+  ParsedRequest,
+  ParsedDelivery,
+} from '../generated/schema';
 import {
   getGlobal,
   getServiceIdFromMech,
@@ -23,33 +33,32 @@ import {
 
 let UNHANDLED_TYPE = '[unhandled type]';
 
-class Metadata {
-  tool: string;
+class RequestPayload {
+  content: string;
   prompt: string;
+  tool: string;
+
+  constructor(content: string, prompt: string, tool: string) {
+    this.content = content;
+    this.prompt = prompt;
+    this.tool = tool;
+  }
 }
 
-class ResponseMetadata {
-  model: string
-  response: string
-}
+class DeliveryPayload {
+  content: string;
+  model: string;
+  response: string;
 
-const MetadataNotFound: Metadata = {
-  tool: '',
-  prompt: '',
-};
+  constructor(content: string, model: string, response: string) {
+    this.content = content;
+    this.model = model;
+    this.response = response;
+  }
+}
 
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
-}
-
-function resolveIpfsRoute(base: string): string {
-  let metadataPath = base + '/metadata.json';
-
-  if (ipfs.cat(metadataPath) !== null) {
-    return metadataPath;
-  }
-
-  return base;
 }
 
 function tryGetIpfsResponse(requestHash: string): Bytes | null {
@@ -61,105 +70,124 @@ function tryGetIpfsResponse(requestHash: string): Bytes | null {
   return ipfs.cat(requestHash);
 }
 
-function getResponseMetadata(
-  requestHash: string,
+function loadRequestPayload(ipfsHash: string): RequestPayload | null {
+  let data = tryGetIpfsResponse(ipfsHash);
+  if (data === null) {
+    log.warning('Request metadata not found for {}', [ipfsHash]);
+    return null;
+  }
+
+  let payload = new RequestPayload(
+    data.toString(),
+    UNHANDLED_TYPE,
+    UNHANDLED_TYPE
+  );
+
+  let result = json.try_fromBytes(data);
+  if (result.isError) {
+    return payload;
+  }
+
+  let value = result.value;
+  if (value.kind !== JSONValueKind.OBJECT) {
+    return payload;
+  }
+
+  let obj = value.toObject();
+  let promptValue = obj.get('prompt');
+  if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
+    payload.prompt = promptValue.toString();
+  }
+
+  let toolValue = obj.get('tool');
+  if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
+    payload.tool = toolValue.toString();
+  }
+
+  return payload;
+}
+
+function saveParsedRequestEntity(
+  requestId: string,
+  ipfsHash: string,
+  payload: RequestPayload
+): void {
+  if (ParsedRequest.load(requestId) !== null) {
+    return;
+  }
+
+  let parsedRequest = new ParsedRequest(requestId);
+  parsedRequest.hash = ipfsHash;
+  parsedRequest.request = requestId;
+  parsedRequest.content = payload.content;
+  parsedRequest.prompt = payload.prompt;
+  parsedRequest.tool = payload.tool;
+  parsedRequest.save();
+}
+
+function loadDeliveryPayload(
+  ipfsHash: string,
   requestId: BigInt
-): ResponseMetadata {
-  let url = requestHash + '/' + requestId.toString();
-  let response = tryGetIpfsResponse(url);
-  
-  if (response === null) {
-    return {
-      model: UNHANDLED_TYPE,
-      response: UNHANDLED_TYPE
+): DeliveryPayload | null {
+  let route = ipfsHash + '/' + requestId.toString();
+  let data = tryGetIpfsResponse(route);
+  if (data === null) {
+    log.warning('Delivery metadata not found for {}', [route]);
+    return null;
+  }
+
+  let payload = new DeliveryPayload(
+    data.toString(),
+    UNHANDLED_TYPE,
+    UNHANDLED_TYPE
+  );
+
+  let result = json.try_fromBytes(data);
+  if (result.isError) {
+    return payload;
+  }
+
+  let value = result.value;
+  if (value.kind !== JSONValueKind.OBJECT) {
+    return payload;
+  }
+
+  let obj = value.toObject();
+  let metadataValue = obj.get('metadata');
+  if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
+    let metadataObj = metadataValue.toObject();
+    let modelValue = metadataObj.get('model');
+    if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
+      payload.model = modelValue.toString();
     }
   }
 
-  let jsonObj = json.fromBytes(response).toObject();
-
-  let metadataObj = jsonObj.get('metadata');
-
-  if (metadataObj === null) {
-    return {
-      model: UNHANDLED_TYPE,
-      response: UNHANDLED_TYPE
-    }
+  let responseValue = obj.get('result');
+  if (responseValue !== null && responseValue.kind === JSONValueKind.STRING) {
+    payload.response = responseValue.toString();
   }
 
-  let metadata = metadataObj.toObject();
-  let toolResponse = jsonObj.get("result")!.toString() || UNHANDLED_TYPE;
-
-  let model = metadata.get("model")!.toString() || UNHANDLED_TYPE;
-
-  return {
-    model: model,
-    response: toolResponse
-  }
+  return payload;
 }
 
-function getMetadata(requestHash: string): Metadata {
-  let response = tryGetIpfsResponse(requestHash);
-
-  if (response) {
-    let promptStr = '';
-    let toolStr = '';
-    let metadataString = json.fromString(response.toString());
-
-    if (metadataString) {
-      let metadata = metadataString.toObject();
-
-      // Getting prompt info
-      let promptJson = metadata.get('prompt');
-      if (promptJson !== null && promptJson.kind === JSONValueKind.STRING) {
-        promptStr = promptJson.toString();
-      } else {
-        promptStr = UNHANDLED_TYPE;
-      }
-
-      // Getting tool info
-      let toolJson = metadata.get('tool');
-      if (toolJson !== null && toolJson.kind === JSONValueKind.ARRAY) {
-        let toolsArray = toolJson.toArray();
-        let tools: string[] = [];
-
-        for (let i = 0; i < toolsArray.length; i++) {
-          let item = toolsArray[i];
-          if (item.kind === JSONValueKind.STRING) {
-            tools.push(item.toString());
-          }
-        }
-
-        toolStr = tools.join(', ');
-      } else if (toolJson && toolJson.kind === JSONValueKind.STRING) {
-        toolStr = toolJson.toString();
-      } else {
-        toolStr = UNHANDLED_TYPE;
-      }
-    }
-
-    return {
-      prompt: promptStr,
-      tool: toolStr,
-    };
+function saveParsedDeliveryEntity(
+  deliveryId: Bytes,
+  requestId: string,
+  ipfsHash: string,
+  payload: DeliveryPayload
+): void {
+  if (ParsedDelivery.load(deliveryId) !== null) {
+    return;
   }
 
-  log.warning('Could not retrieve metadata for {}', [requestHash]);
-  return MetadataNotFound;
-}
-
-function extractQuestionTitle(prompt: string): string | null {
-  const marker = 'With the given question';
-  const markerIndex = prompt.indexOf(marker);
-  if (markerIndex === -1) return null;
-
-  const afterMarker = prompt.slice(markerIndex + marker.length);
-  const firstQuote = afterMarker.indexOf('"');
-  if (firstQuote === -1) return null;
-
-  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
-  if (secondQuote === -1) return null;
-
-  return afterMarker.slice(firstQuote + 1, secondQuote);
+  let parsedDelivery = new ParsedDelivery(deliveryId);
+  parsedDelivery.deliver = deliveryId;
+  parsedDelivery.request = requestId;
+  parsedDelivery.hash = ipfsHash;
+  parsedDelivery.content = payload.content;
+  parsedDelivery.model = payload.model;
+  parsedDelivery.response = payload.response;
+  parsedDelivery.save();
 }
 
 export function handleRequest(event: RequestEvent): void {
@@ -204,6 +232,7 @@ export function handleRequest(event: RequestEvent): void {
 
   // Get metadata from IPFS
   let ipfsHash = getIpfsHash(event.params.data);
+  let requestPayload = loadRequestPayload(ipfsHash);
 
   let requestToMechId = event.params.requestId.toHexString();
   let requestToMech = new RequestToMech(requestToMechId);
@@ -241,16 +270,12 @@ export function handleRequest(event: RequestEvent): void {
     }
   }
 
-  // Save entity BEFORE creating data source template
+  // Persist request changes before storing parsed metadata
   entity.save();
 
-  // Create IPFS data source template to parse request content
-  let context = new DataSourceContext();
-  context.setString('requestId', entity.id);
-  context.setString('ipfsBase', ipfsHash);
-
-  let ipfsRoute = resolveIpfsRoute(ipfsHash);
-  DataSourceTemplate.createWithContext("MechParsedRequest", [ipfsRoute], context);
+  if (requestPayload !== null) {
+    saveParsedRequestEntity(entity.id, ipfsHash, requestPayload);
+  }
 }
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -259,8 +284,11 @@ export function handleDeliver(event: DeliverEvent): void {
   let entity = new Deliver(deliveryId);
   let mechDelivery = new DeliverForMech(deliveryId);
 
+  let ipfsHash = getIpfsHash(event.params.data);
+  let deliveryPayload = loadDeliveryPayload(ipfsHash, event.params.requestId);
+
   mechDelivery.requestId = event.params.requestId.toHexString();
-  mechDelivery.ipfsHash = getIpfsHash(event.params.data);
+  mechDelivery.ipfsHash = ipfsHash;
   mechDelivery.deliver = entity.id;
   mechDelivery.save();
 
@@ -269,6 +297,11 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
+
+  if (deliveryPayload !== null) {
+    entity.toolResponse = deliveryPayload.response;
+    entity.model = deliveryPayload.model;
+  }
 
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());
@@ -303,17 +336,16 @@ export function handleDeliver(event: DeliverEvent): void {
     entity.service = serviceId;
   }
 
-  // Save entity BEFORE creating data source template
   entity.save();
 
-  // Create IPFS data source template to parse delivery content
-  let context = new DataSourceContext();
-  context.setBytes('deliveryId', entity.id);
-  context.setString('ipfsBase', mechDelivery.ipfsHash);
-
-  let ipfsRouteBase = mechDelivery.ipfsHash + '/' + event.params.requestId.toString();
-  let ipfsRoute = resolveIpfsRoute(ipfsRouteBase);
-  DataSourceTemplate.createWithContext("MechParsedDeliver", [ipfsRoute], context);
+  if (deliveryPayload !== null) {
+    saveParsedDeliveryEntity(
+      deliveryId,
+      event.params.requestId.toHexString(),
+      ipfsHash,
+      deliveryPayload
+    );
+  }
 
   // Update Service totalDeliveries counter
   if (serviceId !== null) {
