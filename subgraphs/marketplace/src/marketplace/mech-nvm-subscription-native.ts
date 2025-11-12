@@ -1,4 +1,3 @@
-import { log } from '@graphprotocol/graph-ts';
 import {
   Deliver as DeliverEvent,
   Request as RequestEvent,
@@ -8,20 +7,15 @@ import {
 import {
   OnChainDeliverArgs,
   OnChainRequestArgs,
-  processOnChainDeliver,
-  processOnChainRequest,
+  handleTemplateDeliver,
+  handleTemplateRequest,
   logRevokeRequest,
   updateMaxDeliveryRate,
 } from './utils';
 
 export function handleDeliver(event: DeliverEvent): void {
-  log.info('MechNvmSubscriptionNative Deliver event: tx={}, requestId={}, mech={}', [
-    event.transaction.hash.toHexString(),
-    event.params.requestId.toHexString(),
-    event.params.mech.toHexString()
-  ]);
-  
-  processOnChainDeliver(
+  handleTemplateDeliver(
+    'MechNvmSubscriptionNative',
     new OnChainDeliverArgs(
       event.transaction.hash,
       event.logIndex.toI32(),
@@ -38,13 +32,8 @@ export function handleDeliver(event: DeliverEvent): void {
 }
 
 export function handleRequest(event: RequestEvent): void {
-  log.info('MechNvmSubscriptionNative Request event: tx={}, requestId={}, mech={}', [
-    event.transaction.hash.toHexString(),
-    event.params.requestId.toHexString(),
-    event.params.mech.toHexString()
-  ]);
-  
-  processOnChainRequest(
+  handleTemplateRequest(
+    'MechNvmSubscriptionNative',
     new OnChainRequestArgs(
       event.params.requestId,
       event.params.mech,

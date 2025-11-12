@@ -32,7 +32,6 @@ import {
   getOrCreateSender,
   getGlobal,
   createDataSourceForMechContract,
-  getOrCreateMarketplaceIndividualDeliver,
   getOrCreateRequest,
   getMech,
   getServiceIdFromMultisig,
@@ -43,20 +42,11 @@ import {
   updateMechCountersOnRequest,
   getOrCreateAtaTransaction,
   getOrCreateRequestToMarketplace,
-  getOrCreateDeliverForMarketplace,
   ataTransactionExists,
   getPaymentType,
-  attachDeliverIpfs,
-  parseDeliverIpfs,
   getMaxDeliveryRate,
+  persistSignedDeliver,
 } from './utils';
-
-function ensureDeliverSender(deliver: Deliver, fallback: Bytes): void {
-  let current = deliver.get('sender');
-  if (current === null) {
-    deliver.sender = fallback;
-  }
-}
 
 export function handleCreateMech(event: CreateMechEvent): void {
   // Create CreateMech entity (used by getServiceIdFromMech)
@@ -197,24 +187,19 @@ export function handleMarketplaceDeliveryWithSignatures(
   entity.save();
 
   for (let i = 0; i < event.params.requestIds.length; i++) {
-    let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestIds[i]);
-    
-    // Common fields only
-    deliver.mech = event.params.deliveryMech;
-    deliver.sender = event.params.requester;
-    deliver.blockNumber = event.block.number;
-    deliver.blockTimestamp = event.block.timestamp;
-    deliver.transactionHash = event.transaction.hash;
-    deliver.request = null; // Off-chain, no request
-
-    deliver.save();
-
-    // Create marketplace-specific delivery entity (avoids null fields)
-    let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestIds[i]);
-    marketplaceDeliver.isMarketplace = true;
-    marketplaceDeliver.isOffChain = true;
-    marketplaceDeliver.deliver = deliver.id;
-    marketplaceDeliver.save();
+    persistSignedDeliver(
+      event.params.requestIds[i],
+      event.params.deliveryMech,
+      event.params.requester,
+      null,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      true,
+      null,
+      null,
+      null
+    );
   }
 
   let sender = getOrCreateSender(event.params.requester);
@@ -288,75 +273,37 @@ export function handleMarketplaceDeliveryWithSignatures(
 export function handleDeliverWithSignaturesV1(
   event: DeliverWithSignaturesEventV1
 ): void {
-  let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
-  
-  // Common fields only
-  deliver.mech = event.params.mech;
-  deliver.blockNumber = event.block.number;
-  deliver.blockTimestamp = event.block.timestamp;
-  deliver.transactionHash = event.transaction.hash;
-  deliver.request = null; // Off-chain signed requests have no Request event
-  ensureDeliverSender(deliver, event.transaction.from);
-
-  // Link service
-  const serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    deliver.service = serviceId;
-  }
-
-  deliver.save();
-
-  // Create marketplace-specific delivery entity (avoids null fields)
-  let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.deliveryRate = event.params.deliveryRate;
-  marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
-  marketplaceDeliver.isMarketplace = true;
-  marketplaceDeliver.isOffChain = true;
-  marketplaceDeliver.deliver = deliver.id;
-  let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.data);
-  marketplaceDeliver.save();
-  if (baseHash === null) {
-    return;
-  }
-
-  parseDeliverIpfs(deliver.id, event.params.requestId, baseHash);
+  persistSignedDeliver(
+    event.params.requestId,
+    event.params.mech,
+    null,
+    event.transaction.from,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    true,
+    event.params.deliveryRate,
+    event.params.mechServiceMultisig,
+    event.params.data
+  );
 }
 
 export function handleDeliverWithSignaturesV2(
   event: DeliverWithSignaturesEvent
 ): void {
-  let deliver = getOrCreateMarketplaceIndividualDeliver(event.params.requestId);
-  
-  // Common fields only
-  deliver.mech = event.params.mech;
-  deliver.blockNumber = event.block.number;
-  deliver.blockTimestamp = event.block.timestamp;
-  deliver.transactionHash = event.transaction.hash;
-  deliver.request = null; // Off-chain signed requests have no Request event
-  ensureDeliverSender(deliver, event.transaction.from);
-
-  // Link service
-  const serviceId = getServiceIdFromMech(event.params.mech);
-  if (serviceId !== null) {
-    deliver.service = serviceId;
-  }
-
-  deliver.save();
-
-  // Create marketplace-specific delivery entity (avoids null fields)
-  let marketplaceDeliver = getOrCreateDeliverForMarketplace(event.params.requestId);
-  marketplaceDeliver.deliveryRate = event.params.deliveryRate;
-  marketplaceDeliver.mechServiceMultisig = event.params.mechServiceMultisig;
-  marketplaceDeliver.isMarketplace = true;
-  marketplaceDeliver.isOffChain = true;
-  marketplaceDeliver.deliver = deliver.id;
-  let baseHash = attachDeliverIpfs(marketplaceDeliver, event.params.deliveryData);
-  marketplaceDeliver.save();
-  if (baseHash === null) {
-    return;
-  }
-
-  parseDeliverIpfs(deliver.id, event.params.requestId, baseHash);
+  persistSignedDeliver(
+    event.params.requestId,
+    event.params.mech,
+    null,
+    event.transaction.from,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    true,
+    event.params.deliveryRate,
+    event.params.mechServiceMultisig,
+    event.params.deliveryData
+  );
 }
 
 export function handleMarketplaceParamsUpdated(
