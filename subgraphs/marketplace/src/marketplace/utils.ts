@@ -966,3 +966,129 @@ function createStandaloneMarketplaceRequest(
   marketplaceRequest.save();
 }
 
+function upsertSignedDeliverEntity(
+  requestId: Bytes,
+  mech: Bytes,
+  blockNumber: BigInt,
+  blockTimestamp: BigInt,
+  transactionHash: Bytes,
+  sender: Bytes | null,
+  fallbackSender: Bytes | null
+): Deliver {
+  let deliver = getOrCreateMarketplaceIndividualDeliver(requestId);
+  deliver.mech = mech;
+  deliver.blockNumber = blockNumber;
+  deliver.blockTimestamp = blockTimestamp;
+  deliver.transactionHash = transactionHash;
+  deliver.request = null;
+
+  if (sender !== null) {
+    deliver.sender = sender as Bytes;
+  } else if (fallbackSender !== null && deliver.sender === null) {
+    deliver.sender = fallbackSender as Bytes;
+  }
+
+  const serviceId = getServiceIdFromMech(mech);
+  if (serviceId !== null) {
+    deliver.service = serviceId;
+  }
+
+  deliver.save();
+  return deliver;
+}
+
+function upsertDeliverForMarketplaceEntity(
+  requestId: Bytes,
+  deliverId: Bytes,
+  isOffChain: boolean,
+  payload: Bytes | null,
+  deliveryRate: BigInt | null,
+  mechServiceMultisig: Bytes | null
+): string | null {
+  let marketplaceDeliver = getOrCreateDeliverForMarketplace(requestId);
+  marketplaceDeliver.isMarketplace = true;
+  marketplaceDeliver.isOffChain = isOffChain;
+  marketplaceDeliver.deliver = deliverId;
+
+  if (deliveryRate !== null) {
+    marketplaceDeliver.deliveryRate = deliveryRate as BigInt;
+  }
+
+  if (mechServiceMultisig !== null) {
+    marketplaceDeliver.mechServiceMultisig = mechServiceMultisig as Bytes;
+  }
+
+  let baseHash: string | null = null;
+  if (payload !== null) {
+    baseHash = attachDeliverIpfs(marketplaceDeliver, payload as Bytes);
+  }
+
+  marketplaceDeliver.save();
+  return baseHash;
+}
+
+export function persistSignedDeliver(
+  requestId: Bytes,
+  mech: Bytes,
+  sender: Bytes | null,
+  fallbackSender: Bytes | null,
+  blockNumber: BigInt,
+  blockTimestamp: BigInt,
+  transactionHash: Bytes,
+  isOffChain: boolean,
+  deliveryRate: BigInt | null,
+  mechServiceMultisig: Bytes | null,
+  payload: Bytes | null
+): void {
+  let deliver = upsertSignedDeliverEntity(
+    requestId,
+    mech,
+    blockNumber,
+    blockTimestamp,
+    transactionHash,
+    sender,
+    fallbackSender
+  );
+
+  let baseHash = upsertDeliverForMarketplaceEntity(
+    requestId,
+    deliver.id,
+    isOffChain,
+    payload,
+    deliveryRate,
+    mechServiceMultisig
+  );
+
+  if (baseHash === null) {
+    return;
+  }
+
+  parseDeliverIpfs(deliver.id, requestId, baseHash);
+}
+
+export function handleTemplateDeliver(
+  label: string,
+  args: OnChainDeliverArgs
+): void {
+  log.info('{} Deliver event: tx={}, requestId={}, mech={}', [
+    label,
+    args.txHash.toHexString(),
+    args.requestId.toHexString(),
+    args.mech.toHexString(),
+  ]);
+  processOnChainDeliver(args);
+}
+
+export function handleTemplateRequest(
+  label: string,
+  args: OnChainRequestArgs
+): void {
+  log.info('{} Request event: tx={}, requestId={}, mech={}', [
+    label,
+    args.transactionHash.toHexString(),
+    args.requestId.toHexString(),
+    args.mech.toHexString(),
+  ]);
+  processOnChainRequest(args);
+}
+
