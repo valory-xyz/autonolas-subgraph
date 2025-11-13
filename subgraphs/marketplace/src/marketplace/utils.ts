@@ -726,6 +726,7 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
 
   finalizeGlobalForDeliver(args);
   persistMarketplaceDeliver(args, deliver.id);
+  refreshMechDeliveryRate(args.mech, args.deliveryRate);
 }
 
 export function processOnChainRequest(args: OnChainRequestArgs): void {
@@ -742,12 +743,12 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   }
 
   request.save();
-  let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
-  if (requestBaseHash === null) {
-    return;
-  }
-
-  parseRequestIpfs(request.id, requestBaseHash);
+  // let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
+  // if (requestBaseHash === null) {
+  //   return;
+  // }
+  //
+  // parseRequestIpfs(request.id, requestBaseHash);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
@@ -774,6 +775,27 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
 
   mech.maxDeliveryRate = maxDeliveryRate;
   mech.save();
+}
+
+export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt): void {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.debug('refreshMechDeliveryRate: serviceId missing for mech {}', [
+      mechAddress.toHexString(),
+    ]);
+    return;
+  }
+
+  let mech = Mech.load(serviceId);
+  if (mech === null) {
+    log.debug('refreshMechDeliveryRate: mech entity missing for serviceId {}', [serviceId]);
+    return;
+  }
+
+  if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+    mech.maxDeliveryRate = deliveryRate;
+    mech.save();
+  }
 }
 
 function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
@@ -839,13 +861,13 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   marketplaceDeliver.isMarketplace = true;
   marketplaceDeliver.isOffChain = false;
   marketplaceDeliver.deliver = deliverId;
-  let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
+  // let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
   marketplaceDeliver.save();
-  if (baseHash === null) {
-    return;
-  }
-
-  parseDeliverIpfs(deliverId, args.requestId, baseHash);
+  // if (baseHash === null) {
+  //   return;
+  // }
+  //
+  // parseDeliverIpfs(deliverId, args.requestId, baseHash);
 }
 
 function requireServiceId(mech: Bytes, context: string): string {
@@ -999,13 +1021,14 @@ function upsertDeliverForMarketplaceEntity(
     marketplaceDeliver.mechServiceMultisig = mechServiceMultisig as Bytes;
   }
 
-  let baseHash: string | null = null;
-  if (payload !== null) {
-    baseHash = attachDeliverIpfs(marketplaceDeliver, payload as Bytes);
-  }
+  // let baseHash: string | null = null;
+  // if (payload !== null) {
+  //   baseHash = attachDeliverIpfs(marketplaceDeliver, payload as Bytes);
+  // }
 
   marketplaceDeliver.save();
-  return baseHash;
+  // return baseHash;
+  return null;
 }
 
 export function persistSignedDeliver(
@@ -1031,20 +1054,20 @@ export function persistSignedDeliver(
     fallbackSender
   );
 
-  let baseHash = upsertDeliverForMarketplaceEntity(
-    requestId,
-    deliver.id,
-    isOffChain,
-    payload,
-    deliveryRate,
-    mechServiceMultisig
-  );
-
-  if (baseHash === null) {
-    return;
-  }
-
-  parseDeliverIpfs(deliver.id, requestId, baseHash);
+  // let baseHash = upsertDeliverForMarketplaceEntity(
+  //   requestId,
+  //   deliver.id,
+  //   isOffChain,
+  //   payload,
+  //   deliveryRate,
+  //   mechServiceMultisig
+  // );
+  //
+  // if (baseHash === null) {
+  //   return;
+  // }
+  //
+  // parseDeliverIpfs(deliver.id, requestId, baseHash);
 }
 
 export function handleTemplateDeliver(
