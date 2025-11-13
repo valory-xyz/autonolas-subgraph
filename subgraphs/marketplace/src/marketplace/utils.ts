@@ -927,6 +927,7 @@ function incrementGlobalRequests(args: OnChainRequestArgs): Global {
 }
 
 function incrementSenderRequests(sender: Sender): void {
+  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
   sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(
     BigInt.fromI32(1)

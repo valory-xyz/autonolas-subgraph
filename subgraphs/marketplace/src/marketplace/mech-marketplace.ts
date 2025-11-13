@@ -105,6 +105,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
 export function handleMarketplaceDelivery(
   event: MarketplaceDeliveryEvent
 ): void {
+  let successfulDeliveries = BigInt.fromI32(0);
+
   let entity = new MarketplaceDelivery(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
@@ -120,32 +122,41 @@ export function handleMarketplaceDelivery(
 
   // Mark delivered requests as completed and track who delivered
   for (let i = 0; i < event.params.requestIds.length; i++) {
-    if (!event.params.deliveredRequests[i]) continue;
-    let request = Request.load(event.params.requestIds[i].toHexString());
-    if (request !== null && !request.isDelivered) {
-      request.isDelivered = true;
-      request.deliveredByMech = event.params.deliveryMech;
-      request.save();
-      
-      // Update priority mech counters
-      updateMechCountersOnDelivery(request, event.params.deliveryMech);
-      
-      // Update service delivery counter for the delivery mech's service
-      const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
-      if (deliveryServiceId !== null) {
-        let service = Service.load(deliveryServiceId);
-        if (service !== null) {
-          service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
-          service.save();
-        }
-      }
+    if (!event.params.deliveredRequests[i]) {
+      continue;
     }
+
+    successfulDeliveries = successfulDeliveries.plus(BigInt.fromI32(1));
+
+    let request = Request.load(event.params.requestIds[i].toHexString());
+    if (request === null || request.isDelivered) {
+      continue;
+    }
+
+    request.isDelivered = true;
+    request.deliveredByMech = event.params.deliveryMech;
+    request.save();
+    
+    // Update priority mech counters
+    updateMechCountersOnDelivery(request, event.params.deliveryMech);
+    
+    // Update service delivery counter for the delivery mech's service
+    const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
+    if (deliveryServiceId === null) {
+      continue;
+    }
+
+    let service = Service.load(deliveryServiceId);
+    if (service === null) {
+      continue;
+    }
+
+    service.totalDeliveries = service.totalDeliveries.plus(BigInt.fromI32(1));
+    service.save();
   }
 
   let global = getGlobal();
-  global.totalDeliveries = global.totalDeliveries.plus(
-    event.params.numDeliveries
-  );
+  global.totalDeliveries = global.totalDeliveries.plus(successfulDeliveries);
   global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
     BigInt.fromI32(1)
   );
@@ -252,8 +263,9 @@ export function handleMarketplaceDeliveryWithSignatures(
 
     // Update global ATA count
     global.totalAtaTransactions = global.totalAtaTransactions.plus(ataIncrement);
-    global.save();
   }
+
+  global.save();
 
   // Increment per-agent counters for service derived from requester multisig (off-chain requests)
   let serviceIDForOffChain = getServiceIdFromMultisig(event.params.requester);
