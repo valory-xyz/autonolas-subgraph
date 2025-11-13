@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { BigInt, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
 } from '../generated/AgentFactory/AgentFactory';

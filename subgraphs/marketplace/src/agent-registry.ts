@@ -1,10 +1,6 @@
 import { Address, BigInt } from '@graphprotocol/graph-ts';
 import {
-  Approval as ApprovalEvent,
-  ApprovalForAll as ApprovalForAllEvent,
-  BaseURIChanged as BaseURIChangedEvent,
   CreateAgent as CreateAgentEvent,
-  ManagerUpdated as ManagerUpdatedEvent,
   OwnerUpdated as OwnerUpdatedEvent,
   Transfer as TransferEvent,
   UpdateAgentHash as UpdateAgentHashEvent,
