@@ -987,8 +987,12 @@ function upsertSignedDeliverEntity(
 
   if (sender !== null) {
     deliver.sender = sender as Bytes;
-  } else if (fallbackSender !== null && deliver.sender === null) {
+  } else if (fallbackSender !== null) {
     deliver.sender = fallbackSender as Bytes;
+  }
+
+  if (deliver.sender === null) {
+    deliver.sender = mech;
   }
 
   const serviceId = getServiceIdFromMech(mech);
