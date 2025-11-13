@@ -38,16 +38,6 @@ export function getGlobal(): Global {
   return global as Global;
 }
 
-export function getOrCreateMultisigWithAgents(
-  multisig: Bytes
-): CreateMultisigWithAgents {
-  let entity = CreateMultisigWithAgents.load(multisig);
-  if (entity === null) {
-    entity = new CreateMultisigWithAgents(multisig);
-  }
-  return entity;
-}
-
 export function updateServiceMultisig(
   serviceId: BigInt,
   multisig: Bytes

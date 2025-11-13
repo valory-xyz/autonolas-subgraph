@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { BigInt } from '@graphprotocol/graph-ts';
 import {
   CreateService as CreateServiceEvent,
   UpdateService as UpdateServiceEvent,

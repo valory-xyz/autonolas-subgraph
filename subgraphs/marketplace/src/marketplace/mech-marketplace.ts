@@ -126,8 +126,6 @@ export function handleMarketplaceDelivery(
       continue;
     }
 
-    successfulDeliveries = successfulDeliveries.plus(BigInt.fromI32(1));
-
     let request = Request.load(event.params.requestIds[i].toHexString());
     if (request === null || request.isDelivered) {
       continue;
@@ -140,6 +138,8 @@ export function handleMarketplaceDelivery(
     // Update priority mech counters
     updateMechCountersOnDelivery(request, event.params.deliveryMech);
     
+    successfulDeliveries = successfulDeliveries.plus(BigInt.fromI32(1));
+
     // Update service delivery counter for the delivery mech's service
     const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
     if (deliveryServiceId === null) {

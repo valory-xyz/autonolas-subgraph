@@ -1,14 +1,4 @@
-import {
-  Address,
-  BigInt,
-  Bytes,
-  JSONValueKind,
-  dataSource,
-  ipfs,
-  json,
-  log,
-  store,
-} from '@graphprotocol/graph-ts';
+import { Address, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -16,7 +6,6 @@ import {
   Metadata,
   Deliver,
   Request,
-  CreateMultisigWithAgents,
   CreateMech,
   Mech,
   RequestsPerAgent,
@@ -25,6 +14,7 @@ import {
   DeliverForMarketplace,
   ParsedRequest,
   ParsedDelivery,
+  CreateMultisigWithAgents,
 } from '../../generated/schema';
 import {
   MechFixedPriceNative,
@@ -173,16 +163,6 @@ export function getMech(
     );
   }
   return mech;
-}
-
-export function getOrCreateMultisigWithAgents(
-  multisig: Bytes
-): CreateMultisigWithAgents {
-  let entity = CreateMultisigWithAgents.load(multisig);
-  if (entity === null) {
-    entity = new CreateMultisigWithAgents(multisig);
-  }
-  return entity;
 }
 
 export function getServiceIdFromMultisig(
