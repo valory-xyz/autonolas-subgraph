@@ -743,12 +743,12 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   }
 
   request.save();
-  // let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
-  // if (requestBaseHash === null) {
-  //   return;
-  // }
-  //
-  // parseRequestIpfs(request.id, requestBaseHash);
+  let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
+  if (requestBaseHash === null) {
+    return;
+  }
+  
+  parseRequestIpfs(request.id, requestBaseHash);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
@@ -861,13 +861,13 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   marketplaceDeliver.isMarketplace = true;
   marketplaceDeliver.isOffChain = false;
   marketplaceDeliver.deliver = deliverId;
-  // let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
+  let baseHash = attachDeliverIpfs(marketplaceDeliver, args.payload);
   marketplaceDeliver.save();
-  // if (baseHash === null) {
-  //   return;
-  // }
-  //
-  // parseDeliverIpfs(deliverId, args.requestId, baseHash);
+  if (baseHash === null) {
+    return;
+  }
+  
+  parseDeliverIpfs(deliverId, args.requestId, baseHash);
 }
 
 function requireServiceId(mech: Bytes, context: string): string {
@@ -987,12 +987,8 @@ function upsertSignedDeliverEntity(
 
   if (sender !== null) {
     deliver.sender = sender as Bytes;
-  } else if (fallbackSender !== null) {
+  } else if (fallbackSender !== null && deliver.sender === null) {
     deliver.sender = fallbackSender as Bytes;
-  }
-
-  if (deliver.sender === null) {
-    deliver.sender = mech;
   }
 
   const serviceId = getServiceIdFromMech(mech);
@@ -1025,13 +1021,13 @@ function upsertDeliverForMarketplaceEntity(
     marketplaceDeliver.mechServiceMultisig = mechServiceMultisig as Bytes;
   }
 
-  // let baseHash: string | null = null;
-  // if (payload !== null) {
-  //   baseHash = attachDeliverIpfs(marketplaceDeliver, payload as Bytes);
-  // }
+  let baseHash: string | null = null;
+  if (payload !== null) {
+    baseHash = attachDeliverIpfs(marketplaceDeliver, payload as Bytes);
+  }
 
   marketplaceDeliver.save();
-  // return baseHash;
+  return baseHash;
   return null;
 }
 
@@ -1058,20 +1054,20 @@ export function persistSignedDeliver(
     fallbackSender
   );
 
-  // let baseHash = upsertDeliverForMarketplaceEntity(
-  //   requestId,
-  //   deliver.id,
-  //   isOffChain,
-  //   payload,
-  //   deliveryRate,
-  //   mechServiceMultisig
-  // );
-  //
-  // if (baseHash === null) {
-  //   return;
-  // }
-  //
-  // parseDeliverIpfs(deliver.id, requestId, baseHash);
+  let baseHash = upsertDeliverForMarketplaceEntity(
+    requestId,
+    deliver.id,
+    isOffChain,
+    payload,
+    deliveryRate,
+    mechServiceMultisig
+  );
+  
+  if (baseHash === null) {
+    return;
+  }
+  
+  parseDeliverIpfs(deliver.id, requestId, baseHash);
 }
 
 export function handleTemplateDeliver(
