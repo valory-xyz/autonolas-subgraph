@@ -63,7 +63,7 @@ export function getOrCreateAgentMultisigAssociation(
 ): AgentMultisigAssociation {
   let entity = AgentMultisigAssociation.load(event.params.id.toString());
   if (entity === null) {
-    entity = new AgentMultisigAssociation(event.params.id.toString());
+   entity = new AgentMultisigAssociation(event.params.id.toString());
   }
   return entity;
 }

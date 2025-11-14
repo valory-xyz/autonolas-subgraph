@@ -288,7 +288,7 @@ dataSources:
       file: ./src/marketplace/karma.ts
 templates:
 
-  # Legacy stuff
+#  # Legacy stuff
 
   - kind: ethereum/contract
     name: AgentMech

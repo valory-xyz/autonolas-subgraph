@@ -726,6 +726,7 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
 
   finalizeGlobalForDeliver(args);
   persistMarketplaceDeliver(args, deliver.id);
+  refreshMechDeliveryRate(args.mech, args.deliveryRate);
 }
 
 export function processOnChainRequest(args: OnChainRequestArgs): void {
@@ -746,7 +747,7 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   if (requestBaseHash === null) {
     return;
   }
-
+  
   parseRequestIpfs(request.id, requestBaseHash);
 }
 
@@ -774,6 +775,27 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
 
   mech.maxDeliveryRate = maxDeliveryRate;
   mech.save();
+}
+
+export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt): void {
+  const serviceId = getServiceIdFromMech(mechAddress);
+  if (serviceId === null) {
+    log.debug('refreshMechDeliveryRate: serviceId missing for mech {}', [
+      mechAddress.toHexString(),
+    ]);
+    return;
+  }
+
+  let mech = Mech.load(serviceId);
+  if (mech === null) {
+    log.debug('refreshMechDeliveryRate: mech entity missing for serviceId {}', [serviceId]);
+    return;
+  }
+
+  if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+    mech.maxDeliveryRate = deliveryRate;
+    mech.save();
+  }
 }
 
 function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
@@ -844,7 +866,7 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   if (baseHash === null) {
     return;
   }
-
+  
   parseDeliverIpfs(deliverId, args.requestId, baseHash);
 }
 
@@ -1006,6 +1028,7 @@ function upsertDeliverForMarketplaceEntity(
 
   marketplaceDeliver.save();
   return baseHash;
+  return null;
 }
 
 export function persistSignedDeliver(
@@ -1039,11 +1062,11 @@ export function persistSignedDeliver(
     deliveryRate,
     mechServiceMultisig
   );
-
+  
   if (baseHash === null) {
     return;
   }
-
+  
   parseDeliverIpfs(deliver.id, requestId, baseHash);
 }
 
