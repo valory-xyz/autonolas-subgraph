@@ -61,7 +61,7 @@ function getGlobal(): Global {
   }
 
   global = new Global(GlobalId)
-  global.totalBuilders = 0
+  global.totalBuilders = BigInt.fromI32(0)
   global.save()
   return global
 }
@@ -303,6 +303,12 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
 }
 
 export function handleComponentTransfer(event: ComponentTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    let global = getGlobal()
+    global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    global.save()
+  }
+
   let unit = Unit.load(ComponentTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
@@ -315,6 +321,12 @@ export function handleComponentTransfer(event: ComponentTransferEvent): void {
 }
 
 export function handleAgentTransfer(event: AgentTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    let global = getGlobal()
+    global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    global.save()
+  }
+
   let unit = Unit.load(AgentTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
@@ -327,6 +339,12 @@ export function handleAgentTransfer(event: AgentTransferEvent): void {
 }
 
 export function handleServiceTransfer(event: ServiceTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    let global = getGlobal()
+    global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    global.save()
+  }
+
   let unit = Unit.load(ServiceTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
