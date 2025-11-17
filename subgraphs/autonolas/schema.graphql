@@ -23,9 +23,16 @@ type Unit @entity {
   txHash: String! # Transaction hash
 }
 
+type Builder @entity {
+  id: String! # Builder address (used internally to track uniqueness)
+}
+
 type Global @entity {
   id: String!
-  totalBuilders: BigInt!
+  totalBuilders: BigInt! # Count of unique builders
+  totalAgents: BigInt! # Total agents minted
+  totalComponents: BigInt! # Total components minted
+  totalServices: BigInt! # Total services minted
 }
 
 type Service @entity {
