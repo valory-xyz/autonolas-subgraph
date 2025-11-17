@@ -74,16 +74,20 @@ function trackMint(builderAddress: string, mintType: string): void {
   let builder = Builder.load(builderAddress)
   let global = getGlobal()
 
-  if (builder === null) {
-    builder = new Builder(builderAddress)
-    builder.save()
-    global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
-  }
-
   if (mintType == "agent") {
     global.totalAgents = global.totalAgents.plus(BigInt.fromI32(1))
+    if (builder === null) {
+      builder = new Builder(builderAddress)
+      builder.save()
+      global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    }
   } else if (mintType == "component") {
     global.totalComponents = global.totalComponents.plus(BigInt.fromI32(1))
+    if (builder === null) {
+      builder = new Builder(builderAddress)
+      builder.save()
+      global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    }
   } else if (mintType == "service") {
     global.totalServices = global.totalServices.plus(BigInt.fromI32(1))
   }
