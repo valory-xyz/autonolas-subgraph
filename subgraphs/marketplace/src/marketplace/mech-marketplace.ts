@@ -22,10 +22,6 @@ import {
   SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
   Request,
-  Deliver,
-  RequestToMarketplace,
-  DeliverForMarketplace,
-  AtaTransaction,
   CreateMech,
 } from '../../generated/schema';
 import {
@@ -46,6 +42,7 @@ import {
   getPaymentType,
   getMaxDeliveryRate,
   persistSignedDeliver,
+  SignedDeliverArgs,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -105,7 +102,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
 export function handleMarketplaceDelivery(
   event: MarketplaceDeliveryEvent
 ): void {
-  let successfulDeliveries = BigInt.fromI32(0);
+  let successfullDeliveries = BigInt.fromI32(0);  
 
   let entity = new MarketplaceDelivery(
     event.transaction.hash.concatI32(event.logIndex.toI32())
@@ -138,7 +135,7 @@ export function handleMarketplaceDelivery(
     // Update priority mech counters
     updateMechCountersOnDelivery(request, event.params.deliveryMech);
     
-    successfulDeliveries = successfulDeliveries.plus(BigInt.fromI32(1));
+    successfullDeliveries = successfullDeliveries.plus(BigInt.fromI32(1));
 
     // Update service delivery counter for the delivery mech's service
     const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
@@ -156,7 +153,7 @@ export function handleMarketplaceDelivery(
   }
 
   let global = getGlobal();
-  global.totalDeliveries = global.totalDeliveries.plus(successfulDeliveries);
+  global.totalDeliveries = global.totalDeliveries.plus(successfullDeliveries);
   global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
     BigInt.fromI32(1)
   );
@@ -199,17 +196,19 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   for (let i = 0; i < event.params.requestIds.length; i++) {
     persistSignedDeliver(
-      event.params.requestIds[i],
-      event.params.deliveryMech,
-      event.params.requester,
-      null,
-      event.block.number,
-      event.block.timestamp,
-      event.transaction.hash,
-      true,
-      null,
-      null,
-      null
+      new SignedDeliverArgs(
+        event.params.requestIds[i],
+        event.params.deliveryMech,
+        event.params.requester,
+        null,
+        event.block.number,
+        event.block.timestamp,
+        event.transaction.hash,
+        true,
+        null,
+        null,
+        null
+      )
     );
   }
 
@@ -286,17 +285,19 @@ export function handleDeliverWithSignaturesV1(
   event: DeliverWithSignaturesEventV1
 ): void {
   persistSignedDeliver(
-    event.params.requestId,
-    event.params.mech,
-    null,
-    event.transaction.from,
-    event.block.number,
-    event.block.timestamp,
-    event.transaction.hash,
-    true,
-    event.params.deliveryRate,
-    event.params.mechServiceMultisig,
-    event.params.data
+    new SignedDeliverArgs(
+      event.params.requestId,
+      event.params.mech,
+      null,
+      event.transaction.from,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      true,
+      event.params.deliveryRate,
+      event.params.mechServiceMultisig,
+      event.params.data
+    )
   );
 }
 
@@ -304,17 +305,19 @@ export function handleDeliverWithSignaturesV2(
   event: DeliverWithSignaturesEvent
 ): void {
   persistSignedDeliver(
-    event.params.requestId,
-    event.params.mech,
-    null,
-    event.transaction.from,
-    event.block.number,
-    event.block.timestamp,
-    event.transaction.hash,
-    true,
-    event.params.deliveryRate,
-    event.params.mechServiceMultisig,
-    event.params.deliveryData
+    new SignedDeliverArgs(
+      event.params.requestId,
+      event.params.mech,
+      null,
+      event.transaction.from,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      true,
+      event.params.deliveryRate,
+      event.params.mechServiceMultisig,
+      event.params.deliveryData
+    )
   );
 }
 

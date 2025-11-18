@@ -1031,43 +1031,71 @@ function upsertDeliverForMarketplaceEntity(
   return null;
 }
 
-export function persistSignedDeliver(
-  requestId: Bytes,
-  mech: Bytes,
-  sender: Bytes | null,
-  fallbackSender: Bytes | null,
-  blockNumber: BigInt,
-  blockTimestamp: BigInt,
-  transactionHash: Bytes,
-  isOffChain: boolean,
-  deliveryRate: BigInt | null,
-  mechServiceMultisig: Bytes | null,
-  payload: Bytes | null
-): void {
+export class SignedDeliverArgs {
+  requestId: Bytes;
+  mech: Bytes;
+  sender: Bytes | null;
+  fallbackSender: Bytes | null;
+  blockNumber: BigInt;
+  blockTimestamp: BigInt;
+  transactionHash: Bytes;
+  isOffChain: boolean;
+  deliveryRate: BigInt | null;
+  mechServiceMultisig: Bytes | null;
+  payload: Bytes | null;
+
+  constructor(
+    requestId: Bytes,
+    mech: Bytes,
+    sender: Bytes | null,
+    fallbackSender: Bytes | null,
+    blockNumber: BigInt,
+    blockTimestamp: BigInt,
+    transactionHash: Bytes,
+    isOffChain: boolean,
+    deliveryRate: BigInt | null,
+    mechServiceMultisig: Bytes | null,
+    payload: Bytes | null
+  ) {
+    this.requestId = requestId;
+    this.mech = mech;
+    this.sender = sender;
+    this.fallbackSender = fallbackSender;
+    this.blockNumber = blockNumber;
+    this.blockTimestamp = blockTimestamp;
+    this.transactionHash = transactionHash;
+    this.isOffChain = isOffChain;
+    this.deliveryRate = deliveryRate;
+    this.mechServiceMultisig = mechServiceMultisig;
+    this.payload = payload;
+  }
+}
+
+export function persistSignedDeliver(args: SignedDeliverArgs): void {
   let deliver = upsertSignedDeliverEntity(
-    requestId,
-    mech,
-    blockNumber,
-    blockTimestamp,
-    transactionHash,
-    sender,
-    fallbackSender
+    args.requestId,
+    args.mech,
+    args.blockNumber,
+    args.blockTimestamp,
+    args.transactionHash,
+    args.sender,
+    args.fallbackSender
   );
 
   let baseHash = upsertDeliverForMarketplaceEntity(
-    requestId,
+    args.requestId,
     deliver.id,
-    isOffChain,
-    payload,
-    deliveryRate,
-    mechServiceMultisig
+    args.isOffChain,
+    args.payload,
+    args.deliveryRate,
+    args.mechServiceMultisig
   );
   
   if (baseHash === null) {
     return;
   }
   
-  parseDeliverIpfs(deliver.id, requestId, baseHash);
+  parseDeliverIpfs(deliver.id, args.requestId, baseHash);
 }
 
 export function handleTemplateDeliver(
