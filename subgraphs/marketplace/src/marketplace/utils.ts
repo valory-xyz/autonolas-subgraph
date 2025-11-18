@@ -987,7 +987,7 @@ function upsertSignedDeliverEntity(
 
   if (sender !== null) {
     deliver.sender = sender as Bytes;
-  } else if (fallbackSender !== null) {
+  } else if (!deliver.sender && fallbackSender !== null) {
     deliver.sender = fallbackSender as Bytes;
   }
 
