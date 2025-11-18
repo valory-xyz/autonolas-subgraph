@@ -196,8 +196,8 @@ export function handleRequest(event: RequestEvent): void {
 
   // Create / update Sender
   let sender = getOrCreateSender(event.params.sender);
-  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  sender.totalLegacyRequests = sender.totalLegacyRequests.plus(BigInt.fromI32(1));
+  sender.totalLegacyTransactions = sender.totalLegacyTransactions.plus(BigInt.fromI32(1));
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
 
   let global = getGlobal();
@@ -223,7 +223,7 @@ export function handleRequest(event: RequestEvent): void {
 
       global.totalLegacyAtaTransactions = global.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
       global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalLegacyAtaTransactions = sender.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
     }
   }
 

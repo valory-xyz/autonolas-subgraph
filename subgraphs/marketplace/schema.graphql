@@ -386,10 +386,10 @@ type Sender @entity(immutable: false) {
   id: Bytes! # address
   requests: [Request!] @derivedFrom(field: "sender")
 
-  # Mech-only counters
-  totalRequests: BigInt!
-  totalTransactions: BigInt!
-  totalAtaTransactions: BigInt!
+  # Legacy AgentMech-specific counters
+  totalLegacyRequests: BigInt!
+  totalLegacyTransactions: BigInt!
+  totalLegacyAtaTransactions: BigInt!
 
   # Marketplace-only counters
   totalMarketplaceRequests: BigInt!

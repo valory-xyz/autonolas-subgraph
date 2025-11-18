@@ -82,14 +82,14 @@ describe("Describe agent-mech processing", () => {
         assert.fieldEquals(
             "Sender",
             sender.toHexString(),
-            "totalRequests",
+            "totalLegacyRequests",
             "1"
         )
 
         assert.fieldEquals(
             "Sender",
             sender.toHexString(),
-            "totalTransactions",
+            "totalLegacyTransactions",
             "1"
         )
 

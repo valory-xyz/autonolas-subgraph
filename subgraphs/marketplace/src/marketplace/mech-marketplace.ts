@@ -216,8 +216,8 @@ export function handleMarketplaceDeliveryWithSignatures(
   // As these requests are made off-chain we assume that the number of requests 
   // is the same as number of deliveries, and add the same to `totalRequests`
   sender.totalOffChainRequests = sender.totalOffChainRequests.plus(event.params.numDeliveries);
-  sender.totalRequests = sender.totalRequests.plus(event.params.numDeliveries);
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  sender.totalLegacyRequests = sender.totalLegacyRequests.plus(event.params.numDeliveries);
+  sender.totalLegacyTransactions = sender.totalLegacyTransactions.plus(BigInt.fromI32(1));
   sender.save();
 
   let global = getGlobal();
@@ -256,7 +256,7 @@ export function handleMarketplaceDeliveryWithSignatures(
       ataIncrement = ataIncrement.plus(BigInt.fromI32(1));
 
       // Update requester-level ATA count (using existing sender variable)
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalLegacyAtaTransactions = sender.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
 
@@ -355,9 +355,9 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   let sender = getOrCreateSender(event.params.requester);
 
   // // Use Int operations
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
+  sender.totalLegacyTransactions = sender.totalLegacyTransactions.plus(BigInt.fromI32(1));
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(BigInt.fromI32(1));
-  sender.totalRequests = sender.totalRequests.plus(event.params.numRequests);
+  sender.totalLegacyRequests = sender.totalLegacyRequests.plus(event.params.numRequests);
   sender.save();
 
   // Get service ID from requester's multisig address
@@ -421,7 +421,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
         BigInt.fromI32(1)
       );
       // Also update sender-level ATA count
-      sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+      sender.totalLegacyAtaTransactions = sender.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
       sender.save();
     }
   }

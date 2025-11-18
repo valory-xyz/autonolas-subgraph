@@ -90,9 +90,9 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender = new Sender(address);
     sender.id = address;
     // All fields are required (BigInt!)
-    sender.totalRequests = BigInt.fromI32(0);
-    sender.totalTransactions = BigInt.fromI32(0);
-    sender.totalAtaTransactions = BigInt.fromI32(0);
+    sender.totalLegacyRequests = BigInt.fromI32(0);
+    sender.totalLegacyTransactions = BigInt.fromI32(0);
+    sender.totalLegacyAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
   }
@@ -929,8 +929,8 @@ function incrementGlobalRequests(args: OnChainRequestArgs): Global {
 }
 
 function incrementSenderRequests(sender: Sender): void {
-  sender.totalTransactions = sender.totalTransactions.plus(BigInt.fromI32(1));
-  sender.totalRequests = sender.totalRequests.plus(BigInt.fromI32(1));
+  sender.totalLegacyTransactions = sender.totalLegacyTransactions.plus(BigInt.fromI32(1));
+  sender.totalLegacyRequests = sender.totalLegacyRequests.plus(BigInt.fromI32(1));
   sender.totalMarketplaceRequests = sender.totalMarketplaceRequests.plus(
     BigInt.fromI32(1)
   );
@@ -953,7 +953,7 @@ function countAtaRequestIfNeeded(
 
   getOrCreateAtaTransaction(args.transactionHash, args.blockNumber, args.blockTimestamp);
   global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-  sender.totalAtaTransactions = sender.totalAtaTransactions.plus(BigInt.fromI32(1));
+  sender.totalLegacyAtaTransactions = sender.totalLegacyAtaTransactions.plus(BigInt.fromI32(1));
   sender.save();
 }
 
