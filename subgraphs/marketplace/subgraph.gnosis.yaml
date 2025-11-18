@@ -152,6 +152,7 @@ dataSources:
           handler: handleTerminateService
       file: ./src/registryL2.ts
 
+  ### Mech Marketplace
   # we need to support two versions of the ABIs, hence adding two different data sources, the old version (v1)
   # will support b/w the start and end blocks defined in "networks.json", and from the next block the new 
   # abi would be used as the source. 
@@ -288,7 +289,7 @@ dataSources:
       file: ./src/marketplace/karma.ts
 templates:
 
-#  # Legacy stuff
+### Legacy Mech/MM
 
   - kind: ethereum/contract
     name: AgentMech
@@ -312,8 +313,8 @@ templates:
         - event: Deliver(indexed address,uint256,bytes)
           handler: handleDeliver
       file: ./src/agent-mech.ts
-
-  # New mech marketplace stuff
+  
+  ### New Mech marketplace
   - kind: ethereum
     name: MechFixedPriceNative
     network: gnosis

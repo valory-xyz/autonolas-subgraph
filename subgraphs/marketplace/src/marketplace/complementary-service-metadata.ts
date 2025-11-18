@@ -1,4 +1,3 @@
-import { Bytes } from '@graphprotocol/graph-ts';
 import { ComplementaryMetadataUpdated as ComplementaryMetadataUpdatedEvent } from '../../generated/ComplementaryServiceMetadata/ComplementaryServiceMetadata';
 import { Mech } from '../../generated/schema';
 import { getOrCreateMetadata } from './utils';
