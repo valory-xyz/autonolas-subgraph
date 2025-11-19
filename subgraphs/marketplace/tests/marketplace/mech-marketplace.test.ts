@@ -102,9 +102,9 @@ function createMechMapping(
 function createSender(id: Address): void {
   let sender = new Sender(id)
   sender.id = id
-  sender.totalRequests = BigInt.fromI32(0)
-  sender.totalTransactions = BigInt.fromI32(0)
-  sender.totalAtaTransactions = BigInt.fromI32(0)
+  sender.totalLegacyRequests = BigInt.fromI32(0)
+  sender.totalLegacyTransactions = BigInt.fromI32(0)
+  sender.totalLegacyAtaTransactions = BigInt.fromI32(0)
   sender.totalMarketplaceRequests = BigInt.fromI32(0)
   sender.totalOffChainRequests = BigInt.fromI32(0)
   sender.save()
@@ -365,8 +365,6 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("MarketplaceRequest", event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString(), "priorityMech", priorityMech.toHexString())
     assert.fieldEquals("Global", "", "totalRequests", "2")
     assert.fieldEquals("Global", "", "totalMarketplaceRequests", "1")
-    assert.fieldEquals("Sender", requester.toHexString(), "totalRequests", "2")
-    assert.fieldEquals("Sender", requester.toHexString(), "totalAtaTransactions", "1")
     assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "2")
   })
 

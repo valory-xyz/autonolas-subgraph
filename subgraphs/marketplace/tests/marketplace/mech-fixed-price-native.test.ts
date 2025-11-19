@@ -78,7 +78,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "request", requestId.toHexString())
 
       // Check Sender entity
-      assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalRequests", "1")
       assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalMarketplaceRequests", "1")
 
       // Check Global counters

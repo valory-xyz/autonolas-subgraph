@@ -81,7 +81,6 @@ describe("Mech NVM Subscription Native Handler", () => {
     assert.fieldEquals("Request", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
 
-    assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalRequests", "1")
     assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalMarketplaceRequests", "1")
 
     assert.fieldEquals("Global", "", "totalRequests", "1")
