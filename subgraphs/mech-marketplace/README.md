@@ -258,7 +258,6 @@ query Deliveries {
 ### File Structure
 - `schema.graphql` - GraphQL schema definition
 - `src/` - TypeScript event handlers
-- `abis/` - Contract ABI files
 - `subgraph.*.yaml` - Network-specific configurations
 - `tests/` - Subgraph tests
 
