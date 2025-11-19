@@ -288,7 +288,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.entityCount("Deliver", 1)
     // Use the requestId from the event params to match what the handler uses
     let deliverRequestId = deliverEvent.params.requestId
-    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", requester.toHexString())
+    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", mech.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliverPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "10")
@@ -333,7 +333,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.entityCount("Deliver", 1)
     // Use the requestId from the event params to match what the handler uses
     let deliverRequestId = deliverEvent.params.requestId
-    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", requester.toHexString())
+    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", mech.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliveryPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "12")
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")

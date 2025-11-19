@@ -985,10 +985,14 @@ function upsertSignedDeliverEntity(
   deliver.transactionHash = transactionHash;
   deliver.request = null;
 
+  // Sender is the delivery mech (the one sending/delivering the response)
   if (sender !== null) {
     deliver.sender = sender as Bytes;
-  } else if (!deliver.sender && fallbackSender !== null) {
+  } else if (fallbackSender !== null) {
     deliver.sender = fallbackSender as Bytes;
+  } else {
+    // Default to mech address if no sender provided
+    deliver.sender = mech;
   }
 
   const serviceId = getServiceIdFromMech(mech);
@@ -1028,7 +1032,6 @@ function upsertDeliverForMarketplaceEntity(
 
   marketplaceDeliver.save();
   return baseHash;
-  return null;
 }
 
 export class SignedDeliverArgs {

@@ -199,7 +199,7 @@ export function handleMarketplaceDeliveryWithSignatures(
       new SignedDeliverArgs(
         event.params.requestIds[i],
         event.params.deliveryMech,
-        event.params.requester,
+        event.params.deliveryMech,
         null,
         event.block.number,
         event.block.timestamp,
@@ -288,8 +288,8 @@ export function handleDeliverWithSignaturesV1(
     new SignedDeliverArgs(
       event.params.requestId,
       event.params.mech,
+      event.params.mech,
       null,
-      event.transaction.from,
       event.block.number,
       event.block.timestamp,
       event.transaction.hash,
@@ -308,8 +308,8 @@ export function handleDeliverWithSignaturesV2(
     new SignedDeliverArgs(
       event.params.requestId,
       event.params.mech,
+      event.params.mech,
       null,
-      event.transaction.from,
       event.block.number,
       event.block.timestamp,
       event.transaction.hash,
