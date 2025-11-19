@@ -37,7 +37,7 @@ dataSources:
         - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV1
-          file: ./abis/MechMarketplaceV1.json
+          file: ../../abis/MechMarketplaceV1.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -79,7 +79,7 @@ dataSources:
         - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV2
-          file: ./abis/MechMarketplaceV2.json
+          file: ../../abis/MechMarketplaceV2.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -118,7 +118,7 @@ dataSources:
         - TerminateService
       abis:
         - name: ServiceRegistryL2
-          file: ./abis/ServiceRegistryL2.json
+          file: ../../abis/ServiceRegistryL2.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -148,7 +148,7 @@ dataSources:
         - Metadata
       abis:
         - name: ComplementaryServiceMetadata
-          file: ./abis/ComplementaryServiceMetadata.json
+          file: ../../abis/ComplementaryServiceMetadata.json
       eventHandlers:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
@@ -168,7 +168,7 @@ templates:
         - Request
       abis:
         - name: MechFixedPriceNative
-          file: ./abis/MechFixedPriceNative.json
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -189,7 +189,7 @@ templates:
         - Request
       abis:
         - name: MechFixedPriceToken
-          file: ./abis/MechFixedPriceToken.json
+          file: ../../abis/MechFixedPriceToken.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -210,7 +210,7 @@ templates:
         - Request
       abis:
         - name: MechNvmSubscriptionNative
-          file: ./abis/MechNvmSubscriptionNative.json
+          file: ../../abis/MechNvmSubscriptionNative.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -231,7 +231,7 @@ templates:
         - Request
       abis:
         - name: MechNvmSubscriptionTokenUSDC
-          file: ./abis/MechNvmSubscriptionTokenUSDC.json
+          file: ../../abis/MechNvmSubscriptionTokenUSDC.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
