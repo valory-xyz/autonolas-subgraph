@@ -27,7 +27,7 @@ dataSources:
         - name: ServiceRegistryL2
           file: ./abis/ServiceRegistryL2.json
         - name: GnosisSafe
-          file: ./abis/GnosisSafe.json
+          file: ../../abis/GnosisSafe.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -63,7 +63,7 @@ templates:
         - DailyActivity
       abis:
         - name: GnosisSafe
-          file: ./abis/GnosisSafe.json
+          file: ../../abis/GnosisSafe.json
       eventHandlers:
         - event: SafeReceived(indexed address,uint256)
           handler: handleSafeReceived
