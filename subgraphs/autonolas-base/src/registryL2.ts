@@ -8,12 +8,15 @@ import {
   DeployService as DeployServiceEvent,
   TerminateService as TerminateServiceEvent,
   OperatorUnbond as OperatorUnbondEvent,
+  CreateMultisigWithAgents as CreateMultisigWithAgentsEvent,
   ServiceRegistryL2 as ServiceRegistry
 } from "../generated/ServiceRegistryL2/ServiceRegistryL2"
 import {
   Unit,
-  Service
+  Service,
+  Multisig
 } from "../generated/schema"
+import { GnosisSafe } from "../generated/templates"
 
 class Metadata {
   packageHash: string
@@ -307,4 +310,27 @@ export function handleTerminateService(event: TerminateServiceEvent): void {
 
 export function handleOperatorUnbond(event: OperatorUnbondEvent): void {
   handleServiceUpdate(event.params.serviceId, event.address)
+}
+
+export function handleCreateMultisigWithAgents(event: CreateMultisigWithAgentsEvent): void {
+  let serviceId = event.params.serviceId
+  let multisigAddress = event.params.multisig
+
+  handleServiceUpdate(serviceId, event.address)
+
+  let serviceEntityId = Bytes.fromByteArray(Bytes.fromBigInt(serviceId))
+  let multisigEntity = new Multisig(multisigAddress)
+  multisigEntity.service = serviceEntityId
+  multisigEntity.save()
+
+  let serviceEntity = Service.load(serviceEntityId)
+  if (serviceEntity) {
+    let agentIds = serviceEntity.agentIds
+    if (agentIds) {
+      let targetAgentId = BigInt.fromI32(41)
+      if (agentIds.includes(targetAgentId)) {
+        GnosisSafe.create(multisigAddress)
+      }
+    }
+  }
 }
