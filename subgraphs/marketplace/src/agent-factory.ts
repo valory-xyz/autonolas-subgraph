@@ -2,9 +2,19 @@ import { BigInt, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
 } from '../generated/AgentFactory/AgentFactory';
-import { MechAgent } from '../generated/schema';
+import { MechAgent, CreateMech } from '../generated/schema';
 import { AgentMech } from '../generated/templates';
-import { getOrCreateCreateMechEntity, getServiceIdFromAgentId } from './utils';
+import { getServiceIdFromAgentId } from './utils';
+
+function getOrCreateCreateMechEntity(
+  event: CreateMechEvent
+): CreateMech {
+  let entity = CreateMech.load(event.params.mech);
+  if (entity === null) {
+    entity = new CreateMech(event.params.mech);
+  }
+  return entity;
+}
 
 export function handleCreateMech(event: CreateMechEvent): void {
   let entity = getOrCreateCreateMechEntity(event);

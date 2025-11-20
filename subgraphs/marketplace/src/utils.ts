@@ -9,8 +9,6 @@ import {
   Sender,
   Service,
 } from '../generated/schema';
-import { Transfer as TransferEvent } from '../generated/AgentRegistry/AgentRegistry';
-import { CreateMech as CreateMechEvent } from '../generated/AgentFactory/AgentFactory';
 
 export function getGlobal(): Global {
   let global = Global.load('');
@@ -56,26 +54,6 @@ export function updateServiceMultisig(
   }
 
   service.save();
-}
-
-export function getOrCreateAgentMultisigAssociation(
-  event: TransferEvent
-): AgentMultisigAssociation {
-  let entity = AgentMultisigAssociation.load(event.params.id.toString());
-  if (entity === null) {
-   entity = new AgentMultisigAssociation(event.params.id.toString());
-  }
-  return entity;
-}
-
-export function getOrCreateCreateMechEntity(
-  event: CreateMechEvent
-): CreateMech {
-  let entity = CreateMech.load(event.params.mech);
-  if (entity === null) {
-    entity = new CreateMech(event.params.mech);
-  }
-  return entity;
 }
 
 export function getServiceIdFromAgentId(agentId: BigInt): string | null {

@@ -26,7 +26,6 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateMech
-        - ImplementationUpdated
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
         - Deliver
@@ -37,12 +36,10 @@ dataSources:
         - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV1
-          file: ./abis/marketplace/MechMarketplaceV1.json
+          file: ../../abis/MechMarketplaceV1.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
-        - event: ImplementationUpdated(indexed address)
-          handler: handleImplementationUpdated
         - event: MarketplaceDelivery(indexed address,indexed address[],uint256,bytes32[],bool[])
           handler: handleMarketplaceDelivery
         - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
@@ -68,7 +65,6 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - CreateMech
-        - ImplementationUpdated
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
         - Deliver
@@ -79,12 +75,10 @@ dataSources:
         - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV2
-          file: ./abis/marketplace/MechMarketplaceV2.json
+          file: ../../abis/MechMarketplaceV2.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
-        - event: ImplementationUpdated(indexed address)
-          handler: handleImplementationUpdated
         - event: MarketplaceDelivery(indexed address,address[],uint256,bytes32[],bool[])
           handler: handleMarketplaceDelivery
         - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
@@ -118,7 +112,7 @@ dataSources:
         - TerminateService
       abis:
         - name: ServiceRegistryL2
-          file: ./abis/marketplace/ServiceRegistryL2.json
+          file: ../../abis/ServiceRegistryL2.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -148,7 +142,7 @@ dataSources:
         - Metadata
       abis:
         - name: ComplementaryServiceMetadata
-          file: ./abis/marketplace/ComplementaryServiceMetadata.json
+          file: ../../abis/ComplementaryServiceMetadata.json
       eventHandlers:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
@@ -168,7 +162,7 @@ templates:
         - Request
       abis:
         - name: MechFixedPriceNative
-          file: ./abis/marketplace/MechFixedPriceNative.json
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -189,7 +183,7 @@ templates:
         - Request
       abis:
         - name: MechFixedPriceToken
-          file: ./abis/marketplace/MechFixedPriceToken.json
+          file: ../../abis/MechFixedPriceToken.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -210,7 +204,7 @@ templates:
         - Request
       abis:
         - name: MechNvmSubscriptionNative
-          file: ./abis/marketplace/MechNvmSubscriptionNative.json
+          file: ../../abis/MechNvmSubscriptionNative.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -231,7 +225,7 @@ templates:
         - Request
       abis:
         - name: MechNvmSubscriptionTokenUSDC
-          file: ./abis/marketplace/MechNvmSubscriptionTokenUSDC.json
+          file: ../../abis/MechNvmSubscriptionTokenUSDC.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver

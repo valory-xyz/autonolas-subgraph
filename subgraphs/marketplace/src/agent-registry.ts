@@ -14,11 +14,18 @@ import {
   UpdateAgentHash,
 } from '../generated/schema';
 import {
-  getOrCreateAgentMultisigAssociation,
   getServiceIdFromMultisig,
 } from './utils';
 
-
+function getOrCreateAgentMultisigAssociation(
+  event: TransferEvent
+): AgentMultisigAssociation {
+  let entity = AgentMultisigAssociation.load(event.params.id.toString());
+  if (entity === null) {
+   entity = new AgentMultisigAssociation(event.params.id.toString());
+  }
+  return entity;
+}
 
 export function handleCreateAgent(event: CreateAgentEvent): void {
   let entity = new CreateAgent(
