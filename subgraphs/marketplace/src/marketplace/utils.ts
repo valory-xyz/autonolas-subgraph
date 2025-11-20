@@ -27,9 +27,11 @@ import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  BASE_MECH_MARKETPLACE_ADDRESS,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
+  GNOSIS_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 
 const UNHANDLED_TYPE = '[unhandled type]';
@@ -197,6 +199,37 @@ export function getChainId(network: string): i32 {
     cleanNetwork,
   ]);
   return 0; // Unknown network
+}
+
+function normalizedAddress(address: Address | null): string | null {
+  if (address === null) {
+    return null;
+  }
+  return address.toHexString().toLowerCase();
+}
+
+function getMarketplaceAddress(): string | null {
+  const network = dataSource.network();
+  if (network == 'base') {
+    return BASE_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'gnosis' || network == 'xdai') {
+    return GNOSIS_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  }
+  return null;
+}
+
+function isMarketplaceTransaction(transactionTo: Address | null): boolean {
+  let marketplaceAddress = getMarketplaceAddress();
+  if (marketplaceAddress === null) {
+    return false;
+  }
+
+  let toAddress = normalizedAddress(transactionTo);
+  if (toAddress === null) {
+    return false;
+  }
+
+  return toAddress == marketplaceAddress;
 }
 
 /* Create dynamic data source for the new Mech contract based on factory address */
@@ -660,6 +693,7 @@ export class OnChainDeliverArgs {
   sender: Bytes;
   blockNumber: BigInt;
   blockTimestamp: BigInt;
+  transactionTo: Address | null;
 
   constructor(
     txHash: Bytes,
@@ -671,7 +705,8 @@ export class OnChainDeliverArgs {
     mechServiceMultisig: Bytes,
     sender: Bytes,
     blockNumber: BigInt,
-    blockTimestamp: BigInt
+    blockTimestamp: BigInt,
+    transactionTo: Address | null
   ) {
     this.txHash = txHash;
     this.logIndex = logIndex;
@@ -683,6 +718,7 @@ export class OnChainDeliverArgs {
     this.sender = sender;
     this.blockNumber = blockNumber;
     this.blockTimestamp = blockTimestamp;
+    this.transactionTo = transactionTo;
   }
 }
 
@@ -694,6 +730,7 @@ export class OnChainRequestArgs {
   blockNumber: BigInt;
   blockTimestamp: BigInt;
   transactionHash: Bytes;
+  transactionTo: Address | null;
 
   constructor(
     requestId: Bytes,
@@ -702,7 +739,8 @@ export class OnChainRequestArgs {
     sender: Bytes,
     blockNumber: BigInt,
     blockTimestamp: BigInt,
-    transactionHash: Bytes
+    transactionHash: Bytes,
+    transactionTo: Address | null
   ) {
     this.requestId = requestId;
     this.mech = mech;
@@ -711,6 +749,7 @@ export class OnChainRequestArgs {
     this.blockNumber = blockNumber;
     this.blockTimestamp = blockTimestamp;
     this.transactionHash = transactionHash;
+    this.transactionTo = transactionTo;
   }
 }
 
@@ -718,13 +757,19 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
   const deliverId = args.txHash.concatI32(args.logIndex);
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
 
+  const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
+
   assignDeliverBasics(deliver, args);
-  attachRequestToDeliver(deliver, args);
+  attachRequestToDeliver(deliver, args, !isMarketplaceTx);
   const serviceId = ensureServiceForDeliver(deliver, args.mech);
-  incrementServiceDeliveries(serviceId);
+  if (!isMarketplaceTx) {
+    incrementServiceDeliveries(serviceId);
+  }
   deliver.save();
 
-  finalizeGlobalForDeliver(args);
+  if (!isMarketplaceTx) {
+    finalizeGlobalForDeliver(args);
+  }
   persistMarketplaceDeliver(args, deliver.id);
   refreshMechDeliveryRate(args.mech, args.deliveryRate);
 }
@@ -736,9 +781,12 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
 
   const serviceId = requireServiceId(args.mech, 'Request');
   populateRequestCoreFields(request, args, serviceId);
-  updateMechCountersOnRequest(args.mech);
+  const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
+  if (!isMarketplaceTx) {
+    updateMechCountersOnRequest(args.mech);
+  }
 
-  if (!isMarketplaceRequestEntity(args.requestId)) {
+  if (!isMarketplaceTx && !isMarketplaceRequestEntity(args.requestId)) {
     applyDirectRequestCounters(sender, serviceId, args, request);
   }
 
@@ -806,7 +854,11 @@ function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
   deliver.sender = args.sender;
 }
 
-function attachRequestToDeliver(deliver: Deliver, args: OnChainDeliverArgs): void {
+function attachRequestToDeliver(
+  deliver: Deliver,
+  args: OnChainDeliverArgs,
+  shouldUpdateCounters: boolean
+): void {
   let request = Request.load(args.requestId.toHexString());
   if (request === null) {
     log.warning('Deliver: Request {} not found for delivery transaction', [
@@ -824,7 +876,9 @@ function attachRequestToDeliver(deliver: Deliver, args: OnChainDeliverArgs): voi
   request.isDelivered = true;
   request.deliveredByMech = args.mech;
   request.save();
-  updateMechCountersOnDelivery(request, args.mech);
+  if (shouldUpdateCounters) {
+    updateMechCountersOnDelivery(request, args.mech);
+  }
 }
 
 function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {

@@ -26,7 +26,8 @@ export function handleDeliver(event: DeliverEvent): void {
       event.params.mechServiceMultisig,
       event.transaction.from,
       event.block.number,
-      event.block.timestamp
+      event.block.timestamp,
+      event.transaction.to
     )
   );
 }
@@ -41,7 +42,8 @@ export function handleRequest(event: RequestEvent): void {
       event.transaction.from,
       event.block.number,
       event.block.timestamp,
-      event.transaction.hash
+      event.transaction.hash,
+      event.transaction.to
     )
   );
 }
