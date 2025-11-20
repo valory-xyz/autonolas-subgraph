@@ -232,3 +232,6 @@ templates:
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
+features:
+  - fullTextSearch
+  - ipfsOnEthereumContracts
