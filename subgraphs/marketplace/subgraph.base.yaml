@@ -37,6 +37,8 @@ dataSources:
       abis:
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
+        - name: MechFixedPriceNative
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -76,6 +78,8 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        - name: MechFixedPriceNative
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
