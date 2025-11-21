@@ -153,7 +153,7 @@ export function handleMarketplaceDelivery(
   }
 
   let global = getGlobal();
-  global.totalDeliveries = global.totalDeliveries.plus(BigInt.fromI32(1));
+  global.totalDeliveries = global.totalDeliveries.plus(successfullDeliveries);
   global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
     BigInt.fromI32(1)
   );
@@ -223,10 +223,10 @@ export function handleMarketplaceDeliveryWithSignatures(
   let global = getGlobal();
 
   // For this event, total number of deliveries is the same as total number of requests
-  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
+  global.totalRequests = global.totalRequests.plus(event.params.numDeliveries);
 
   global.totalDeliveries = global.totalDeliveries.plus(
-    BigInt.fromI32(1)
+    event.params.numDeliveries
   );
   global.totalMarketplaceDeliveriesWithSignatures =
     global.totalMarketplaceDeliveriesWithSignatures.plus(BigInt.fromI32(1));
@@ -406,7 +406,7 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   global.totalMarketplaceRequests = global.totalMarketplaceRequests.plus(
     BigInt.fromI32(1)
   );
-  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
+  global.totalRequests = global.totalRequests.plus(event.params.numRequests);
   global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   // Simple transaction-level ATA counting: +1 for the entire transaction
