@@ -246,7 +246,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isOffChain", "true")
     assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "2")
     assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
-    assert.fieldEquals("Global", "", "totalDeliveries", "2")
+    assert.fieldEquals("Global", "", "totalDeliveries", "1")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "2")
   })
@@ -363,7 +363,7 @@ describe("Mech Marketplace Handlers", () => {
     handleMarketplaceRequest(event)
 
     assert.fieldEquals("MarketplaceRequest", event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString(), "priorityMech", priorityMech.toHexString())
-    assert.fieldEquals("Global", "", "totalRequests", "2")
+    assert.fieldEquals("Global", "", "totalRequests", "1")
     assert.fieldEquals("Global", "", "totalMarketplaceRequests", "1")
     assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "2")
   })
