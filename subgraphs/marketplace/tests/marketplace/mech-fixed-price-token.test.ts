@@ -80,8 +80,8 @@ describe("Mech Fixed Price Token Handler", () => {
 
     assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalMarketplaceRequests", "1")
 
-    assert.fieldEquals("Global", "", "totalRequests", "1")
-    assert.fieldEquals("Global", "", "totalTransactions", "1")
+    assert.fieldEquals("Global", "", "totalRequests", "0")
+    assert.fieldEquals("Global", "", "totalTransactions", "0")
   })
 
   test("Delivery creates Deliver and DeliverForMarketplace entities", () => {
@@ -120,8 +120,8 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", deliveryRate.toString())
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", deliverId.toHexString())
 
-    assert.fieldEquals("Global", "", "totalDeliveries", "1")
-    assert.fieldEquals("Global", "", "totalTransactions", "2")
+    assert.fieldEquals("Global", "", "totalDeliveries", "0")
+    assert.fieldEquals("Global", "", "totalTransactions", "0")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
   })
 
@@ -147,9 +147,9 @@ describe("Mech Fixed Price Token Handler", () => {
     let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
     assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
     
-    assert.fieldEquals("Global", "", "totalRequests", "1")
-    assert.fieldEquals("Global", "", "totalDeliveries", "1")
-    assert.fieldEquals("Global", "", "totalTransactions", "2")
+    assert.fieldEquals("Global", "", "totalRequests", "0")
+    assert.fieldEquals("Global", "", "totalDeliveries", "0")
+    assert.fieldEquals("Global", "", "totalTransactions", "0")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
   })
 
@@ -169,8 +169,8 @@ describe("Mech Fixed Price Token Handler", () => {
     handleRequest(requestEvent)
 
     assert.entityCount("Request", 1)
-    assert.fieldEquals("Global", "", "totalRequests", "1")
-    assert.fieldEquals("Global", "", "totalTransactions", "1")
+    assert.fieldEquals("Global", "", "totalRequests", "0")
+    assert.fieldEquals("Global", "", "totalTransactions", "0")
 
     let deliverEvent = createDeliverEvent(TEST_MECH, requestId, TEST_MECH_SERVICE_MULTISIG, deliveryRate, data)
     handleDeliver(deliverEvent)
@@ -184,9 +184,9 @@ describe("Mech Fixed Price Token Handler", () => {
     assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
     assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     
-    assert.fieldEquals("Global", "", "totalRequests", "1")
-    assert.fieldEquals("Global", "", "totalDeliveries", "1")
-    assert.fieldEquals("Global", "", "totalTransactions", "2")
+    assert.fieldEquals("Global", "", "totalRequests", "0")
+    assert.fieldEquals("Global", "", "totalDeliveries", "0")
+    assert.fieldEquals("Global", "", "totalTransactions", "0")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
   })
 

@@ -898,8 +898,6 @@ function incrementServiceDeliveries(serviceId: string): void {
 
 function finalizeGlobalForDeliver(args: OnChainDeliverArgs): void {
   let global = getGlobal();
-  global.totalDeliveries = global.totalDeliveries.plus(BigInt.fromI32(1));
-  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
 
   if (!ataTransactionExists(args.txHash)) {
     getOrCreateAtaTransaction(args.txHash, args.blockNumber, args.blockTimestamp);
@@ -959,7 +957,7 @@ function applyDirectRequestCounters(
   request: Request
 ): void {
   incrementServiceRequests(serviceId);
-  let global = incrementGlobalRequests(args);
+  let global = getGlobal();
   incrementSenderRequests(sender);
   countAtaRequestIfNeeded(args, sender, global);
   createStandaloneMarketplaceRequest(args, request);
@@ -973,13 +971,6 @@ function incrementServiceRequests(serviceId: string): void {
   }
   service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
   service.save();
-}
-
-function incrementGlobalRequests(args: OnChainRequestArgs): Global {
-  let global = getGlobal();
-  global.totalRequests = global.totalRequests.plus(BigInt.fromI32(1));
-  global.totalTransactions = global.totalTransactions.plus(BigInt.fromI32(1));
-  return global;
 }
 
 function incrementSenderRequests(sender: Sender): void {
