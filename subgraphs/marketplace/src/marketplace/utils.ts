@@ -760,9 +760,9 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
   const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
 
   assignDeliverBasics(deliver, args);
-  attachRequestToDeliver(deliver, args, !isMarketplaceTx);
+  const isNewDelivery = attachRequestToDeliver(deliver, args, !isMarketplaceTx);
   const serviceId = ensureServiceForDeliver(deliver, args.mech);
-  if (!isMarketplaceTx) {
+  if (!isMarketplaceTx && isNewDelivery) {
     incrementServiceDeliveries(serviceId);
   }
   deliver.save();
@@ -858,19 +858,19 @@ function attachRequestToDeliver(
   deliver: Deliver,
   args: OnChainDeliverArgs,
   shouldUpdateCounters: boolean
-): void {
+): boolean {
   let request = Request.load(args.requestId.toHexString());
   if (request === null) {
     log.warning('Deliver: Request {} not found for delivery transaction', [
       args.requestId.toHexString(),
     ]);
-    return;
+    return false;
   }
 
   deliver.request = request.id;
 
   if (request.isDelivered) {
-    return;
+    return false;
   }
 
   request.isDelivered = true;
@@ -879,6 +879,7 @@ function attachRequestToDeliver(
   if (shouldUpdateCounters) {
     updateMechCountersOnDelivery(request, args.mech);
   }
+  return true;
 }
 
 function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {
