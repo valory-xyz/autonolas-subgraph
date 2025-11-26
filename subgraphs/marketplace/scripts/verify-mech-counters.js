@@ -7,11 +7,11 @@
 
 const { ethers } = require('ethers');
 
-// const SUBGRAPH_URL = 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-gnosis-v0_6_0';
-// const RPC_URL = 'https://rpc.gnosischain.com';
+const SUBGRAPH_URL = 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-gnosis-v0_7_0';
+const RPC_URL = 'https://rpc.gnosischain.com';
 
-const SUBGRAPH_URL = 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-base-v0_0_4';
-const RPC_URL = 'https://1rpc.io/base';
+// const SUBGRAPH_URL = 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-base-v0_0_4';
+// const RPC_URL = 'https://1rpc.io/base';
 
 const MECH_ABI = [
   'function numTotalRequests() view returns (uint256)',
@@ -75,10 +75,10 @@ async function main() {
         diff: { requests: reqDiff, deliveries: delDiff },
       });
 
-      const status = (reqDiff === 0 && delDiff === 0) ? '✅' : '❌';
+      const status = (reqDiff === 0 && delDiff === 0) ? 'MATCH' : 'DIFF';
       console.log(`${status} ${mech.address} | req: ${mech.receivedRequests} vs ${onChain.numTotalRequests} (${reqDiff >= 0 ? '+' : ''}${reqDiff}) | del: ${mech.totalDeliveriesTransactions} vs ${onChain.numTotalDeliveries} (${delDiff >= 0 ? '+' : ''}${delDiff})`);
     } catch (err) {
-      console.log(`⚠️  ${mech.address} | Error: ${err.message}`);
+      console.log(`ERR ${mech.address} | Error: ${err.message}`);
     }
   }
 
