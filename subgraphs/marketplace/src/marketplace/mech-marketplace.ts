@@ -152,6 +152,16 @@ export function handleMarketplaceDelivery(
     service.save();
   }
 
+  // Update delivery mech's totalDeliveriesTransactions by actual number of successful deliveries
+  // This matches on-chain numTotalDeliveries behavior
+  if (successfullDeliveries.gt(BigInt.fromI32(0))) {
+    let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
+    if (deliveryMech != null) {
+      deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(successfullDeliveries);
+      deliveryMech.save();
+    }
+  }
+
   let global = getGlobal();
   global.totalDeliveries = global.totalDeliveries.plus(successfullDeliveries);
   global.totalMarketplaceDeliveries = global.totalMarketplaceDeliveries.plus(
@@ -164,15 +174,7 @@ export function handleMarketplaceDelivery(
   let txHash = event.transaction.hash;
   if (!ataTransactionExists(txHash)) {
     getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
-    
     global.totalAtaTransactions = global.totalAtaTransactions.plus(BigInt.fromI32(1));
-    
-    // Also update mech-level ATA count for the deliveryMech (if it exists)
-    let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDelivery');
-    if (deliveryMech != null) {
-      deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-      deliveryMech.save();
-    }
   }
   
   global.save();
@@ -212,6 +214,16 @@ export function handleMarketplaceDeliveryWithSignatures(
     );
   }
 
+  // Update delivery mech counters for off-chain requests/deliveries
+  // On-chain updateNumRequests() increments both numTotalRequests and numTotalDeliveries
+  let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
+  if (deliveryMech != null) {
+    deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(event.params.numDeliveries);
+    deliveryMech.receivedRequests = deliveryMech.receivedRequests.plus(event.params.numDeliveries);
+    deliveryMech.selfDeliveredFromReceived = deliveryMech.selfDeliveredFromReceived.plus(event.params.numDeliveries);
+    deliveryMech.save();
+  }
+
   let sender = getOrCreateSender(event.params.requester);
   // As these requests are made off-chain we assume that the number of requests 
   // is the same as number of deliveries, and add the same to `totalRequests`
@@ -243,13 +255,6 @@ export function handleMarketplaceDeliveryWithSignatures(
     getOrCreateAtaTransaction(txHash, event.block.number, event.block.timestamp);
 
     let ataIncrement = BigInt.fromI32(1); // deliveryMech is always a service multisig
-
-    // Update deliveryMech-level ATA count (mech is the service provider) - only if mech exists
-    let deliveryMech = getMech(event.params.deliveryMech, event.transaction.hash, 'handleMarketplaceDeliveryWithSignatures');
-    if (deliveryMech != null) {
-      deliveryMech.totalDeliveriesTransactions = deliveryMech.totalDeliveriesTransactions.plus(BigInt.fromI32(1));
-      deliveryMech.save();
-    }
 
     // Check if requester (sender of the request) is a service multisig (additional +1)
     if (isServiceMultisig(event.params.requester)) {
