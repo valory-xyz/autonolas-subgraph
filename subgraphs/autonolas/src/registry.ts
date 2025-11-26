@@ -24,7 +24,9 @@ import {
 } from "../generated/ServiceRegistry/ServiceRegistry"
 import {
   Unit,
-  Service
+  Service,
+  Global,
+  Builder
 } from "../generated/schema"
 
 class Metadata {
@@ -50,6 +52,48 @@ const ComponentTypePrefix = Bytes.fromHexString("cm")
 const AgentTypePrefix = Bytes.fromHexString("ag")
 
 const ServiceTypePrefix = Bytes.fromHexString("sr")
+
+const GlobalId = ""
+
+function getGlobal(): Global {
+  let global = Global.load(GlobalId)
+  if (global) {
+    return global
+  }
+
+  global = new Global(GlobalId)
+  global.totalBuilders = BigInt.fromI32(0)
+  global.totalAgents = BigInt.fromI32(0)
+  global.totalComponents = BigInt.fromI32(0)
+  global.totalServices = BigInt.fromI32(0)
+  global.save()
+  return global
+}
+
+function trackMint(builderAddress: string, mintType: string): void {
+  let builder = Builder.load(builderAddress)
+  let global = getGlobal()
+
+  if (mintType == "agent") {
+    global.totalAgents = global.totalAgents.plus(BigInt.fromI32(1))
+    if (builder === null) {
+      builder = new Builder(builderAddress)
+      builder.save()
+      global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    }
+  } else if (mintType == "component") {
+    global.totalComponents = global.totalComponents.plus(BigInt.fromI32(1))
+    if (builder === null) {
+      builder = new Builder(builderAddress)
+      builder.save()
+      global.totalBuilders = global.totalBuilders.plus(BigInt.fromI32(1))
+    }
+  } else if (mintType == "service") {
+    global.totalServices = global.totalServices.plus(BigInt.fromI32(1))
+  }
+
+  global.save()
+}
 
 function tryGetPackageType(packageHash: string, packageName: string): string {
   let baseURI = packageHash + "/" + packageName + "/";
@@ -288,6 +332,10 @@ export function handleUpdateService(event: UpdateServiceEvent): void {
 }
 
 export function handleComponentTransfer(event: ComponentTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    trackMint(event.params.to.toHexString(), "component")
+  }
+
   let unit = Unit.load(ComponentTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
@@ -300,6 +348,10 @@ export function handleComponentTransfer(event: ComponentTransferEvent): void {
 }
 
 export function handleAgentTransfer(event: AgentTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    trackMint(event.params.to.toHexString(), "agent")
+  }
+
   let unit = Unit.load(AgentTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
@@ -312,6 +364,10 @@ export function handleAgentTransfer(event: AgentTransferEvent): void {
 }
 
 export function handleServiceTransfer(event: ServiceTransferEvent): void {
+  if (event.params.from == Address.zero()) {
+    trackMint(event.params.to.toHexString(), "service")
+  }
+
   let unit = Unit.load(ServiceTypePrefix.concat(Bytes.fromByteArray(Bytes.fromBigInt(event.params.id))))
   if (unit) {
     log.info(
