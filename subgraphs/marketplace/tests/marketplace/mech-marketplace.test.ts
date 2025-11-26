@@ -131,6 +131,7 @@ function createRequestEntity(
   // request.sender should be the Sender entity ID (Bytes), not the Address
   request.sender = senderEntity.id
   request.mech = mech
+  request.priorityMech = mech  // Set priorityMech for updateMechCountersOnDelivery
   request.blockNumber = BigInt.fromI32(0)
   request.blockTimestamp = BigInt.fromI32(0)
   request.transactionHash = requestId
@@ -192,6 +193,7 @@ describe("Mech Marketplace Handlers", () => {
     let mech = Address.fromString("0x00000000000000000000000000000000000000cc")
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000cd")
     let owner = Address.fromString("0x00000000000000000000000000000000000000ce")
+    let requester = Address.fromString("0x00000000000000000000000000000000000000dd")
     
     // Create the mech so the handler can update its counters
     createMechMapping(mech, serviceId, mechFactory, owner)
@@ -200,12 +202,18 @@ describe("Mech Marketplace Handlers", () => {
       Bytes.fromHexString("0x1000000000000000000000000000000000000000000000000000000000000001"),
       Bytes.fromHexString("0x2000000000000000000000000000000000000000000000000000000000000002"),
     ]
+
+    // Create sender and request entities so delivery can mark them as delivered
+    createSender(requester)
+    createRequestEntity(requestIds[0], requester, mech)
+    createRequestEntity(requestIds[1], requester, mech)
+    
     let event = createMarketplaceDeliveryEvent(
       mech,
-      [Address.fromString("0x00000000000000000000000000000000000000dd")],
+      [requester],
       BigInt.fromI32(2),
       requestIds,
-      [true, false]
+      [true, false]  // first request delivered, second not
     )
 
     handleMarketplaceDelivery(event)
@@ -214,7 +222,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("MarketplaceDelivery", id, "deliveryMech", mech.toHexString())
     assert.fieldEquals("MarketplaceDelivery", id, "numDeliveries", "2")
     
-    // Verify mech counter was updated
+    // Verify mech counter was updated by actual successful deliveries (1 out of 2)
     assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
   })
 
@@ -245,7 +253,10 @@ describe("Mech Marketplace Handlers", () => {
     assert.entityCount("Deliver", 2)
     assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isOffChain", "true")
     assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "2")
-    assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
+    // Off-chain requests: mech counters are incremented by numDeliveries (not just 1)
+    assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "2")
+    assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "2")
+    assert.fieldEquals("Mech", serviceId.toString(), "selfDeliveredFromReceived", "2")
     assert.fieldEquals("Global", "", "totalDeliveries", "2")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "2")

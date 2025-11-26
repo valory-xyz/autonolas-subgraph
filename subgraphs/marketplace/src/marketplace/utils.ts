@@ -781,16 +781,8 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
 
   const serviceId = requireServiceId(args.mech, 'Request');
   populateRequestCoreFields(request, args, serviceId);
-  
-  // Check if this request was already processed by handleMarketplaceRequest
-  // Using RequestToMarketplace entity instead of transaction.to check
-  // because transaction.to can be a proxy/multicall contract
-  const alreadyProcessedByMarketplace = isMarketplaceRequestEntity(args.requestId);
-  if (!alreadyProcessedByMarketplace) {
-    updateMechCountersOnRequest(args.mech);
-    applyDirectRequestCounters(sender, serviceId, args, request);
-  }
 
+  sender.save();
   request.save();
   let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
   if (requestBaseHash === null) {

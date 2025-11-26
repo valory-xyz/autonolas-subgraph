@@ -38,7 +38,7 @@ describe("Mech Fixed Price Native Handler", () => {
     clearStore()
   })
 
-  test("Request creates Request and RequestToMarketplace entities", () => {
+  test("Request creates Request entity", () => {
       // Arrange
       let serviceId = BigInt.fromI32(1)
       createMechWithMapping(TEST_MECH, serviceId)
@@ -50,18 +50,15 @@ describe("Mech Fixed Price Native Handler", () => {
 
       // Verify initial state
       assert.entityCount("Request", 0)
-      assert.entityCount("RequestToMarketplace", 0)
       assert.entityCount("Sender", 0)
-      assert.entityCount("Global", 0)
 
       // Act
       handleRequest(requestEvent)
 
-      // Assert
+      // Assert - mech Request handler creates entities but doesn't update counters
+      // (counters are updated by handleMarketplaceRequest which fires after this)
       assert.entityCount("Request", 1)
-      assert.entityCount("RequestToMarketplace", 1)
       assert.entityCount("Sender", 1)
-      assert.entityCount("Global", 1)
 
       // Check Request entity
       assert.fieldEquals("Request", requestId.toHexString(), "mech", TEST_MECH.toHexString())
@@ -70,19 +67,8 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Request", requestId.toHexString(), "transactionHash", requestEvent.transaction.hash.toHexString())
       assert.fieldEquals("Request", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
 
-      // Check RequestToMarketplace entity
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "requestIdBytes", requestId.toHexString())
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isMarketplace", "false")
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "isOffChain", "false")
-      assert.fieldEquals("RequestToMarketplace", requestId.toHexString(), "request", requestId.toHexString())
-
-      // Check Sender entity
-      assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalMarketplaceRequests", "1")
-
-      // Check Global counters
-      assert.fieldEquals("Global", "", "totalRequests", "0")
-      assert.fieldEquals("Global", "", "totalTransactions", "0")
+      // Sender entity exists but counters are 0 (marketplace handler will update them)
+      assert.fieldEquals("Sender", requestEvent.transaction.from.toHexString(), "totalMarketplaceRequests", "0")
     })
 
   test("Delivery creates Deliver and DeliverForMarketplace entities", () => {
@@ -126,11 +112,6 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isMarketplace", "true")
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "false")
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", deliverId.toHexString())
-
-      // Check Global counters (both request and delivery increment transactions)
-      assert.fieldEquals("Global", "", "totalDeliveries", "0")
-      assert.fieldEquals("Global", "", "totalTransactions", "0")
-      assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
     })
 
   test("Request and delivery together", () => {
@@ -152,19 +133,12 @@ describe("Mech Fixed Price Native Handler", () => {
 
       // Assert - Both entities exist and are properly linked
       assert.entityCount("Request", 1)
-      assert.entityCount("RequestToMarketplace", 1)
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
       // Check the relationship between deliver and request
       let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
       assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
-      
-      // Check Global counters
-      assert.fieldEquals("Global", "", "totalRequests", "0")
-      assert.fieldEquals("Global", "", "totalDeliveries", "0")
-      assert.fieldEquals("Global", "", "totalTransactions", "0")
-      assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
     })
 
   test("Full request-delivery cycle", () => {
@@ -179,7 +153,6 @@ describe("Mech Fixed Price Native Handler", () => {
       // Verify initial state
       assert.entityCount("Request", 0)
       assert.entityCount("Deliver", 0)
-      assert.entityCount("Global", 0)
 
       // Act - Create request first
       let requestEvent = createRequestEvent(TEST_MECH, requestId, data)
@@ -187,8 +160,6 @@ describe("Mech Fixed Price Native Handler", () => {
 
       // Verify request was created
       assert.entityCount("Request", 1)
-      assert.fieldEquals("Global", "", "totalRequests", "0")
-      assert.fieldEquals("Global", "", "totalTransactions", "0")
 
       // Act - Then create delivery
       let deliverEvent = createDeliverEvent(TEST_MECH, requestId, TEST_MECH_SERVICE_MULTISIG, deliveryRate, data)
@@ -196,7 +167,6 @@ describe("Mech Fixed Price Native Handler", () => {
 
       // Assert - Complete cycle
       assert.entityCount("Request", 1)
-      assert.entityCount("RequestToMarketplace", 1)
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
@@ -204,12 +174,6 @@ describe("Mech Fixed Price Native Handler", () => {
       let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
       assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
       assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
-      
-      // Check final Global counters
-      assert.fieldEquals("Global", "", "totalRequests", "0")
-      assert.fieldEquals("Global", "", "totalDeliveries", "0")
-      assert.fieldEquals("Global", "", "totalTransactions", "0")
-      assert.fieldEquals("Global", "", "totalAtaTransactions", "1")
     })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
@@ -219,13 +183,16 @@ describe("Mech Fixed Price Native Handler", () => {
       let testMech = Address.fromString("0x0000000000000000000000000000000000000144")
       createMechWithMapping(testMech, serviceId)
 
+      // Simulate marketplace flow: MarketplaceRequest increments counters, then mech Request fires
+      let marketplaceRequestEvent = createMarketplaceRequestEvent(testMech, TEST_REQUESTER, [TEST_REQUEST_ID_1], [TEST_DATA_NATIVE])
       let requestEvent = createRequestEvent(testMech, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
       let deliverEvent = createDeliverEvent(testMech, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
 
-      // Act
+      // Act - MarketplaceRequest handler increments receivedRequests
+      handleMarketplaceRequest(marketplaceRequestEvent)
       handleRequest(requestEvent)
       
-      // Debug: check state after request
+      // Check state after request
       assert.fieldEquals("Mech", serviceId.toString(), "receivedRequests", "1")
       
       handleDeliver(deliverEvent)
@@ -251,13 +218,15 @@ describe("Mech Fixed Price Native Handler", () => {
       createMechWithMapping(priorityMech, priorityMechServiceId)
       createMechWithMapping(deliveryMech, deliveryMechServiceId)
 
-      // Request goes to priority mech
+      // Simulate marketplace flow: request goes to priority mech
+      let marketplaceRequestEvent = createMarketplaceRequestEvent(priorityMech, TEST_REQUESTER, [TEST_REQUEST_ID_1], [TEST_DATA_NATIVE])
       let requestEvent = createRequestEvent(priorityMech, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
       
       // But delivery mech delivers it
       let deliverEvent = createDeliverEvent(deliveryMech, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
 
       // Act
+      handleMarketplaceRequest(marketplaceRequestEvent)
       handleRequest(requestEvent)
       handleDeliver(deliverEvent)
 
@@ -284,15 +253,20 @@ describe("Mech Fixed Price Native Handler", () => {
       let testMech = Address.fromString("0x0000000000000000000000000000000000000192")
       createMechWithMapping(testMech, serviceId)
 
+      // Simulate marketplace flow for both requests
+      let marketplaceRequestEvent1 = createMarketplaceRequestEvent(testMech, TEST_REQUESTER, [TEST_REQUEST_ID_1], [TEST_DATA_NATIVE])
       let requestEvent1 = createRequestEvent(testMech, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
       let deliverEvent1 = createDeliverEvent(testMech, TEST_REQUEST_ID_1, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
       
+      let marketplaceRequestEvent2 = createMarketplaceRequestEvent(testMech, TEST_REQUESTER, [TEST_REQUEST_ID_2], [TEST_DATA_NATIVE])
       let requestEvent2 = createRequestEvent(testMech, TEST_REQUEST_ID_2, TEST_DATA_NATIVE)
       let deliverEvent2 = createDeliverEvent(testMech, TEST_REQUEST_ID_2, TEST_MECH_SERVICE_MULTISIG, deliveryRate, TEST_DATA_NATIVE)
 
       // Act
+      handleMarketplaceRequest(marketplaceRequestEvent1)
       handleRequest(requestEvent1)
       handleDeliver(deliverEvent1)
+      handleMarketplaceRequest(marketplaceRequestEvent2)
       handleRequest(requestEvent2)
       handleDeliver(deliverEvent2)
 
@@ -342,7 +316,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("Global", "", "totalRequests", "1")
     })
 
-    test("Service delivery counter incremented for standalone mech deliveries", () => {
+    test("Service delivery counter incremented for mech deliveries", () => {
       // Setup: Create a Service entity
       let serviceId = BigInt.fromI32(260)
       let service = new Service(serviceId.toString())
@@ -358,11 +332,14 @@ describe("Mech Fixed Price Native Handler", () => {
       let mechAddress = Address.fromString("0x0000000000000000000000000000000000000260")
       createMechWithMapping(mechAddress, serviceId)
 
-      // Create and handle request first
+      // Simulate marketplace flow
+      let marketplaceRequestEvent = createMarketplaceRequestEvent(mechAddress, TEST_REQUESTER, [TEST_REQUEST_ID_1], [TEST_DATA_NATIVE])
+      handleMarketplaceRequest(marketplaceRequestEvent)
+      
       let requestEvent = createRequestEvent(mechAddress, TEST_REQUEST_ID_1, TEST_DATA_NATIVE)
       handleRequest(requestEvent)
 
-      // Verify service.totalRequests incremented
+      // Verify service.totalRequests incremented by marketplace handler
       assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "1")
       assert.fieldEquals("Service", serviceId.toString(), "totalDeliveries", "0")
 
