@@ -318,19 +318,32 @@ export function handleCreateMultisigWithAgents(event: CreateMultisigWithAgentsEv
 
   handleServiceUpdate(serviceId, event.address)
 
+  // Check if multisig already exists to avoid duplicate key error
+  let existingMultisig = Multisig.load(multisigAddress)
+  if (existingMultisig) {
+    return
+  }
+
   let serviceEntityId = Bytes.fromByteArray(Bytes.fromBigInt(serviceId))
+  let serviceEntity = Service.load(serviceEntityId)
+  if (!serviceEntity) {
+    return
+  }
+
+  let agentIds = serviceEntity.agentIds
+  if (!agentIds) {
+    return
+  }
+
+  let targetAgentId = BigInt.fromI32(41)
+  if (!agentIds.includes(targetAgentId)) {
+    return
+  }
+
+  // Create multisig only for services with agent 41
   let multisigEntity = new Multisig(multisigAddress)
   multisigEntity.service = serviceEntityId
   multisigEntity.save()
 
-  let serviceEntity = Service.load(serviceEntityId)
-  if (serviceEntity) {
-    let agentIds = serviceEntity.agentIds
-    if (agentIds) {
-      let targetAgentId = BigInt.fromI32(41)
-      if (agentIds.includes(targetAgentId)) {
-        GnosisSafe.create(multisigAddress)
-      }
-    }
-  }
+  GnosisSafe.create(multisigAddress)
 }
