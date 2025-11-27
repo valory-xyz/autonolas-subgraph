@@ -4,6 +4,11 @@ import { BigInt } from "@graphprotocol/graph-ts"
 
 const TARGET_AGENT_ID = BigInt.fromI32(41)
 const DEPLOYED_STATE = BigInt.fromI32(4)
+const ONE_DAY = BigInt.fromI32(86400)
+
+function getDayTimestamp(timestamp: BigInt): BigInt {
+  return timestamp.div(ONE_DAY).times(ONE_DAY)
+}
 
 export function handleSafeReceived(event: SafeReceived): void {
   let multisigAddress = event.address
@@ -26,10 +31,12 @@ export function handleSafeReceived(event: SafeReceived): void {
     return
   }
 
-  let dayId = (event.block.timestamp.toI32() / 86400).toString()
+  let dayTimestamp = getDayTimestamp(event.block.timestamp)
+  let dayId = "day-".concat(dayTimestamp.toString())
   let dailyActivity = DailyActivity.load(dayId)
   if (dailyActivity == null) {
     dailyActivity = new DailyActivity(dayId)
+    dailyActivity.dayTimestamp = dayTimestamp
     dailyActivity.count = 0
     dailyActivity.services = []
   }

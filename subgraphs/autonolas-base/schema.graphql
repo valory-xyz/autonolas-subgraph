@@ -47,7 +47,8 @@ type Multisig @entity(immutable: true) {
 }
 
 type DailyActivity @entity(immutable: false) {
-  id: String! # Day ID (timestamp / 86400)
+  id: String! # Day ID (day-{dayTimestamp})
+  dayTimestamp: BigInt! # Unix timestamp of day start
   count: Int!
   services: [String!]! # List of Service IDs
 }
