@@ -61,6 +61,8 @@ templates:
       file: ./src/safe.ts
       entities:
         - DailyActivity
+        - Multisig
+        - Service
       abis:
         - name: GnosisSafe
           file: ../../abis/GnosisSafe.json
