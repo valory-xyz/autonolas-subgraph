@@ -279,7 +279,9 @@ export function handleRequest(event: RequestEvent): void {
 }
 
 export function handleDeliver(event: DeliverEvent): void {
-  const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  // Use requestId as the Deliver entity ID for consistency across all handlers
+  // Convert BigInt requestId to Bytes for the entity ID
+  const deliveryId = changetype<Bytes>(Bytes.fromBigInt(event.params.requestId));
 
   let entity = new Deliver(deliveryId);
   let mechDelivery = new DeliverForMech(deliveryId);

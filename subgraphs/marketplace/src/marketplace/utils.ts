@@ -754,7 +754,8 @@ export class OnChainRequestArgs {
 }
 
 export function processOnChainDeliver(args: OnChainDeliverArgs): void {
-  const deliverId = args.txHash.concatI32(args.logIndex);
+  // Use requestId as the Deliver entity ID for consistency across all handlers
+  const deliverId = args.requestId;
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
 
   const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);

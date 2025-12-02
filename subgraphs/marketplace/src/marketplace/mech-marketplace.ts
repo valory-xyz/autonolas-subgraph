@@ -43,6 +43,8 @@ import {
   getMaxDeliveryRate,
   persistSignedDeliver,
   SignedDeliverArgs,
+  getOrCreateMarketplaceIndividualDeliver,
+  getOrCreateDeliverForMarketplace,
 } from './utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
@@ -123,7 +125,8 @@ export function handleMarketplaceDelivery(
       continue;
     }
 
-    let request = Request.load(event.params.requestIds[i].toHexString());
+    let requestId = event.params.requestIds[i];
+    let request = Request.load(requestId.toHexString());
     if (request === null || request.isDelivered) {
       continue;
     }
@@ -139,6 +142,27 @@ export function handleMarketplaceDelivery(
 
     // Update service delivery counter for the delivery mech's service
     const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
+
+    // Create Deliver entity (symmetric with Request entity creation in handleMarketplaceRequest)
+    let deliver = getOrCreateMarketplaceIndividualDeliver(requestId);
+    deliver.sender = event.params.deliveryMech;
+    deliver.mech = event.params.deliveryMech;
+    deliver.request = request.id;
+    deliver.blockNumber = event.block.number;
+    deliver.blockTimestamp = event.block.timestamp;
+    deliver.transactionHash = event.transaction.hash;
+    if (deliveryServiceId !== null) {
+      deliver.service = deliveryServiceId;
+    }
+    deliver.save();
+
+    // Create DeliverForMarketplace entity (symmetric with RequestToMarketplace)
+    let marketplaceDeliver = getOrCreateDeliverForMarketplace(requestId);
+    marketplaceDeliver.isMarketplace = true;
+    marketplaceDeliver.isOffChain = false;
+    marketplaceDeliver.deliver = deliver.id;
+    marketplaceDeliver.save();
+
     if (deliveryServiceId === null) {
       continue;
     }
