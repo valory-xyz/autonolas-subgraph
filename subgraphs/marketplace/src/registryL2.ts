@@ -11,7 +11,6 @@ import {
   CreateMultisigWithAgents,
   CreateService,
   Mech,
-  MechAgent,
   RegisterInstance,
   Service,
   TerminateService,
@@ -125,13 +124,6 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
       ids.push(event.params.agentId);
       service.agentIds = ids;
       service.save();
-    }
-
-    // Update MechAgent.service to link the agent to its registered service
-    let mechAgent = MechAgent.load(event.params.agentId.toHexString());
-    if (mechAgent !== null) {
-      mechAgent.service = event.params.serviceId.toString();
-      mechAgent.save();
     }
   }
 }
