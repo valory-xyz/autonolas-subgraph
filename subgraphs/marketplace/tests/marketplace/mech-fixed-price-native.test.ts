@@ -97,11 +97,10 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("DeliverForMarketplace", 1)
       assert.entityCount("AtaTransaction", 1)
 
-      // Check Deliver entity
-      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "mech", TEST_MECH.toHexString())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
+      // Check Deliver entity - uses requestId as entity ID
+      assert.fieldEquals("Deliver", requestId.toHexString(), "mech", TEST_MECH.toHexString())
+      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
+      assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
 
       // Check DeliverForMarketplace entity
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "requestId", requestId.toHexString())
@@ -111,7 +110,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", deliveryRate.toString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isMarketplace", "true")
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "false")
-      assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", deliverId.toHexString())
+      assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", requestId.toHexString())
     })
 
   test("Request and delivery together", () => {
@@ -136,9 +135,8 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
-      // Check the relationship between deliver and request
-      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
+      // Check the relationship between deliver and request - uses requestId as entity ID
+      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
     })
 
   test("Full request-delivery cycle", () => {
@@ -170,10 +168,9 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
-      // Check relationships
-      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
-      assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
+      // Check relationships - uses requestId as entity ID
+      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
+      assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {

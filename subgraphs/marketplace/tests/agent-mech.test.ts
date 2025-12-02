@@ -160,7 +160,8 @@ describe("Describe agent-mech processing", () => {
 
         assert.entityCount("Deliver", 1)
 
-        let deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
+        // Uses requestId (converted to Bytes) as entity ID
+        let deliveryId = changetype<Bytes>(Bytes.fromBigInt(requestId));
 
         assert.fieldEquals(
             "Deliver",
@@ -200,7 +201,8 @@ describe("Describe agent-mech processing", () => {
 
         assert.entityCount("Deliver", 1)
 
-        let deliveryId = deliveryEvent.transaction.hash.concatI32(deliveryEvent.logIndex.toI32());
+        // Uses requestId (converted to Bytes) as entity ID
+        let deliveryId = changetype<Bytes>(Bytes.fromBigInt(requestId));
 
         assert.entityCount("DeliverForMech", 1)
 

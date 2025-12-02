@@ -188,7 +188,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
   })
 
-  test("handleMarketplaceDelivery persists aggregated delivery snapshot", () => {
+  test("handleMarketplaceDelivery persists aggregated delivery snapshot and creates Deliver entities", () => {
     let serviceId = BigInt.fromI32(200)
     let mech = Address.fromString("0x00000000000000000000000000000000000000cc")
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000cd")
@@ -224,6 +224,17 @@ describe("Mech Marketplace Handlers", () => {
     
     // Verify mech counter was updated by actual successful deliveries (1 out of 2)
     assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
+    
+    // Verify Deliver entity is created for the successful delivery (symmetric with Request)
+    // Only 1 Deliver entity should be created (first request delivered, second not)
+    assert.entityCount("Deliver", 1)
+    assert.fieldEquals("Deliver", requestIds[0].toHexString(), "mech", mech.toHexString())
+    assert.fieldEquals("Deliver", requestIds[0].toHexString(), "sender", mech.toHexString())
+    
+    // Verify DeliverForMarketplace entity is created (symmetric with RequestToMarketplace)
+    assert.entityCount("DeliverForMarketplace", 1)
+    assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isMarketplace", "true")
+    assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isOffChain", "false")
   })
 
   test("handleMarketplaceDeliveryWithSignatures records off-chain deliveries", () => {
