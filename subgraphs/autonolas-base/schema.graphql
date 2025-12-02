@@ -9,7 +9,7 @@ enum packageType {
   unknown
 }
 
-type Unit @entity {
+type Unit @entity(immutable: false) {
   id: Bytes! # Unique ID for the record
   tokenId: BigInt! # Token ID of the minted component
   publicId: String! # Public ID of the package
@@ -23,7 +23,7 @@ type Unit @entity {
   txHash: String! # Transaction hash
 }
 
-type Service @entity {
+type Service @entity(immutable: false) {
   id: Bytes! # Unique ID for the record
   serviceId: BigInt! # Service ID
   publicId: String! # Public ID of the package
@@ -39,4 +39,16 @@ type Service @entity {
   metadataHash: String! # Metadata file hash
   description: String! # Package description
   owner: String! # Owner string
+}
+
+type Multisig @entity(immutable: true) {
+  id: Bytes! # Multisig address
+  service: Service!
+}
+
+type DailyActivity @entity(immutable: false) {
+  id: String! # Day ID (day-{dayTimestamp})
+  dayTimestamp: BigInt! # Unix timestamp of day start
+  count: Int!
+  services: [String!]! # List of Service IDs
 }

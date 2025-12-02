@@ -22,9 +22,12 @@ dataSources:
         - DeployService
         - TerminateService
         - OperatorUnbond
+        - Multisig
       abis:
         - name: ServiceRegistryL2
           file: ./abis/ServiceRegistryL2.json
+        - name: GnosisSafe
+          file: ../../abis/GnosisSafe.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -42,7 +45,30 @@ dataSources:
           handler: handleTerminateService
         - event: OperatorUnbond(indexed address,indexed uint256)
           handler: handleOperatorUnbond
+        - event: CreateMultisigWithAgents(indexed uint256,indexed address)
+          handler: handleCreateMultisigWithAgents
       file: ./src/registryL2.ts
+templates:
+  - kind: ethereum/contract
+    name: GnosisSafe
+    network: base
+    source:
+      abi: GnosisSafe
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/safe.ts
+      entities:
+        - DailyActivity
+        - Multisig
+        - Service
+      abis:
+        - name: GnosisSafe
+          file: ../../abis/GnosisSafe.json
+      eventHandlers:
+        - event: SafeReceived(indexed address,uint256)
+          handler: handleSafeReceived
 features:
   - fullTextSearch
   - ipfsOnEthereumContracts
