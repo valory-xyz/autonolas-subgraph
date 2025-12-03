@@ -227,11 +227,14 @@ describe("Mech Marketplace Handlers", () => {
     
     // Verify Deliver entity is created for the successful delivery (symmetric with Request)
     // Only 1 Deliver entity should be created (first request delivered, second not)
+    // Deliver ID uses txHash + logIndex + arrayIndex format
+    let deliverId = event.transaction.hash.concatI32(event.logIndex.toI32()).concatI32(0)
     assert.entityCount("Deliver", 1)
-    assert.fieldEquals("Deliver", requestIds[0].toHexString(), "mech", mech.toHexString())
-    assert.fieldEquals("Deliver", requestIds[0].toHexString(), "sender", mech.toHexString())
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "mech", mech.toHexString())
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", mech.toHexString())
     
     // Verify DeliverForMarketplace entity is created (symmetric with RequestToMarketplace)
+    // DeliverForMarketplace uses requestId as ID (one per request)
     assert.entityCount("DeliverForMarketplace", 1)
     assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isMarketplace", "true")
     assert.fieldEquals("DeliverForMarketplace", requestIds[0].toHexString(), "isOffChain", "false")
@@ -308,9 +311,11 @@ describe("Mech Marketplace Handlers", () => {
     handleDeliverWithSignaturesV1(deliverEvent)
 
     assert.entityCount("Deliver", 1)
-    // Use the requestId from the event params to match what the handler uses
+    // Deliver ID uses txHash + requestId for signed/off-chain deliveries
     let deliverRequestId = deliverEvent.params.requestId
-    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", mech.toHexString())
+    let deliverId = deliveryEvent.transaction.hash.concat(deliverRequestId)
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", mech.toHexString())
+    // DeliverForMarketplace uses requestId as ID
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliverPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "10")
@@ -353,9 +358,11 @@ describe("Mech Marketplace Handlers", () => {
     handleDeliverWithSignaturesV2(deliverEvent)
 
     assert.entityCount("Deliver", 1)
-    // Use the requestId from the event params to match what the handler uses
+    // Deliver ID uses txHash + requestId for signed/off-chain deliveries
     let deliverRequestId = deliverEvent.params.requestId
-    assert.fieldEquals("Deliver", deliverRequestId.toHexString(), "sender", mech.toHexString())
+    let deliverId = deliveryEvent.transaction.hash.concat(deliverRequestId)
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", mech.toHexString())
+    // DeliverForMarketplace uses requestId as ID
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "ipfsHashBytes", deliveryPayload.toHexString())
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "deliveryRate", "12")
     assert.fieldEquals("DeliverForMarketplace", deliverRequestId.toHexString(), "isOffChain", "true")

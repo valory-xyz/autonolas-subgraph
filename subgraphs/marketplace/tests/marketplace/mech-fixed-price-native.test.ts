@@ -97,12 +97,13 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("DeliverForMarketplace", 1)
       assert.entityCount("AtaTransaction", 1)
 
-      // Check Deliver entity - uses requestId as entity ID
-      assert.fieldEquals("Deliver", requestId.toHexString(), "mech", TEST_MECH.toHexString())
-      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
-      assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
+      // Deliver entity uses txHash + logIndex as ID
+      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "mech", TEST_MECH.toHexString())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
 
-      // Check DeliverForMarketplace entity
+      // DeliverForMarketplace uses requestId as entity ID
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "requestId", requestId.toHexString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "requestIdBytes", requestId.toHexString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "ipfsHashBytes", data.toHexString())
@@ -110,7 +111,7 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", deliveryRate.toString())
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isMarketplace", "true")
       assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "isOffChain", "false")
-      assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", requestId.toHexString())
+      assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliver", deliverId.toHexString())
     })
 
   test("Request and delivery together", () => {
@@ -135,8 +136,9 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
-      // Check the relationship between deliver and request - uses requestId as entity ID
-      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
+      // Deliver uses txHash + logIndex as entity ID
+      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
     })
 
   test("Full request-delivery cycle", () => {
@@ -168,9 +170,10 @@ describe("Mech Fixed Price Native Handler", () => {
       assert.entityCount("Deliver", 1)
       assert.entityCount("DeliverForMarketplace", 1)
 
-      // Check relationships - uses requestId as entity ID
-      assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
-      assert.fieldEquals("Deliver", requestId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
+      // Deliver uses txHash + logIndex as entity ID
+      let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
+      assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", requestEvent.transaction.from.toHexString())
     })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {

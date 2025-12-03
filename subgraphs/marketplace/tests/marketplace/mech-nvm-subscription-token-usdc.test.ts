@@ -99,9 +99,10 @@ describe("Mech NVM Subscription Token USDC Handler", () => {
     assert.entityCount("Deliver", 1)
     assert.entityCount("DeliverForMarketplace", 1)
 
-    // Uses requestId as entity ID
-    assert.fieldEquals("Deliver", requestId.toHexString(), "mech", TEST_MECH.toHexString())
-    assert.fieldEquals("Deliver", requestId.toHexString(), "request", requestId.toHexString())
+    // Deliver uses txHash + logIndex as entity ID
+    let deliverId = deliverEvent.transaction.hash.concatI32(deliverEvent.logIndex.toI32())
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "mech", TEST_MECH.toHexString())
+    assert.fieldEquals("Deliver", deliverId.toHexString(), "request", requestId.toHexString())
   })
 
   test("Self-delivery increments selfDeliveredFromReceived counter", () => {
