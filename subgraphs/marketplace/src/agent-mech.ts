@@ -279,9 +279,8 @@ export function handleRequest(event: RequestEvent): void {
 }
 
 export function handleDeliver(event: DeliverEvent): void {
-  // Use requestId as the Deliver entity ID for consistency across all handlers
-  // Convert BigInt requestId to Bytes for the entity ID
-  const deliveryId = changetype<Bytes>(Bytes.fromBigInt(event.params.requestId));
+  // Use txHash + logIndex for unique Deliver entity ID (same as mech subgraph)
+  const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
 
   let entity = new Deliver(deliveryId);
   let mechDelivery = new DeliverForMech(deliveryId);
@@ -310,15 +309,6 @@ export function handleDeliver(event: DeliverEvent): void {
   if (existingRequest !== null) {
     // Link Deliver to Request
     entity.request = event.params.requestId.toHexString();
-    
-    // Check for duplicates
-    const deliveries = existingRequest.delivery.load();
-    if (deliveries.length > 0) {
-      log.warning(
-        "Duplicated delivery {0} for the same request {1}",
-        [deliveryId.toHexString(), event.params.requestId.toHexString()]
-      );
-    }
     existingRequest.isDelivered = true;
     existingRequest.deliveredByMech = event.address;
     existingRequest.save();

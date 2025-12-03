@@ -754,8 +754,8 @@ export class OnChainRequestArgs {
 }
 
 export function processOnChainDeliver(args: OnChainDeliverArgs): void {
-  // Use requestId as the Deliver entity ID for consistency across all handlers
-  const deliverId = args.requestId;
+  // Use txHash + logIndex for unique Deliver entity ID (same as mech subgraph)
+  const deliverId = args.txHash.concatI32(args.logIndex);
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
 
   const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
@@ -1018,7 +1018,9 @@ function upsertSignedDeliverEntity(
   sender: Bytes | null,
   fallbackSender: Bytes | null
 ): Deliver {
-  let deliver = getOrCreateMarketplaceIndividualDeliver(requestId);
+  // For off-chain/signed deliveries, use txHash + requestId for unique ID
+  let deliverId = transactionHash.concat(requestId);
+  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
   deliver.mech = mech;
   deliver.blockNumber = blockNumber;
   deliver.blockTimestamp = blockTimestamp;

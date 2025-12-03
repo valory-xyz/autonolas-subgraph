@@ -143,8 +143,9 @@ export function handleMarketplaceDelivery(
     // Update service delivery counter for the delivery mech's service
     const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
 
-    // Create Deliver entity (symmetric with Request entity creation in handleMarketplaceRequest)
-    let deliver = getOrCreateMarketplaceIndividualDeliver(requestId);
+    // Create Deliver entity with unique ID: txHash + logIndex + arrayIndex
+    const deliverId = event.transaction.hash.concatI32(event.logIndex.toI32()).concatI32(i);
+    let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
     deliver.sender = event.params.deliveryMech;
     deliver.mech = event.params.deliveryMech;
     deliver.request = request.id;
@@ -156,7 +157,7 @@ export function handleMarketplaceDelivery(
     }
     deliver.save();
 
-    // Create DeliverForMarketplace entity (symmetric with RequestToMarketplace)
+    // Create DeliverForMarketplace entity using requestId (one per request)
     let marketplaceDeliver = getOrCreateDeliverForMarketplace(requestId);
     marketplaceDeliver.isMarketplace = true;
     marketplaceDeliver.isOffChain = false;
