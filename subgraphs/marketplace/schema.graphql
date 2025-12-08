@@ -318,7 +318,7 @@ type Request @entity(immutable: false) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
 
-  delivery: Deliver @derivedFrom(field: "request")
+  deliveries: [Deliver!]! @derivedFrom(field: "request")
   parsedRequest: ParsedRequest @derivedFrom(field: "request")
   service: Service
 
