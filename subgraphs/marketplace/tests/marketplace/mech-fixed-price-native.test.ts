@@ -12,7 +12,7 @@ import {
   handleMaxDeliveryRateUpdated
 } from "../../src/marketplace/mech-fixed-price-native"
 import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
-import { Service } from "../../generated/schema"
+import { CreateMultisigWithAgents, Service } from "../../generated/schema"
 import {
   createDeliverEvent,
   createRequestEvent,
@@ -288,6 +288,15 @@ describe("Mech Fixed Price Native Handler", () => {
       service.totalDeliveries = BigInt.fromI32(0)
       service.save()
 
+      // Create multisig-to-service mapping (required for getServiceIdFromMultisig)
+      let multisigEntity = new CreateMultisigWithAgents(TEST_REQUESTER)
+      multisigEntity.serviceId = serviceId
+      multisigEntity.multisig = TEST_REQUESTER
+      multisigEntity.blockNumber = BigInt.fromI32(1)
+      multisigEntity.blockTimestamp = BigInt.fromI32(1)
+      multisigEntity.transactionHash = TEST_REQUEST_ID_1
+      multisigEntity.save()
+
       // Create mech mapping
       let mechAddress = Address.fromString("0x0000000000000000000000000000000000000250")
       createMechWithMapping(mechAddress, serviceId)
@@ -328,6 +337,15 @@ describe("Mech Fixed Price Native Handler", () => {
       service.totalDeliveries = BigInt.fromI32(0)
       service.save()
 
+      // Create multisig-to-service mapping (required for getServiceIdFromMultisig)
+      let multisigEntity = new CreateMultisigWithAgents(TEST_REQUESTER)
+      multisigEntity.serviceId = serviceId
+      multisigEntity.multisig = TEST_REQUESTER
+      multisigEntity.blockNumber = BigInt.fromI32(1)
+      multisigEntity.blockTimestamp = BigInt.fromI32(1)
+      multisigEntity.transactionHash = TEST_REQUEST_ID_1
+      multisigEntity.save()
+
       // Create mech mapping
       let mechAddress = Address.fromString("0x0000000000000000000000000000000000000260")
       createMechWithMapping(mechAddress, serviceId)
@@ -364,6 +382,15 @@ describe("Mech Fixed Price Native Handler", () => {
       service.totalRequests = BigInt.fromI32(0)
       service.totalDeliveries = BigInt.fromI32(0)
       service.save()
+
+      // Create multisig-to-service mapping (required for getServiceIdFromMultisig)
+      let multisigEntity = new CreateMultisigWithAgents(TEST_REQUESTER)
+      multisigEntity.serviceId = serviceId
+      multisigEntity.multisig = TEST_REQUESTER
+      multisigEntity.blockNumber = BigInt.fromI32(1)
+      multisigEntity.blockTimestamp = BigInt.fromI32(1)
+      multisigEntity.transactionHash = TEST_REQUEST_ID_1
+      multisigEntity.save()
 
       // Create mech mapping
       let mechAddress = Address.fromString("0x0000000000000000000000000000000000000270")
