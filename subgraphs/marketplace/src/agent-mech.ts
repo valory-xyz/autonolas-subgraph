@@ -282,6 +282,13 @@ export function handleDeliver(event: DeliverEvent): void {
   // Use txHash + logIndex for unique Deliver entity ID (same as mech subgraph)
   const deliveryId = event.transaction.hash.concatI32(event.logIndex.toI32());
 
+  // Check if this exact event was already processed (same tx + logIndex = same on-chain event)
+  let existingMechDelivery = DeliverForMech.load(deliveryId);
+  if (existingMechDelivery !== null) {
+    // This exact event was already processed - nothing new to store
+    return;
+  }
+
   let entity = new Deliver(deliveryId);
   let mechDelivery = new DeliverForMech(deliveryId);
 
