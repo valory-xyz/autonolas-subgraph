@@ -841,6 +841,7 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
 }
 
 function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
+  deliver.requestId = args.requestId;
   deliver.mech = args.mech;
   deliver.blockNumber = args.blockNumber;
   deliver.blockTimestamp = args.blockTimestamp;
@@ -1021,6 +1022,7 @@ function upsertSignedDeliverEntity(
   // For off-chain/signed deliveries, use txHash + requestId for unique ID
   let deliverId = transactionHash.concat(requestId);
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
+  deliver.requestId = requestId;
   deliver.mech = mech;
   deliver.blockNumber = blockNumber;
   deliver.blockTimestamp = blockTimestamp;

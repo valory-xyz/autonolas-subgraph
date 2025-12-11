@@ -355,6 +355,7 @@ type DeliverForMarketplace @entity(immutable: true) {
 type Deliver @entity(immutable: false) {
   # Common fields only
   id: Bytes!
+  requestId: Bytes! # raw bytes32 requestId for easier querying
   sender: Bytes! # address
   mech: Bytes! # address
   request: Request

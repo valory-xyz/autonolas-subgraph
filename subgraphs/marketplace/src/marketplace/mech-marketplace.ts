@@ -43,7 +43,6 @@ import {
   getMaxDeliveryRate,
   persistSignedDeliver,
   SignedDeliverArgs,
-  getOrCreateMarketplaceIndividualDeliver,
   getOrCreateDeliverForMarketplace,
 } from './utils';
 
@@ -143,25 +142,12 @@ export function handleMarketplaceDelivery(
     // Update service delivery counter for the delivery mech's service
     const deliveryServiceId = getServiceIdFromMech(event.params.deliveryMech);
 
-    // Create Deliver entity with unique ID: txHash + logIndex + arrayIndex
-    const deliverId = event.transaction.hash.concatI32(event.logIndex.toI32()).concatI32(i);
-    let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
-    deliver.sender = event.params.deliveryMech;
-    deliver.mech = event.params.deliveryMech;
-    deliver.request = request.id;
-    deliver.blockNumber = event.block.number;
-    deliver.blockTimestamp = event.block.timestamp;
-    deliver.transactionHash = event.transaction.hash;
-    if (deliveryServiceId !== null) {
-      deliver.service = deliveryServiceId;
-    }
-    deliver.save();
-
-    // Create DeliverForMarketplace entity using requestId (one per request)
+    // Note: Deliver entity is created by the mech template (MechFixedPriceNative, etc.)
+    // which also sets DeliverForMarketplace.deliver via persistMarketplaceDeliver.
+    // We only create DeliverForMarketplace here to mark it as marketplace delivery.
     let marketplaceDeliver = getOrCreateDeliverForMarketplace(requestId);
     marketplaceDeliver.isMarketplace = true;
     marketplaceDeliver.isOffChain = false;
-    marketplaceDeliver.deliver = deliver.id;
     marketplaceDeliver.save();
 
     if (deliveryServiceId === null) {

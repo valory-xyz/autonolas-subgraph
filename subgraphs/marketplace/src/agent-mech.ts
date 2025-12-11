@@ -300,6 +300,7 @@ export function handleDeliver(event: DeliverEvent): void {
   mechDelivery.deliver = entity.id;
   mechDelivery.save();
 
+  entity.requestId = changetype<Bytes>(Bytes.fromBigInt(event.params.requestId));
   entity.sender = event.params.sender;
   entity.mech = event.address;
   entity.blockNumber = event.block.number;
