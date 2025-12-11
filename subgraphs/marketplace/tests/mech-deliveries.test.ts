@@ -22,8 +22,9 @@ function requestIdToDecimal(requestId: Bytes): string {
     return BigInt.fromUnsignedBytes(reversed).toString();
 }
 
-function createDeliverEntity(id: Bytes, requestId: string): void {
+function createDeliverEntity(id: Bytes, requestId: string, requestIdBytes: Bytes): void {
     let entity = new Deliver(id);
+    entity.requestId = requestIdBytes;
     entity.sender = Address.fromString("0x0000000000000000000000000000000000000001");
     entity.mech = Address.fromString("0x0000000000000000000000000000000000000002");
     entity.request = requestId;
@@ -49,7 +50,7 @@ describe("Describe mech deliveries processing", () => {
         mockIpfsFile(route + "/metadata.json", "tests/ipfs_mocks/mech-response.json");
         mockIpfsFile(route, "tests/ipfs_mocks/mech-response.json");
 
-        createDeliverEntity(deliverId, requestIdHex);
+        createDeliverEntity(deliverId, requestIdHex, requestId);
 
         parseDeliverIpfs(deliverId, requestId, baseCid);
 
@@ -78,7 +79,7 @@ describe("Describe mech deliveries processing", () => {
         mockIpfsFile(route + "/metadata.json", "tests/ipfs_mocks/mech-invalid-response.json");
         mockIpfsFile(route, "tests/ipfs_mocks/mech-invalid-response.json");
 
-        createDeliverEntity(deliverId, requestIdHex);
+        createDeliverEntity(deliverId, requestIdHex, requestId);
 
         parseDeliverIpfs(deliverId, requestId, baseCid);
 

@@ -188,16 +188,16 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
   })
 
-  test("handleMarketplaceDelivery persists aggregated delivery snapshot and creates Deliver entities", () => {
+  test("handleMarketplaceDelivery persists aggregated delivery snapshot and DeliverForMarketplace", () => {
     let serviceId = BigInt.fromI32(200)
     let mech = Address.fromString("0x00000000000000000000000000000000000000cc")
     let mechFactory = Address.fromString("0x00000000000000000000000000000000000000cd")
     let owner = Address.fromString("0x00000000000000000000000000000000000000ce")
     let requester = Address.fromString("0x00000000000000000000000000000000000000dd")
-    
+
     // Create the mech so the handler can update its counters
     createMechMapping(mech, serviceId, mechFactory, owner)
-    
+
     let requestIds = [
       Bytes.fromHexString("0x1000000000000000000000000000000000000000000000000000000000000001"),
       Bytes.fromHexString("0x2000000000000000000000000000000000000000000000000000000000000002"),
@@ -207,7 +207,7 @@ describe("Mech Marketplace Handlers", () => {
     createSender(requester)
     createRequestEntity(requestIds[0], requester, mech)
     createRequestEntity(requestIds[1], requester, mech)
-    
+
     let event = createMarketplaceDeliveryEvent(
       mech,
       [requester],
@@ -221,18 +221,14 @@ describe("Mech Marketplace Handlers", () => {
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
     assert.fieldEquals("MarketplaceDelivery", id, "deliveryMech", mech.toHexString())
     assert.fieldEquals("MarketplaceDelivery", id, "numDeliveries", "2")
-    
+
     // Verify mech counter was updated by actual successful deliveries (1 out of 2)
     assert.fieldEquals("Mech", serviceId.toString(), "totalDeliveriesTransactions", "1")
-    
-    // Verify Deliver entity is created for the successful delivery (symmetric with Request)
-    // Only 1 Deliver entity should be created (first request delivered, second not)
-    // Deliver ID uses txHash + logIndex + arrayIndex format
-    let deliverId = event.transaction.hash.concatI32(event.logIndex.toI32()).concatI32(0)
-    assert.entityCount("Deliver", 1)
-    assert.fieldEquals("Deliver", deliverId.toHexString(), "mech", mech.toHexString())
-    assert.fieldEquals("Deliver", deliverId.toHexString(), "sender", mech.toHexString())
-    
+
+    // Note: Deliver entities are created by the mech template (MechFixedPriceNative, etc.),
+    // not by handleMarketplaceDelivery. This avoids duplicate Deliver entities.
+    assert.entityCount("Deliver", 0)
+
     // Verify DeliverForMarketplace entity is created (symmetric with RequestToMarketplace)
     // DeliverForMarketplace uses requestId as ID (one per request)
     assert.entityCount("DeliverForMarketplace", 1)
