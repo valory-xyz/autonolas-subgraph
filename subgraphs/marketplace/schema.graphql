@@ -1,0 +1,422 @@
+type ParsedRequest @entity(immutable: true) {
+  id: ID! # Same as Request.id
+  content: String!
+  request: Request!
+  tool: String!
+  prompt: String!
+  hash: String!
+}
+
+type MechAgent @entity(immutable: false) {
+  id: ID! # agent Id
+  mech: Bytes # address
+  address: Bytes # address
+  agentHash: Bytes # bytes32
+  service: Service
+  totalTransactions: BigInt!
+}
+
+type MarketplaceMech @entity(immutable: false) {
+  id: ID! # service Id
+  mech: Bytes # address
+  address: Bytes # address
+  agentHash: Bytes # bytes32
+  service: Service
+  totalTransactions: BigInt!
+}
+
+type CreateAgent @entity(immutable: true) {
+  id: Bytes!
+  agentId: BigInt! # uint256
+  agentHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Transfer @entity(immutable: true) {
+  id: Bytes!
+  from: Bytes! # address
+  to: Bytes! # address
+  internal_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UpdateAgentHash @entity(immutable: true) {
+  id: Bytes!
+  agentId: BigInt! # uint256
+  agentHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreateMultisigWithAgents @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  multisig: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DeployService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ServiceRegistryL2Transfer @entity(immutable: true) {
+  id: Bytes!
+  from: Bytes! # address
+  to: Bytes! # address
+  internal_id: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceDelivery @entity(immutable: true) {
+  id: Bytes!
+  deliveryMech: Bytes! # address
+  numDeliveries: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  deliveredRequests: [Boolean!]! # bool[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceDeliveryWithSignatures @entity(immutable: true) {
+  id: Bytes!
+  deliveryMech: Bytes! # address
+  requester: Bytes! # address
+  numDeliveries: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceParamsUpdated @entity(immutable: true) {
+  id: Bytes!
+  fee: BigInt! # uint256
+  minResponseTimeout: BigInt! # uint256
+  maxResponseTimeout: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceRequest @entity(immutable: true) {
+  id: Bytes!
+  priorityMech: Bytes! # address
+  requester: Bytes! # address
+  numRequests: BigInt! # uint256
+  requestIds: [Bytes!]! # bytes32[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OwnerUpdated @entity(immutable: true) {
+  id: Bytes!
+  owner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SetMechFactoryStatuses @entity(immutable: true) {
+  id: Bytes!
+  mechFactories: [Bytes!]! # address[]
+  statuses: [Boolean!]! # bool[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SetPaymentTypeBalanceTrackers @entity(immutable: true) {
+  id: Bytes!
+  paymentTypes: [Bytes!]! # bytes32[]
+  balanceTrackers: [Bytes!]! # address[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+type ActivateRegistration @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Deposit @entity(immutable: true) {
+  id: Bytes!
+  sender: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RegisterInstance @entity(immutable: true) {
+  id: Bytes!
+  operator: Bytes! # address
+  serviceId: BigInt! # uint256
+  agentInstance: Bytes! # address
+  agentId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TerminateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UpdateService @entity(immutable: true) {
+  id: Bytes!
+  serviceId: BigInt! # uint256
+  configHash: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Metadata @entity(immutable: false) {
+  id: ID!
+  serviceId: BigInt! # uint256
+  mech: Bytes # address
+  metadata: Bytes! # bytes32
+  service: Service
+}
+
+type Mech @entity(immutable: false) {
+  id: ID!
+  address: Bytes!
+  mechFactory: Bytes!
+  configHash: Bytes
+  owner: Bytes!
+  service: Service
+  totalDeliveriesTransactions: BigInt!
+  receivedRequests: BigInt!
+  selfDeliveredFromReceived: BigInt!
+  deliveredByOthersFromReceived: BigInt!
+  maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
+  karma: BigInt! # Cumulative karma (sum of all karmaChange values from MechKarmaChanged events)
+  paymentType: Bytes! # Payment type from the payment type contract (required)
+}
+
+type Global @entity(immutable: false) {
+  id: ID!
+
+  # Marketplace-specific counters
+  totalMechs: BigInt!
+  totalMarketplaceRequests: BigInt!
+  totalMarketplaceDeliveries: BigInt!
+  totalMarketplaceDeliveriesWithSignatures: BigInt!
+
+  # Legacy AgentMech-specific counters
+  totalLegacyRequests: BigInt!
+  totalLegacyDeliveries: BigInt!
+  totalLegacyTransactions: BigInt!
+  totalLegacyAtaTransactions: BigInt!
+
+  # Combined/aggregate counters (marketplace + legacy)
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
+}
+
+type RequestsPerAgent @entity(immutable: false) {
+  id: ID!
+  requestsCount: BigInt!
+}
+
+type AgentMultisigAssociation @entity(immutable: false) {
+  id: ID! # agentId
+  agentId: BigInt! # uint256
+  multisig: Bytes! # address
+}
+
+type RequestsPerAgentOnchain @entity(immutable: false) {
+  id: ID! # agentId as string
+  requestsCount: BigInt!
+}
+
+type AtaTransaction @entity(immutable: true) {
+  id: Bytes! # transaction hash
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+
+enum Source {
+  MECH
+  MARKETPLACE
+}
+
+type CreateMech @entity(immutable: false) {
+  # Common fields
+  id: Bytes!
+  mech: Bytes!
+  source: Source # origin discriminator
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+
+  # Mech-only fields
+  agentId: BigInt
+  price: BigInt
+
+  # Marketplace-only fields
+  serviceId: BigInt
+  mechFactory: Bytes
+}
+
+type RequestToMech @entity(immutable: false) {
+  id: ID!
+  ipfsHash: String!
+  request: Request!
+}
+
+type RequestToMarketplace @entity(immutable: false) {
+  id: ID!
+  requestIdBytes: Bytes! # raw bytes32
+  ipfsHashBytes: Bytes # raw bytes
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  request: Request!
+}
+
+type Request @entity(immutable: false) {
+  # Common fields only
+  id: ID!
+  sender: Sender!
+  mech: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+
+  deliveries: [Deliver!]! @derivedFrom(field: "request")
+  parsedRequest: ParsedRequest @derivedFrom(field: "request")
+  service: Service
+
+  # Relationships to specialized entities
+  mechRequest: RequestToMech @derivedFrom(field: "request")
+  marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
+
+  # Delivery status
+  isDelivered: Boolean!
+  priorityMech: Bytes # address of the mech that was originally requested
+  deliveredByMech: Bytes # address of the mech that delivered the request
+}
+
+type DeliverForMech @entity(immutable: true) {
+  id: Bytes! # delivery id
+  # Mech-only fields
+  requestId: ID!
+  ipfsHash: String!
+  deliver: Deliver
+}
+
+type DeliverForMarketplace @entity(immutable: true) {
+  id: Bytes! # delivery id (requestId)
+  requestId: ID!
+  requestIdBytes: Bytes! # raw bytes32
+  ipfsHashBytes: Bytes
+  mechServiceMultisig: Bytes
+  deliveryRate: BigInt
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  deliver: Deliver
+}
+
+type Deliver @entity(immutable: false) {
+  # Common fields only
+  id: Bytes!
+  requestId: Bytes! # raw bytes32 requestId for easier querying
+  sender: Bytes! # address
+  mech: Bytes! # address
+  request: Request
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  service: Service
+
+  model: String
+  toolResponse: String
+
+  # Relationships to specialized entities
+  mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
+  marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
+}
+
+type ParsedDelivery @entity(immutable: true) {
+  id: Bytes! # hash converted to Bytes
+  content: String!
+  deliver: Deliver!
+  request: Request!
+  response: String!
+  model: String!
+  hash: String!
+}
+
+type Sender @entity(immutable: false) {
+  # Common fields
+  id: Bytes! # address
+  requests: [Request!] @derivedFrom(field: "sender")
+
+  # Legacy AgentMech-specific counters
+  totalLegacyRequests: BigInt!
+  totalLegacyTransactions: BigInt!
+  totalLegacyAtaTransactions: BigInt!
+
+  # Marketplace-only counters
+  totalMarketplaceRequests: BigInt!
+  totalOffChainRequests: BigInt!
+}
+
+type Service @entity(immutable: false) {
+  # Common fields
+  id: ID!
+  serviceId: BigInt!
+  configHash: Bytes
+  latestMultisig: Bytes
+  historicalMultisigs: [Bytes!]!
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  agentIds: [BigInt!]!
+
+  # Common relationships
+  requests: [Request!] @derivedFrom(field: "service")
+  deliveries: [Deliver!] @derivedFrom(field: "service")
+  metadata: [Metadata!] @derivedFrom(field: "service")
+
+  # Mech-only relationships
+  mechs: [MechAgent!] @derivedFrom(field: "service")
+
+  # Marketplace-only relationships
+  marketplaceMechs: [MarketplaceMech!] @derivedFrom(field: "service")
+}
+

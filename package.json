@@ -7,10 +7,9 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@graphprotocol/graph-cli": "^0.64.0",
+    "@graphprotocol/graph-cli": "^0.98.1",
     "@types/node": "^24.3.1"
   },
   "engines": {
     "node": ">=24.0.0"
-  }
-}
+  }}

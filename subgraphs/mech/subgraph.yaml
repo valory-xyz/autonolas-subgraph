@@ -24,7 +24,7 @@ dataSources:
         - AgentMultisigAssociation
       abis:
         - name: AgentFactory
-          file: ./abis/AgentFactory.json
+          file: ../../abis/AgentFactory.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed uint256)
           handler: handleCreateMech
@@ -55,7 +55,7 @@ dataSources:
         - AgentMultisigAssociation
       abis:
         - name: AgentFactory
-          file: ./abis/AgentFactory.json
+          file: ../../abis/AgentFactory.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed uint256)
           handler: handleCreateMech
@@ -85,7 +85,7 @@ dataSources:
         - MechAgent
       abis:
         - name: AgentFactory
-          file: ./abis/AgentFactory.json
+          file: ../../abis/AgentFactory.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed uint256)
           handler: handleCreateMech
@@ -115,7 +115,7 @@ dataSources:
         - MechAgent
       abis:
         - name: AgentFactory
-          file: ./abis/AgentFactory.json
+          file: ../../abis/AgentFactory.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed uint256)
           handler: handleCreateMech
@@ -149,7 +149,7 @@ dataSources:
         - AgentMultisigAssociation
       abis:
         - name: AgentRegistry
-          file: ./abis/AgentRegistry.json
+          file: ../../abis/AgentRegistry.json
       eventHandlers:
         - event: Approval(indexed address,indexed address,indexed uint256)
           handler: handleApproval
@@ -188,7 +188,7 @@ dataSources:
         - TerminateService
       abis:
         - name: ServiceRegistryL2
-          file: ./abis/ServiceRegistryL2.json
+          file: ../../abis/ServiceRegistryL2.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
@@ -216,7 +216,7 @@ templates:
         - Deliver
       abis:
         - name: AgentMech
-          file: ./abis/AgentMech.json
+          file: ../../abis/AgentMech.json
       eventHandlers:
         - event: Request(indexed address,uint256,bytes)
           handler: handleRequest

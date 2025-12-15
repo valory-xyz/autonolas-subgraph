@@ -1,4 +1,4 @@
-specVersion: 1.0.0
+specVersion: 1.2.0
 indexerHints:
   prune: auto
 schema:
@@ -14,19 +14,18 @@ dataSources:
   # 3. Deliver has `requestData` and `deliveryData` in the new abi, while old abi only has `data`, we don't use the `requestData` and have separate handlers so to be type-safe.
   - kind: ethereum
     name: MechMarketplaceV1
-    network: {{ network }}
+    network: base
     source:
-      address: "{{ MechMarketplaceV1.address }}"
+      address: "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
       abi: MechMarketplaceV1
-      startBlock: {{ MechMarketplaceV1.startBlock }}
-      endBlock: {{ MechMarketplaceV1.endBlock }}
+      startBlock: 26642705
+      endBlock: 33907400
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
         - CreateMech
-        - ImplementationUpdated
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
         - Deliver
@@ -38,11 +37,11 @@ dataSources:
       abis:
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
+        - name: MechFixedPriceNative
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
-        - event: ImplementationUpdated(indexed address)
-          handler: handleImplementationUpdated
         - event: MarketplaceDelivery(indexed address,indexed address[],uint256,bytes32[],bool[])
           handler: handleMarketplaceDelivery
         - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
@@ -54,21 +53,20 @@ dataSources:
           handler: handleSetPaymentTypeBalanceTrackers
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliverWithSignaturesV1
-      file: ./src/mech-marketplace.ts
+      file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
-    network: {{ network }}
+    network: base
     source:
-      address: "{{ MechMarketplaceV2.address }}"
+      address: "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
       abi: MechMarketplaceV2
-      startBlock: {{ MechMarketplaceV2.startBlock }}
+      startBlock: 33907401
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
         - CreateMech
-        - ImplementationUpdated
         - MarketplaceDelivery
         - MarketplaceDeliveryWithSignatures
         - Deliver
@@ -80,11 +78,11 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        - name: MechFixedPriceNative
+          file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
-        - event: ImplementationUpdated(indexed address)
-          handler: handleImplementationUpdated
         - event: MarketplaceDelivery(indexed address,address[],uint256,bytes32[],bool[])
           handler: handleMarketplaceDelivery
         - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
@@ -96,14 +94,14 @@ dataSources:
           handler: handleSetPaymentTypeBalanceTrackers
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes,bytes)
           handler: handleDeliverWithSignaturesV2
-      file: ./src/mech-marketplace.ts
+      file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: ServiceRegistryL2
-    network: {{ network }}
+    network: base
     source:
-      address: "{{ ServiceRegistryL2.address }}"
+      address: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"
       abi: ServiceRegistryL2
-      startBlock: {{ ServiceRegistryL2.startBlock }}
+      startBlock: 10827380
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -114,6 +112,8 @@ dataSources:
         - UpdateService
         - Service
         - CreateMultisigWithAgents
+        - RegisterInstance
+        - TerminateService
       abis:
         - name: ServiceRegistryL2
           file: ../../abis/ServiceRegistryL2.json
@@ -126,14 +126,18 @@ dataSources:
           handler: handleUpdateService
         - event: CreateMultisigWithAgents(indexed uint256,indexed address)
           handler: handleCreateMultisigWithAgents
-      file: ./src/service-registry-l-2.ts
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
+        - event: TerminateService(indexed uint256)
+          handler: handleTerminateService
+      file: ./src/marketplace/service-registry-l-2.ts
   - kind: ethereum
     name: ComplementaryServiceMetadata
-    network: {{ network }}
+    network: base
     source:
-      address: "{{ ComplementaryServiceMetadata.address }}"
+      address: "0x28C1edC7CEd549F7f80B732fDC19f0370160707d"
       abi: ComplementaryServiceMetadata
-      startBlock: {{ ComplementaryServiceMetadata.startBlock }}
+      startBlock: 31728383
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -146,11 +150,11 @@ dataSources:
       eventHandlers:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
-      file: ./src/complementary-service-metadata.ts
+      file: ./src/marketplace/complementary-service-metadata.ts
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
-    network: {{ network }}
+    network: base
     source:
       abi: MechFixedPriceNative
     mapping:
@@ -168,10 +172,10 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
-      file: ./src/mech-fixed-price-native.ts
+      file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
-    network: {{ network }}
+    network: base
     source:
       abi: MechFixedPriceToken
     mapping:
@@ -189,10 +193,10 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
-      file: ./src/mech-fixed-price-token.ts
+      file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
-    network: {{ network }}
+    network: base
     source:
       abi: MechNvmSubscriptionNative
     mapping:
@@ -210,10 +214,10 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
-      file: ./src/mech-nvm-subscription-native.ts
+      file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
-    network: {{ network }}
+    network: base
     source:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:
@@ -231,4 +235,7 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
-      file: ./src/mech-nvm-subscription-token-usdc.ts
+      file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
+features:
+  - fullTextSearch
+  - ipfsOnEthereumContracts

@@ -1,0 +1,121 @@
+import { Address, BigInt } from '@graphprotocol/graph-ts';
+import {
+  CreateAgent as CreateAgentEvent,
+  OwnerUpdated as OwnerUpdatedEvent,
+  Transfer as TransferEvent,
+  UpdateAgentHash as UpdateAgentHashEvent,
+} from '../generated/AgentRegistry/AgentRegistry';
+import {
+  AgentMultisigAssociation,
+  CreateAgent,
+  MechAgent,
+  OwnerUpdated,
+  Transfer,
+  UpdateAgentHash,
+} from '../generated/schema';
+import {
+  getServiceIdFromMultisig,
+} from './utils';
+
+function getOrCreateAgentMultisigAssociation(
+  event: TransferEvent
+): AgentMultisigAssociation {
+  let entity = AgentMultisigAssociation.load(event.params.id.toString());
+  if (entity === null) {
+   entity = new AgentMultisigAssociation(event.params.id.toString());
+  }
+  return entity;
+}
+
+export function handleCreateAgent(event: CreateAgentEvent): void {
+  let entity = new CreateAgent(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.agentId = event.params.agentId;
+  entity.agentHash = event.params.agentHash;
+
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+
+  entity.save();
+
+  let mechAgent = MechAgent.load(event.params.agentId.toHexString());
+
+  if (mechAgent !== null) {
+    mechAgent.agentHash = event.params.agentHash;
+    mechAgent.save();
+  } else {
+    mechAgent = new MechAgent(event.params.agentId.toHexString());
+    mechAgent.agentHash = event.params.agentHash;
+    mechAgent.totalTransactions = BigInt.fromI32(0);
+    mechAgent.save();
+  }
+}
+
+export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
+  let entity = new OwnerUpdated(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.owner = event.params.owner;
+
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+
+  entity.save();
+}
+
+export function handleTransfer(event: TransferEvent): void {
+  let entity = new Transfer(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.from = event.params.from;
+  entity.to = event.params.to;
+  entity.internal_id = event.params.id;
+
+  // If the agent is minted, to address is the operator -> multisig
+  if (event.params.from.equals(Address.zero())) {
+    let agentMultisigAssociation = getOrCreateAgentMultisigAssociation(event);
+    agentMultisigAssociation.agentId = event.params.id;
+    agentMultisigAssociation.multisig = event.params.to;
+    agentMultisigAssociation.save();
+
+    // Update MechAgent service field if it exists and service is not already set
+    let mechAgent = MechAgent.load(event.params.id.toHexString());
+    if (mechAgent !== null && mechAgent.service === null) {
+      let serviceId = getServiceIdFromMultisig(event.params.to);
+      if (serviceId !== null) {
+        mechAgent.service = serviceId;
+        mechAgent.save();
+      }
+    }
+  }
+
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+
+  entity.save();
+}
+
+export function handleUpdateAgentHash(event: UpdateAgentHashEvent): void {
+  let entity = new UpdateAgentHash(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.agentId = event.params.agentId;
+  entity.agentHash = event.params.agentHash;
+
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+
+  entity.save();
+
+  let mechAgent = MechAgent.load(event.params.agentId.toHexString());
+
+  if (mechAgent !== null) {
+    mechAgent.agentHash = event.params.agentHash;
+    mechAgent.save();
+  }
+}
