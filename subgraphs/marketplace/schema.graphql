@@ -246,6 +246,9 @@ type Global @entity(immutable: false) {
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
+
+  # Fee tracking
+  totalFeesPaidUSD: BigDecimal! # Total marketplace fees in USD
 }
 
 type RequestsPerAgent @entity(immutable: false) {
@@ -270,10 +273,15 @@ type AtaTransaction @entity(immutable: true) {
   blockTimestamp: BigInt!
 }
 
-
 enum Source {
   MECH
   MARKETPLACE
+}
+
+enum FeeUnit {
+  NATIVE
+  TOKEN
+  CREDITS
 }
 
 type CreateMech @entity(immutable: false) {
@@ -330,6 +338,11 @@ type Request @entity(immutable: false) {
   isDelivered: Boolean!
   priorityMech: Bytes # address of the mech that was originally requested
   deliveredByMech: Bytes # address of the mech that delivered the request
+  # Fee tracking
+  feeUSD: BigDecimal # Initial locked fee in USD (from maxDeliveryRate)
+  finalFeeUSD: BigDecimal # Actual paid fee in USD (from deliveryRate)
+  feeRaw: BigInt # Raw fee in original units
+  feeUnit: FeeUnit # Payment model indicator (NATIVE, TOKEN, CREDITS)
 }
 
 type DeliverForMech @entity(immutable: true) {
@@ -395,6 +408,9 @@ type Sender @entity(immutable: false) {
   # Marketplace-only counters
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt!
+
+  # Fee tracking
+  totalFeesPaidUSD: BigDecimal! # Cumulative fees paid in USD
 }
 
 type Service @entity(immutable: false) {
