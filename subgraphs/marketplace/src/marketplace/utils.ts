@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -33,6 +33,10 @@ import {
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   GNOSIS_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
+import { convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+
+// Re-export fee conversion functions for backward compatibility with tests
+export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
 
 const UNHANDLED_TYPE = '[unhandled type]';
 
@@ -82,6 +86,9 @@ export function getGlobal(): Global {
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
     global.totalAtaTransactions = BigInt.fromI32(0);
+
+    // Fee tracking
+    global.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return global;
 }
@@ -97,6 +104,8 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalLegacyAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
+    // Fee tracking
+    sender.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return sender;
 }
@@ -870,11 +879,44 @@ function attachRequestToDeliver(
 
   request.isDelivered = true;
   request.deliveredByMech = args.mech;
+
+  // Update fees on new delivery
+  updateFeesOnDelivery(request, args.requestId, args.deliveryRate);
+
   request.save();
   if (shouldUpdateCounters) {
     updateMechCountersOnDelivery(request, args.mech);
   }
   return true;
+}
+
+function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: BigInt): void {
+  // Only track fees for marketplace on-chain requests (scope guard)
+  let rtm = RequestToMarketplace.load(requestId.toHexString());
+  if (rtm === null || !rtm.isMarketplace) {
+    return;
+  }
+
+  // Only track fees if request has feeUnit (set during MarketplaceRequest)
+  if (request.feeUnit === null) {
+    return;
+  }
+
+  // Convert deliveryRate to USD
+  let finalFeeUSD = convertFeeToUsd(deliveryRate, request.feeUnit!);
+  request.finalFeeUSD = finalFeeUSD;
+
+  // Update sender totals
+  let sender = Sender.load(request.sender);
+  if (sender !== null) {
+    sender.totalFeesPaidUSD = sender.totalFeesPaidUSD.plus(finalFeeUSD);
+    sender.save();
+  }
+
+  // Update global totals
+  let global = getGlobal();
+  global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
+  global.save();
 }
 
 function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {

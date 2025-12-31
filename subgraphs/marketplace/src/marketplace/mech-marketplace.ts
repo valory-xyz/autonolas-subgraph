@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
@@ -45,6 +45,7 @@ import {
   SignedDeliverArgs,
   getOrCreateDeliverForMarketplace,
 } from './utils';
+import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
   // Create CreateMech entity (used by getServiceIdFromMech)
@@ -379,6 +380,23 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   // Get service ID from requester's multisig address
   let serviceId = getServiceIdFromMultisig(event.params.requester);
 
+  // Get fee info from priority mech for all requests in this batch
+  let feeUnit: string | null = null;
+  let feeRaw: BigInt | null = null;
+  let feeUSD: BigDecimal | null = null;
+
+  let maxDeliveryRate = getMaxDeliveryRate(Address.fromBytes(event.params.priorityMech));
+  if (maxDeliveryRate !== null) {
+    feeRaw = maxDeliveryRate;
+
+    // Get mechFactory from CreateMech entity (created when mech was registered)
+    let createMechEntity = CreateMech.load(event.params.priorityMech);
+    if (createMechEntity !== null && createMechEntity.mechFactory !== null) {
+      feeUnit = getFeeUnitFromMechFactory(createMechEntity.mechFactory!);
+      feeUSD = convertFeeToUsd(maxDeliveryRate, feeUnit);
+    }
+  }
+
   // Request entities for each request
   for (let i = 0; i < event.params.numRequests.toI32(); i++) {
     let request = getOrCreateRequest(event.params.requestIds[i]);
@@ -392,6 +410,17 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     request.priorityMech = event.params.priorityMech;
 
     request.mech = event.params.priorityMech; // Mech address
+
+    // Fee tracking
+    if (feeRaw !== null) {
+      request.feeRaw = feeRaw;
+    }
+    if (feeUnit !== null) {
+      request.feeUnit = feeUnit;
+    }
+    if (feeUSD !== null) {
+      request.feeUSD = feeUSD;
+    }
     
     // Use requester's service for request.service and Service.totalRequests (matches mech-marketplace)
     if (serviceId !== null) {
