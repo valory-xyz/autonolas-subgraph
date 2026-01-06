@@ -776,22 +776,23 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
 }
 
 export function processOnChainRequest(args: OnChainRequestArgs): void {
-  // For marketplace transactions, handleMarketplaceRequest will set all fields
-  // including request.service based on the requester (not the mech).
-  // Skip processing here to avoid incorrect service assignment.
-  if (isMarketplaceTransaction(args.transactionTo)) {
-    return;
+  let request = getOrCreateRequest(args.requestId);
+  const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
+
+  // For marketplace transactions, handleMarketplaceRequest sets sender, service, etc.
+  // Skip field assignment here to avoid incorrect service assignment.
+  if (!isMarketplaceTx) {
+    let sender = getOrCreateSender(args.sender);
+    request.sender = sender.id;
+
+    const serviceId = requireServiceId(args.mech, 'Request');
+    populateRequestCoreFields(request, args, serviceId);
+
+    sender.save();
+    request.save();
   }
 
-  let request = getOrCreateRequest(args.requestId);
-  let sender = getOrCreateSender(args.sender);
-  request.sender = sender.id;
-
-  const serviceId = requireServiceId(args.mech, 'Request');
-  populateRequestCoreFields(request, args, serviceId);
-
-  sender.save();
-  request.save();
+  // IPFS parsing runs for both marketplace and direct requests
   let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
   if (requestBaseHash === null) {
     return;
