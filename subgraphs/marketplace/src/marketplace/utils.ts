@@ -902,8 +902,8 @@ function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: 
     return;
   }
 
-  // Convert deliveryRate to USD
-  let finalFeeUSD = convertFeeToUsd(deliveryRate, request.feeUnit!);
+  // Convert deliveryRate to USD (feeUnit checked above)
+  let finalFeeUSD = convertFeeToUsd(deliveryRate, request.feeUnit as string);
   request.finalFeeUSD = finalFeeUSD;
 
   // Update sender totals
