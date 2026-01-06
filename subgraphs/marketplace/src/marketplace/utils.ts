@@ -776,6 +776,13 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
 }
 
 export function processOnChainRequest(args: OnChainRequestArgs): void {
+  // For marketplace transactions, handleMarketplaceRequest will set all fields
+  // including request.service based on the requester (not the mech).
+  // Skip processing here to avoid incorrect service assignment.
+  if (isMarketplaceTransaction(args.transactionTo)) {
+    return;
+  }
+
   let request = getOrCreateRequest(args.requestId);
   let sender = getOrCreateSender(args.sender);
   request.sender = sender.id;
@@ -789,7 +796,7 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   if (requestBaseHash === null) {
     return;
   }
-  
+
   parseRequestIpfs(request.id, requestBaseHash);
 }
 
