@@ -3,10 +3,10 @@ import { BalancerV2Vault } from '../../generated/templates/MechFixedPriceToken/B
 import { BalancerV2WeightedPool } from '../../generated/templates/MechFixedPriceToken/BalancerV2WeightedPool';
 import { AggregatorV3Interface } from '../../generated/templates/MechFixedPriceNative/AggregatorV3Interface';
 import {
-  TOKEN_RATIO_GNOSIS,
-  TOKEN_DECIMALS_GNOSIS,
-  TOKEN_RATIO_BASE,
-  TOKEN_DECIMALS_BASE,
+  GNOSIS_NVM_XDAI_RATIO,
+  GNOSIS_NVM_TOKEN_DECIMALS,
+  BASE_NVM_USDC_RATIO,
+  BASE_NVM_TOKEN_DECIMALS,
   CHAINLINK_PRICE_FEED_DECIMALS,
   ETH_DECIMALS,
   USDC_DECIMALS,
@@ -34,31 +34,35 @@ export const FEE_UNIT_CREDITS = 'CREDITS';
 
 // Detect fee unit from mech factory address
 export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
-  const factoryLower = mechFactory.toHexString().toLowerCase();
+  const network = dataSource.network();
+  const factoryHex = mechFactory.toHexString().toLowerCase();
 
-  if (
-    factoryLower == GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() ||
-    factoryLower == BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase()
-  ) {
-    return FEE_UNIT_NATIVE;
+  if (network == 'gnosis' || network == 'xdai') {
+    if (factoryHex == GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase()) {
+      return FEE_UNIT_NATIVE;
+    }
+    if (factoryHex == GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase()) {
+      return FEE_UNIT_TOKEN;
+    }
+    if (factoryHex == GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase()) {
+      return FEE_UNIT_CREDITS;
+    }
   }
 
-  if (
-    factoryLower == GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() ||
-    factoryLower == BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase()
-  ) {
-    return FEE_UNIT_TOKEN;
+  if (network == 'base') {
+    if (factoryHex == BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase()) {
+      return FEE_UNIT_NATIVE;
+    }
+    if (factoryHex == BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase()) {
+      return FEE_UNIT_TOKEN;
+    }
+    if (factoryHex == BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase()) {
+      return FEE_UNIT_CREDITS;
+    }
   }
 
-  if (
-    factoryLower == GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() ||
-    factoryLower == BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase()
-  ) {
-    return FEE_UNIT_CREDITS;
-  }
-
-  log.warning('Unknown mechFactory for fee unit detection: {}', [factoryLower]);
-  return FEE_UNIT_NATIVE; // Default fallback
+  log.warning('Unknown mechFactory for fee unit detection: {} on network: {}', [factoryHex, network]);
+  return FEE_UNIT_NATIVE;
 }
 
 // Convert Gnosis native (xDAI) wei to USD (1 xDAI ≈ 1 USD)
@@ -92,24 +96,24 @@ export function convertBaseNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
 
 // Convert Gnosis NVM credits to USD (credits -> xDAI -> USD)
 export function calculateGnosisNvmCreditsToUsd(deliveryRate: BigInt): BigDecimal {
-  const tokenDivisor = BigInt.fromI32(10).pow(TOKEN_DECIMALS_GNOSIS).toBigDecimal();
-  const ethDivisor = BigInt.fromI32(10).pow(18).toBigDecimal();
+  const tokenDivisor = BigInt.fromI32(10).pow(GNOSIS_NVM_TOKEN_DECIMALS).toBigDecimal();
+  const ethDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
 
   return deliveryRate
     .toBigDecimal()
-    .times(TOKEN_RATIO_GNOSIS)
+    .times(GNOSIS_NVM_XDAI_RATIO)
     .div(ethDivisor)
     .div(tokenDivisor);
 }
 
 // Convert Base NVM credits to USD (credits -> USDC -> USD)
 export function calculateBaseNvmCreditsToUsd(deliveryRate: BigInt): BigDecimal {
-  const tokenDivisor = BigInt.fromI32(10).pow(TOKEN_DECIMALS_BASE).toBigDecimal();
-  const ethDivisor = BigInt.fromI32(10).pow(18).toBigDecimal();
+  const tokenDivisor = BigInt.fromI32(10).pow(BASE_NVM_TOKEN_DECIMALS).toBigDecimal();
+  const ethDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
 
   return deliveryRate
     .toBigDecimal()
-    .times(TOKEN_RATIO_BASE)
+    .times(BASE_NVM_USDC_RATIO)
     .div(ethDivisor)
     .div(tokenDivisor);
 }
@@ -151,7 +155,7 @@ function calculateOlasPriceFromPool(
   stablecoinBalance: BigInt,
   stablecoinDecimals: u8
 ): BigDecimal {
-  const olasDecimalsBigInt = BigInt.fromI32(10).pow(18);
+  const olasDecimalsBigInt = BigInt.fromI32(10).pow(ETH_DECIMALS);
   const stablecoinDecimalsBigInt = BigInt.fromI32(10).pow(stablecoinDecimals);
 
   const olasAmountDecimal = olasAmount.toBigDecimal().div(olasDecimalsBigInt.toBigDecimal());
@@ -167,25 +171,33 @@ function calculateOlasPriceFromPool(
 // Convert OLAS amount to USD using Balancer pool
 export function calculateOlasInUsd(olasAmount: BigInt): BigDecimal {
   const network = dataSource.network();
-  const isGnosis = network == 'gnosis' || network == 'xdai';
 
-  const vaultAddress = isGnosis
-    ? Address.fromString(BALANCER_VAULT_ADDRESS_GNOSIS)
-    : Address.fromString(BALANCER_VAULT_ADDRESS_BASE);
+  let vaultAddress = Address.zero();
+  let poolAddress = Address.zero();
+  let olasAddress = Address.zero();
+  let stableAddress = Address.zero();
+  let stableDecimals: u8 = 0;
 
-  const poolAddress = isGnosis
-    ? Address.fromString(OLAS_WXDAI_POOL_ADDRESS_GNOSIS)
-    : Address.fromString(OLAS_USDC_POOL_ADDRESS_BASE);
+  if (network == 'gnosis' || network == 'xdai') {
+    vaultAddress = Address.fromString(BALANCER_VAULT_ADDRESS_GNOSIS);
+    poolAddress = Address.fromString(OLAS_WXDAI_POOL_ADDRESS_GNOSIS);
+    olasAddress = Address.fromString(OLAS_ADDRESS_GNOSIS);
+    stableAddress = Address.fromString(WXDAI_ADDRESS_GNOSIS);
+    stableDecimals = ETH_DECIMALS;
+  }
 
-  const olasAddress = isGnosis
-    ? Address.fromString(OLAS_ADDRESS_GNOSIS)
-    : Address.fromString(OLAS_ADDRESS_BASE);
+  if (network == 'base') {
+    vaultAddress = Address.fromString(BALANCER_VAULT_ADDRESS_BASE);
+    poolAddress = Address.fromString(OLAS_USDC_POOL_ADDRESS_BASE);
+    olasAddress = Address.fromString(OLAS_ADDRESS_BASE);
+    stableAddress = Address.fromString(USDC_ADDRESS_BASE);
+    stableDecimals = USDC_DECIMALS;
+  }
 
-  const stableAddress = isGnosis
-    ? Address.fromString(WXDAI_ADDRESS_GNOSIS)
-    : Address.fromString(USDC_ADDRESS_BASE);
-
-  const stableDecimals: u8 = isGnosis ? 18 : USDC_DECIMALS;
+  if (vaultAddress.equals(Address.zero())) {
+    log.warning('Unknown network for OLAS conversion: {}', [network]);
+    return BigDecimal.fromString('0');
+  }
 
   // Get pool ID from pool contract
   const pool = BalancerV2WeightedPool.bind(poolAddress);
@@ -223,19 +235,14 @@ export function calculateOlasInUsd(olasAmount: BigInt): BigDecimal {
 // Main dispatcher: convert raw fee to USD based on fee unit and network
 export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
   const network = dataSource.network();
-  const isGnosis = network == 'gnosis' || network == 'xdai';
-  const isBase = network == 'base';
-
-  // Skip conversion for unknown networks (e.g., mainnet in tests)
-  if (!isGnosis && !isBase) {
-    log.warning('Unknown network: {} (cleaned: {}), returning 0', [network, network]);
-    return BigDecimal.fromString('0');
-  }
 
   if (feeUnit == FEE_UNIT_NATIVE) {
-    return isGnosis
-      ? convertGnosisNativeWeiToUsd(feeRaw)
-      : convertBaseNativeWeiToUsd(feeRaw);
+    if (network == 'gnosis' || network == 'xdai') {
+      return convertGnosisNativeWeiToUsd(feeRaw);
+    }
+    if (network == 'base') {
+      return convertBaseNativeWeiToUsd(feeRaw);
+    }
   }
 
   if (feeUnit == FEE_UNIT_TOKEN) {
@@ -243,12 +250,15 @@ export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
   }
 
   if (feeUnit == FEE_UNIT_CREDITS) {
-    return isGnosis
-      ? calculateGnosisNvmCreditsToUsd(feeRaw)
-      : calculateBaseNvmCreditsToUsd(feeRaw);
+    if (network == 'gnosis' || network == 'xdai') {
+      return calculateGnosisNvmCreditsToUsd(feeRaw);
+    }
+    if (network == 'base') {
+      return calculateBaseNvmCreditsToUsd(feeRaw);
+    }
   }
 
-  log.warning('Unknown fee unit: {}, returning 0', [feeUnit]);
+  log.warning('Unknown fee unit or network: {} on {}', [feeUnit, network]);
   return BigDecimal.fromString('0');
 }
 
