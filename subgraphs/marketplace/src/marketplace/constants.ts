@@ -20,12 +20,14 @@ export const BASE_MECH_MARKETPLACE_ADDRESS =
 export const GNOSIS_MECH_MARKETPLACE_ADDRESS =
   '0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB';
 
-// NVM Token Ratios (immutable in contracts)
-export const TOKEN_RATIO_GNOSIS = BigDecimal.fromString('990000000000000000000000000000');
-export const TOKEN_DECIMALS_GNOSIS: u8 = 18;
+// NVM Credit Ratios (immutable in contracts)
+// Gnosis: NVM credits convert to xDAI (18 decimals, 1:1 USD peg)
+export const GNOSIS_NVM_XDAI_RATIO = BigDecimal.fromString('990000000000000000000000000000');
+export const GNOSIS_NVM_TOKEN_DECIMALS: u8 = 18;
 
-export const TOKEN_RATIO_BASE = BigDecimal.fromString('990000000000000000');
-export const TOKEN_DECIMALS_BASE: u8 = 6;
+// Base: NVM credits convert to USDC (6 decimals)
+export const BASE_NVM_USDC_RATIO = BigDecimal.fromString('990000000000000000');
+export const BASE_NVM_TOKEN_DECIMALS: u8 = 6;
 
 // Chainlink price feed decimals
 export const CHAINLINK_PRICE_FEED_DECIMALS: u8 = 8;
