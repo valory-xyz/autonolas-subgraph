@@ -35,33 +35,32 @@ export const FEE_UNIT_CREDITS = 'CREDITS';
 // Detect fee unit from mech factory address
 export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
   const network = dataSource.network();
-  const factoryHex = mechFactory.toHexString().toLowerCase();
 
   if (network == 'gnosis' || network == 'xdai') {
-    if (factoryHex == GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
       return FEE_UNIT_NATIVE;
     }
-    if (factoryHex == GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
       return FEE_UNIT_TOKEN;
     }
-    if (factoryHex == GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE))) {
       return FEE_UNIT_CREDITS;
     }
   }
 
   if (network == 'base') {
-    if (factoryHex == BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
       return FEE_UNIT_NATIVE;
     }
-    if (factoryHex == BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
       return FEE_UNIT_TOKEN;
     }
-    if (factoryHex == BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase()) {
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
       return FEE_UNIT_CREDITS;
     }
   }
 
-  log.warning('Unknown mechFactory for fee unit detection: {} on network: {}', [factoryHex, network]);
+  log.warning('Unknown mechFactory for fee unit detection: {} on network: {}', [mechFactory.toHexString(), network]);
   return FEE_UNIT_NATIVE;
 }
 
