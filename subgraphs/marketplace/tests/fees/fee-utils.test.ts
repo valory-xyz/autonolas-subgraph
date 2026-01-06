@@ -34,42 +34,49 @@ describe("getFeeUnitFromMechFactory", () => {
   });
 
   test("Returns NATIVE for Gnosis fixed price native factory", () => {
+    dataSourceMock.setNetwork("gnosis");
     let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_NATIVE);
   });
 
   test("Returns NATIVE for Base fixed price native factory", () => {
+    dataSourceMock.setNetwork("base");
     let factory = Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_NATIVE);
   });
 
   test("Returns TOKEN for Gnosis fixed price token factory", () => {
+    dataSourceMock.setNetwork("gnosis");
     let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_TOKEN);
   });
 
   test("Returns TOKEN for Base fixed price token factory", () => {
+    dataSourceMock.setNetwork("base");
     let factory = Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_TOKEN);
   });
 
   test("Returns CREDITS for Gnosis NVM subscription native factory", () => {
+    dataSourceMock.setNetwork("gnosis");
     let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_CREDITS);
   });
 
   test("Returns CREDITS for Base NVM subscription USDC factory", () => {
+    dataSourceMock.setNetwork("base");
     let factory = Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC);
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_CREDITS);
   });
 
   test("Returns NATIVE for unknown factory (fallback)", () => {
+    dataSourceMock.setNetwork("gnosis");
     let factory = Bytes.fromHexString("0x1234567890123456789012345678901234567890");
     let result = getFeeUnitFromMechFactory(factory);
     assert.stringEquals(result, FEE_UNIT_NATIVE);
@@ -107,10 +114,10 @@ describe("calculateGnosisNvmCreditsToUsd", () => {
     dataSourceMock.resetValues();
   });
 
-  test("Credits conversion with TOKEN_RATIO_GNOSIS", () => {
+  test("Credits conversion with GNOSIS_NVM_XDAI_RATIO", () => {
     let credits = BigInt.fromI32(1000000);
     let result = calculateGnosisNvmCreditsToUsd(credits);
-    // Result should be non-zero due to TOKEN_RATIO_GNOSIS multiplication
+    // Result should be non-zero due to GNOSIS_NVM_XDAI_RATIO multiplication
     assert.assertTrue(!result.equals(BigDecimal.fromString("0")));
   });
 
@@ -127,10 +134,10 @@ describe("calculateBaseNvmCreditsToUsd", () => {
     dataSourceMock.resetValues();
   });
 
-  test("Credits conversion with TOKEN_RATIO_BASE", () => {
+  test("Credits conversion with BASE_NVM_USDC_RATIO", () => {
     let credits = BigInt.fromI32(1000000);
     let result = calculateBaseNvmCreditsToUsd(credits);
-    // Result should be non-zero due to TOKEN_RATIO_BASE multiplication
+    // Result should be non-zero due to BASE_NVM_USDC_RATIO multiplication
     assert.assertTrue(!result.equals(BigDecimal.fromString("0")));
   });
 

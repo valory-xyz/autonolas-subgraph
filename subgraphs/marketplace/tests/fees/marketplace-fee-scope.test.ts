@@ -120,7 +120,7 @@ describe("Fee tracking scope (marketplace on-chain only)", () => {
       request.save();
     }
 
-    let deliveryRateCredits = BigInt.fromI32(1000000); // => 0.99 USD with current TOKEN_RATIO_BASE
+    let deliveryRateCredits = BigInt.fromI32(1000000); // => 0.99 USD with current BASE_NVM_USDC_RATIO
     let deliverEvent = createDeliverEvent(
       TEST_MECH,
       TEST_REQUEST_ID_9,
