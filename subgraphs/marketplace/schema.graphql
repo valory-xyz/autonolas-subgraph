@@ -420,7 +420,9 @@ type Service @entity(immutable: false) {
   configHash: Bytes
   latestMultisig: Bytes
   historicalMultisigs: [Bytes!]!
+  # NOTE: Counts requests made BY this service's multisig (demand-side), NOT requests TO this service's mech
   totalRequests: BigInt!
+  # NOTE: Counts deliveries made BY this service's mech (supply-side)
   totalDeliveries: BigInt!
   agentIds: [BigInt!]!
 
