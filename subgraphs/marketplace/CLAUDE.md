@@ -140,8 +140,6 @@ service(id: "175") {
 }
 ```
 
-See `/temp/marketplace-problem/analysis-and-solution.md` for detailed analysis.
-
 ## File Structure
 
 ```
@@ -196,6 +194,17 @@ graph test tests/marketplace/mech-marketplace.test.ts
 graph build subgraph.gnosis.yaml
 graph build subgraph.base.yaml
 ```
+
+## API Versions
+
+The subgraph manifests use different Graph Protocol API versions per network:
+
+| Network | API Version | Reason |
+|---------|-------------|--------|
+| Gnosis  | 0.0.9       | Latest features, deployed first |
+| Base    | 0.0.7       | Stable version at Base launch |
+
+This difference exists because Gnosis was upgraded to newer API features while Base was deployed with the stable version available at launch. Both versions are compatible with the current handler code.
 
 ## Entity Mutability
 

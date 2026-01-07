@@ -2,6 +2,11 @@
 
 A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis** and **Base** networks.
 
+## When to Read This
+
+**README.md (this file)**: User-facing guide for querying, deployment, and quick start
+**CLAUDE.md**: Developer-facing context for debugging, adding handlers, and writing tests
+
 ## Overview
 
 This subgraph indexes:
@@ -74,19 +79,24 @@ yarn deploy-local
 
 ### Core Entities
 
-| Entity | Description |
-|--------|-------------|
-| `Service` | Olas service with mech(s), requests, and deliveries |
-| `Request` | A request to a mech for AI inference |
-| `Deliver` | Delivery of a request response |
-| `Mech` / `MarketplaceMech` | Mech contract instance |
-| `Sender` | Address that has made requests |
+| Entity | Description | Mutability |
+|--------|-------------|------------|
+| `Service` | Olas service with mech(s), requests, and deliveries | Mutable (aggregated state) |
+| `Request` | A request to a mech for AI inference | Mutable (aggregated state) |
+| `Deliver` | Delivery of a request response | Mutable (aggregated state) |
+| `Mech` | Legacy AgentMech instance (Gnosis only, uint256 request IDs) | Mutable (aggregated state) |
+| `MarketplaceMech` | Marketplace mech instance (Gnosis/Base, bytes32 request IDs) | Mutable (aggregated state) |
+| `Sender` | Address that has made requests | Mutable (aggregated state) |
+| `ParsedRequest` | IPFS-parsed request content (prompt, tool) | Immutable (event log) |
+| `ParsedDelivery` | IPFS-parsed delivery content (response, model) | Immutable (event log) |
+| `MarketplaceRequest` | On-chain marketplace request event | Immutable (event log) |
+| `MarketplaceDelivery` | On-chain marketplace delivery event | Immutable (event log) |
 
 ### Key Relationships
 
 ```
 Service
-├── mechs: [MarketplaceMech]
+├── marketplaceMechs: [MarketplaceMech]
 ├── requests: [Request]  (via mech linkage)
 └── deliveries: [Deliver]
 
@@ -94,12 +104,14 @@ Request
 ├── sender: Sender
 ├── service: Service
 ├── marketplaceRequest: RequestToMarketplace
+├── parsedRequest: ParsedRequest
 └── delivery: Deliver
 
 Deliver
 ├── request: Request
 ├── service: Service
-└── marketplaceDeliver: DeliverForMarketplace
+├── marketplaceDeliver: DeliverForMarketplace
+└── parsedDelivery: ParsedDelivery
 ```
 
 ## Querying
@@ -148,6 +160,25 @@ https://subgraph.autonolas.tech/subgraphs/name/marketplace-{network}-{version}
 }
 ```
 
+**Get IPFS-parsed request and delivery data:**
+```graphql
+{
+  requests(first: 10, where: {parsedRequest_not: null}) {
+    id
+    parsedRequest {
+      prompt
+      tool
+    }
+    delivery {
+      parsedDelivery {
+        response
+        model
+      }
+    }
+  }
+}
+```
+
 ### Query Semantics
 
 | Field | Meaning |
@@ -181,24 +212,40 @@ Fees are converted to USD using:
 | Any | OLAS | Balancer V2 pool prices |
 | Any | NVM Credits | Contract token ratios |
 
-## Project Structure
+**Scope:** Fee tracking applies only to on-chain marketplace requests (emitted via `MarketplaceRequest` events). Off-chain signed deliveries and legacy AgentMech requests do not have fee data.
 
-```
-src/
-├── marketplace/
-│   ├── mech-marketplace.ts    # Main marketplace handlers
-│   ├── utils.ts               # Shared utilities
-│   ├── fee-utils.ts           # USD conversion
-│   ├── constants.ts           # Contract addresses
-│   └── mech-*.ts              # Mech template handlers
-├── utils.ts                   # Root utilities
-└── *.ts                       # Other handlers
+## Testing
 
-tests/
-├── marketplace/               # Marketplace tests
-├── fees/                      # Fee utility tests
-└── *.test.ts                  # Other tests
+### Setup Examples
+
+**Mock network context:**
+```typescript
+import { dataSourceMock } from "matchstick-as/assembly/index";
+
+dataSourceMock.setNetwork("gnosis");  // or "base"
 ```
+
+**Mock contract calls:**
+```typescript
+import { createMockedFunction } from "matchstick-as/assembly/index";
+import { Address, ethereum, BigInt } from "@graphprotocol/graph-ts";
+
+// Mock Chainlink price feed
+createMockedFunction(
+  Address.fromString("0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"),
+  "latestRoundData",
+  "latestRoundData():(uint80,int256,uint256,uint256,uint80)"
+)
+  .returns([
+    ethereum.Value.fromI32(0),
+    ethereum.Value.fromSignedBigInt(BigInt.fromString("200000000000")), // $2000 ETH
+    ethereum.Value.fromI32(0),
+    ethereum.Value.fromI32(0),
+    ethereum.Value.fromI32(0)
+  ]);
+```
+
+For more test patterns, see [CLAUDE.md](./CLAUDE.md#testing-notes).
 
 ## Deployment
 
@@ -212,8 +259,7 @@ Naming convention: `marketplace-{network}-v{version}` (e.g., `marketplace-gnosis
 
 ## Documentation
 
-- [CLAUDE.md](./CLAUDE.md) - Detailed technical context for AI assistants
-- [docs/](./docs/) - Additional documentation
+- [CLAUDE.md](./CLAUDE.md) - Detailed technical context for developers and AI assistants
 
 ## License
 
