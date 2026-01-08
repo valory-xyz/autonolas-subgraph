@@ -339,8 +339,8 @@ type Request @entity(immutable: false) {
   priorityMech: Bytes # address of the mech that was originally requested
   deliveredByMech: Bytes # address of the mech that delivered the request
   # Fee tracking
-  feeUSD: BigDecimal # Initial locked fee in USD (from maxDeliveryRate)
-  finalFeeUSD: BigDecimal # Actual paid fee in USD (from deliveryRate)
+  feeUSD: BigDecimal # Initial locked fee in USD (from mech maxDeliveryRate)
+  finalFeeUSD: BigDecimal # Actual paid fee in USD (from actual deliver.deliveryRate)
   feeRaw: BigInt # Raw fee in original units
   feeUnit: FeeUnit # Payment model indicator (NATIVE, TOKEN, CREDITS)
 }
