@@ -547,11 +547,11 @@ function saveParsedRequestEntity(
 }
 
 function requestIdToDecimal(requestId: Bytes): string {
+  // Reverse bytes during copy to avoid .reverse() which causes WASM memory issues
   let copy = new Uint8Array(requestId.length);
   for (let i = 0; i < requestId.length; i++) {
-    copy[i] = requestId[i];
+    copy[requestId.length - 1 - i] = requestId[i];
   }
-  copy.reverse();
   let reversedBytes = Bytes.fromUint8Array(copy);
   return BigInt.fromUnsignedBytes(reversedBytes).toString();
 }
