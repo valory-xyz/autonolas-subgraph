@@ -507,12 +507,12 @@ export function handleSetMechFactoryStatuses(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
 
-  // Convert Address[] to Bytes[]
-  let mechFactories: Bytes[] = event.params.mechFactories.map<Bytes>(
-    (address: Address): Bytes => {
-      return address as Bytes;
-    }
-  );
+  // Convert Address[] to Bytes[] using for loop (closures can cause WASM memory issues)
+  let mechFactoriesAddresses = event.params.mechFactories;
+  let mechFactories = new Array<Bytes>(mechFactoriesAddresses.length);
+  for (let i = 0; i < mechFactoriesAddresses.length; i++) {
+    mechFactories[i] = mechFactoriesAddresses[i] as Bytes;
+  }
   entity.mechFactories = mechFactories;
 
   entity.statuses = event.params.statuses;
@@ -532,12 +532,12 @@ export function handleSetPaymentTypeBalanceTrackers(
   );
   entity.paymentTypes = event.params.paymentTypes;
 
-  // Convert Address[] to Bytes[]
-  let balanceTrackers: Bytes[] = event.params.balanceTrackers.map<Bytes>(
-    (address: Address): Bytes => {
-      return address as Bytes;
-    }
-  );
+  // Convert Address[] to Bytes[] using for loop (closures can cause WASM memory issues)
+  let balanceTrackersAddresses = event.params.balanceTrackers;
+  let balanceTrackers = new Array<Bytes>(balanceTrackersAddresses.length);
+  for (let i = 0; i < balanceTrackersAddresses.length; i++) {
+    balanceTrackers[i] = balanceTrackersAddresses[i] as Bytes;
+  }
   entity.balanceTrackers = balanceTrackers;
 
   entity.blockNumber = event.block.number;
