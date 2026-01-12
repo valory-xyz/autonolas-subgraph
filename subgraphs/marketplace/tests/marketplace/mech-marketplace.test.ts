@@ -16,7 +16,6 @@ import {
   handleDeliverWithSignaturesV2,
   handleMarketplaceRequest,
   handleOwnerUpdated,
-  handleSetMechFactoryStatuses,
   handleSetPaymentTypeBalanceTrackers,
 } from "../../src/marketplace/mech-marketplace"
 import {
@@ -27,7 +26,6 @@ import {
   createDeliverWithSignaturesV2Event,
   createMarketplaceRequestEvent,
   createOwnerUpdatedEvent,
-  createSetMechFactoryStatusesEvent,
   createSetPaymentTypeBalanceTrackersEvent,
 } from "./mech-marketplace-utils"
 import {
@@ -483,18 +481,6 @@ describe("Mech Marketplace Handlers", () => {
 
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
     assert.fieldEquals("OwnerUpdated", id, "owner", owner.toHexString())
-  })
-
-  test("handleSetMechFactoryStatuses captures factory flags", () => {
-    let factories = [
-      Address.fromString("0x0000000000000000000000000000000000000301"),
-      Address.fromString("0x0000000000000000000000000000000000000302"),
-    ]
-    let event = createSetMechFactoryStatusesEvent(factories, [true, false])
-    handleSetMechFactoryStatuses(event)
-
-    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
-    assert.fieldEquals("SetMechFactoryStatuses", id, "statuses", "[true, false]")
   })
 
   test("handleSetPaymentTypeBalanceTrackers stores tracker mapping", () => {

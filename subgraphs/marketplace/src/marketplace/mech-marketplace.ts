@@ -7,7 +7,6 @@ import {
   MarketplaceParamsUpdated as MarketplaceParamsUpdatedEvent,
   MarketplaceRequest as MarketplaceRequestEvent,
   OwnerUpdated as OwnerUpdatedEvent,
-  SetMechFactoryStatuses as SetMechFactoryStatusesEvent,
   SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEvent,
 } from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
 import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
@@ -19,7 +18,6 @@ import {
   Mech,
   OwnerUpdated,
   Service,
-  SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
   Request,
   CreateMech,
@@ -492,30 +490,6 @@ export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
   entity.owner = event.params.owner;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleSetMechFactoryStatuses(
-  event: SetMechFactoryStatusesEvent
-): void {
-  let entity = new SetMechFactoryStatuses(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-
-  // Convert Address[] to Bytes[] using for loop (closures can cause WASM memory issues)
-  let mechFactoriesAddresses = event.params.mechFactories;
-  let mechFactories = new Array<Bytes>(mechFactoriesAddresses.length);
-  for (let i = 0; i < mechFactoriesAddresses.length; i++) {
-    mechFactories[i] = mechFactoriesAddresses[i] as Bytes;
-  }
-  entity.mechFactories = mechFactories;
-
-  entity.statuses = event.params.statuses;
 
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;

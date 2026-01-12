@@ -6,7 +6,6 @@ import {
   MarketplaceParamsUpdated,
   MarketplaceRequest,
   OwnerUpdated,
-  SetMechFactoryStatuses,
   SetPaymentTypeBalanceTrackers,
   Deliver as DeliverWithSignaturesV2,
 } from "../../generated/MechMarketplaceV2/MechMarketplaceV2"
@@ -233,23 +232,6 @@ export function createOwnerUpdatedEvent(owner: Address): OwnerUpdated {
   event.parameters = new Array()
   event.parameters.push(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner))
-  )
-
-  return event
-}
-
-export function createSetMechFactoryStatusesEvent(
-  mechFactories: Address[],
-  statuses: boolean[]
-): SetMechFactoryStatuses {
-  let event = changetype<SetMechFactoryStatuses>(newMockEvent())
-
-  event.parameters = new Array()
-  event.parameters.push(
-    new ethereum.EventParam("mechFactories", ethereum.Value.fromAddressArray(mechFactories))
-  )
-  event.parameters.push(
-    new ethereum.EventParam("statuses", ethereum.Value.fromBooleanArray(statuses))
   )
 
   return event
