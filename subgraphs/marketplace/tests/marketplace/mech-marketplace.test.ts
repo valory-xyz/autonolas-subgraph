@@ -16,7 +16,6 @@ import {
   handleDeliverWithSignaturesV2,
   handleMarketplaceRequest,
   handleOwnerUpdated,
-  handleSetPaymentTypeBalanceTrackers,
 } from "../../src/marketplace/mech-marketplace"
 import {
   createCreateMechEvent,
@@ -26,7 +25,6 @@ import {
   createDeliverWithSignaturesV2Event,
   createMarketplaceRequestEvent,
   createOwnerUpdatedEvent,
-  createSetPaymentTypeBalanceTrackersEvent,
 } from "./mech-marketplace-utils"
 import {
   CreateMech as CreateMechEntity,
@@ -481,19 +479,6 @@ describe("Mech Marketplace Handlers", () => {
 
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
     assert.fieldEquals("OwnerUpdated", id, "owner", owner.toHexString())
-  })
-
-  test("handleSetPaymentTypeBalanceTrackers stores tracker mapping", () => {
-    let paymentTypes = [Bytes.fromHexString("0xaaaa"), Bytes.fromHexString("0xbbbb")]
-    let trackers = [
-      Address.fromString("0x0000000000000000000000000000000000000401"),
-      Address.fromString("0x0000000000000000000000000000000000000402"),
-    ]
-    let event = createSetPaymentTypeBalanceTrackersEvent(paymentTypes, trackers)
-    handleSetPaymentTypeBalanceTrackers(event)
-
-    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
-    assert.fieldEquals("SetPaymentTypeBalanceTrackers", id, "paymentTypes", "[0xaaaa, 0xbbbb]")
   })
 })
 

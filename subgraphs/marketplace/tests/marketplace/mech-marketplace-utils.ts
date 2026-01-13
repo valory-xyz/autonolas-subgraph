@@ -6,7 +6,6 @@ import {
   MarketplaceParamsUpdated,
   MarketplaceRequest,
   OwnerUpdated,
-  SetPaymentTypeBalanceTrackers,
   Deliver as DeliverWithSignaturesV2,
 } from "../../generated/MechMarketplaceV2/MechMarketplaceV2"
 import { Deliver as DeliverWithSignaturesV1 } from "../../generated/MechMarketplaceV1/MechMarketplaceV1"
@@ -236,21 +235,3 @@ export function createOwnerUpdatedEvent(owner: Address): OwnerUpdated {
 
   return event
 }
-
-export function createSetPaymentTypeBalanceTrackersEvent(
-  paymentTypes: Bytes[],
-  balanceTrackers: Address[]
-): SetPaymentTypeBalanceTrackers {
-  let event = changetype<SetPaymentTypeBalanceTrackers>(newMockEvent())
-
-  event.parameters = new Array()
-  event.parameters.push(
-    new ethereum.EventParam("paymentTypes", ethereum.Value.fromBytesArray(paymentTypes))
-  )
-  event.parameters.push(
-    new ethereum.EventParam("balanceTrackers", ethereum.Value.fromAddressArray(balanceTrackers))
-  )
-
-  return event
-}
-
