@@ -44,55 +44,53 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // Cache event params to avoid repeated access to indexed parameters
-  let mech = event.params.mech;
-  let serviceId = event.params.serviceId;
-  let mechFactory = event.params.mechFactory;
-
-  // Create CreateMech entity (used by getServiceIdFromMech)
-  let createMechEntity = CreateMech.load(mech);
+  // Create CreateMech entity FIRST (used by getServiceIdFromMech)
+  let createMechEntity = CreateMech.load(event.params.mech);
   if (createMechEntity === null) {
-    createMechEntity = new CreateMech(mech);
+    createMechEntity = new CreateMech(event.params.mech);
   }
-  createMechEntity.mech = mech;
-  createMechEntity.serviceId = serviceId;
-  createMechEntity.mechFactory = mechFactory;
+  createMechEntity.mech = event.params.mech;
+  createMechEntity.serviceId = event.params.serviceId;
+  createMechEntity.mechFactory = event.params.mechFactory;
   createMechEntity.source = 'MARKETPLACE';
   createMechEntity.blockNumber = event.block.number;
   createMechEntity.blockTimestamp = event.block.timestamp;
   createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  // Perform all external calls FIRST to avoid WASM memory corruption
-  // Contract calls can invalidate entity field references in AssemblyScript
-  let initialMaxDeliveryRate = getMaxDeliveryRate(mech);
-  let paymentType = getPaymentType(mech);
-  let service = Service.load(serviceId.toString());
-
-  // Re-read event params after external calls (WASM memory corruption)
-  let mechAddress = event.params.mech;
-  let mechFactoryAddress = event.params.mechFactory;
-
-  // Create Mech entity and assign ALL fields right before save
-  let mechAgent = new Mech(serviceId.toString());
-  mechAgent.address = mechAddress;
-  mechAgent.mechFactory = mechFactoryAddress;
+  // Create and save Mech entity BEFORE external calls
+  // External calls corrupt WASM memory - must save first
+  let mechAgent = new Mech(event.params.serviceId.toString());
+  mechAgent.address = event.params.mech;
+  mechAgent.mechFactory = event.params.mechFactory;
   mechAgent.owner = event.transaction.from;
-  mechAgent.service = serviceId.toString();
+  mechAgent.service = event.params.serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
-  mechAgent.paymentType = paymentType;
-  if (service !== null) {
-    mechAgent.configHash = service.configHash;
-  }
-
+  mechAgent.paymentType = Bytes.empty();
   mechAgent.save();
 
-  createDataSourceForMechContract(mechAddress, mechFactoryAddress);
+  // Now do external calls AFTER entity is safely saved
+  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
+  let paymentType = getPaymentType(event.params.mech);
+  let service = Service.load(event.params.serviceId.toString());
+
+  // Reload and update with external call results
+  let mechToUpdate = Mech.load(event.params.serviceId.toString());
+  if (mechToUpdate !== null) {
+    mechToUpdate.maxDeliveryRate = initialMaxDeliveryRate;
+    mechToUpdate.paymentType = paymentType;
+    if (service !== null) {
+      mechToUpdate.configHash = service.configHash;
+    }
+    mechToUpdate.save();
+  }
+
+  createDataSourceForMechContract(event.params.mech, event.params.mechFactory);
 
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
