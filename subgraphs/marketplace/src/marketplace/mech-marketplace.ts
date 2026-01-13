@@ -7,12 +7,8 @@ import {
   MarketplaceParamsUpdated as MarketplaceParamsUpdatedEvent,
   MarketplaceRequest as MarketplaceRequestEvent,
   OwnerUpdated as OwnerUpdatedEvent,
-  SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEvent,
 } from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
-import {
-  Deliver as DeliverWithSignaturesEventV1,
-  SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEventV1,
-} from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
+import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
 import {
   MarketplaceDelivery,
   MarketplaceDeliveryWithSignatures,
@@ -21,7 +17,6 @@ import {
   Mech,
   OwnerUpdated,
   Service,
-  SetPaymentTypeBalanceTrackers,
   Request,
   CreateMech,
 } from '../../generated/schema';
@@ -537,77 +532,4 @@ export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
   entity.transactionHash = event.transaction.hash;
 
   entity.save();
-}
-
-// Internal helper to process SetPaymentTypeBalanceTrackers events
-function processSetPaymentTypeBalanceTrackers(
-  blockNumber: BigInt,
-  blockTimestamp: BigInt,
-  transactionHash: Bytes,
-  logIndex: BigInt,
-  paymentTypesSource: Bytes[],
-  balanceTrackersSource: Address[]
-): void {
-  let entityId = transactionHash.concatI32(logIndex.toI32());
-
-  // Copy paymentTypes array byte-by-byte to fresh memory
-  let ptLen = paymentTypesSource.length;
-  let paymentTypes = new Array<Bytes>(ptLen);
-  for (let i = 0; i < ptLen; i++) {
-    let src = paymentTypesSource[i];
-    let dest = new Bytes(src.length);
-    for (let j = 0; j < src.length; j++) {
-      dest[j] = src[j];
-    }
-    paymentTypes[i] = dest;
-  }
-
-  // Copy balanceTrackers array byte-by-byte to fresh memory
-  let btLen = balanceTrackersSource.length;
-  let balanceTrackers = new Array<Bytes>(btLen);
-  for (let i = 0; i < btLen; i++) {
-    let src = balanceTrackersSource[i];
-    let dest = new Bytes(src.length);
-    for (let j = 0; j < src.length; j++) {
-      dest[j] = src[j];
-    }
-    balanceTrackers[i] = dest;
-  }
-
-  // Create entity and assign ALL fields right before save
-  let entity = new SetPaymentTypeBalanceTrackers(entityId);
-  entity.paymentTypes = paymentTypes;
-  entity.balanceTrackers = balanceTrackers;
-  entity.blockNumber = blockNumber;
-  entity.blockTimestamp = blockTimestamp;
-  entity.transactionHash = transactionHash;
-  entity.save();
-}
-
-// Handler for V1 events (uses V1 generated types)
-export function handleSetPaymentTypeBalanceTrackersV1(
-  event: SetPaymentTypeBalanceTrackersEventV1
-): void {
-  processSetPaymentTypeBalanceTrackers(
-    event.block.number,
-    event.block.timestamp,
-    event.transaction.hash,
-    event.logIndex,
-    event.params.paymentTypes,
-    event.params.balanceTrackers
-  );
-}
-
-// Handler for V2 events (uses V2 generated types)
-export function handleSetPaymentTypeBalanceTrackers(
-  event: SetPaymentTypeBalanceTrackersEvent
-): void {
-  processSetPaymentTypeBalanceTrackers(
-    event.block.number,
-    event.block.timestamp,
-    event.transaction.hash,
-    event.logIndex,
-    event.params.paymentTypes,
-    event.params.balanceTrackers
-  );
 }
