@@ -46,53 +46,51 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
+  // Cache event params to avoid repeated access to indexed parameters
+  let mech = event.params.mech;
+  let serviceId = event.params.serviceId;
+  let mechFactory = event.params.mechFactory;
+
   // Create CreateMech entity (used by getServiceIdFromMech)
-  let createMechEntity = CreateMech.load(event.params.mech);
+  let createMechEntity = CreateMech.load(mech);
   if (createMechEntity === null) {
-    createMechEntity = new CreateMech(event.params.mech);
+    createMechEntity = new CreateMech(mech);
   }
-  createMechEntity.mech = event.params.mech;
-  createMechEntity.serviceId = event.params.serviceId;
-  createMechEntity.mechFactory = event.params.mechFactory;
+  createMechEntity.mech = mech;
+  createMechEntity.serviceId = serviceId;
+  createMechEntity.mechFactory = mechFactory;
   createMechEntity.source = 'MARKETPLACE';
   createMechEntity.blockNumber = event.block.number;
   createMechEntity.blockTimestamp = event.block.timestamp;
   createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  // Create Mech entity
-  let mechAgent = new Mech(event.params.serviceId.toString());
+  // Perform all external calls FIRST to avoid WASM memory corruption
+  // Contract calls can invalidate entity field references in AssemblyScript
+  let initialMaxDeliveryRate = getMaxDeliveryRate(mech);
+  let paymentType = getPaymentType(mech);
+  let service = Service.load(serviceId.toString());
 
-  mechAgent.address = event.params.mech;
-  mechAgent.mechFactory = event.params.mechFactory;
+  // Create Mech entity and assign ALL fields right before save
+  let mechAgent = new Mech(serviceId.toString());
+  mechAgent.address = mech;
+  mechAgent.mechFactory = mechFactory;
   mechAgent.owner = event.transaction.from;
-  mechAgent.service = event.params.serviceId.toString();
+  mechAgent.service = serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = null;
+  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
   mechAgent.karma = BigInt.fromI32(0);
-  
-  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
-  if (initialMaxDeliveryRate !== null) {
-    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
-  }
-
-  // Get service configHash from Service entity and write it to Mech
-  let service = Service.load(event.params.serviceId.toString());
+  mechAgent.paymentType = paymentType;
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
 
-  // Call paymentType function on the newly deployed mech contract using generic function
-  // This function tries all payment type contract bindings until one succeeds
-  let paymentType = getPaymentType(event.params.mech);
-  mechAgent.paymentType = paymentType;
-
   mechAgent.save();
 
-  createDataSourceForMechContract(event.params.mech, event.params.mechFactory);
+  createDataSourceForMechContract(mech, mechFactory);
 
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
