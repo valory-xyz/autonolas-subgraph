@@ -69,10 +69,14 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let paymentType = getPaymentType(mech);
   let service = Service.load(serviceId.toString());
 
+  // Re-read event params after external calls (WASM memory corruption)
+  let mechAddress = event.params.mech;
+  let mechFactoryAddress = event.params.mechFactory;
+
   // Create Mech entity and assign ALL fields right before save
   let mechAgent = new Mech(serviceId.toString());
-  mechAgent.address = mech;
-  mechAgent.mechFactory = mechFactory;
+  mechAgent.address = mechAddress;
+  mechAgent.mechFactory = mechFactoryAddress;
   mechAgent.owner = event.transaction.from;
   mechAgent.service = serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
@@ -88,7 +92,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
 
   mechAgent.save();
 
-  createDataSourceForMechContract(mech, mechFactory);
+  createDataSourceForMechContract(mechAddress, mechFactoryAddress);
 
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
