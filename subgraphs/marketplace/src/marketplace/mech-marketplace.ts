@@ -499,22 +499,26 @@ export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
 export function handleSetPaymentTypeBalanceTrackers(
   event: SetPaymentTypeBalanceTrackersEvent
 ): void {
-  let entity = new SetPaymentTypeBalanceTrackers(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.paymentTypes = event.params.paymentTypes;
+  // Cache all event params first to avoid WASM memory corruption
+  let paymentTypes = event.params.paymentTypes;
+  let balanceTrackersAddresses = event.params.balanceTrackers;
+  let blockNumber = event.block.number;
+  let blockTimestamp = event.block.timestamp;
+  let transactionHash = event.transaction.hash;
+  let entityId = transactionHash.concatI32(event.logIndex.toI32());
 
   // Convert Address[] to Bytes[] using for loop (closures can cause WASM memory issues)
-  let balanceTrackersAddresses = event.params.balanceTrackers;
   let balanceTrackers = new Array<Bytes>(balanceTrackersAddresses.length);
   for (let i = 0; i < balanceTrackersAddresses.length; i++) {
     balanceTrackers[i] = balanceTrackersAddresses[i] as Bytes;
   }
+
+  // Create entity and assign ALL fields right before save
+  let entity = new SetPaymentTypeBalanceTrackers(entityId);
+  entity.paymentTypes = paymentTypes;
   entity.balanceTrackers = balanceTrackers;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
+  entity.blockNumber = blockNumber;
+  entity.blockTimestamp = blockTimestamp;
+  entity.transactionHash = transactionHash;
   entity.save();
 }
