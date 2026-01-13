@@ -149,14 +149,6 @@ type SetMechFactoryStatuses @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type SetPaymentTypeBalanceTrackers @entity(immutable: true) {
-  id: Bytes!
-  paymentTypes: [Bytes!]! # bytes32[]
-  balanceTrackers: [Bytes!]! # address[]
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
 type ActivateRegistration @entity(immutable: true) {
   id: Bytes!
   serviceId: BigInt! # uint256
