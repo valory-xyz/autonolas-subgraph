@@ -765,17 +765,42 @@ export class OnChainRequestArgs {
 export function processOnChainDeliver(args: OnChainDeliverArgs): void {
   // Use txHash + logIndex for unique Deliver entity ID (same as mech subgraph)
   const deliverId = args.txHash.concatI32(args.logIndex);
-  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
-
   const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
 
-  assignDeliverBasics(deliver, args);
-  const isNewDelivery = attachRequestToDeliver(deliver, args, !isMarketplaceTx);
-  const serviceId = ensureServiceForDeliver(deliver, args.mech);
+  // Perform all external calls FIRST to avoid WASM memory corruption
+  const serviceId = requireServiceId(args.mech, 'Deliver');
+  let request = Request.load(args.requestId.toHexString());
+  let isNewDelivery = false;
+
+  // Process request updates (separate from deliver entity)
+  if (request !== null && !request.isDelivered) {
+    isNewDelivery = true;
+    request.isDelivered = true;
+    request.deliveredByMech = args.mech;
+    updateFeesOnDelivery(request, args.requestId, args.deliveryRate);
+    request.save();
+    if (!isMarketplaceTx) {
+      updateMechCountersOnDelivery(request, args.mech);
+    }
+  }
+
+  // Create deliver entity and assign ALL fields right before save
+  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
+  deliver.requestId = args.requestId;
+  deliver.mech = args.mech;
+  deliver.blockNumber = args.blockNumber;
+  deliver.blockTimestamp = args.blockTimestamp;
+  deliver.transactionHash = args.txHash;
+  deliver.sender = args.sender;
+  deliver.service = serviceId;
+  if (request !== null) {
+    deliver.request = request.id;
+  }
+  deliver.save();
+
   if (!isMarketplaceTx && isNewDelivery) {
     incrementServiceDeliveries(serviceId);
   }
-  deliver.save();
 
   if (!isMarketplaceTx) {
     finalizeGlobalForDeliver(args);
@@ -857,47 +882,6 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
   }
 }
 
-function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
-  deliver.requestId = args.requestId;
-  deliver.mech = args.mech;
-  deliver.blockNumber = args.blockNumber;
-  deliver.blockTimestamp = args.blockTimestamp;
-  deliver.transactionHash = args.txHash;
-  deliver.sender = args.sender;
-}
-
-function attachRequestToDeliver(
-  deliver: Deliver,
-  args: OnChainDeliverArgs,
-  shouldUpdateCounters: boolean
-): boolean {
-  let request = Request.load(args.requestId.toHexString());
-  if (request === null) {
-    log.warning('Deliver: Request {} not found for delivery transaction', [
-      args.requestId.toHexString(),
-    ]);
-    return false;
-  }
-
-  deliver.request = request.id;
-
-  if (request.isDelivered) {
-    return false;
-  }
-
-  request.isDelivered = true;
-  request.deliveredByMech = args.mech;
-
-  // Update fees on new delivery
-  updateFeesOnDelivery(request, args.requestId, args.deliveryRate);
-
-  request.save();
-  if (shouldUpdateCounters) {
-    updateMechCountersOnDelivery(request, args.mech);
-  }
-  return true;
-}
-
 function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: BigInt): void {
   // Only track fees for marketplace on-chain requests (scope guard)
   let rtm = RequestToMarketplace.load(requestId.toHexString());
@@ -925,12 +909,6 @@ function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: 
   let global = getGlobal();
   global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
   global.save();
-}
-
-function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {
-  const serviceId = requireServiceId(mech, 'Deliver');
-  deliver.service = serviceId;
-  return serviceId;
 }
 
 function incrementServiceDeliveries(serviceId: string): void {
@@ -1069,8 +1047,23 @@ function upsertSignedDeliverEntity(
   sender: Bytes | null,
   fallbackSender: Bytes | null
 ): Deliver {
+  // Perform external call FIRST to avoid WASM memory corruption
+  const serviceId = getServiceIdFromMech(mech);
+
+  // Determine sender value before entity creation
+  let senderValue: Bytes;
+  if (sender !== null) {
+    senderValue = sender as Bytes;
+  } else if (fallbackSender !== null) {
+    senderValue = fallbackSender as Bytes;
+  } else {
+    senderValue = mech;
+  }
+
   // For off-chain/signed deliveries, use txHash + requestId for unique ID
   let deliverId = transactionHash.concat(requestId);
+
+  // Create entity and assign ALL fields right before save
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
   deliver.requestId = requestId;
   deliver.mech = mech;
@@ -1078,23 +1071,12 @@ function upsertSignedDeliverEntity(
   deliver.blockTimestamp = blockTimestamp;
   deliver.transactionHash = transactionHash;
   deliver.request = null;
-
-  // Sender is the delivery mech (the one sending/delivering the response)
-  if (sender !== null) {
-    deliver.sender = sender as Bytes;
-  } else if (fallbackSender !== null) {
-    deliver.sender = fallbackSender as Bytes;
-  } else {
-    // Default to mech address if no sender provided
-    deliver.sender = mech;
-  }
-
-  const serviceId = getServiceIdFromMech(mech);
+  deliver.sender = senderValue;
   if (serviceId !== null) {
     deliver.service = serviceId;
   }
-
   deliver.save();
+
   return deliver;
 }
 

@@ -398,19 +398,18 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
 
   // Request entities for each request
   for (let i = 0; i < event.params.numRequests.toI32(); i++) {
-    let request = getOrCreateRequest(event.params.requestIds[i]);
-    
-    // Common fields only
+    let requestId = event.params.requestIds[i];
+
+    // Create request entity and assign ALL fields right before save
+    // to avoid WASM memory corruption from interleaved entity loads
+    let request = getOrCreateRequest(requestId);
     request.sender = sender.id;
     request.blockNumber = event.block.number;
     request.blockTimestamp = event.block.timestamp;
     request.transactionHash = event.transaction.hash;
     request.isDelivered = false;
     request.priorityMech = event.params.priorityMech;
-
-    request.mech = event.params.priorityMech; // Mech address
-
-    // Fee tracking
+    request.mech = event.params.priorityMech;
     if (feeRaw !== null) {
       request.feeRaw = feeRaw;
     }
@@ -420,10 +419,13 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
     if (feeUSD !== null) {
       request.feeUSD = feeUSD;
     }
-    
-    // Use requester's service for request.service and Service.totalRequests (matches mech-marketplace)
     if (serviceId !== null) {
       request.service = serviceId;
+    }
+    request.save();
+
+    // Now safe to do other entity operations after request is saved
+    if (serviceId !== null) {
       let service = Service.load(serviceId);
       if (service !== null) {
         service.totalRequests = service.totalRequests.plus(BigInt.fromI32(1));
@@ -431,13 +433,10 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
       }
     }
 
-    // Update per-mech counters for the priority mech
     updateMechCountersOnRequest(event.params.priorityMech);
 
-    request.save();
-
-    // Create marketplace-specific request entity (avoids null fields)
-    let marketplaceRequest = getOrCreateRequestToMarketplace(event.params.requestIds[i]);
+    // Create marketplace-specific request entity
+    let marketplaceRequest = getOrCreateRequestToMarketplace(requestId);
     marketplaceRequest.isMarketplace = true;
     marketplaceRequest.isOffChain = false;
     marketplaceRequest.request = request.id;
