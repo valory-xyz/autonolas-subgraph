@@ -44,7 +44,7 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // Create CreateMech entity FIRST (used by getServiceIdFromMech)
+  // Create CreateMech entity first (used by getServiceIdFromMech)
   let createMechEntity = CreateMech.load(event.params.mech);
   if (createMechEntity === null) {
     createMechEntity = new CreateMech(event.params.mech);
@@ -58,8 +58,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  // Create and save Mech entity BEFORE external calls
-  // External calls corrupt WASM memory - must save first
+  // Create Mech entity
   let mechAgent = new Mech(event.params.serviceId.toString());
   mechAgent.address = event.params.mech;
   mechAgent.mechFactory = event.params.mechFactory;
@@ -71,24 +70,21 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
   mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
-  mechAgent.paymentType = Bytes.empty();
-  mechAgent.save();
 
-  // Now do external calls AFTER entity is safely saved
   let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
-  let paymentType = getPaymentType(event.params.mech);
-  let service = Service.load(event.params.serviceId.toString());
-
-  // Reload and update with external call results
-  let mechToUpdate = Mech.load(event.params.serviceId.toString());
-  if (mechToUpdate !== null) {
-    mechToUpdate.maxDeliveryRate = initialMaxDeliveryRate;
-    mechToUpdate.paymentType = paymentType;
-    if (service !== null) {
-      mechToUpdate.configHash = service.configHash;
-    }
-    mechToUpdate.save();
+  if (initialMaxDeliveryRate !== null) {
+    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
   }
+
+  let service = Service.load(event.params.serviceId.toString());
+  if (service !== null) {
+    mechAgent.configHash = service.configHash;
+  }
+
+  let paymentType = getPaymentType(event.params.mech);
+  mechAgent.paymentType = paymentType;
+
+  mechAgent.save();
 
   createDataSourceForMechContract(event.params.mech, event.params.mechFactory);
 
