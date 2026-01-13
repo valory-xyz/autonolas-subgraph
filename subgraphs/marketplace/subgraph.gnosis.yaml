@@ -185,7 +185,6 @@ dataSources:
         - Mech
         - Sender
         - Global
-        - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
@@ -201,8 +200,6 @@ dataSources:
           handler: handleMarketplaceDeliveryWithSignatures
         - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
           handler: handleMarketplaceRequest
-        - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
-          handler: handleSetPaymentTypeBalanceTrackers
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliverWithSignaturesV1
       file: ./src/marketplace/mech-marketplace.ts
