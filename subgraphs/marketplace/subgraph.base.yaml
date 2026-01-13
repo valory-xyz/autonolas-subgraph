@@ -50,7 +50,7 @@ dataSources:
         - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
           handler: handleMarketplaceRequest
         - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
-          handler: handleSetPaymentTypeBalanceTrackers
+          handler: handleSetPaymentTypeBalanceTrackersV1
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliverWithSignaturesV1
       file: ./src/marketplace/mech-marketplace.ts

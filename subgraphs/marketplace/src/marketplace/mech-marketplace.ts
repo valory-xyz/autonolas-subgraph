@@ -9,7 +9,10 @@ import {
   OwnerUpdated as OwnerUpdatedEvent,
   SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEvent,
 } from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
-import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
+import {
+  Deliver as DeliverWithSignaturesEventV1,
+  SetPaymentTypeBalanceTrackers as SetPaymentTypeBalanceTrackersEventV1,
+} from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
 import {
   MarketplaceDelivery,
   MarketplaceDeliveryWithSignatures,
@@ -536,27 +539,39 @@ export function handleOwnerUpdated(event: OwnerUpdatedEvent): void {
   entity.save();
 }
 
-export function handleSetPaymentTypeBalanceTrackers(
-  event: SetPaymentTypeBalanceTrackersEvent
+// Internal helper to process SetPaymentTypeBalanceTrackers events
+function processSetPaymentTypeBalanceTrackers(
+  blockNumber: BigInt,
+  blockTimestamp: BigInt,
+  transactionHash: Bytes,
+  logIndex: BigInt,
+  paymentTypesSource: Bytes[],
+  balanceTrackersSource: Address[]
 ): void {
-  // Cache primitive event params first
-  let blockNumber = event.block.number;
-  let blockTimestamp = event.block.timestamp;
-  let transactionHash = event.transaction.hash;
-  let entityId = transactionHash.concatI32(event.logIndex.toI32());
+  let entityId = transactionHash.concatI32(logIndex.toI32());
 
-  // Copy paymentTypes array element-by-element to avoid WASM memory corruption
-  let paymentTypesSource = event.params.paymentTypes;
-  let paymentTypes = new Array<Bytes>(paymentTypesSource.length);
-  for (let i = 0; i < paymentTypesSource.length; i++) {
-    paymentTypes[i] = paymentTypesSource[i];
+  // Copy paymentTypes array byte-by-byte to fresh memory
+  let ptLen = paymentTypesSource.length;
+  let paymentTypes = new Array<Bytes>(ptLen);
+  for (let i = 0; i < ptLen; i++) {
+    let src = paymentTypesSource[i];
+    let dest = new Bytes(src.length);
+    for (let j = 0; j < src.length; j++) {
+      dest[j] = src[j];
+    }
+    paymentTypes[i] = dest;
   }
 
-  // Copy balanceTrackers array element-by-element (Address[] to Bytes[])
-  let balanceTrackersSource = event.params.balanceTrackers;
-  let balanceTrackers = new Array<Bytes>(balanceTrackersSource.length);
-  for (let i = 0; i < balanceTrackersSource.length; i++) {
-    balanceTrackers[i] = balanceTrackersSource[i] as Bytes;
+  // Copy balanceTrackers array byte-by-byte to fresh memory
+  let btLen = balanceTrackersSource.length;
+  let balanceTrackers = new Array<Bytes>(btLen);
+  for (let i = 0; i < btLen; i++) {
+    let src = balanceTrackersSource[i];
+    let dest = new Bytes(src.length);
+    for (let j = 0; j < src.length; j++) {
+      dest[j] = src[j];
+    }
+    balanceTrackers[i] = dest;
   }
 
   // Create entity and assign ALL fields right before save
@@ -567,4 +582,32 @@ export function handleSetPaymentTypeBalanceTrackers(
   entity.blockTimestamp = blockTimestamp;
   entity.transactionHash = transactionHash;
   entity.save();
+}
+
+// Handler for V1 events (uses V1 generated types)
+export function handleSetPaymentTypeBalanceTrackersV1(
+  event: SetPaymentTypeBalanceTrackersEventV1
+): void {
+  processSetPaymentTypeBalanceTrackers(
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.logIndex,
+    event.params.paymentTypes,
+    event.params.balanceTrackers
+  );
+}
+
+// Handler for V2 events (uses V2 generated types)
+export function handleSetPaymentTypeBalanceTrackers(
+  event: SetPaymentTypeBalanceTrackersEvent
+): void {
+  processSetPaymentTypeBalanceTrackers(
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.logIndex,
+    event.params.paymentTypes,
+    event.params.balanceTrackers
+  );
 }
