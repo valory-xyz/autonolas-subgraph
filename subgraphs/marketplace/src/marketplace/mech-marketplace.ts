@@ -44,49 +44,57 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // Create CreateMech entity first (used by getServiceIdFromMech)
-  let createMechEntity = CreateMech.load(event.params.mech);
-  if (createMechEntity === null) {
-    createMechEntity = new CreateMech(event.params.mech);
+  // Cache ALL event params BEFORE any external calls or entity operations
+  let mechAddress = event.params.mech;
+  let serviceId = event.params.serviceId;
+  let mechFactory = event.params.mechFactory;
+  let blockNumber = event.block.number;
+  let blockTimestamp = event.block.timestamp;
+  let transactionHash = event.transaction.hash;
+  let txFrom = event.transaction.from;
+
+  // Do external calls FIRST while event params are still valid
+  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
+  let paymentType = getPaymentType(mechAddress);
+  let service = Service.load(serviceId.toString());
+  let configHash: Bytes | null = null;
+  if (service !== null) {
+    configHash = service.configHash;
   }
-  createMechEntity.mech = event.params.mech;
-  createMechEntity.serviceId = event.params.serviceId;
-  createMechEntity.mechFactory = event.params.mechFactory;
+
+  // Now create and save CreateMech entity using cached values
+  let createMechEntity = CreateMech.load(mechAddress);
+  if (createMechEntity === null) {
+    createMechEntity = new CreateMech(mechAddress);
+  }
+  createMechEntity.mech = mechAddress;
+  createMechEntity.serviceId = serviceId;
+  createMechEntity.mechFactory = mechFactory;
   createMechEntity.source = 'MARKETPLACE';
-  createMechEntity.blockNumber = event.block.number;
-  createMechEntity.blockTimestamp = event.block.timestamp;
-  createMechEntity.transactionHash = event.transaction.hash;
+  createMechEntity.blockNumber = blockNumber;
+  createMechEntity.blockTimestamp = blockTimestamp;
+  createMechEntity.transactionHash = transactionHash;
   createMechEntity.save();
 
-  // Create Mech entity
-  let mechAgent = new Mech(event.params.serviceId.toString());
-  mechAgent.address = event.params.mech;
-  mechAgent.mechFactory = event.params.mechFactory;
-  mechAgent.owner = event.transaction.from;
-  mechAgent.service = event.params.serviceId.toString();
+  // Create and save Mech entity using cached values
+  let mechAgent = new Mech(serviceId.toString());
+  mechAgent.address = mechAddress;
+  mechAgent.mechFactory = mechFactory;
+  mechAgent.owner = txFrom;
+  mechAgent.service = serviceId.toString();
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = null;
+  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
   mechAgent.karma = BigInt.fromI32(0);
-
-  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
-  if (initialMaxDeliveryRate !== null) {
-    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
-  }
-
-  let service = Service.load(event.params.serviceId.toString());
-  if (service !== null) {
-    mechAgent.configHash = service.configHash;
-  }
-
-  let paymentType = getPaymentType(event.params.mech);
   mechAgent.paymentType = paymentType;
-
+  if (configHash !== null) {
+    mechAgent.configHash = configHash;
+  }
   mechAgent.save();
 
-  createDataSourceForMechContract(event.params.mech, event.params.mechFactory);
+  createDataSourceForMechContract(mechAddress, mechFactory);
 
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
