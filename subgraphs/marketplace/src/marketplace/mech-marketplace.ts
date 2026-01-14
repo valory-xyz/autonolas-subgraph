@@ -44,49 +44,36 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // CRITICAL: Cache ALL event params BEFORE any operations
-  // Any WASM operation (external calls, toString, save) can corrupt memory pointers
-  let mechAddress = event.params.mech;
-  let serviceId = event.params.serviceId;
-  let mechFactory = event.params.mechFactory;
-  let blockNumber = event.block.number;
-  let blockTimestamp = event.block.timestamp;
-  let transactionHash = event.transaction.hash;
-
-  log.info('handleCreateMech: START - mech={}, serviceId={}, mechFactory={}, block={}', [
-    mechAddress.toHexString(),
-    serviceId.toString(),
-    mechFactory.toHexString(),
-    blockNumber.toString()
-  ]);
-
-  // Create CreateMech entity first (before any external calls that might corrupt memory)
-  let createMechEntity = new CreateMech(mechAddress);
-  createMechEntity.mech = mechAddress;
-  createMechEntity.serviceId = serviceId;
-  createMechEntity.mechFactory = mechFactory;
+  // CRITICAL: Save entity IMMEDIATELY from event params before ANY other operations
+  // Even toString()/toHexString() can corrupt WASM memory pointers!
+  let createMechEntity = new CreateMech(event.params.mech);
+  createMechEntity.mech = event.params.mech;
+  createMechEntity.serviceId = event.params.serviceId;
+  createMechEntity.mechFactory = event.params.mechFactory;
   createMechEntity.source = 'MARKETPLACE';
-  createMechEntity.blockNumber = blockNumber;
-  createMechEntity.blockTimestamp = blockTimestamp;
-  createMechEntity.transactionHash = transactionHash;
+  createMechEntity.blockNumber = event.block.number;
+  createMechEntity.blockTimestamp = event.block.timestamp;
+  createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  log.info('handleCreateMech: CreateMech entity saved for mech={}', [mechAddress.toHexString()]);
-
-  // CRITICAL: After save(), cached pointers (mechFactory, mechAddress, etc.) may be corrupted.
-  // Reload CreateMech entity to get fresh memory pointers for subsequent use.
-  let reloadedCreateMech = CreateMech.load(mechAddress);
-  if (reloadedCreateMech === null) {
-    log.error('handleCreateMech: FATAL - Failed to reload CreateMech after save for mech={}', [
-      mechAddress.toHexString()
-    ]);
+  // NOW safe to reload and log (entity is persisted, we use reloaded values)
+  let reloaded = CreateMech.load(event.params.mech);
+  if (reloaded === null) {
+    log.error('handleCreateMech: FATAL - CreateMech not found after save', []);
     return;
   }
 
   // Use reloaded values for all subsequent operations (safe memory)
-  let safeMechAddress = reloadedCreateMech.mech;
-  let safeMechFactory = reloadedCreateMech.mechFactory;
-  let safeServiceId = reloadedCreateMech.serviceId;
+  let safeMechAddress = reloaded.mech;
+  let safeMechFactory = reloaded.mechFactory;
+  let safeServiceId = reloaded.serviceId;
+
+  log.info('handleCreateMech: START - mech={}, serviceId={}, mechFactory={}, block={}', [
+    safeMechAddress.toHexString(),
+    safeServiceId !== null ? safeServiceId!.toString() : 'null',
+    safeMechFactory !== null ? safeMechFactory!.toHexString() : 'null',
+    reloaded.blockNumber.toString()
+  ]);
 
   // Validate required fields were saved correctly
   if (safeMechFactory === null) {
