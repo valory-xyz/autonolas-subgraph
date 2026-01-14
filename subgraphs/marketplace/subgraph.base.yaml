@@ -38,6 +38,12 @@ dataSources:
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
+        - name: AggregatorV3Interface
+          file: ../../abis/AggregatorV3Interface.json
+        - name: BalancerV2Vault
+          file: ../../abis/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ../../abis/BalancerV2WeightedPool.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -76,6 +82,12 @@ dataSources:
           file: ../../abis/MechMarketplaceV2.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
+        - name: AggregatorV3Interface
+          file: ../../abis/AggregatorV3Interface.json
+        - name: BalancerV2Vault
+          file: ../../abis/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ../../abis/BalancerV2WeightedPool.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
