@@ -44,41 +44,29 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // Cache ALL event params AND derived values BEFORE any external calls
-  // Critical: Convert to strings BEFORE external calls corrupt memory
-  let mechAddress = event.params.mech;
-  let serviceId = event.params.serviceId;
-  let serviceIdStr = serviceId.toString();  // Convert BEFORE external calls
-  let mechFactory = event.params.mechFactory;
-  let blockNumber = event.block.number;
-  let blockTimestamp = event.block.timestamp;
-  let transactionHash = event.transaction.hash;
-  let txFrom = event.transaction.from;
+  // CRITICAL: Save entities IMMEDIATELY after reading event params
+  // Any operation (toString, external calls, etc.) can corrupt WASM memory
 
-  // Do external calls using only primitive cached values
-  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
-  let paymentType = getPaymentType(mechAddress);
-  let service = Service.load(serviceIdStr);
-  let configHash: Bytes | null = null;
-  if (service !== null) {
-    configHash = service.configHash;
-  }
-
-  // Now create and save CreateMech entity using cached values
-  let createMechEntity = CreateMech.load(mechAddress);
-  if (createMechEntity === null) {
-    createMechEntity = new CreateMech(mechAddress);
-  }
-  createMechEntity.mech = mechAddress;
-  createMechEntity.serviceId = serviceId;
-  createMechEntity.mechFactory = mechFactory;
+  // Step 1: Create and save CreateMech entity FIRST - use event.params directly
+  let createMechEntity = new CreateMech(event.params.mech);
+  createMechEntity.mech = event.params.mech;
+  createMechEntity.serviceId = event.params.serviceId;
+  createMechEntity.mechFactory = event.params.mechFactory;
   createMechEntity.source = 'MARKETPLACE';
-  createMechEntity.blockNumber = blockNumber;
-  createMechEntity.blockTimestamp = blockTimestamp;
-  createMechEntity.transactionHash = transactionHash;
+  createMechEntity.blockNumber = event.block.number;
+  createMechEntity.blockTimestamp = event.block.timestamp;
+  createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  // Create and save Mech entity using cached string ID
+  // Step 2: Cache values we need for Mech entity AFTER CreateMech is saved
+  // Re-read from event params as they should still be valid
+  let mechAddress = event.params.mech;
+  let serviceIdStr = event.params.serviceId.toString();
+  let mechFactory = event.params.mechFactory;
+  let txFrom = event.transaction.from;
+
+  // Step 3: Create and save Mech entity with required fields only
+  // Use empty Bytes for paymentType initially, will update after external call
   let mechAgent = new Mech(serviceIdStr);
   mechAgent.address = mechAddress;
   mechAgent.mechFactory = mechFactory;
@@ -88,16 +76,42 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
-  mechAgent.paymentType = paymentType;
-  if (configHash !== null) {
-    mechAgent.configHash = configHash;
-  }
+  mechAgent.paymentType = Bytes.empty();
   mechAgent.save();
 
-  createDataSourceForMechContract(mechAddress, mechFactory);
+  // Step 4: Now do external calls and update entities
+  // Re-read mechAddress as it may have been corrupted
+  let mechAddressForCalls = event.params.mech;
+  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddressForCalls);
+  let paymentType = getPaymentType(mechAddressForCalls);
 
+  // Re-read serviceIdStr for loading
+  let serviceIdForLoad = event.params.serviceId.toString();
+  let service = Service.load(serviceIdForLoad);
+
+  // Step 5: Load and update Mech with optional fields
+  let mechToUpdate = Mech.load(serviceIdForLoad);
+  if (mechToUpdate !== null) {
+    if (initialMaxDeliveryRate !== null) {
+      mechToUpdate.maxDeliveryRate = initialMaxDeliveryRate;
+    }
+    if (paymentType !== null) {
+      mechToUpdate.paymentType = paymentType;
+    }
+    if (service !== null && service.configHash !== null) {
+      mechToUpdate.configHash = service.configHash;
+    }
+    mechToUpdate.save();
+  }
+
+  // Step 6: Create data source template
+  let mechAddressForTemplate = event.params.mech;
+  let mechFactoryForTemplate = event.params.mechFactory;
+  createDataSourceForMechContract(mechAddressForTemplate, mechFactoryForTemplate);
+
+  // Step 7: Update global counter
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
   global.save();
