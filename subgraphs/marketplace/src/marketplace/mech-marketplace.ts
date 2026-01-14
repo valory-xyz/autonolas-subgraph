@@ -44,8 +44,8 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // CRITICAL: Cache ALL event params BEFORE any save() or external calls
-  // save() can trigger WASM memory reallocation, invalidating event.params pointers
+  // CRITICAL: Cache ALL event params BEFORE any operations
+  // Any WASM operation (external calls, toString, save) can corrupt memory pointers
   let mechAddress = event.params.mech;
   let serviceId = event.params.serviceId;
   let mechFactory = event.params.mechFactory;
@@ -54,10 +54,21 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let transactionHash = event.transaction.hash;
   let txFrom = event.transaction.from;
 
-  // Derive string IDs from cached values
+  // Do ALL external calls FIRST while event params are still valid
+  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
+  let paymentType = getPaymentType(mechAddress);
+
+  // Now derive string ID (after external calls, before entity operations)
   let serviceIdStr = serviceId.toString();
 
-  // Create CreateMech entity using ONLY cached values
+  // Load service for configHash (if exists)
+  let service = Service.load(serviceIdStr);
+  let configHash: Bytes | null = null;
+  if (service !== null && service.configHash !== null) {
+    configHash = service.configHash;
+  }
+
+  // Create CreateMech entity
   let createMechEntity = new CreateMech(mechAddress);
   createMechEntity.mech = mechAddress;
   createMechEntity.serviceId = serviceId;
@@ -68,7 +79,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.transactionHash = transactionHash;
   createMechEntity.save();
 
-  // Create Mech entity
+  // Create Mech entity with ALL fields at once (no reload needed)
   let mechAgent = new Mech(serviceIdStr);
   mechAgent.address = mechAddress;
   mechAgent.mechFactory = mechFactory;
@@ -78,30 +89,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
-  mechAgent.paymentType = Bytes.empty();
-  mechAgent.save();
-
-  // External calls for optional fields
-  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
-  let paymentType = getPaymentType(mechAddress);
-  let service = Service.load(serviceIdStr);
-
-  // Update Mech with optional fields
-  let mechToUpdate = Mech.load(serviceIdStr);
-  if (mechToUpdate !== null) {
-    if (initialMaxDeliveryRate !== null) {
-      mechToUpdate.maxDeliveryRate = initialMaxDeliveryRate;
-    }
-    if (paymentType !== null) {
-      mechToUpdate.paymentType = paymentType;
-    }
-    if (service !== null && service.configHash !== null) {
-      mechToUpdate.configHash = service.configHash;
-    }
-    mechToUpdate.save();
+  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  mechAgent.paymentType = paymentType !== null ? paymentType : Bytes.empty();
+  if (configHash !== null) {
+    mechAgent.configHash = configHash;
   }
+  mechAgent.save();
 
   // Create data source template
   createDataSourceForMechContract(mechAddress, mechFactory);
