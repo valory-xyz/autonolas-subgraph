@@ -21,12 +21,27 @@ export const GNOSIS_MECH_MARKETPLACE_ADDRESS =
   '0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB';
 
 // NVM Credit Ratios (immutable in contracts)
+// LAZY INITIALIZATION: BigDecimal.fromString() at module load corrupts WASM memory.
+// Using getter functions defers allocation until first handler execution.
+
 // Gnosis: NVM credits convert to xDAI (18 decimals, 1:1 USD peg)
-export const GNOSIS_NVM_XDAI_RATIO = BigDecimal.fromString('990000000000000000000000000000');
+let _gnosisNvmXdaiRatio: BigDecimal | null = null;
+export function getGnosisNvmXdaiRatio(): BigDecimal {
+  if (_gnosisNvmXdaiRatio === null) {
+    _gnosisNvmXdaiRatio = BigDecimal.fromString('990000000000000000000000000000');
+  }
+  return _gnosisNvmXdaiRatio!;
+}
 export const GNOSIS_NVM_TOKEN_DECIMALS: u8 = 18;
 
 // Base: NVM credits convert to USDC (6 decimals)
-export const BASE_NVM_USDC_RATIO = BigDecimal.fromString('990000000000000000');
+let _baseNvmUsdcRatio: BigDecimal | null = null;
+export function getBaseNvmUsdcRatio(): BigDecimal {
+  if (_baseNvmUsdcRatio === null) {
+    _baseNvmUsdcRatio = BigDecimal.fromString('990000000000000000');
+  }
+  return _baseNvmUsdcRatio!;
+}
 export const BASE_NVM_TOKEN_DECIMALS: u8 = 6;
 
 // Chainlink price feed decimals

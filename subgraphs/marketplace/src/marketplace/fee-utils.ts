@@ -3,9 +3,9 @@ import { BalancerV2Vault } from '../../generated/templates/MechFixedPriceToken/B
 import { BalancerV2WeightedPool } from '../../generated/templates/MechFixedPriceToken/BalancerV2WeightedPool';
 import { AggregatorV3Interface } from '../../generated/templates/MechFixedPriceNative/AggregatorV3Interface';
 import {
-  GNOSIS_NVM_XDAI_RATIO,
+  getGnosisNvmXdaiRatio,
   GNOSIS_NVM_TOKEN_DECIMALS,
-  BASE_NVM_USDC_RATIO,
+  getBaseNvmUsdcRatio,
   BASE_NVM_TOKEN_DECIMALS,
   CHAINLINK_PRICE_FEED_DECIMALS,
   ETH_DECIMALS,
@@ -100,7 +100,7 @@ export function calculateGnosisNvmCreditsToUsd(deliveryRate: BigInt): BigDecimal
 
   return deliveryRate
     .toBigDecimal()
-    .times(GNOSIS_NVM_XDAI_RATIO)
+    .times(getGnosisNvmXdaiRatio())
     .div(ethDivisor)
     .div(tokenDivisor);
 }
@@ -112,7 +112,7 @@ export function calculateBaseNvmCreditsToUsd(deliveryRate: BigInt): BigDecimal {
 
   return deliveryRate
     .toBigDecimal()
-    .times(BASE_NVM_USDC_RATIO)
+    .times(getBaseNvmUsdcRatio())
     .div(ethDivisor)
     .div(tokenDivisor);
 }
