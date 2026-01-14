@@ -67,8 +67,18 @@ export function handleCreateMech(event: CreateMechEvent): void {
   // STEP 3: Reload to get fresh pointers after save
   let reloaded = CreateMech.load(paramMech);
   if (reloaded === null) {
+    log.error('handleCreateMech: FATAL - CreateMech entity not found after save', []);
     return;
   }
+
+  // LOG: Show what data was received from chain (using reloaded safe values)
+  log.info('handleCreateMech: CHAIN DATA - mech={}, serviceId={}, mechFactory={}, block={}, tx={}', [
+    reloaded.mech.toHexString(),
+    reloaded.serviceId !== null ? reloaded.serviceId!.toString() : 'NULL',
+    reloaded.mechFactory !== null ? reloaded.mechFactory!.toHexString() : 'NULL',
+    reloaded.blockNumber.toString(),
+    reloaded.transactionHash.toHexString()
+  ]);
 
   // Use reloaded values for all subsequent operations
   let safeMechAddress = reloaded.mech;
@@ -77,7 +87,10 @@ export function handleCreateMech(event: CreateMechEvent): void {
 
   // Validate required fields
   if (safeMechFactory === null || safeServiceId === null) {
-    log.error('handleCreateMech: mechFactory or serviceId is null after reload', []);
+    log.error('handleCreateMech: FATAL - mechFactory={}, serviceId={} after reload', [
+      safeMechFactory !== null ? 'present' : 'NULL',
+      safeServiceId !== null ? 'present' : 'NULL'
+    ]);
     return;
   }
 
