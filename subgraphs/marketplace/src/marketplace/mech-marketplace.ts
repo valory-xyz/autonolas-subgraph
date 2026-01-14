@@ -44,19 +44,21 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // Cache ALL event params BEFORE any external calls or entity operations
+  // Cache ALL event params AND derived values BEFORE any external calls
+  // Critical: Convert to strings BEFORE external calls corrupt memory
   let mechAddress = event.params.mech;
   let serviceId = event.params.serviceId;
+  let serviceIdStr = serviceId.toString();  // Convert BEFORE external calls
   let mechFactory = event.params.mechFactory;
   let blockNumber = event.block.number;
   let blockTimestamp = event.block.timestamp;
   let transactionHash = event.transaction.hash;
   let txFrom = event.transaction.from;
 
-  // Do external calls FIRST while event params are still valid
+  // Do external calls using only primitive cached values
   let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
   let paymentType = getPaymentType(mechAddress);
-  let service = Service.load(serviceId.toString());
+  let service = Service.load(serviceIdStr);
   let configHash: Bytes | null = null;
   if (service !== null) {
     configHash = service.configHash;
@@ -76,12 +78,12 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.transactionHash = transactionHash;
   createMechEntity.save();
 
-  // Create and save Mech entity using cached values
-  let mechAgent = new Mech(serviceId.toString());
+  // Create and save Mech entity using cached string ID
+  let mechAgent = new Mech(serviceIdStr);
   mechAgent.address = mechAddress;
   mechAgent.mechFactory = mechFactory;
   mechAgent.owner = txFrom;
-  mechAgent.service = serviceId.toString();
+  mechAgent.service = serviceIdStr;
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
