@@ -1,0 +1,5 @@
+{
+    "prompt": "With the given question Will gas prices rise - provide analysis without quoting the question.",
+    "tool": "prediction-request-rag",
+    "nonce": "d77g821c-c62e-5812-d21h-01gcec7de407"
+}

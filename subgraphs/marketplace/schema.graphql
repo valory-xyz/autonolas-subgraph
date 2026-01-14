@@ -5,6 +5,7 @@ type ParsedRequest @entity(immutable: true) {
   tool: String!
   prompt: String!
   hash: String!
+  questionTitle: String!
 }
 
 type MechAgent @entity(immutable: false) {

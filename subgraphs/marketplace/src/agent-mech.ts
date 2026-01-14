@@ -37,11 +37,13 @@ class RequestPayload {
   content: string;
   prompt: string;
   tool: string;
+  questionTitle: string;
 
-  constructor(content: string, prompt: string, tool: string) {
+  constructor(content: string, prompt: string, tool: string, questionTitle: string) {
     this.content = content;
     this.prompt = prompt;
     this.tool = tool;
+    this.questionTitle = questionTitle;
   }
 }
 
@@ -59,6 +61,21 @@ class DeliveryPayload {
 
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
+}
+
+function extractQuestionTitle(prompt: string): string {
+  const marker = 'With the given question';
+  const markerIndex = prompt.indexOf(marker);
+  if (markerIndex === -1) return '';
+
+  const afterMarker = prompt.slice(markerIndex + marker.length);
+  const firstQuote = afterMarker.indexOf('"');
+  if (firstQuote === -1) return '';
+
+  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
+  if (secondQuote === -1) return '';
+
+  return afterMarker.slice(firstQuote + 1, secondQuote);
 }
 
 function tryGetIpfsResponse(requestHash: string): Bytes | null {
@@ -80,7 +97,8 @@ function loadRequestPayload(ipfsHash: string): RequestPayload | null {
   let payload = new RequestPayload(
     data.toString(),
     UNHANDLED_TYPE,
-    UNHANDLED_TYPE
+    UNHANDLED_TYPE,
+    ''
   );
 
   let result = json.try_fromBytes(data);
@@ -97,6 +115,7 @@ function loadRequestPayload(ipfsHash: string): RequestPayload | null {
   let promptValue = obj.get('prompt');
   if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
     payload.prompt = promptValue.toString();
+    payload.questionTitle = extractQuestionTitle(payload.prompt);
   }
 
   let toolValue = obj.get('tool');
@@ -122,6 +141,7 @@ function saveParsedRequestEntity(
   parsedRequest.content = payload.content;
   parsedRequest.prompt = payload.prompt;
   parsedRequest.tool = payload.tool;
+  parsedRequest.questionTitle = payload.questionTitle;
   parsedRequest.save();
 }
 
