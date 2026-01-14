@@ -197,14 +197,14 @@ graph build subgraph.base.yaml
 
 ## API Versions
 
-The subgraph manifests use different Graph Protocol API versions per network:
+Both networks use Graph Protocol API version `0.0.9`:
 
-| Network | API Version | Reason |
-|---------|-------------|--------|
-| Gnosis  | 0.0.9       | Latest features, deployed first |
-| Base    | 0.0.7       | Stable version at Base launch |
+| Network | API Version |
+|---------|-------------|
+| Gnosis  | 0.0.9       |
+| Base    | 0.0.9       |
 
-This difference exists because Gnosis was upgraded to newer API features while Base was deployed with the stable version available at launch. Both versions are compatible with the current handler code.
+**Note**: Base was originally deployed with `apiVersion: 0.0.7` but was upgraded to `0.0.9` to fix WASM memory corruption bugs that caused entity save operations to corrupt memory pointers.
 
 ## Entity Mutability
 
