@@ -44,15 +44,6 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // LOG: Chain data received (using event.params directly - safe before any save)
-  log.info('handleCreateMech: CHAIN DATA - mech={}, serviceId={}, mechFactory={}, block={}, tx={}', [
-    event.params.mech.toHexString(),
-    event.params.serviceId.toString(),
-    event.params.mechFactory.toHexString(),
-    event.block.number.toString(),
-    event.transaction.hash.toHexString()
-  ]);
-
   // Create CreateMech entity (used by getServiceIdFromMech)
   let createMechEntity = CreateMech.load(event.params.mech);
   if (createMechEntity === null) {
@@ -67,7 +58,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.transactionHash = event.transaction.hash;
   createMechEntity.save();
 
-  // Create Mech entity using event.params directly (no reload needed)
+  // Create Mech entity
   let mechAgent = new Mech(event.params.serviceId.toString());
   mechAgent.address = event.params.mech;
   mechAgent.mechFactory = event.params.mechFactory;
@@ -77,6 +68,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
+  mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
 
   let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
@@ -84,11 +76,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
   }
 
+  // Get service configHash from Service entity and write it to Mech
   let service = Service.load(event.params.serviceId.toString());
   if (service !== null) {
     mechAgent.configHash = service.configHash;
   }
 
+  // Call paymentType function on the newly deployed mech contract
   let paymentType = getPaymentType(event.params.mech);
   mechAgent.paymentType = paymentType;
   mechAgent.save();
@@ -98,11 +92,6 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
   global.save();
-
-  log.info('handleCreateMech: COMPLETE - mech={}, serviceId={}', [
-    event.params.mech.toHexString(),
-    event.params.serviceId.toString()
-  ]);
 }
 
 export function handleMarketplaceDelivery(
