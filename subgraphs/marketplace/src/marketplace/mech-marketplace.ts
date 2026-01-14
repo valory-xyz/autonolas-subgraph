@@ -52,23 +52,15 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let blockNumber = event.block.number;
   let blockTimestamp = event.block.timestamp;
   let transactionHash = event.transaction.hash;
-  let txFrom = event.transaction.from;
 
-  // Do ALL external calls FIRST while event params are still valid
-  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
-  let paymentType = getPaymentType(mechAddress);
+  log.info('handleCreateMech: START - mech={}, serviceId={}, mechFactory={}, block={}', [
+    mechAddress.toHexString(),
+    serviceId.toString(),
+    mechFactory.toHexString(),
+    blockNumber.toString()
+  ]);
 
-  // Now derive string ID (after external calls, before entity operations)
-  let serviceIdStr = serviceId.toString();
-
-  // Load service for configHash (if exists)
-  let service = Service.load(serviceIdStr);
-  let configHash: Bytes | null = null;
-  if (service !== null && service.configHash !== null) {
-    configHash = service.configHash;
-  }
-
-  // Create CreateMech entity
+  // Create CreateMech entity first (before any external calls that might corrupt memory)
   let createMechEntity = new CreateMech(mechAddress);
   createMechEntity.mech = mechAddress;
   createMechEntity.serviceId = serviceId;
@@ -79,31 +71,111 @@ export function handleCreateMech(event: CreateMechEvent): void {
   createMechEntity.transactionHash = transactionHash;
   createMechEntity.save();
 
-  // Create Mech entity with ALL fields at once (no reload needed)
-  let mechAgent = new Mech(serviceIdStr);
-  mechAgent.address = mechAddress;
-  mechAgent.mechFactory = mechFactory;
-  mechAgent.owner = txFrom;
-  mechAgent.service = serviceIdStr;
+  log.info('handleCreateMech: CreateMech entity saved for mech={}', [mechAddress.toHexString()]);
+
+  // CRITICAL: After save(), cached pointers (mechFactory, mechAddress, etc.) may be corrupted.
+  // Reload CreateMech entity to get fresh memory pointers for subsequent use.
+  let reloadedCreateMech = CreateMech.load(mechAddress);
+  if (reloadedCreateMech === null) {
+    log.error('handleCreateMech: FATAL - Failed to reload CreateMech after save for mech={}', [
+      mechAddress.toHexString()
+    ]);
+    return;
+  }
+
+  // Use reloaded values for all subsequent operations (safe memory)
+  let safeMechAddress = reloadedCreateMech.mech;
+  let safeMechFactory = reloadedCreateMech.mechFactory;
+  let safeServiceId = reloadedCreateMech.serviceId;
+
+  // Validate required fields were saved correctly
+  if (safeMechFactory === null) {
+    log.error('handleCreateMech: FATAL - mechFactory is null after reload for mech={}', [
+      safeMechAddress.toHexString()
+    ]);
+    return;
+  }
+
+  if (safeServiceId === null) {
+    log.error('handleCreateMech: FATAL - serviceId is null after reload for mech={}', [
+      safeMechAddress.toHexString()
+    ]);
+    return;
+  }
+
+  let safeServiceIdStr = safeServiceId.toString();
+
+  log.info('handleCreateMech: Reloaded values - mech={}, mechFactory={}, serviceId={}', [
+    safeMechAddress.toHexString(),
+    safeMechFactory.toHexString(),
+    safeServiceIdStr
+  ]);
+
+  // Create Mech entity using safe values
+  let existingMech = Mech.load(safeServiceIdStr);
+  let mechAgent: Mech;
+  if (existingMech === null) {
+    mechAgent = new Mech(safeServiceIdStr);
+    log.info('handleCreateMech: Creating new Mech entity for serviceId={}', [safeServiceIdStr]);
+  } else {
+    mechAgent = existingMech;
+    log.info('handleCreateMech: Updating existing Mech entity for serviceId={}', [safeServiceIdStr]);
+  }
+
+  mechAgent.address = safeMechAddress;
+  mechAgent.mechFactory = safeMechFactory;
+  mechAgent.service = safeServiceIdStr;
   mechAgent.totalDeliveriesTransactions = BigInt.fromI32(0);
   mechAgent.receivedRequests = BigInt.fromI32(0);
   mechAgent.selfDeliveredFromReceived = BigInt.fromI32(0);
   mechAgent.deliveredByOthersFromReceived = BigInt.fromI32(0);
   mechAgent.karma = BigInt.fromI32(0);
-  mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
-  mechAgent.paymentType = paymentType !== null ? paymentType : Bytes.empty();
-  if (configHash !== null) {
-    mechAgent.configHash = configHash;
+
+  // Re-fetch values using safe addresses (cast Bytes to Address for external calls)
+  let safeMechAddressAsAddress = Address.fromBytes(safeMechAddress);
+  mechAgent.owner = event.transaction.from;
+  mechAgent.maxDeliveryRate = getMaxDeliveryRate(safeMechAddressAsAddress);
+  let freshPaymentType = getPaymentType(safeMechAddressAsAddress);
+  mechAgent.paymentType = freshPaymentType !== null ? freshPaymentType : Bytes.empty();
+
+  // Reload service for configHash
+  let freshService = Service.load(safeServiceIdStr);
+  if (freshService !== null && freshService.configHash !== null) {
+    mechAgent.configHash = freshService.configHash;
   }
+
+  // Final validation before save
+  if (mechAgent.mechFactory === null) {
+    log.error('handleCreateMech: FATAL - mechFactory is null before Mech save for serviceId={}', [
+      safeServiceIdStr
+    ]);
+    return;
+  }
+
+  log.info('handleCreateMech: Saving Mech entity - serviceId={}, mechFactory={}', [
+    safeServiceIdStr,
+    mechAgent.mechFactory.toHexString()
+  ]);
+
   mechAgent.save();
 
-  // Create data source template
-  createDataSourceForMechContract(mechAddress, mechFactory);
+  log.info('handleCreateMech: Mech entity saved successfully for serviceId={}', [safeServiceIdStr]);
+
+  // Create data source template using safe values (cast Bytes to Address)
+  createDataSourceForMechContract(
+    Address.fromBytes(safeMechAddress),
+    Address.fromBytes(safeMechFactory)
+  );
 
   // Update global counter
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
   global.save();
+
+  log.info('handleCreateMech: COMPLETE - mech={}, serviceId={}', [
+    safeMechAddress.toHexString(),
+    safeServiceIdStr
+  ]);
 }
 
 export function handleMarketplaceDelivery(
