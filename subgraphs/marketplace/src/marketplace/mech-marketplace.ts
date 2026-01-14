@@ -44,29 +44,31 @@ import {
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
 export function handleCreateMech(event: CreateMechEvent): void {
-  // CRITICAL: Save entities IMMEDIATELY after reading event params
-  // Any operation (toString, external calls, etc.) can corrupt WASM memory
-
-  // Step 1: Create and save CreateMech entity FIRST - use event.params directly
-  let createMechEntity = new CreateMech(event.params.mech);
-  createMechEntity.mech = event.params.mech;
-  createMechEntity.serviceId = event.params.serviceId;
-  createMechEntity.mechFactory = event.params.mechFactory;
-  createMechEntity.source = 'MARKETPLACE';
-  createMechEntity.blockNumber = event.block.number;
-  createMechEntity.blockTimestamp = event.block.timestamp;
-  createMechEntity.transactionHash = event.transaction.hash;
-  createMechEntity.save();
-
-  // Step 2: Cache values we need for Mech entity AFTER CreateMech is saved
-  // Re-read from event params as they should still be valid
+  // CRITICAL: Cache ALL event params BEFORE any save() or external calls
+  // save() can trigger WASM memory reallocation, invalidating event.params pointers
   let mechAddress = event.params.mech;
-  let serviceIdStr = event.params.serviceId.toString();
+  let serviceId = event.params.serviceId;
   let mechFactory = event.params.mechFactory;
+  let blockNumber = event.block.number;
+  let blockTimestamp = event.block.timestamp;
+  let transactionHash = event.transaction.hash;
   let txFrom = event.transaction.from;
 
-  // Step 3: Create and save Mech entity with required fields only
-  // Use empty Bytes for paymentType initially, will update after external call
+  // Derive string IDs from cached values
+  let serviceIdStr = serviceId.toString();
+
+  // Create CreateMech entity using ONLY cached values
+  let createMechEntity = new CreateMech(mechAddress);
+  createMechEntity.mech = mechAddress;
+  createMechEntity.serviceId = serviceId;
+  createMechEntity.mechFactory = mechFactory;
+  createMechEntity.source = 'MARKETPLACE';
+  createMechEntity.blockNumber = blockNumber;
+  createMechEntity.blockTimestamp = blockTimestamp;
+  createMechEntity.transactionHash = transactionHash;
+  createMechEntity.save();
+
+  // Create Mech entity
   let mechAgent = new Mech(serviceIdStr);
   mechAgent.address = mechAddress;
   mechAgent.mechFactory = mechFactory;
@@ -81,18 +83,13 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.paymentType = Bytes.empty();
   mechAgent.save();
 
-  // Step 4: Now do external calls and update entities
-  // Re-read mechAddress as it may have been corrupted
-  let mechAddressForCalls = event.params.mech;
-  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddressForCalls);
-  let paymentType = getPaymentType(mechAddressForCalls);
+  // External calls for optional fields
+  let initialMaxDeliveryRate = getMaxDeliveryRate(mechAddress);
+  let paymentType = getPaymentType(mechAddress);
+  let service = Service.load(serviceIdStr);
 
-  // Re-read serviceIdStr for loading
-  let serviceIdForLoad = event.params.serviceId.toString();
-  let service = Service.load(serviceIdForLoad);
-
-  // Step 5: Load and update Mech with optional fields
-  let mechToUpdate = Mech.load(serviceIdForLoad);
+  // Update Mech with optional fields
+  let mechToUpdate = Mech.load(serviceIdStr);
   if (mechToUpdate !== null) {
     if (initialMaxDeliveryRate !== null) {
       mechToUpdate.maxDeliveryRate = initialMaxDeliveryRate;
@@ -106,12 +103,10 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechToUpdate.save();
   }
 
-  // Step 6: Create data source template
-  let mechAddressForTemplate = event.params.mech;
-  let mechFactoryForTemplate = event.params.mechFactory;
-  createDataSourceForMechContract(mechAddressForTemplate, mechFactoryForTemplate);
+  // Create data source template
+  createDataSourceForMechContract(mechAddress, mechFactory);
 
-  // Step 7: Update global counter
+  // Update global counter
   let global = getGlobal();
   global.totalMechs = global.totalMechs.plus(BigInt.fromI32(1));
   global.save();
