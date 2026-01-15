@@ -1161,12 +1161,11 @@ export function persistSignedDeliver(args: SignedDeliverArgs): void {
     args.fallbackSender
   );
 
-  // Sets finalFeeUSD for signed deliveries; mirrors on-chain pattern (processOnChainDeliver:776)
+  // Sets finalFeeUSD for signed deliveries
+  // Uses finalFeeUSD === null guard because handleMarketplaceDelivery sets isDelivered first
   if (args.deliveryRate !== null) {
     let request = Request.load(args.requestId.toHexString());
-    if (request !== null && !request.isDelivered) {
-      request.isDelivered = true;
-      request.deliveredByMech = args.mech;
+    if (request !== null && request.finalFeeUSD === null) {
       updateFeesOnDelivery(request, args.requestId, args.deliveryRate as BigInt);
       request.save();
     }
