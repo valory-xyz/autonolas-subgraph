@@ -773,15 +773,19 @@ export function processOnChainDeliver(args: OnChainDeliverArgs): void {
   let isNewDelivery = false;
 
   // Process request updates (separate from deliver entity)
-  if (request !== null && !request.isDelivered) {
-    isNewDelivery = true;
-    request.isDelivered = true;
-    request.deliveredByMech = args.mech;
+  // Use finalFeeUSD === null as guard to allow fee updates even if isDelivered was set
+  // by handleMarketplaceDelivery (which fires before Deliver event but lacks deliveryRate)
+  if (request !== null && request.finalFeeUSD === null) {
+    if (!request.isDelivered) {
+      isNewDelivery = true;
+      request.isDelivered = true;
+      request.deliveredByMech = args.mech;
+      if (!isMarketplaceTx) {
+        updateMechCountersOnDelivery(request, args.mech);
+      }
+    }
     updateFeesOnDelivery(request, args.requestId, args.deliveryRate);
     request.save();
-    if (!isMarketplaceTx) {
-      updateMechCountersOnDelivery(request, args.mech);
-    }
   }
 
   // Create deliver entity and assign ALL fields right before save
