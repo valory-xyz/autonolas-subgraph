@@ -11,18 +11,14 @@ export const BASE_MECH_FACTORY_FIXED_PRICE_TOKEN =
   '0x97371B1C0cDA1D04dFc43DFb50a04645b7Bc9BEe';
 export const BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC =
   '0x7beD01f8482fF686F025628e7780ca6C1f0559fc';
+export const BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC =
+  '0x5B70A66fe68c4c86FFd724B58cc56049c70e9D3D';
 
-// Polygon factory address. Zero address disables Polygon mech tracking.
-// Zero addresses cause factory matching to fail in createDataSourceForMechContract,
-// resulting in all Polygon mech events being skipped.
 export const POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN =
-  '0x0000000000000000000000000000000000000000';
+  '0x85899f9d8C058A5BBBaF344ea0f0b63c0CcBe851';
 
-// Optimism factory address. Zero address disables Optimism mech tracking.
-// Zero addresses cause factory matching to fail in createDataSourceForMechContract,
-// resulting in all Optimism mech events being skipped.
 export const OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN =
-  '0x0000000000000000000000000000000000000000';
+  '0x93111f6C267068A5d7356114D61d0f09bFD53a54';
 
 export const BASE_MECH_MARKETPLACE_ADDRESS =
   '0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020';

@@ -26,6 +26,7 @@ import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../gene
 import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   BASE_MECH_MARKETPLACE_ADDRESS,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
@@ -286,6 +287,12 @@ function handleBaseChain(mech: Address, mechFactoryAddress: string): boolean {
   }
 
   if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
     MechFixedPriceToken.create(mech);
     log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
     return true;

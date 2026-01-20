@@ -3,7 +3,11 @@
   "license": "UNLICENSED",
   "scripts": {
     "codegen": "graph codegen",
+    "codegen:polygon": "graph codegen subgraph.polygon.yaml",
+    "codegen:optimism": "graph codegen subgraph.optimism.yaml",
     "build": "graph build subgraph.gnosis.yaml",
+    "build:polygon": "graph build subgraph.polygon.yaml",
+    "build:optimism": "graph build subgraph.optimism.yaml",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ marketplace",
     "create-local": "graph create --node http://localhost:8020/ marketplace",
     "remove-local": "graph remove --node http://localhost:8020/ marketplace",
