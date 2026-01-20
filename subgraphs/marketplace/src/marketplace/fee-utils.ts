@@ -24,7 +24,10 @@ import {
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
 } from './constants';
 
 // Fee unit type (matches schema FeeUnit enum)
@@ -55,8 +58,23 @@ export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
       return FEE_UNIT_TOKEN;
     }
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
+      return FEE_UNIT_TOKEN;
+    }
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
       return FEE_UNIT_CREDITS;
+    }
+  }
+
+  if (network == 'matic') {
+    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
+      return FEE_UNIT_TOKEN;
+    }
+  }
+
+  if (network == 'optimism') {
+    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
+      return FEE_UNIT_TOKEN;
     }
   }
 
