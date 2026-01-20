@@ -5,5 +5,5 @@ generated/
 temp/
 
 .env
-.env.prod 
-.cursor
+.env.prod
+.cursor/

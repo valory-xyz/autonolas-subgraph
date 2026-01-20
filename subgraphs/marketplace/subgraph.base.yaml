@@ -33,12 +33,17 @@ dataSources:
         - Mech
         - Sender
         - Global
-        - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
+        - name: AggregatorV3Interface
+          file: ../../abis/AggregatorV3Interface.json
+        - name: BalancerV2Vault
+          file: ../../abis/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ../../abis/BalancerV2WeightedPool.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -49,8 +54,6 @@ dataSources:
           handler: handleMarketplaceDeliveryWithSignatures
         - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
           handler: handleMarketplaceRequest
-        - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
-          handler: handleSetPaymentTypeBalanceTrackers
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliverWithSignaturesV1
       file: ./src/marketplace/mech-marketplace.ts
@@ -74,12 +77,17 @@ dataSources:
         - Mech
         - Sender
         - Global
-        - SetPaymentTypeBalanceTrackers
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
+        - name: AggregatorV3Interface
+          file: ../../abis/AggregatorV3Interface.json
+        - name: BalancerV2Vault
+          file: ../../abis/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ../../abis/BalancerV2WeightedPool.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -90,8 +98,6 @@ dataSources:
           handler: handleMarketplaceDeliveryWithSignatures
         - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[],bytes[])
           handler: handleMarketplaceRequest
-        - event: SetPaymentTypeBalanceTrackers(bytes32[],address[])
-          handler: handleSetPaymentTypeBalanceTrackers
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes,bytes)
           handler: handleDeliverWithSignaturesV2
       file: ./src/marketplace/mech-marketplace.ts
@@ -167,6 +173,8 @@ templates:
       abis:
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
+        - name: AggregatorV3Interface
+          file: ../../abis/AggregatorV3Interface.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -188,6 +196,10 @@ templates:
       abis:
         - name: MechFixedPriceToken
           file: ../../abis/MechFixedPriceToken.json
+        - name: BalancerV2Vault
+          file: ../../abis/BalancerV2Vault.json
+        - name: BalancerV2WeightedPool
+          file: ../../abis/BalancerV2WeightedPool.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver

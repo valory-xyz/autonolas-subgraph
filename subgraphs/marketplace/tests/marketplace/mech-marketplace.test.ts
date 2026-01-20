@@ -5,8 +5,9 @@ import {
   afterEach,
   clearStore,
   createMockedFunction,
+  dataSourceMock,
 } from "matchstick-as/assembly/index"
-import { Address, BigInt, Bytes, log, ethereum } from "@graphprotocol/graph-ts"
+import { Address, BigDecimal, BigInt, Bytes, log, ethereum } from "@graphprotocol/graph-ts"
 import {
   handleCreateMech,
   handleMarketplaceDelivery,
@@ -15,8 +16,6 @@ import {
   handleDeliverWithSignaturesV2,
   handleMarketplaceRequest,
   handleOwnerUpdated,
-  handleSetMechFactoryStatuses,
-  handleSetPaymentTypeBalanceTrackers,
 } from "../../src/marketplace/mech-marketplace"
 import {
   createCreateMechEvent,
@@ -26,8 +25,6 @@ import {
   createDeliverWithSignaturesV2Event,
   createMarketplaceRequestEvent,
   createOwnerUpdatedEvent,
-  createSetMechFactoryStatusesEvent,
-  createSetPaymentTypeBalanceTrackersEvent,
 } from "./mech-marketplace-utils"
 import {
   CreateMech as CreateMechEntity,
@@ -41,6 +38,9 @@ import {
   TEST_REQUEST_ID_A,
   TEST_REQUEST_ID_B,
 } from "./test-constants"
+import {
+  GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
+} from "../../src/marketplace/constants"
 
 function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
   createMockedFunction(mech, "maxDeliveryRate", "maxDeliveryRate():(uint256)")
@@ -97,6 +97,9 @@ function createMechMapping(
   mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
+
+  // Mock maxDeliveryRate for fee tracking
+  mockMaxDeliveryRate(mech, BigInt.fromI32(0))
 }
 
 function createSender(id: Address): void {
@@ -107,6 +110,7 @@ function createSender(id: Address): void {
   sender.totalLegacyAtaTransactions = BigInt.fromI32(0)
   sender.totalMarketplaceRequests = BigInt.fromI32(0)
   sender.totalOffChainRequests = BigInt.fromI32(0)
+  sender.totalFeesPaidUSD = BigDecimal.fromString("0")
   sender.save()
 }
 
@@ -142,6 +146,7 @@ function createRequestEntity(
 describe("Mech Marketplace Handlers", () => {
   afterEach(() => {
     clearStore()
+    dataSourceMock.resetValues()
   })
 
   test("handleCreateMech stores entities and updates global counters", () => {
@@ -393,6 +398,80 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Service", serviceId.toString(), "totalRequests", "2")
   })
 
+  test("handleMarketplaceRequest captures feeUSD, feeRaw, and feeUnit from maxDeliveryRate", () => {
+    // Set network to gnosis for fee conversion
+    dataSourceMock.setNetwork("gnosis")
+
+    let serviceId = BigInt.fromI32(5000)
+    let requester = Address.fromString("0x0000000000000000000000000000000000000201")
+    let priorityMech = Address.fromString("0x0000000000000000000000000000000000000202")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+    let agentId = BigInt.fromI32(60)
+    let maxDeliveryRate = BigInt.fromString("1000000000000000000") // 1 xDAI = 1 USD
+
+    createService(serviceId, [agentId])
+    createMultisig(requester, serviceId)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester)
+
+    // Mock maxDeliveryRate call
+    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+
+    let requestIds = [
+      Bytes.fromHexString("0xa000000000000000000000000000000000000000000000000000000000000001"),
+    ]
+    let datas = [
+      Bytes.fromHexString("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"),
+    ]
+
+    let event = createMarketplaceRequestEvent(priorityMech, requester, requestIds, datas)
+    handleMarketplaceRequest(event)
+
+    // Verify fee fields are set on Request
+    assert.fieldEquals("Request", requestIds[0].toHexString(), "feeRaw", maxDeliveryRate.toString())
+    assert.fieldEquals("Request", requestIds[0].toHexString(), "feeUnit", "NATIVE")
+    assert.fieldEquals("Request", requestIds[0].toHexString(), "feeUSD", "1")
+  })
+
+  test("Batch MarketplaceRequest sets fee fields on all requests", () => {
+    // Set network to gnosis for fee conversion
+    dataSourceMock.setNetwork("gnosis")
+
+    let serviceId = BigInt.fromI32(5001)
+    let requester = Address.fromString("0x0000000000000000000000000000000000000301")
+    let priorityMech = Address.fromString("0x0000000000000000000000000000000000000302")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+    let agentId = BigInt.fromI32(70)
+    let maxDeliveryRate = BigInt.fromString("500000000000000000") // 0.5 xDAI = 0.5 USD
+
+    createService(serviceId, [agentId])
+    createMultisig(requester, serviceId)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester)
+
+    // Mock maxDeliveryRate call
+    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+
+    let requestIds = [
+      Bytes.fromHexString("0xb000000000000000000000000000000000000000000000000000000000000001"),
+      Bytes.fromHexString("0xb000000000000000000000000000000000000000000000000000000000000002"),
+      Bytes.fromHexString("0xb000000000000000000000000000000000000000000000000000000000000003"),
+    ]
+    let datas = [
+      Bytes.fromHexString("0x1111111111111111111111111111111111111111111111111111111111111111"),
+      Bytes.fromHexString("0x2222222222222222222222222222222222222222222222222222222222222222"),
+      Bytes.fromHexString("0x3333333333333333333333333333333333333333333333333333333333333333"),
+    ]
+
+    let event = createMarketplaceRequestEvent(priorityMech, requester, requestIds, datas)
+    handleMarketplaceRequest(event)
+
+    // Verify all 3 requests have fee fields set
+    for (let i = 0; i < requestIds.length; i++) {
+      assert.fieldEquals("Request", requestIds[i].toHexString(), "feeRaw", maxDeliveryRate.toString())
+      assert.fieldEquals("Request", requestIds[i].toHexString(), "feeUnit", "NATIVE")
+      assert.fieldEquals("Request", requestIds[i].toHexString(), "feeUSD", "0.5")
+    }
+  })
+
   test("handleOwnerUpdated stores snapshot", () => {
     let owner = Address.fromString("0x0000000000000000000000000000000000000201")
     let event = createOwnerUpdatedEvent(owner)
@@ -400,31 +479,6 @@ describe("Mech Marketplace Handlers", () => {
 
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
     assert.fieldEquals("OwnerUpdated", id, "owner", owner.toHexString())
-  })
-
-  test("handleSetMechFactoryStatuses captures factory flags", () => {
-    let factories = [
-      Address.fromString("0x0000000000000000000000000000000000000301"),
-      Address.fromString("0x0000000000000000000000000000000000000302"),
-    ]
-    let event = createSetMechFactoryStatusesEvent(factories, [true, false])
-    handleSetMechFactoryStatuses(event)
-
-    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
-    assert.fieldEquals("SetMechFactoryStatuses", id, "statuses", "[true, false]")
-  })
-
-  test("handleSetPaymentTypeBalanceTrackers stores tracker mapping", () => {
-    let paymentTypes = [Bytes.fromHexString("0xaaaa"), Bytes.fromHexString("0xbbbb")]
-    let trackers = [
-      Address.fromString("0x0000000000000000000000000000000000000401"),
-      Address.fromString("0x0000000000000000000000000000000000000402"),
-    ]
-    let event = createSetPaymentTypeBalanceTrackersEvent(paymentTypes, trackers)
-    handleSetPaymentTypeBalanceTrackers(event)
-
-    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString()
-    assert.fieldEquals("SetPaymentTypeBalanceTrackers", id, "paymentTypes", "[0xaaaa, 0xbbbb]")
   })
 })
 

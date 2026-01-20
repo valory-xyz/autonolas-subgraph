@@ -150,14 +150,6 @@ type SetMechFactoryStatuses @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type SetPaymentTypeBalanceTrackers @entity(immutable: true) {
-  id: Bytes!
-  paymentTypes: [Bytes!]! # bytes32[]
-  balanceTrackers: [Bytes!]! # address[]
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
 type ActivateRegistration @entity(immutable: true) {
   id: Bytes!
   serviceId: BigInt! # uint256
@@ -247,6 +239,9 @@ type Global @entity(immutable: false) {
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
+
+  # Fee tracking
+  totalFeesPaidUSD: BigDecimal! # Total marketplace fees in USD
 }
 
 type RequestsPerAgent @entity(immutable: false) {
@@ -271,10 +266,15 @@ type AtaTransaction @entity(immutable: true) {
   blockTimestamp: BigInt!
 }
 
-
 enum Source {
   MECH
   MARKETPLACE
+}
+
+enum FeeUnit {
+  NATIVE
+  TOKEN
+  CREDITS
 }
 
 type CreateMech @entity(immutable: false) {
@@ -331,6 +331,11 @@ type Request @entity(immutable: false) {
   isDelivered: Boolean!
   priorityMech: Bytes # address of the mech that was originally requested
   deliveredByMech: Bytes # address of the mech that delivered the request
+  # Fee tracking
+  feeUSD: BigDecimal # Initial locked fee in USD (from mech maxDeliveryRate)
+  finalFeeUSD: BigDecimal # Actual paid fee in USD (from actual deliver.deliveryRate)
+  feeRaw: BigInt # Raw fee in original units
+  feeUnit: FeeUnit # Payment model indicator (NATIVE, TOKEN, CREDITS)
 }
 
 type DeliverForMech @entity(immutable: true) {
@@ -396,6 +401,9 @@ type Sender @entity(immutable: false) {
   # Marketplace-only counters
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt!
+
+  # Fee tracking
+  totalFeesPaidUSD: BigDecimal! # Cumulative fees paid in USD
 }
 
 type Service @entity(immutable: false) {
@@ -405,7 +413,9 @@ type Service @entity(immutable: false) {
   configHash: Bytes
   latestMultisig: Bytes
   historicalMultisigs: [Bytes!]!
+  # NOTE: Counts requests made BY this service's multisig (demand-side), NOT requests TO this service's mech
   totalRequests: BigInt!
+  # NOTE: Counts deliveries made BY this service's mech (supply-side)
   totalDeliveries: BigInt!
   agentIds: [BigInt!]!
 

@@ -9,8 +9,6 @@ import {
   MarketplaceParamsUpdated,
   MarketplaceRequest,
   OwnerUpdated,
-  SetMechFactoryStatuses,
-  SetPaymentTypeBalanceTrackers
 } from "../generated/MechMarketplaceV2/MechMarketplaceV2"
 
 export function createCreateMechEvent(
@@ -255,55 +253,4 @@ export function createOwnerUpdatedEvent(owner: Address): OwnerUpdated {
   )
 
   return ownerUpdatedEvent
-}
-
-export function createSetMechFactoryStatusesEvent(
-  mechFactories: Array<Address>,
-  statuses: Array<boolean>
-): SetMechFactoryStatuses {
-  let setMechFactoryStatusesEvent = changetype<SetMechFactoryStatuses>(
-    newMockEvent()
-  )
-
-  setMechFactoryStatusesEvent.parameters = new Array()
-
-  setMechFactoryStatusesEvent.parameters.push(
-    new ethereum.EventParam(
-      "mechFactories",
-      ethereum.Value.fromAddressArray(mechFactories)
-    )
-  )
-  setMechFactoryStatusesEvent.parameters.push(
-    new ethereum.EventParam(
-      "statuses",
-      ethereum.Value.fromBooleanArray(statuses)
-    )
-  )
-
-  return setMechFactoryStatusesEvent
-}
-
-export function createSetPaymentTypeBalanceTrackersEvent(
-  paymentTypes: Array<Bytes>,
-  balanceTrackers: Array<Address>
-): SetPaymentTypeBalanceTrackers {
-  let setPaymentTypeBalanceTrackersEvent =
-    changetype<SetPaymentTypeBalanceTrackers>(newMockEvent())
-
-  setPaymentTypeBalanceTrackersEvent.parameters = new Array()
-
-  setPaymentTypeBalanceTrackersEvent.parameters.push(
-    new ethereum.EventParam(
-      "paymentTypes",
-      ethereum.Value.fromFixedBytesArray(paymentTypes)
-    )
-  )
-  setPaymentTypeBalanceTrackersEvent.parameters.push(
-    new ethereum.EventParam(
-      "balanceTrackers",
-      ethereum.Value.fromAddressArray(balanceTrackers)
-    )
-  )
-
-  return setPaymentTypeBalanceTrackersEvent
 }

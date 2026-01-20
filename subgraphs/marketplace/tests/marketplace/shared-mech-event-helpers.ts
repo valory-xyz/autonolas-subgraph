@@ -1,9 +1,15 @@
-import { newMockEvent } from 'matchstick-as';
+import { newMockEvent, createMockedFunction } from 'matchstick-as';
 import { Address, BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts';
 import {
   mockMarketplaceDeliverIpfs,
   mockMarketplaceRequestIpfs,
 } from './ipfs-mock-helpers';
+
+// Helper to mock maxDeliveryRate for a mech address
+export function mockMaxDeliveryRate(mech: Address, rate: BigInt): void {
+  createMockedFunction(mech, 'maxDeliveryRate', 'maxDeliveryRate():(uint256)')
+    .returns([ethereum.Value.fromUnsignedBigInt(rate)]);
+}
 
 export function createBaseDeliverEvent(
   mech: Address,
