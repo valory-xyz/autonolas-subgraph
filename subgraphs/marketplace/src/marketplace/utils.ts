@@ -33,8 +33,10 @@ import {
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   GNOSIS_MECH_MARKETPLACE_ADDRESS,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  POLYGON_MECH_MARKETPLACE_ADDRESS,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  OPTIMISM_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 import { convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 
@@ -247,6 +249,10 @@ function getMarketplaceAddress(): string | null {
     return BASE_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   } else if (network == 'gnosis' || network == 'xdai') {
     return GNOSIS_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'matic') {
+    return POLYGON_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'optimism') {
+    return OPTIMISM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   }
   return null;
 }
@@ -265,7 +271,7 @@ function isMarketplaceTransaction(transactionTo: Address | null): boolean {
   return toAddress == marketplaceAddress;
 }
 
-function handleGnosisChain(mech: Address, mechFactoryAddress: string): boolean {
+function createGnosisMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
   if (GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
     MechFixedPriceNative.create(mech);
     log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
@@ -288,7 +294,7 @@ function handleGnosisChain(mech: Address, mechFactoryAddress: string): boolean {
   return false;
 }
 
-function handleBaseChain(mech: Address, mechFactoryAddress: string): boolean {
+function createBaseMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
   if (BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
     MechFixedPriceNative.create(mech);
     log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
@@ -317,15 +323,8 @@ function handleBaseChain(mech: Address, mechFactoryAddress: string): boolean {
   return false;
 }
 
-function handlePolygonChain(mech: Address, mechFactoryAddress: string): boolean {
-  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN == '0x0000000000000000000000000000000000000000') {
-    log.critical('Polygon factory address is zero. Mech tracking disabled for Polygon network. Mech {} will not be tracked.', [
-      mech.toHexString(),
-    ]);
-    return false;
-  }
-
-  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+function createPolygonMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
     MechFixedPriceToken.create(mech);
     log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
     return true;
@@ -335,15 +334,8 @@ function handlePolygonChain(mech: Address, mechFactoryAddress: string): boolean 
   return false;
 }
 
-function handleOptimismChain(mech: Address, mechFactoryAddress: string): boolean {
-  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN == '0x0000000000000000000000000000000000000000') {
-    log.critical('Optimism factory address is zero. Mech tracking disabled for Optimism network. Mech {} will not be tracked.', [
-      mech.toHexString(),
-    ]);
-    return false;
-  }
-
-  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+function createOptimismMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
     MechFixedPriceToken.create(mech);
     log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
     return true;
@@ -368,13 +360,13 @@ export function createDataSourceForMechContract(
   );
 
   if (chainId == 100) {
-    handleGnosisChain(mech, mechFactoryAddress);
+    createGnosisMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 8453) {
-    handleBaseChain(mech, mechFactoryAddress);
+    createBaseMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 137) {
-    handlePolygonChain(mech, mechFactoryAddress);
+    createPolygonMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 10) {
-    handleOptimismChain(mech, mechFactoryAddress);
+    createOptimismMechFromFactory(mech, mechFactoryAddress);
   } else {
     log.warning("Unsupported chain ID: {} for network: '{}'", [
       chainId.toString(),
