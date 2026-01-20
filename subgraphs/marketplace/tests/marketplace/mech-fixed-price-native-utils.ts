@@ -11,6 +11,7 @@ import {
   createBaseMaxDeliveryRateUpdatedEvent,
   createBaseRequestEvent,
   createBaseRevokeRequestEvent,
+  mockMaxDeliveryRate,
 } from './shared-mech-event-helpers';
 
 export function createDeliverEvent(
@@ -75,6 +76,9 @@ export function createMechWithMapping(
   
   mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
   mechEntity.save()
+
+  // Mock maxDeliveryRate call for fee tracking
+  mockMaxDeliveryRate(mech, BigInt.fromI32(0))
 }
 
 export function createMaxDeliveryRateUpdatedEvent(

@@ -10,6 +10,7 @@ import { handleDeliver, handleRequest, handleMaxDeliveryRateUpdated } from "../.
 import { handleMarketplaceRequest } from "../../src/marketplace/mech-marketplace"
 import { createDeliverEvent, createRequestEvent, createMaxDeliveryRateUpdatedEvent } from "./mech-nvm-subscription-token-usdc-utils"
 import { createMarketplaceRequestEvent } from "./mech-marketplace-utils"
+import { mockMaxDeliveryRate } from "./shared-mech-event-helpers"
 import {
   TEST_MECH,
   TEST_MECH_SERVICE_MULTISIG,
@@ -48,6 +49,9 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
   
   mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
   mechEntity.save()
+
+  // Mock maxDeliveryRate for fee tracking
+  mockMaxDeliveryRate(mechAddress, BI.fromI32(0))
 }
 
 describe("Mech NVM Subscription Token USDC Handler", () => {

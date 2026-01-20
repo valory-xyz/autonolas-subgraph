@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import {
   AgentMultisigAssociation,
   CreateMech,
@@ -32,6 +32,9 @@ export function getGlobal(): Global {
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
     global.totalAtaTransactions = BigInt.fromI32(0);
+
+    // Fee tracking
+    global.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return global as Global;
 }
@@ -106,6 +109,9 @@ export function getOrCreateSender(address: Bytes): Sender {
     // Marketplace-only counters
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
+
+    // Fee tracking
+    sender.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return sender as Sender;
 }

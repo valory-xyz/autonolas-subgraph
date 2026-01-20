@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -36,6 +36,10 @@ import {
   POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
   OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
 } from './constants';
+import { convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+
+// Re-export fee conversion functions for backward compatibility with tests
+export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
 
 const UNHANDLED_TYPE = '[unhandled type]';
 
@@ -102,6 +106,9 @@ export function getGlobal(): Global {
     global.totalDeliveries = BigInt.fromI32(0);
     global.totalTransactions = BigInt.fromI32(0);
     global.totalAtaTransactions = BigInt.fromI32(0);
+
+    // Fee tracking
+    global.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return global;
 }
@@ -117,6 +124,8 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalLegacyAtaTransactions = BigInt.fromI32(0);
     sender.totalMarketplaceRequests = BigInt.fromI32(0);
     sender.totalOffChainRequests = BigInt.fromI32(0);
+    // Fee tracking
+    sender.totalFeesPaidUSD = BigDecimal.fromString('0');
   }
   return sender;
 }
@@ -603,11 +612,11 @@ function saveParsedRequestEntity(
 }
 
 function requestIdToDecimal(requestId: Bytes): string {
+  // Reverse bytes during copy to avoid .reverse() which causes WASM memory issues
   let copy = new Uint8Array(requestId.length);
   for (let i = 0; i < requestId.length; i++) {
-    copy[i] = requestId[i];
+    copy[requestId.length - 1 - i] = requestId[i];
   }
-  copy.reverse();
   let reversedBytes = Bytes.fromUint8Array(copy);
   return BigInt.fromUnsignedBytes(reversedBytes).toString();
 }
@@ -821,17 +830,46 @@ export class OnChainRequestArgs {
 export function processOnChainDeliver(args: OnChainDeliverArgs): void {
   // Use txHash + logIndex for unique Deliver entity ID (same as mech subgraph)
   const deliverId = args.txHash.concatI32(args.logIndex);
-  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
-
   const isMarketplaceTx = isMarketplaceTransaction(args.transactionTo);
 
-  assignDeliverBasics(deliver, args);
-  const isNewDelivery = attachRequestToDeliver(deliver, args, !isMarketplaceTx);
-  const serviceId = ensureServiceForDeliver(deliver, args.mech);
+  // Perform all external calls FIRST to avoid WASM memory corruption
+  const serviceId = requireServiceId(args.mech, 'Deliver');
+  let request = Request.load(args.requestId.toHexString());
+  let isNewDelivery = false;
+
+  // Process request updates (separate from deliver entity)
+  // Use finalFeeUSD === null as guard to allow fee updates even if isDelivered was set
+  // by handleMarketplaceDelivery (which fires before Deliver event but lacks deliveryRate)
+  if (request !== null && request.finalFeeUSD === null) {
+    if (!request.isDelivered) {
+      isNewDelivery = true;
+      request.isDelivered = true;
+      request.deliveredByMech = args.mech;
+      if (!isMarketplaceTx) {
+        updateMechCountersOnDelivery(request, args.mech);
+      }
+    }
+    updateFeesOnDelivery(request, args.requestId, args.deliveryRate);
+    request.save();
+  }
+
+  // Create deliver entity and assign ALL fields right before save
+  let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
+  deliver.requestId = args.requestId;
+  deliver.mech = args.mech;
+  deliver.blockNumber = args.blockNumber;
+  deliver.blockTimestamp = args.blockTimestamp;
+  deliver.transactionHash = args.txHash;
+  deliver.sender = args.sender;
+  deliver.service = serviceId;
+  if (request !== null) {
+    deliver.request = request.id;
+  }
+  deliver.save();
+
   if (!isMarketplaceTx && isNewDelivery) {
     incrementServiceDeliveries(serviceId);
   }
-  deliver.save();
 
   if (!isMarketplaceTx) {
     finalizeGlobalForDeliver(args);
@@ -913,47 +951,33 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
   }
 }
 
-function assignDeliverBasics(deliver: Deliver, args: OnChainDeliverArgs): void {
-  deliver.requestId = args.requestId;
-  deliver.mech = args.mech;
-  deliver.blockNumber = args.blockNumber;
-  deliver.blockTimestamp = args.blockTimestamp;
-  deliver.transactionHash = args.txHash;
-  deliver.sender = args.sender;
-}
-
-function attachRequestToDeliver(
-  deliver: Deliver,
-  args: OnChainDeliverArgs,
-  shouldUpdateCounters: boolean
-): boolean {
-  let request = Request.load(args.requestId.toHexString());
-  if (request === null) {
-    log.warning('Deliver: Request {} not found for delivery transaction', [
-      args.requestId.toHexString(),
-    ]);
-    return false;
+function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: BigInt): void {
+  // Only track fees for marketplace on-chain requests (scope guard)
+  let rtm = RequestToMarketplace.load(requestId.toHexString());
+  if (rtm === null || !rtm.isMarketplace) {
+    return;
   }
 
-  deliver.request = request.id;
-
-  if (request.isDelivered) {
-    return false;
+  // Only track fees if request has feeUnit (set during MarketplaceRequest)
+  if (request.feeUnit === null) {
+    return;
   }
 
-  request.isDelivered = true;
-  request.deliveredByMech = args.mech;
-  request.save();
-  if (shouldUpdateCounters) {
-    updateMechCountersOnDelivery(request, args.mech);
-  }
-  return true;
-}
+  // Convert deliveryRate to USD (feeUnit checked above)
+  let finalFeeUSD = convertFeeToUsd(deliveryRate, request.feeUnit as string);
+  request.finalFeeUSD = finalFeeUSD;
 
-function ensureServiceForDeliver(deliver: Deliver, mech: Bytes): string {
-  const serviceId = requireServiceId(mech, 'Deliver');
-  deliver.service = serviceId;
-  return serviceId;
+  // Update sender totals
+  let sender = Sender.load(request.sender);
+  if (sender !== null) {
+    sender.totalFeesPaidUSD = sender.totalFeesPaidUSD.plus(finalFeeUSD);
+    sender.save();
+  }
+
+  // Update global totals
+  let global = getGlobal();
+  global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
+  global.save();
 }
 
 function incrementServiceDeliveries(serviceId: string): void {
@@ -1092,8 +1116,23 @@ function upsertSignedDeliverEntity(
   sender: Bytes | null,
   fallbackSender: Bytes | null
 ): Deliver {
+  // Perform external call FIRST to avoid WASM memory corruption
+  const serviceId = getServiceIdFromMech(mech);
+
+  // Determine sender value before entity creation
+  let senderValue: Bytes;
+  if (sender !== null) {
+    senderValue = sender as Bytes;
+  } else if (fallbackSender !== null) {
+    senderValue = fallbackSender as Bytes;
+  } else {
+    senderValue = mech;
+  }
+
   // For off-chain/signed deliveries, use txHash + requestId for unique ID
   let deliverId = transactionHash.concat(requestId);
+
+  // Create entity and assign ALL fields right before save
   let deliver = getOrCreateMarketplaceIndividualDeliver(deliverId);
   deliver.requestId = requestId;
   deliver.mech = mech;
@@ -1101,23 +1140,12 @@ function upsertSignedDeliverEntity(
   deliver.blockTimestamp = blockTimestamp;
   deliver.transactionHash = transactionHash;
   deliver.request = null;
-
-  // Sender is the delivery mech (the one sending/delivering the response)
-  if (sender !== null) {
-    deliver.sender = sender as Bytes;
-  } else if (fallbackSender !== null) {
-    deliver.sender = fallbackSender as Bytes;
-  } else {
-    // Default to mech address if no sender provided
-    deliver.sender = mech;
-  }
-
-  const serviceId = getServiceIdFromMech(mech);
+  deliver.sender = senderValue;
   if (serviceId !== null) {
     deliver.service = serviceId;
   }
-
   deliver.save();
+
   return deliver;
 }
 
@@ -1201,6 +1229,16 @@ export function persistSignedDeliver(args: SignedDeliverArgs): void {
     args.sender,
     args.fallbackSender
   );
+
+  // Sets finalFeeUSD for signed deliveries
+  // Uses finalFeeUSD === null guard because handleMarketplaceDelivery sets isDelivered first
+  if (args.deliveryRate !== null) {
+    let request = Request.load(args.requestId.toHexString());
+    if (request !== null && request.finalFeeUSD === null) {
+      updateFeesOnDelivery(request, args.requestId, args.deliveryRate as BigInt);
+      request.save();
+    }
+  }
 
   let baseHash = upsertDeliverForMarketplaceEntity(
     args.requestId,
