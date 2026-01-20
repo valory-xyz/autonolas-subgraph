@@ -27,6 +27,8 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        - name: MechMarketplaceV1
+          file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
       eventHandlers:
