@@ -33,6 +33,7 @@ import {
 // Fee unit type (matches schema FeeUnit enum)
 export const FEE_UNIT_NATIVE = 'NATIVE';
 export const FEE_UNIT_TOKEN = 'TOKEN';
+export const FEE_UNIT_USDC = 'USDC';
 export const FEE_UNIT_CREDITS = 'CREDITS';
 
 // Detect fee unit from mech factory address
@@ -59,7 +60,7 @@ export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
       return FEE_UNIT_TOKEN;
     }
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_TOKEN;
+      return FEE_UNIT_USDC;
     }
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
       return FEE_UNIT_CREDITS;
@@ -68,13 +69,13 @@ export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
 
   if (network == 'matic') {
     if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_TOKEN;
+      return FEE_UNIT_USDC;
     }
   }
 
   if (network == 'optimism') {
     if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_TOKEN;
+      return FEE_UNIT_USDC;
     }
   }
 
@@ -109,6 +110,12 @@ export function convertBaseNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
     .times(ethPrice.toBigDecimal())
     .div(priceDivisor)
     .div(ethDivisor);
+}
+
+// Convert USDC amount to USD (1 USDC = 1 USD, 6 decimals)
+export function convertUsdcToUsd(amountInUsdc: BigInt): BigDecimal {
+  const usdcDivisor = BigInt.fromI32(10).pow(USDC_DECIMALS);
+  return amountInUsdc.toBigDecimal().div(usdcDivisor.toBigDecimal());
 }
 
 // Convert Gnosis NVM credits to USD (credits -> xDAI -> USD)
@@ -264,6 +271,10 @@ export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
 
   if (feeUnit == FEE_UNIT_TOKEN) {
     return calculateOlasInUsd(feeRaw);
+  }
+
+  if (feeUnit == FEE_UNIT_USDC) {
+    return convertUsdcToUsd(feeRaw);
   }
 
   if (feeUnit == FEE_UNIT_CREDITS) {
