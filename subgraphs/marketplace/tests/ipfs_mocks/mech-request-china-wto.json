@@ -1,0 +1,5 @@
+{
+    "prompt": "With the given question \"Will China file a formal complaint with the World Trade Organization against the U.S. over the Huawei chip restrictions by May 26, 2025?\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?",
+    "tool": "prediction-offline",
+    "nonce": "64eb28b2-884c-4f1a-abc2-825336c455bb"
+}
