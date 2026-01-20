@@ -10,7 +10,7 @@ dataSources:
     source:
       address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
       abi: MechMarketplaceV2
-      startBlock: 81306799
+      startBlock: 81028558
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -48,7 +48,7 @@ dataSources:
     source:
       address: "0xE3607b00E75f6405248323A9417ff6b39B244b50"
       abi: ServiceRegistryL2
-      startBlock: 41784318
+      startBlock: 41783952
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
