@@ -5,15 +5,14 @@ schema:
   file: ./schema.graphql
 dataSources:
   # MechMarketplaceV1 data source for type generation only (no V1 events on Polygon)
-  # Using a single-block range that will never match any events
+  # V1 event signatures differ from V2, so handlers won't match V2 events
   - kind: ethereum
     name: MechMarketplaceV1
     network: matic
     source:
       address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
       abi: MechMarketplaceV1
-      startBlock: 1
-      endBlock: 1
+      startBlock: 81028558
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
