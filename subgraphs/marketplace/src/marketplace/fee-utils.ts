@@ -19,6 +19,7 @@ import {
   OLAS_WXDAI_POOL_ADDRESS_GNOSIS,
   OLAS_USDC_POOL_ADDRESS_BASE,
   CHAINLINK_PRICE_FEED_ADDRESS_BASE_ETH_USD,
+  CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
@@ -110,6 +111,29 @@ export function convertBaseNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
     .times(ethPrice.toBigDecimal())
     .div(priceDivisor)
     .div(ethDivisor);
+}
+
+// Convert Polygon native (POL) wei to USD using Chainlink price feed
+export function convertPolygonNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
+  const priceFeed = AggregatorV3Interface.bind(
+    Address.fromString(CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD)
+  );
+  const latestRoundData = priceFeed.try_latestRoundData();
+
+  if (latestRoundData.reverted) {
+    log.warning('Chainlink POL/USD price feed reverted, returning 0 USD', []);
+    return BigDecimal.fromString('0');
+  }
+
+  const polPrice = latestRoundData.value.value1;
+  const priceDivisor = BigInt.fromI32(10).pow(CHAINLINK_PRICE_FEED_DECIMALS).toBigDecimal();
+  const polDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
+
+  return amountInWei
+    .toBigDecimal()
+    .times(polPrice.toBigDecimal())
+    .div(priceDivisor)
+    .div(polDivisor);
 }
 
 // Convert USDC amount to USD (1 USDC = 1 USD, 6 decimals)
@@ -266,6 +290,9 @@ export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
     }
     if (network == 'base') {
       return convertBaseNativeWeiToUsd(feeRaw);
+    }
+    if (network == 'matic') {
+      return convertPolygonNativeWeiToUsd(feeRaw);
     }
   }
 
