@@ -20,6 +20,7 @@ import {
   OLAS_USDC_POOL_ADDRESS_BASE,
   CHAINLINK_PRICE_FEED_ADDRESS_BASE_ETH_USD,
   CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD,
+  CHAINLINK_PRICE_FEED_ADDRESS_OPTIMISM_ETH_USD,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
@@ -134,6 +135,29 @@ export function convertPolygonNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
     .times(polPrice.toBigDecimal())
     .div(priceDivisor)
     .div(polDivisor);
+}
+
+// Convert Optimism native (ETH) wei to USD using Chainlink price feed
+export function convertOptimismNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
+  const priceFeed = AggregatorV3Interface.bind(
+    Address.fromString(CHAINLINK_PRICE_FEED_ADDRESS_OPTIMISM_ETH_USD)
+  );
+  const latestRoundData = priceFeed.try_latestRoundData();
+
+  if (latestRoundData.reverted) {
+    log.warning('Chainlink Optimism ETH/USD price feed reverted, returning 0 USD', []);
+    return BigDecimal.fromString('0');
+  }
+
+  const ethPrice = latestRoundData.value.value1;
+  const priceDivisor = BigInt.fromI32(10).pow(CHAINLINK_PRICE_FEED_DECIMALS).toBigDecimal();
+  const ethDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
+
+  return amountInWei
+    .toBigDecimal()
+    .times(ethPrice.toBigDecimal())
+    .div(priceDivisor)
+    .div(ethDivisor);
 }
 
 // Convert USDC amount to USD (1 USDC = 1 USD, 6 decimals)
@@ -293,6 +317,9 @@ export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
     }
     if (network == 'matic') {
       return convertPolygonNativeWeiToUsd(feeRaw);
+    }
+    if (network == 'optimism') {
+      return convertOptimismNativeWeiToUsd(feeRaw);
     }
   }
 
