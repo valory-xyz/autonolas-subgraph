@@ -4,7 +4,7 @@ This document provides context for the marketplace subgraph, the most complex su
 
 ## Overview
 
-The marketplace subgraph indexes mech marketplace activity on **Gnosis** and **Base** networks. It tracks:
+The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base**, **Polygon**, and **Optimism** networks. It tracks:
 - Mech creation and registration
 - Request/delivery lifecycle (on-chain and off-chain/signed)
 - Service activity metrics
@@ -263,4 +263,20 @@ Tests use Matchstick framework. Key patterns:
 - Marketplace: `0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020`
 - MechFactory (FixedPriceNative): `0x2E008211f34b25A7d7c102403c6C2C3B665a1abe`
 - MechFactory (FixedPriceToken): `0x97371B1C0cDA1D04dFc43DFb50a04645b7Bc9BEe`
+- MechFactory (FixedPriceTokenUSDC): `0x5B70A66fe68c4c86FFd724B58cc56049c70e9D3D`
+- MechFactory (NvmSubscriptionNative): `0x847bBE8b474e0820215f818858e23F5f5591855A`
 - MechFactory (NvmSubscriptionTokenUSDC): `0x7beD01f8482fF686F025628e7780ca6C1f0559fc`
+
+### Polygon
+- Marketplace: `0x343F2B005cF6D70bA610CD9F1F1927049414B582`
+- MechFactory (FixedPriceNative): `0x87f89F94033305791B6269AE2F9cF4e09983E56e`
+- MechFactory (FixedPriceToken): `0xa0DA53447C0f6C4987964d8463da7e6628B30f82`
+- MechFactory (FixedPriceTokenUSDC): `0x85899f9d8C058A5BBBaF344ea0f0b63c0CcBe851`
+- MechFactory (NvmSubscriptionTokenUSDC): `0x43fB32f25dce34EB76c78C7A42C8F40F84BCD237`
+
+### Optimism
+- Marketplace: `0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461`
+- MechFactory (FixedPriceNative): `0xf76953444C35F1FcE2F6CA1b167173357d3F5C17`
+- MechFactory (FixedPriceToken): `0x26Ea2dC7ce1b41d0AD0E0521535655d7a94b684c`
+- MechFactory (FixedPriceTokenUSDC): `0x93111f6C267068A5d7356114D61d0f09bFD53a54`
+- MechFactory (NvmSubscriptionTokenUSDC): `0x02C26437B292D86c5F4F21bbCcE0771948274f84`

@@ -1,6 +1,6 @@
 # Marketplace Subgraph
 
-A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis** and **Base** networks.
+A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis**, **Base**, **Polygon**, and **Optimism** networks.
 
 ## When to Read This
 
@@ -23,6 +23,8 @@ This subgraph indexes:
 |---------|---------------------|-------------|
 | Gnosis | `0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB` | 35827866 |
 | Base | `0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020` | 26642705 |
+| Polygon | `0x343F2B005cF6D70bA610CD9F1F1927049414B582` | 66632853 |
+| Optimism | `0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461` | 130872124 |
 
 ## Quick Start
 
@@ -50,6 +52,8 @@ yarn build
 # Build for specific network
 graph build subgraph.gnosis.yaml
 graph build subgraph.base.yaml
+graph build subgraph.polygon.yaml
+graph build subgraph.optimism.yaml
 ```
 
 ### Test
@@ -208,8 +212,11 @@ Fees are converted to USD using:
 | Network | Token | Method |
 |---------|-------|--------|
 | Gnosis | xDAI | 1:1 peg |
-| Base | ETH | Chainlink price feed |
-| Any | OLAS | Balancer V2 pool prices |
+| Base | ETH | Chainlink ETH/USD price feed |
+| Polygon | POL | Chainlink POL/USD price feed |
+| Optimism | ETH | Chainlink ETH/USD price feed |
+| Any | USDC | 1:1 peg |
+| Gnosis/Base | OLAS | Balancer V2 pool prices |
 | Any | NVM Credits | Contract token ratios |
 
 **Scope:** Fee tracking applies only to on-chain marketplace requests (emitted via `MarketplaceRequest` events). Off-chain signed deliveries and legacy AgentMech requests do not have fee data.
