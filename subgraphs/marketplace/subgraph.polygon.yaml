@@ -150,6 +150,26 @@ dataSources:
         - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
           handler: handleComplementaryMetadataUpdated
       file: ./src/marketplace/complementary-service-metadata.ts
+  - kind: ethereum
+    name: Karma
+    network: matic
+    source:
+      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
+      abi: Karma
+      startBlock: 81028558
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Mech
+      abis:
+        - name: Karma
+          file: ../../abis/Karma.json
+      eventHandlers:
+        - event: MechKarmaChanged(indexed address,int256)
+          handler: handleMechKarmaChanged
+      file: ./src/marketplace/karma.ts
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
