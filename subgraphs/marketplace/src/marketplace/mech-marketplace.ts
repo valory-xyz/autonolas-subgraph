@@ -40,6 +40,7 @@ import {
   persistSignedDeliver,
   SignedDeliverArgs,
   getOrCreateDeliverForMarketplace,
+  calculateMaxDeliveryRateUSD,
 } from './utils';
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
 
@@ -74,6 +75,10 @@ export function handleCreateMech(event: CreateMechEvent): void {
   let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
   if (initialMaxDeliveryRate !== null) {
     mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+    mechAgent.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
+      initialMaxDeliveryRate,
+      event.params.mechFactory
+    );
   }
 
   // Get service configHash from Service entity and write it to Mech

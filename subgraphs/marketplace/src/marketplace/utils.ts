@@ -38,7 +38,7 @@ import {
   OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   OPTIMISM_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
-import { convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 
 // Re-export fee conversion functions for backward compatibility with tests
 export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
@@ -918,6 +918,14 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
     );
   }
 
+  let createMech = CreateMech.load(mechAddress);
+  if (createMech !== null && createMech.mechFactory !== null) {
+    mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
+      maxDeliveryRate,
+      createMech.mechFactory!
+    );
+  }
+
   mech.maxDeliveryRate = maxDeliveryRate;
   mech.save();
 }
@@ -938,6 +946,14 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
   }
 
   if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+    let createMech = CreateMech.load(mechAddress);
+    if (createMech !== null && createMech.mechFactory !== null) {
+      mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
+        deliveryRate,
+        createMech.mechFactory!
+      );
+    }
+
     mech.maxDeliveryRate = deliveryRate;
     mech.save();
   }
@@ -970,6 +986,11 @@ function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: 
   let global = getGlobal();
   global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
   global.save();
+}
+
+export function calculateMaxDeliveryRateUSD(maxDeliveryRate: BigInt, mechFactory: Bytes): BigDecimal {
+  const feeUnit = getFeeUnitFromMechFactory(mechFactory);
+  return convertFeeToUsd(maxDeliveryRate, feeUnit);
 }
 
 function incrementServiceDeliveries(serviceId: string): void {

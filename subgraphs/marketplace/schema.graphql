@@ -215,6 +215,7 @@ type Mech @entity(immutable: false) {
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
   maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
+  maxDeliveryRateUSD: BigDecimal # USD-converted maxDeliveryRate for mech discoverability across payment types
   karma: BigInt! # Cumulative karma (sum of all karmaChange values from MechKarmaChanged events)
   paymentType: Bytes! # Payment type from the payment type contract (required)
 }

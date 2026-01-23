@@ -39,6 +39,7 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis** and **B
 ```
 Service (id: serviceId as string)
     ├── Mech (id: serviceId, links via mech.service)
+    │   └── maxDeliveryRateUSD (USD-converted rate for cross-payment-type comparison)
     ├── Request[] (links via request.service)
     └── CreateMultisigWithAgents (id: multisig address)
 
@@ -59,6 +60,32 @@ CreateMech (id: mech address)
 CreateMultisigWithAgents (id: multisig address)
     └── Maps multisig address → serviceId
 ```
+
+## Fee Conversion and USD Tracking
+
+The subgraph converts all fees to USD for cross-payment-type comparison and mech discoverability.
+
+### Max Delivery Rate USD
+
+Each `Mech` entity has a `maxDeliveryRateUSD: BigDecimal` field that stores the USD-converted maximum delivery rate. This enables:
+- Comparing mechs across different payment types (NATIVE, USDC, TOKEN, CREDITS)
+- Filtering mechs by price in USD queries
+- Mech discoverability based on pricing
+
+**Calculation:**
+- Uses `calculateMaxDeliveryRateUSD(maxDeliveryRate, mechFactory)` helper from `utils.ts`
+- Detects fee unit from mech factory type (NATIVE, USDC, TOKEN, CREDITS)
+- Converts using `convertFeeToUsd()`:
+  - Gnosis xDAI: 1:1 USD peg
+  - Base ETH: Chainlink price feed
+  - USDC: 1:1 USD peg
+  - OLAS tokens: Balancer V2 pool prices
+  - NVM Credits: Contract-defined token ratios
+
+**Updated when:**
+1. `handleCreateMech` - Initial mech creation
+2. `updateMaxDeliveryRate` - `MaxDeliveryRateUpdated` event received
+3. `refreshMechDeliveryRate` - Rate observed during `Deliver` event
 
 ## Critical Code Paths
 
