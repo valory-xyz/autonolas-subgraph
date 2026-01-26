@@ -26,14 +26,26 @@ import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../gene
 import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   BASE_MECH_MARKETPLACE_ADDRESS,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   GNOSIS_MECH_MARKETPLACE_ADDRESS,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  POLYGON_MECH_MARKETPLACE_ADDRESS,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  OPTIMISM_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
-import { convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 
 // Re-export fee conversion functions for backward compatibility with tests
 export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
@@ -218,13 +230,17 @@ export function getChainId(network: string): i32 {
     return 100;
   } else if (cleanNetwork == 'base') {
     return 8453;
+  } else if (cleanNetwork == 'matic') {
+    return 137;
+  } else if (cleanNetwork == 'optimism') {
+    return 10;
   }
 
   log.warning("Unknown network: '{}' (cleaned: '{}'), returning 0", [
     network,
     cleanNetwork,
   ]);
-  return 0; // Unknown network
+  return 0;
 }
 
 function normalizedAddress(address: Address | null): string | null {
@@ -240,6 +256,10 @@ function getMarketplaceAddress(): string | null {
     return BASE_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   } else if (network == 'gnosis' || network == 'xdai') {
     return GNOSIS_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'matic') {
+    return POLYGON_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'optimism') {
+    return OPTIMISM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   }
   return null;
 }
@@ -258,6 +278,122 @@ function isMarketplaceTransaction(transactionTo: Address | null): boolean {
   return toAddress == marketplaceAddress;
 }
 
+function createGnosisMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechNvmSubscriptionNative.create(mech);
+    log.info('Created MechNvmSubscriptionNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Gnosis: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createBaseMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechNvmSubscriptionTokenUSDC.create(mech);
+    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechNvmSubscriptionNative.create(mech);
+    log.info('Created MechNvmSubscriptionNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Base: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createPolygonMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechNvmSubscriptionTokenUSDC.create(mech);
+    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Polygon: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createOptimismMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechNvmSubscriptionTokenUSDC.create(mech);
+    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Optimism: {}', [mechFactoryAddress]);
+  return false;
+}
+
 /* Create dynamic data source for the new Mech contract based on factory address */
 export function createDataSourceForMechContract(
   mech: Address,
@@ -272,64 +408,14 @@ export function createDataSourceForMechContract(
     [mech.toHexString(), mechFactoryAddress, network, chainId.toString()]
   );
 
-  // Check factory addresses based on chain ID
   if (chainId == 100) {
-    if (
-      GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress
-    ) {
-      MechFixedPriceNative.create(mech);
-      log.info('Created MechFixedPriceNative data source for mech: {}', [
-        mech.toHexString(),
-      ]);
-    } else if (
-      GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress
-    ) {
-      MechFixedPriceToken.create(mech);
-      log.info('Created MechFixedPriceToken data source for mech: {}', [
-        mech.toHexString(),
-      ]);
-    } else if (
-      GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() ==
-      mechFactoryAddress
-    ) {
-      MechNvmSubscriptionNative.create(mech);
-      log.info('Created MechNvmSubscriptionNative data source for mech: {}', [
-        mech.toHexString(),
-      ]);
-    } else {
-      log.warning('Unknown mech factory address on Gnosis: {}', [
-        mechFactoryAddress,
-      ]);
-    }
+    createGnosisMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 8453) {
-    if (
-      BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress
-    ) {
-      MechFixedPriceNative.create(mech);
-      log.info('Created MechFixedPriceNative data source for mech: {}', [
-        mech.toHexString(),
-      ]);
-    } else if (
-      BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress
-    ) {
-      MechFixedPriceToken.create(mech);
-      log.info('Created MechFixedPriceToken data source for mech: {}', [
-        mech.toHexString(),
-      ]);
-    } else if (
-      BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() ==
-      mechFactoryAddress
-    ) {
-      MechNvmSubscriptionTokenUSDC.create(mech);
-      log.info(
-        'Created MechNvmSubscriptionTokenUSDC data source for mech: {}',
-        [mech.toHexString()]
-      );
-    } else {
-      log.warning('Unknown mech factory address on Base: {}', [
-        mechFactoryAddress,
-      ]);
-    }
+    createBaseMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 137) {
+    createPolygonMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 10) {
+    createOptimismMechFromFactory(mech, mechFactoryAddress);
   } else {
     log.warning("Unsupported chain ID: {} for network: '{}'", [
       chainId.toString(),
@@ -881,6 +967,14 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
     );
   }
 
+  let createMech = CreateMech.load(mechAddress);
+  if (createMech !== null && createMech.mechFactory !== null) {
+    mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
+      maxDeliveryRate,
+      createMech.mechFactory!
+    );
+  }
+
   mech.maxDeliveryRate = maxDeliveryRate;
   mech.save();
 }
@@ -901,6 +995,14 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
   }
 
   if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+    let createMech = CreateMech.load(mechAddress);
+    if (createMech !== null && createMech.mechFactory !== null) {
+      mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
+        deliveryRate,
+        createMech.mechFactory!
+      );
+    }
+
     mech.maxDeliveryRate = deliveryRate;
     mech.save();
   }
@@ -933,6 +1035,11 @@ function updateFeesOnDelivery(request: Request, requestId: Bytes, deliveryRate: 
   let global = getGlobal();
   global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
   global.save();
+}
+
+export function calculateMaxDeliveryRateUSD(maxDeliveryRate: BigInt, mechFactory: Bytes): BigDecimal {
+  const feeUnit = getFeeUnitFromMechFactory(mechFactory);
+  return convertFeeToUsd(maxDeliveryRate, feeUnit);
 }
 
 function incrementServiceDeliveries(serviceId: string): void {

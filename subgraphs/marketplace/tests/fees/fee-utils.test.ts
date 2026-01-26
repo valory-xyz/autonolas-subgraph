@@ -13,10 +13,14 @@ import {
   convertGnosisNativeWeiToUsd,
   calculateGnosisNvmCreditsToUsd,
   calculateBaseNvmCreditsToUsd,
+  convertUsdcToUsd,
   FEE_UNIT_NATIVE,
   FEE_UNIT_TOKEN,
+  FEE_UNIT_USDC,
   FEE_UNIT_CREDITS,
 } from "../../src/marketplace/fee-utils";
+
+import { calculateMaxDeliveryRateUSD } from "../../src/marketplace/utils";
 
 import {
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
@@ -25,6 +29,8 @@ import {
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
 } from "../../src/marketplace/constants";
 
 describe("getFeeUnitFromMechFactory", () => {
@@ -152,6 +158,67 @@ describe("calculateBaseNvmCreditsToUsd", () => {
     let result = calculateBaseNvmCreditsToUsd(largeCredits);
     // Should produce a reasonable USD value
     assert.assertTrue(!result.equals(BigDecimal.fromString("0")));
+  });
+});
+
+describe("calculateMaxDeliveryRateUSD", () => {
+  afterEach(() => {
+    clearStore();
+    dataSourceMock.resetValues();
+  });
+
+  test("Property: result is always >= 0 for valid inputs", () => {
+    dataSourceMock.setNetwork("gnosis");
+    let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE);
+    let rate = BigInt.fromI32(1000);
+    let result = calculateMaxDeliveryRateUSD(rate, factory);
+    assert.assertTrue(
+      result.ge(BigDecimal.fromString("0")),
+      "Result should be non-negative"
+    );
+  });
+
+  test("USDC factory: rate / 1e6 gives correct USD (Base)", () => {
+    dataSourceMock.setNetwork("base");
+    let factory = Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC);
+    // 1 USDC = 1e6 units
+    let oneUsdc = BigInt.fromI32(1000000);
+    let result = calculateMaxDeliveryRateUSD(oneUsdc, factory);
+    assert.stringEquals(result.toString(), "1");
+  });
+
+  test("USDC factory: rate / 1e6 gives correct USD (Polygon)", () => {
+    dataSourceMock.setNetwork("matic");
+    let factory = Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC);
+    // 1 USDC = 1e6 units
+    let oneUsdc = BigInt.fromI32(1000000);
+    let result = calculateMaxDeliveryRateUSD(oneUsdc, factory);
+    assert.stringEquals(result.toString(), "1");
+  });
+
+  test("NATIVE factory returns Gnosis xDAI-converted USD (1:1)", () => {
+    dataSourceMock.setNetwork("gnosis");
+    let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE);
+    let oneEth = BigInt.fromString("1000000000000000000"); // 1e18
+    let result = calculateMaxDeliveryRateUSD(oneEth, factory);
+    assert.stringEquals(result.toString(), "1");
+  });
+
+  test("Unknown factory defaults to NATIVE conversion on Gnosis", () => {
+    dataSourceMock.setNetwork("gnosis");
+    let unknownFactory = Bytes.fromHexString("0x1234567890123456789012345678901234567890");
+    let oneEth = BigInt.fromString("1000000000000000000"); // 1e18
+    let result = calculateMaxDeliveryRateUSD(oneEth, unknownFactory);
+    // Falls back to NATIVE which on Gnosis is 1:1 USD
+    assert.stringEquals(result.toString(), "1");
+  });
+
+  test("Zero rate returns 0 USD", () => {
+    dataSourceMock.setNetwork("gnosis");
+    let factory = Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE);
+    let zero = BigInt.zero();
+    let result = calculateMaxDeliveryRateUSD(zero, factory);
+    assert.stringEquals(result.toString(), "0");
   });
 });
 

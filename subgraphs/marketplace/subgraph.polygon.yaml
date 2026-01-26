@@ -4,22 +4,15 @@ indexerHints:
 schema:
   file: ./schema.graphql
 dataSources:
-  # we need to support two versions of the ABIs, hence adding two different data sources, the old version (v1)
-  # will support b/w the start and end blocks defined in "networks.json", and from the next block the new 
-  # abi would be used as the source. 
-
-  # The two ABIs have the following differences:
-  # 1. MarketplaceDelivery has `requesters` indexed in the older abi while it is not indexed in the new abi, we don't use the field in order to stay consistent.
-  # 2. MarketplaceRequest has `requestDatas` field in the new abi but it's not there in the old one, we don't use this field.
-  # 3. Deliver has `requestData` and `deliveryData` in the new abi, while old abi only has `data`, we don't use the `requestData` and have separate handlers so to be type-safe.
+  # MechMarketplaceV1 data source for type generation only (no V1 events on Polygon)
+  # V1 event signatures differ from V2, so handlers won't match V2 events
   - kind: ethereum
     name: MechMarketplaceV1
-    network: base
+    network: matic
     source:
-      address: "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
+      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
       abi: MechMarketplaceV1
-      startBlock: 26642705
-      endBlock: 33907400
+      startBlock: 81028558
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -59,11 +52,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
-    network: base
+    network: matic
     source:
-      address: "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
+      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
       abi: MechMarketplaceV2
-      startBlock: 33907401
+      startBlock: 81028558
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -103,11 +96,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: ServiceRegistryL2
-    network: base
+    network: matic
     source:
-      address: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"
+      address: "0xE3607b00E75f6405248323A9417ff6b39B244b50"
       abi: ServiceRegistryL2
-      startBlock: 10827380
+      startBlock: 41783952
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -139,11 +132,11 @@ dataSources:
       file: ./src/marketplace/service-registry-l-2.ts
   - kind: ethereum
     name: ComplementaryServiceMetadata
-    network: base
+    network: matic
     source:
-      address: "0x28C1edC7CEd549F7f80B732fDC19f0370160707d"
+      address: "0xDC175E77d11246c79B23D7088750eb59160DD6b7"
       abi: ComplementaryServiceMetadata
-      startBlock: 31728383
+      startBlock: 81433108
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -159,11 +152,11 @@ dataSources:
       file: ./src/marketplace/complementary-service-metadata.ts
   - kind: ethereum
     name: Karma
-    network: base
+    network: matic
     source:
-      address: "0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A"
+      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
       abi: Karma
-      startBlock: 26642705
+      startBlock: 81028558
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -180,7 +173,7 @@ dataSources:
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
-    network: base
+    network: matic
     source:
       abi: MechFixedPriceNative
     mapping:
@@ -203,7 +196,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
-    network: base
+    network: matic
     source:
       abi: MechFixedPriceToken
     mapping:
@@ -228,7 +221,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
-    network: base
+    network: matic
     source:
       abi: MechNvmSubscriptionNative
     mapping:
@@ -249,7 +242,7 @@ templates:
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
-    network: base
+    network: matic
     source:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:

@@ -19,17 +19,30 @@ import {
   OLAS_WXDAI_POOL_ADDRESS_GNOSIS,
   OLAS_USDC_POOL_ADDRESS_BASE,
   CHAINLINK_PRICE_FEED_ADDRESS_BASE_ETH_USD,
+  CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD,
+  CHAINLINK_PRICE_FEED_ADDRESS_OPTIMISM_ETH_USD,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
   GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
   GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
   BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
 } from './constants';
 
 // Fee unit type (matches schema FeeUnit enum)
 export const FEE_UNIT_NATIVE = 'NATIVE';
 export const FEE_UNIT_TOKEN = 'TOKEN';
+export const FEE_UNIT_USDC = 'USDC';
 export const FEE_UNIT_CREDITS = 'CREDITS';
 
 // Detect fee unit from mech factory address
@@ -55,7 +68,43 @@ export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
       return FEE_UNIT_TOKEN;
     }
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
+      return FEE_UNIT_USDC;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE))) {
+      return FEE_UNIT_CREDITS;
+    }
     if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
+      return FEE_UNIT_CREDITS;
+    }
+  }
+
+  if (network == 'matic') {
+    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
+      return FEE_UNIT_NATIVE;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
+      return FEE_UNIT_TOKEN;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
+      return FEE_UNIT_USDC;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
+      return FEE_UNIT_CREDITS;
+    }
+  }
+
+  if (network == 'optimism') {
+    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
+      return FEE_UNIT_NATIVE;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
+      return FEE_UNIT_TOKEN;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
+      return FEE_UNIT_USDC;
+    }
+    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
       return FEE_UNIT_CREDITS;
     }
   }
@@ -91,6 +140,58 @@ export function convertBaseNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
     .times(ethPrice.toBigDecimal())
     .div(priceDivisor)
     .div(ethDivisor);
+}
+
+// Convert Polygon native (POL) wei to USD using Chainlink price feed
+export function convertPolygonNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
+  const priceFeed = AggregatorV3Interface.bind(
+    Address.fromString(CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD)
+  );
+  const latestRoundData = priceFeed.try_latestRoundData();
+
+  if (latestRoundData.reverted) {
+    log.warning('Chainlink POL/USD price feed reverted, returning 0 USD', []);
+    return BigDecimal.fromString('0');
+  }
+
+  const polPrice = latestRoundData.value.value1;
+  const priceDivisor = BigInt.fromI32(10).pow(CHAINLINK_PRICE_FEED_DECIMALS).toBigDecimal();
+  const polDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
+
+  return amountInWei
+    .toBigDecimal()
+    .times(polPrice.toBigDecimal())
+    .div(priceDivisor)
+    .div(polDivisor);
+}
+
+// Convert Optimism native (ETH) wei to USD using Chainlink price feed
+export function convertOptimismNativeWeiToUsd(amountInWei: BigInt): BigDecimal {
+  const priceFeed = AggregatorV3Interface.bind(
+    Address.fromString(CHAINLINK_PRICE_FEED_ADDRESS_OPTIMISM_ETH_USD)
+  );
+  const latestRoundData = priceFeed.try_latestRoundData();
+
+  if (latestRoundData.reverted) {
+    log.warning('Chainlink Optimism ETH/USD price feed reverted, returning 0 USD', []);
+    return BigDecimal.fromString('0');
+  }
+
+  const ethPrice = latestRoundData.value.value1;
+  const priceDivisor = BigInt.fromI32(10).pow(CHAINLINK_PRICE_FEED_DECIMALS).toBigDecimal();
+  const ethDivisor = BigInt.fromI32(10).pow(ETH_DECIMALS).toBigDecimal();
+
+  return amountInWei
+    .toBigDecimal()
+    .times(ethPrice.toBigDecimal())
+    .div(priceDivisor)
+    .div(ethDivisor);
+}
+
+// Convert USDC amount to USD (1 USDC = 1 USD, 6 decimals)
+export function convertUsdcToUsd(amountInUsdc: BigInt): BigDecimal {
+  const usdcDivisor = BigInt.fromI32(10).pow(USDC_DECIMALS);
+  return amountInUsdc.toBigDecimal().div(usdcDivisor.toBigDecimal());
 }
 
 // Convert Gnosis NVM credits to USD (credits -> xDAI -> USD)
@@ -242,10 +343,20 @@ export function convertFeeToUsd(feeRaw: BigInt, feeUnit: string): BigDecimal {
     if (network == 'base') {
       return convertBaseNativeWeiToUsd(feeRaw);
     }
+    if (network == 'matic') {
+      return convertPolygonNativeWeiToUsd(feeRaw);
+    }
+    if (network == 'optimism') {
+      return convertOptimismNativeWeiToUsd(feeRaw);
+    }
   }
 
   if (feeUnit == FEE_UNIT_TOKEN) {
     return calculateOlasInUsd(feeRaw);
+  }
+
+  if (feeUnit == FEE_UNIT_USDC) {
+    return convertUsdcToUsd(feeRaw);
   }
 
   if (feeUnit == FEE_UNIT_CREDITS) {
