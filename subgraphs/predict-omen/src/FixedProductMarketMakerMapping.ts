@@ -43,6 +43,8 @@ export function handleBuy(event: FPMMBuyEvent): void {
     bet.amount = event.params.investmentAmount;
     bet.feeAmount = event.params.feeAmount;
     bet.timestamp = event.block.timestamp;
+    bet.blockTimestamp = event.block.timestamp;
+    bet.transactionHash = event.transaction.hash;
     bet.fixedProductMarketMaker = event.address;
     bet.dailyStatistic = dailyStat.id;
     bet.countedInTotal = false;
@@ -88,6 +90,8 @@ export function handleSell(event: FPMMSellEvent): void {
     bet.amount = negAmount;
     bet.feeAmount = event.params.feeAmount;
     bet.timestamp = event.block.timestamp;
+    bet.blockTimestamp = event.block.timestamp;
+    bet.transactionHash = event.transaction.hash;
     bet.fixedProductMarketMaker = event.address;
     bet.dailyStatistic = dailyStat.id;
     bet.countedInTotal = false;

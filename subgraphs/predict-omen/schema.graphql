@@ -29,7 +29,9 @@ type Bet @entity (immutable: false) {
   countedInTotal: Boolean
   fixedProductMarketMaker: FixedProductMarketMakerCreation
   dailyStatistic: DailyProfitStatistic
-  timestamp: BigInt!
+  timestamp: BigInt! @deprecated(reason: "Use blockTimestamp instead")
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }
 
 type CreatorAgent @entity (immutable: false) {
