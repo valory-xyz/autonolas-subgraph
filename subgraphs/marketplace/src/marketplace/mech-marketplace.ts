@@ -36,7 +36,6 @@ import {
   getOrCreateAtaTransaction,
   getOrCreateRequestToMarketplace,
   ataTransactionExists,
-  getMaxDeliveryRate,
   persistSignedDeliver,
   SignedDeliverArgs,
   getOrCreateDeliverForMarketplace,
@@ -439,15 +438,16 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   let feeRaw: BigInt | null = null;
   let feeUSD: BigDecimal | null = null;
 
-  let maxDeliveryRate = getMaxDeliveryRate(Address.fromBytes(priorityMech));
-  if (maxDeliveryRate !== null) {
-    feeRaw = maxDeliveryRate;
-
-    // Get mechFactory from CreateMech entity (created when mech was registered)
-    let createMechEntity = CreateMech.load(priorityMech);
-    if (createMechEntity !== null && createMechEntity.mechFactory !== null) {
-      feeUnit = getFeeUnitFromMechFactory(createMechEntity.mechFactory!);
-      feeUSD = convertFeeToUsd(maxDeliveryRate, feeUnit);
+  // Load maxDeliveryRate from Mech entity (populated by handleCreateMech) to avoid RPC calls
+  let createMechEntity = CreateMech.load(priorityMech);
+  if (createMechEntity !== null && createMechEntity.serviceId !== null) {
+    let mechEntity = Mech.load(createMechEntity.serviceId!.toString());
+    if (mechEntity !== null && mechEntity.maxDeliveryRate !== null) {
+      feeRaw = mechEntity.maxDeliveryRate;
+      if (createMechEntity.mechFactory !== null) {
+        feeUnit = getFeeUnitFromMechFactory(createMechEntity.mechFactory!);
+        feeUSD = convertFeeToUsd(mechEntity.maxDeliveryRate!, feeUnit);
+      }
     }
   }
 
