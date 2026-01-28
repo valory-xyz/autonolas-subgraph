@@ -1,4 +1,124 @@
-import { BigDecimal } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, Bytes, dataSource } from '@graphprotocol/graph-ts';
+
+// Payment type hash constants (keccak256 of type name)
+// Used to derive paymentType from factory address without RPC calls
+export const PAYMENT_TYPE_FIXED_PRICE_NATIVE = Bytes.fromHexString(
+  '0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1'
+);
+export const PAYMENT_TYPE_FIXED_PRICE_TOKEN = Bytes.fromHexString(
+  '0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9'
+);
+export const PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC = Bytes.fromHexString(
+  '0x6406bb5f31a732f898e1ce9fdd988a80a808d36ab5d9a4a4805a8be8d197d5e3'
+);
+export const PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE = Bytes.fromHexString(
+  '0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316'
+);
+export const PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC = Bytes.fromHexString(
+  '0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14'
+);
+
+/**
+ * Constructs a map key from network and factory address.
+ * Format: "network:factoryAddress" (e.g., "gnosis:0x8b299c20f87e3fcbff0e1b86dc0acc06ab6993ef")
+ */
+export function getFactoryKey(network: string, factory: Address): string {
+  return network + ':' + factory.toHexString().toLowerCase();
+}
+
+/**
+ * Get payment type hash from factory address.
+ * Uses static factory→paymentType mapping to avoid RPC calls.
+ * Throws error if factory address is unknown.
+ */
+export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
+  const network = dataSource.network();
+  const factoryKey = getFactoryKey(network, mechFactory);
+
+  // Factory→paymentType mapping for all networks
+  // Using Map<string, Bytes> keyed by "network:factoryAddress"
+  const factoryMap = new Map<string, Bytes>();
+
+  // Gnosis factories (3)
+  factoryMap.set(
+    'gnosis:' + GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_NATIVE
+  );
+  factoryMap.set(
+    'gnosis:' + GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN
+  );
+  factoryMap.set(
+    'gnosis:' + GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE
+  );
+
+  // Base factories (5)
+  factoryMap.set(
+    'base:' + BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_NATIVE
+  );
+  factoryMap.set(
+    'base:' + BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN
+  );
+  factoryMap.set(
+    'base:' + BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC
+  );
+  factoryMap.set(
+    'base:' + BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE
+  );
+  factoryMap.set(
+    'base:' + BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC
+  );
+
+  // Polygon factories (4)
+  factoryMap.set(
+    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_NATIVE
+  );
+  factoryMap.set(
+    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN
+  );
+  factoryMap.set(
+    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC
+  );
+  factoryMap.set(
+    'polygon:' + POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC
+  );
+
+  // Optimism factories (4)
+  factoryMap.set(
+    'optimism:' + OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_NATIVE
+  );
+  factoryMap.set(
+    'optimism:' + OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN
+  );
+  factoryMap.set(
+    'optimism:' + OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC
+  );
+  factoryMap.set(
+    'optimism:' + OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase(),
+    PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC
+  );
+
+  if (!factoryMap.has(factoryKey)) {
+    throw new Error(
+      'Unknown factory address: ' + mechFactory.toHexString() + ' on network ' + network
+    );
+  }
+
+  return factoryMap.get(factoryKey);
+}
 
 // Mech Factory addresses
 export const GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE =
