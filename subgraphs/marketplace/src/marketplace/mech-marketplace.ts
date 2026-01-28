@@ -73,7 +73,7 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.karma = BigInt.fromI32(0);
 
   // Load maxDeliveryRate from PendingMechData (created by MechFactory handler)
-  // Factory event fires at log 89, this handler fires at log 90 in same tx
+  // Factory event fires first, this handler fires second in same transaction
   let mechAddress = event.params.mech.toHexString();
   let pendingData = PendingMechData.load(mechAddress);
   if (pendingData !== null) {
@@ -82,7 +82,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
       pendingData.maxDeliveryRate,
       event.params.mechFactory
     );
-    // Delete PendingMechData after consumption to prevent orphan accumulation
+    // Clean up temporary entity - it's only needed to pass data between handlers
+    // within the same transaction. Keeping it would waste storage.
     store.remove('PendingMechData', mechAddress);
   } else {
     log.warning('PendingMechData not found for mech {}. maxDeliveryRate will be null.', [
