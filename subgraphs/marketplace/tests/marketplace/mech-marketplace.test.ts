@@ -44,11 +44,6 @@ import {
   PAYMENT_TYPE_FIXED_PRICE_NATIVE,
 } from "../../src/marketplace/constants"
 
-function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
-  createMockedFunction(mech, "maxDeliveryRate", "maxDeliveryRate():(uint256)")
-    .returns([ethereum.Value.fromUnsignedBigInt(maxDeliveryRate)])
-}
-
 function createService(serviceId: BigInt, agentIds: BigInt[]): void {
   let service = new Service(serviceId.toString())
   service.serviceId = serviceId
@@ -81,7 +76,8 @@ function createMechMapping(
   mech: Address,
   serviceId: BigInt,
   mechFactory: Address,
-  owner: Address
+  owner: Address,
+  maxDeliveryRate: BigInt = BigInt.fromI32(0)
 ): void {
   let mapping = new CreateMechEntity(mech)
   mapping.mech = mech
@@ -103,13 +99,11 @@ function createMechMapping(
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
   mechEntity.karma = BigInt.fromI32(0)
+  mechEntity.maxDeliveryRate = maxDeliveryRate
 
   mechEntity.paymentType = PAYMENT_TYPE_FIXED_PRICE_NATIVE
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
-
-  // Mock maxDeliveryRate for fee tracking (still needed for handlers that call mech.maxDeliveryRate)
-  mockMaxDeliveryRate(mech, BigInt.fromI32(0))
 }
 
 function createSender(id: Address): void {
@@ -439,10 +433,7 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
-    createMechMapping(priorityMech, serviceId, mechFactory, requester)
-
-    // Mock maxDeliveryRate call (still needed for handleMarketplaceRequest which calls mech.maxDeliveryRate)
-    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [
       Bytes.fromHexString("0xa000000000000000000000000000000000000000000000000000000000000001"),
@@ -473,10 +464,7 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
-    createMechMapping(priorityMech, serviceId, mechFactory, requester)
-
-    // Mock maxDeliveryRate call (still needed for handleMarketplaceRequest)
-    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [
       Bytes.fromHexString("0xb000000000000000000000000000000000000000000000000000000000000001"),

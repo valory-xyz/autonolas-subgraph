@@ -102,15 +102,11 @@ function initNetworkBase(): void {
   dataSourceMock.setNetwork("base");
 }
 
-function mockMaxDeliveryRate(mech: Address, rate: BigInt): void {
-  createMockedFunction(mech, 'maxDeliveryRate', 'maxDeliveryRate():(uint256)')
-    .returns([ethereum.Value.fromUnsignedBigInt(rate)]);
-}
-
 function createMechWithMapping(
   mechAddress: Address,
   serviceId: BigInt,
-  mechFactory: Address
+  mechFactory: Address,
+  maxDeliveryRate: BigInt = BigInt.fromI32(0)
 ): void {
   let mapping = new CreateMechEntity(mechAddress);
   mapping.mech = mechAddress;
@@ -130,12 +126,10 @@ function createMechWithMapping(
   mechEntity.receivedRequests = BigInt.zero();
   mechEntity.selfDeliveredFromReceived = BigInt.zero();
   mechEntity.deliveredByOthersFromReceived = BigInt.zero();
-  mechEntity.maxDeliveryRate = null;
+  mechEntity.maxDeliveryRate = maxDeliveryRate;
   mechEntity.karma = BigInt.zero();
   mechEntity.paymentType = Bytes.fromHexString(PAYMENT_TYPE_BYTES32);
   mechEntity.save();
-
-  mockMaxDeliveryRate(mechAddress, BigInt.fromI32(0));
 }
 
 function ensureGlobalExists(): void {
@@ -171,15 +165,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(1);
+    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 xDAI
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 xDAI
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -214,15 +207,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(2);
+    let lockedRate = BigInt.fromString("2000000000000000000"); // 2 xDAI
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("2000000000000000000"); // 2 xDAI
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -273,15 +265,14 @@ describe("Fee tracking comprehensive tests", () => {
     ]);
 
     let serviceId = BigInt.fromI32(3);
+    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 ETH
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 ETH
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -344,15 +335,14 @@ describe("Fee tracking comprehensive tests", () => {
     ]);
 
     let serviceId = BigInt.fromI32(4);
+    let lockedRate = BigInt.fromString("100000000000000000000"); // 100 OLAS
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("100000000000000000000"); // 100 OLAS
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -390,10 +380,9 @@ describe("Fee tracking comprehensive tests", () => {
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE),
+      BigInt.fromI32(0)
     );
-
-    mockMaxDeliveryRate(TEST_MECH, BigInt.fromI32(0));
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -433,10 +422,9 @@ describe("Fee tracking comprehensive tests", () => {
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      BigInt.zero()
     );
-
-    mockMaxDeliveryRate(TEST_MECH, BigInt.zero());
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -471,15 +459,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(7);
+    let largeRate = BigInt.fromString("1000000000000000000000000"); // 1,000,000 xDAI
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      largeRate
     );
-
-    let largeRate = BigInt.fromString("1000000000000000000000000"); // 1,000,000 xDAI
-    mockMaxDeliveryRate(TEST_MECH, largeRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -514,15 +501,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(8);
+    let deliveryRate = BigInt.fromString("1000000000000000000"); // 1 ETH
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      deliveryRate
     );
-
-    let deliveryRate = BigInt.fromString("1000000000000000000"); // 1 ETH
-    mockMaxDeliveryRate(TEST_MECH, deliveryRate);
 
     let ethPrice = BigInt.fromString('250000000000'); // $2500 with 8 decimals
     createMockedFunction(
@@ -559,15 +545,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(9);
+    let lockedRate = BigInt.fromString("500000000000000000"); // 0.5 xDAI
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("500000000000000000"); // 0.5 xDAI
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let requestIds = [TEST_REQUEST_ID_1, TEST_REQUEST_ID_2, TEST_REQUEST_ID_3];
 
@@ -608,15 +593,14 @@ describe("Fee tracking comprehensive tests", () => {
     ensureGlobalExists();
 
     let serviceId = BigInt.fromI32(10);
+    let lockedRate = BigInt.fromString("123456789012345678"); // 0.123456789012345678 xDAI
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("123456789012345678"); // 0.123456789012345678 xDAI
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
@@ -656,15 +640,14 @@ describe("Fee tracking comprehensive tests", () => {
     ).reverts();
 
     let serviceId = BigInt.fromI32(11);
+    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 ETH
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
     createMechWithMapping(
       TEST_MECH,
       serviceId,
-      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE)
+      Address.fromString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE),
+      lockedRate
     );
-
-    let lockedRate = BigInt.fromString("1000000000000000000"); // 1 ETH
-    mockMaxDeliveryRate(TEST_MECH, lockedRate);
 
     let marketplaceEvent = createMarketplaceRequestEvent(
       TEST_MECH,
