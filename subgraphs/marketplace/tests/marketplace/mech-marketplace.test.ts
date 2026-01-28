@@ -44,6 +44,11 @@ import {
   PAYMENT_TYPE_FIXED_PRICE_NATIVE,
 } from "../../src/marketplace/constants"
 
+function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
+  createMockedFunction(mech, "maxDeliveryRate", "maxDeliveryRate():(uint256)")
+    .returns([ethereum.Value.fromUnsignedBigInt(maxDeliveryRate)])
+}
+
 function createService(serviceId: BigInt, agentIds: BigInt[]): void {
   let service = new Service(serviceId.toString())
   service.serviceId = serviceId
@@ -433,6 +438,7 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
+    // Pass maxDeliveryRate to Mech entity (no RPC mock needed - reads from entity)
     createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [
@@ -464,6 +470,7 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
+    // Pass maxDeliveryRate to Mech entity (no RPC mock needed - reads from entity)
     createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [

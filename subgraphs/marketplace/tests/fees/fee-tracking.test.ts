@@ -267,6 +267,7 @@ describe("Fee tracking comprehensive tests", () => {
     let serviceId = BigInt.fromI32(3);
     let lockedRate = BigInt.fromString("1000000000000000000"); // 1 ETH
     createService(serviceId, TEST_MECH_SERVICE_MULTISIG);
+    // Pass maxDeliveryRate to Mech entity (no RPC mock needed - reads from entity)
     createMechWithMapping(
       TEST_MECH,
       serviceId,

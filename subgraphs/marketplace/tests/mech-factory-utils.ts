@@ -1,13 +1,13 @@
 import { newMockEvent } from "matchstick-as"
 import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts"
-import { CreateMech } from "../generated/MechFactoryFixedPriceNative/MechFactory"
+import { CreateMechFixedPriceNative } from "../generated/MechFactoryFixedPriceNative/MechFactoryFixedPriceNative"
 
 export function createMechFactoryCreateEvent(
   mech: Address,
   serviceId: BigInt,
   maxDeliveryRate: BigInt
-): CreateMech {
-  let event = changetype<CreateMech>(newMockEvent())
+): CreateMechFixedPriceNative {
+  let event = changetype<CreateMechFixedPriceNative>(newMockEvent())
 
   event.parameters = new Array()
 
