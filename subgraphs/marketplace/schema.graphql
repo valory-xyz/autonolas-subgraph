@@ -8,6 +8,15 @@ type ParsedRequest @entity(immutable: true) {
   questionTitle: String!
 }
 
+# Temporary entity for cross-handler state transfer between MechFactory and MechMarketplace events.
+# Requires @entity(immutable: false) because Graph Protocol cannot delete immutable entities.
+# The store.remove() call in handleCreateMech would fail at runtime if immutability is set to true.
+type PendingMechData @entity(immutable: false) {
+  id: ID! # mech address as hex string
+  maxDeliveryRate: BigInt!
+  createdAtBlock: BigInt!
+}
+
 type MechAgent @entity(immutable: false) {
   id: ID! # agent Id
   mech: Bytes # address
