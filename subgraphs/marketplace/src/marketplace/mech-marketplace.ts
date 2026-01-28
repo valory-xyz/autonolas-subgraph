@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, log, store } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
@@ -19,6 +19,7 @@ import {
   Service,
   Request,
   CreateMech,
+  PendingMechData,
 } from '../../generated/schema';
 import {
   getOrCreateSender,
@@ -35,7 +36,6 @@ import {
   getOrCreateAtaTransaction,
   getOrCreateRequestToMarketplace,
   ataTransactionExists,
-  getPaymentType,
   getMaxDeliveryRate,
   persistSignedDeliver,
   SignedDeliverArgs,
@@ -43,6 +43,7 @@ import {
   calculateMaxDeliveryRateUSD,
 } from './utils';
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
+import { getPaymentTypeFromFactory } from './constants';
 
 export function handleCreateMech(event: CreateMechEvent): void {
   // Create CreateMech entity (used by getServiceIdFromMech)
@@ -72,13 +73,22 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
 
-  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
-  if (initialMaxDeliveryRate !== null) {
-    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  // Load maxDeliveryRate from PendingMechData (created by MechFactory handler)
+  // Factory event fires at log 89, this handler fires at log 90 in same tx
+  let mechAddress = event.params.mech.toHexString();
+  let pendingData = PendingMechData.load(mechAddress);
+  if (pendingData !== null) {
+    mechAgent.maxDeliveryRate = pendingData.maxDeliveryRate;
     mechAgent.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
-      initialMaxDeliveryRate,
+      pendingData.maxDeliveryRate,
       event.params.mechFactory
     );
+    // Delete PendingMechData after consumption to prevent orphan accumulation
+    store.remove('PendingMechData', mechAddress);
+  } else {
+    log.warning('PendingMechData not found for mech {}. maxDeliveryRate will be null.', [
+      mechAddress,
+    ]);
   }
 
   // Get service configHash from Service entity and write it to Mech
@@ -87,8 +97,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechAgent.configHash = service.configHash;
   }
 
-  // Call paymentType function on the newly deployed mech contract
-  let paymentType = getPaymentType(event.params.mech);
+  // Get paymentType from factory address (static mapping, no RPC needed)
+  let paymentType = getPaymentTypeFromFactory(event.params.mechFactory);
   mechAgent.paymentType = paymentType;
   mechAgent.save();
 
