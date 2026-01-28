@@ -87,6 +87,52 @@ Shows for each network:
 
 ---
 
+## compare-global-metrics.js
+
+Compares Global entity metrics between two subgraph versions to validate data integrity.
+
+### Usage
+
+```bash
+# Compare Base subgraph versions
+node compare-global-metrics.js --network base --v1 v5_2_0 --v2 v6_0_0
+
+# Compare Polygon subgraph versions
+node compare-global-metrics.js --network polygon --v1 v5_2_0 --v2 v6_0_0
+```
+
+### Output
+
+- Sync status for both versions (block height, indexing errors)
+- Side-by-side comparison of all 13 Global entity fields
+- Match/diff status for each field
+- Summary with total matches and differences
+
+### Fields Compared
+
+| Field | Description |
+|-------|-------------|
+| totalMechs | Total marketplace mechs created |
+| totalMarketplaceRequests | On-chain marketplace requests |
+| totalMarketplaceDeliveries | On-chain marketplace deliveries |
+| totalMarketplaceDeliveriesWithSignatures | Off-chain signed deliveries |
+| totalLegacyRequests | Legacy AgentMech requests |
+| totalLegacyDeliveries | Legacy AgentMech deliveries |
+| totalLegacyTransactions | Legacy transaction count |
+| totalLegacyAtaTransactions | Legacy ATA transactions |
+| totalRequests | Combined request count |
+| totalDeliveries | Combined delivery count |
+| totalTransactions | Combined transaction count |
+| totalAtaTransactions | Combined ATA transactions |
+| totalFeesPaidUSD | Total fees in USD |
+
+### Notes
+
+- `totalFeesPaidUSD` may have small differences due to price feed timing
+- Exit code 0 if all metrics match, 1 if differences found
+
+---
+
 ## verify-subgraph-data.js
 
 Cross-verifies subgraph entity data against on-chain contract values.
