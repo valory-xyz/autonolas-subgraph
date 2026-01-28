@@ -4,6 +4,90 @@ indexerHints:
 schema:
   file: ./schema.graphql
 dataSources:
+  ### MechFactory data sources
+  # MechFactory contracts emit CreateMech events with maxDeliveryRate BEFORE MechMarketplace's CreateMech.
+  # These data sources capture maxDeliveryRate to avoid RPC calls in handleCreateMech.
+  - kind: ethereum
+    name: MechFactoryFixedPriceNative
+    network: optimism
+    source:
+      address: "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17"
+      abi: MechFactory
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactory
+          file: ../../abis/MechFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceToken
+    network: optimism
+    source:
+      address: "0x26Ea2dC7ce1b41d0AD0E0521535655d7a94b684c"
+      abi: MechFactory
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactory
+          file: ../../abis/MechFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceTokenUSDC
+    network: optimism
+    source:
+      address: "0x93111f6C267068A5d7356114D61d0f09bFD53a54"
+      abi: MechFactory
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactory
+          file: ../../abis/MechFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryNvmSubscriptionTokenUSDC
+    network: optimism
+    source:
+      address: "0x02C26437B292D86c5F4F21bbCcE0771948274f84"
+      abi: MechFactory
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactory
+          file: ../../abis/MechFactory.json
+      eventHandlers:
+        - event: CreateMech(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+
   # MechMarketplaceV1 data source for type generation only (no V1 events on Optimism)
   # V1 event signatures differ from V2, so handlers won't match V2 events
   - kind: ethereum
