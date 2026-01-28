@@ -76,20 +76,21 @@ export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
   );
 
   // Polygon factories (4)
+  // Note: dataSource.network() returns 'matic' for Polygon
   factoryMap.set(
-    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
+    'matic:' + POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
     PAYMENT_TYPE_FIXED_PRICE_NATIVE
   );
   factoryMap.set(
-    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
+    'matic:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase(),
     PAYMENT_TYPE_FIXED_PRICE_TOKEN
   );
   factoryMap.set(
-    'polygon:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase(),
+    'matic:' + POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase(),
     PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC
   );
   factoryMap.set(
-    'polygon:' + POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase(),
+    'matic:' + POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase(),
     PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC
   );
 
