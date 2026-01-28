@@ -28,7 +28,14 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
    - `RegisterInstance` - Tracks agent instances
    - `TerminateService` - Clears agent set
 
-3. **Mech Templates** (dynamic data sources) - Per-mech events
+3. **MechFactory** - Factory contracts that emit `CreateMech` with `maxDeliveryRate`
+   - `MechFactoryFixedPriceNative` - Native token payment factory
+   - `MechFactoryFixedPriceToken` - ERC20 token payment factory
+   - `MechFactoryFixedPriceTokenUSDC` - USDC payment factory
+   - `MechFactoryNvmSubscriptionNative` - NVM subscription (native) factory
+   - `MechFactoryNvmSubscriptionTokenUSDC` - NVM subscription (USDC) factory
+
+4. **Mech Templates** (dynamic data sources) - Per-mech events
    - `MechFixedPriceNative` - Native token payment
    - `MechFixedPriceToken` - ERC20 token payment
    - `MechNvmSubscriptionNative` - NVM subscription (native)
@@ -59,7 +66,23 @@ CreateMech (id: mech address)
 
 CreateMultisigWithAgents (id: multisig address)
     └── Maps multisig address → serviceId
+
+PendingMechData (id: mech address as hex) [temporary]
+    └── Cross-handler state transfer for maxDeliveryRate
 ```
+
+### Cross-Handler State Transfer
+
+MechFactory and MechMarketplace contracts emit `CreateMech` events in the same transaction:
+- **MechFactory** fires first (log index N) with `maxDeliveryRate` param
+- **MechMarketplace** fires second (log index N+1) without `maxDeliveryRate`
+
+To avoid RPC calls (which can fail with "Block gas limit exceeded" on some nodes), we use a temporary `PendingMechData` entity:
+
+1. `handleMechFactoryCreate` creates `PendingMechData` with `maxDeliveryRate` and `createdAtBlock`
+2. `handleCreateMech` loads `PendingMechData`, copies `maxDeliveryRate` to `Mech`, then deletes it via `store.remove()`
+
+The `paymentType` is derived from the factory address using a static mapping in `constants.ts` (`getPaymentTypeFromFactory`).
 
 ## Fee Conversion and USD Tracking
 
@@ -173,9 +196,10 @@ service(id: "175") {
 src/
 ├── marketplace/
 │   ├── mech-marketplace.ts         # Main marketplace handlers
+│   ├── mech-factory.ts             # MechFactory CreateMech handler (captures maxDeliveryRate)
 │   ├── utils.ts                    # Shared utilities, processOnChain* functions
-│   ├── constants.ts                # Contract addresses per network
-│   ├── fee-utils.ts                # USD conversion functions (feature branch)
+│   ├── constants.ts                # Contract addresses, payment type mapping
+│   ├── fee-utils.ts                # USD conversion functions
 │   ├── mech-fixed-price-native.ts  # Native payment mech template
 │   ├── mech-fixed-price-token.ts   # Token payment mech template
 │   ├── mech-nvm-subscription-*.ts  # NVM subscription mech templates
