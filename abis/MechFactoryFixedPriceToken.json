@@ -1,0 +1,27 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "mech",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "serviceId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maxDeliveryRate",
+        "type": "uint256"
+      }
+    ],
+    "name": "CreateMechFixedPriceToken",
+    "type": "event"
+  }
+]
