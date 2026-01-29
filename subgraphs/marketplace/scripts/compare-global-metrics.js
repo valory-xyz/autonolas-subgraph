@@ -1,185 +1,199 @@
 #!/usr/bin/env node
 /**
- * Compare Global metrics between two subgraph versions
+ * Compare Global entity metrics between two subgraph versions.
+ * Validates that refactoring preserves data integrity.
  *
- * Usage: node compare-global-metrics.js [--old <url>] [--new <url>]
- *
- * Defaults:
- *   old: marketplace-base-v2_0_1 (existing staging)
- *   new: marketplace-base-v5_2_0 (latest with polygon/optimism changes)
+ * Usage:
+ *   node compare-global-metrics.js --network base --v1 v5_2_0 --v2 v6_0_0
+ *   node compare-global-metrics.js --network polygon --v1 v5_2_0 --v2 v6_0_0
  */
 
-const chalk = require('chalk');
+const STAGING_URL = 'https://subgraph.staging.autonolas.tech/subgraphs/name';
 
-const DEFAULTS = {
-  old: 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-base-v2_0_1',
-  new: 'https://subgraph.staging.autonolas.tech/subgraphs/name/marketplace-base-v5_2_0',
-};
+const GLOBAL_FIELDS = [
+  'totalMechs',
+  'totalMarketplaceRequests',
+  'totalMarketplaceDeliveries',
+  'totalMarketplaceDeliveriesWithSignatures',
+  'totalLegacyRequests',
+  'totalLegacyDeliveries',
+  'totalLegacyTransactions',
+  'totalLegacyAtaTransactions',
+  'totalRequests',
+  'totalDeliveries',
+  'totalTransactions',
+  'totalAtaTransactions',
+  'totalFeesPaidUSD',
+];
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const oldIdx = args.indexOf('--old');
-  const newIdx = args.indexOf('--new');
+  const result = { network: null, v1: null, v2: null };
 
-  return {
-    oldUrl: oldIdx !== -1 ? args[oldIdx + 1] : DEFAULTS.old,
-    newUrl: newIdx !== -1 ? args[newIdx + 1] : DEFAULTS.new,
-  };
-}
-
-async function querySubgraph(url, query) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  });
-  const data = await res.json();
-  if (data.errors) throw new Error(JSON.stringify(data.errors));
-  return data.data;
-}
-
-async function fetchGlobal(url, includeFees = true) {
-  // Core fields available in all versions
-  const coreFields = `
-    id
-    totalMechs
-    totalMarketplaceRequests
-    totalMarketplaceDeliveries
-    totalMarketplaceDeliveriesWithSignatures
-    totalLegacyRequests
-    totalLegacyDeliveries
-    totalLegacyTransactions
-    totalLegacyAtaTransactions
-    totalRequests
-    totalDeliveries
-    totalTransactions
-    totalAtaTransactions
-  `;
-  const feeFields = includeFees ? 'totalFeesPaidUSD' : '';
-
-  const query = `{ globals(first: 1) { ${coreFields} ${feeFields} } }`;
-
-  try {
-    const data = await querySubgraph(url, query);
-    return data.globals?.[0] || null;
-  } catch (err) {
-    // Retry without fee fields if schema doesn't support them
-    if (includeFees && err.message.includes('has no field')) {
-      return fetchGlobal(url, false);
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--network' && args[i + 1]) {
+      result.network = args[++i];
+    } else if (args[i] === '--v1' && args[i + 1]) {
+      result.v1 = args[++i];
+    } else if (args[i] === '--v2' && args[i + 1]) {
+      result.v2 = args[++i];
     }
-    throw err;
   }
+
+  return result;
 }
 
-async function fetchMeta(url) {
+async function fetchGlobalMetrics(subgraphUrl) {
   const query = `{
+    globals {
+      id
+      ${GLOBAL_FIELDS.join('\n      ')}
+    }
     _meta {
       block { number }
       hasIndexingErrors
     }
   }`;
-  const data = await querySubgraph(url, query);
-  return data._meta;
-}
 
-function compareFields(oldData, newData) {
-  const fields = [
-    'totalMechs',
-    'totalMarketplaceRequests',
-    'totalMarketplaceDeliveries',
-    'totalMarketplaceDeliveriesWithSignatures',
-    'totalLegacyRequests',
-    'totalLegacyDeliveries',
-    'totalLegacyTransactions',
-    'totalLegacyAtaTransactions',
-    'totalRequests',
-    'totalDeliveries',
-    'totalTransactions',
-    'totalAtaTransactions',
-    'totalFeesPaidUSD',
-  ];
-
-  return fields.map(field => {
-    const oldRaw = oldData?.[field];
-    const newRaw = newData?.[field];
-    // Format USD fields with $ prefix and fixed decimals
-    const isUSD = field.includes('USD');
-    const oldVal = oldRaw == null ? (isUSD ? '$0.00' : '0') : (isUSD ? `$${parseFloat(oldRaw).toFixed(2)}` : oldRaw);
-    const newVal = newRaw == null ? (isUSD ? '$0.00' : '0') : (isUSD ? `$${parseFloat(newRaw).toFixed(2)}` : newRaw);
-    const diff = parseFloat(newRaw || 0) - parseFloat(oldRaw || 0);
-    const diffStr = isUSD ? `$${diff.toFixed(2)}` : diff.toString();
-    const pctChange = parseFloat(oldRaw || 0) !== 0 ? ((diff / parseFloat(oldRaw)) * 100).toFixed(2) : 'N/A';
-    const match = oldRaw === newRaw || (oldRaw == null && newRaw == null);
-    return { field, oldVal, newVal, diff: diffStr, pctChange, match, isNewField: oldRaw == null && newRaw != null };
-  });
-}
-
-function printResults(comparisons, oldMeta, newMeta, oldUrl, newUrl) {
-  console.log(chalk.cyan('\n=== Subgraph Sync Status ==='));
-  console.log(`Old (v2.0.1): Block ${oldMeta?.block?.number || 'N/A'}, Errors: ${oldMeta?.hasIndexingErrors || 'N/A'}`);
-  console.log(`New (v5.2.0): Block ${newMeta?.block?.number || 'N/A'}, Errors: ${newMeta?.hasIndexingErrors || 'N/A'}`);
-
-  console.log(chalk.cyan('\n=== Global Metrics Comparison ==='));
-  console.log(`Old: ${oldUrl}`);
-  console.log(`New: ${newUrl}\n`);
-
-  console.log(chalk.gray('Field'.padEnd(45) + 'Old'.padStart(15) + 'New'.padStart(15) + 'Diff'.padStart(15) + '%'.padStart(10)));
-  console.log(chalk.gray('-'.repeat(100)));
-
-  let hasDeviations = false;
-  let newFieldsCount = 0;
-  comparisons.forEach(({ field, oldVal, newVal, diff, pctChange, match, isNewField }) => {
-    let color = match ? chalk.green : chalk.yellow;
-    if (isNewField) {
-      color = chalk.blue;
-      newFieldsCount++;
-    }
-    const diffStr = typeof diff === 'string' ? diff : (diff > 0 ? `+${diff}` : diff.toString());
-    console.log(color(
-      field.padEnd(45) +
-      oldVal.toString().padStart(15) +
-      newVal.toString().padStart(15) +
-      diffStr.padStart(15) +
-      (pctChange !== 'N/A' ? `${pctChange}%` : pctChange).padStart(10)
-    ));
-    if (!match && !isNewField) hasDeviations = true;
+  const res = await fetch(subgraphUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
   });
 
-  console.log(chalk.gray('-'.repeat(100)));
-  if (newFieldsCount > 0) {
-    console.log(chalk.blue(`${newFieldsCount} new field(s) in v5.2.0 (shown in blue)`));
+  const data = await res.json();
+  if (data.errors) {
+    throw new Error(JSON.stringify(data.errors));
   }
-  if (hasDeviations) {
-    console.log(chalk.yellow('Deviations detected in existing fields'));
-  } else {
-    console.log(chalk.green('All existing metrics match'));
+
+  return {
+    global: data.data.globals[0] || null,
+    meta: data.data._meta,
+  };
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined) return 'N/A';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  if (Number.isInteger(num)) {
+    return num.toLocaleString();
   }
+  return num.toFixed(2);
 }
 
 async function main() {
-  const { oldUrl, newUrl } = parseArgs();
+  const { network, v1, v2 } = parseArgs();
 
-  console.log(chalk.cyan('Comparing Global Metrics'));
-  console.log(`Old: ${oldUrl}`);
-  console.log(`New: ${newUrl}`);
-
-  const [oldGlobal, newGlobal, oldMeta, newMeta] = await Promise.all([
-    fetchGlobal(oldUrl).catch(() => null),
-    fetchGlobal(newUrl).catch(() => null),
-    fetchMeta(oldUrl).catch(() => null),
-    fetchMeta(newUrl).catch(() => null),
-  ]);
-
-  if (!oldGlobal && !newGlobal) {
-    console.error(chalk.red('Both subgraphs returned no Global entity'));
+  if (!network || !v1 || !v2) {
+    console.error('Usage: node compare-global-metrics.js --network <network> --v1 <version1> --v2 <version2>');
+    console.error('Example: node compare-global-metrics.js --network base --v1 v5_2_0 --v2 v6_0_0');
     process.exit(1);
   }
 
-  const comparisons = compareFields(oldGlobal, newGlobal);
-  printResults(comparisons, oldMeta, newMeta, oldUrl, newUrl);
+  const url1 = `${STAGING_URL}/marketplace-${network}-${v1}`;
+  const url2 = `${STAGING_URL}/marketplace-${network}-${v2}`;
+
+  console.log(`\n=== Global Metrics Comparison: ${network} ===\n`);
+  console.log(`V1: ${v1} (${url1})`);
+  console.log(`V2: ${v2} (${url2})\n`);
+
+  let data1, data2;
+
+  try {
+    console.log('Fetching metrics...\n');
+    [data1, data2] = await Promise.all([
+      fetchGlobalMetrics(url1),
+      fetchGlobalMetrics(url2),
+    ]);
+  } catch (err) {
+    console.error('Error fetching data:', err.message);
+    process.exit(1);
+  }
+
+  // Display sync status
+  console.log('--- Sync Status ---');
+  console.log(`${v1}: Block ${data1.meta.block.number.toLocaleString()}, Errors: ${data1.meta.hasIndexingErrors}`);
+  console.log(`${v2}: Block ${data2.meta.block.number.toLocaleString()}, Errors: ${data2.meta.hasIndexingErrors}`);
+
+  const blockDiff = data2.meta.block.number - data1.meta.block.number;
+  if (Math.abs(blockDiff) > 100) {
+    console.log(`\n⚠️  Warning: Block difference is ${blockDiff}. Results may differ due to sync lag.\n`);
+  } else {
+    console.log(`Block difference: ${blockDiff}\n`);
+  }
+
+  if (!data1.global || !data2.global) {
+    console.error('Error: Global entity not found in one or both subgraphs');
+    process.exit(1);
+  }
+
+  // Compare metrics
+  console.log('--- Metrics Comparison ---\n');
+
+  const colWidth = { metric: 40, v1: 15, v2: 15, status: 8 };
+  const header = [
+    'Metric'.padEnd(colWidth.metric),
+    v1.padStart(colWidth.v1),
+    v2.padStart(colWidth.v2),
+    'Status'.padStart(colWidth.status),
+  ].join(' | ');
+
+  console.log(header);
+  console.log('-'.repeat(header.length));
+
+  let matchCount = 0;
+  let diffCount = 0;
+  const diffs = [];
+
+  for (const field of GLOBAL_FIELDS) {
+    const val1 = data1.global[field];
+    const val2 = data2.global[field];
+
+    const formatted1 = formatNumber(val1);
+    const formatted2 = formatNumber(val2);
+
+    // Compare as strings to handle BigInt and decimals
+    const match = val1 === val2;
+
+    if (match) {
+      matchCount++;
+    } else {
+      diffCount++;
+      diffs.push({ field, val1, val2 });
+    }
+
+    const status = match ? '✅' : '❌';
+    const row = [
+      field.padEnd(colWidth.metric),
+      formatted1.padStart(colWidth.v1),
+      formatted2.padStart(colWidth.v2),
+      status.padStart(colWidth.status),
+    ].join(' | ');
+
+    console.log(row);
+  }
+
+  // Summary
+  console.log('\n--- Summary ---');
+  console.log(`Total fields: ${GLOBAL_FIELDS.length}`);
+  console.log(`Matching: ${matchCount}`);
+  console.log(`Different: ${diffCount}`);
+
+  if (diffCount === 0) {
+    console.log('\n✅ All global metrics match exactly!');
+  } else {
+    console.log('\n❌ Differences found:');
+    for (const { field, val1, val2 } of diffs) {
+      console.log(`  - ${field}: ${val1} → ${val2}`);
+    }
+  }
+
+  // Exit code based on match
+  process.exit(diffCount > 0 ? 1 : 0);
 }
 
-main().catch(err => {
-  console.error(chalk.red('Error:'), err.message);
+main().catch((err) => {
+  console.error('Fatal error:', err);
   process.exit(1);
 });

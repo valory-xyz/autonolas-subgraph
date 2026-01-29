@@ -152,10 +152,74 @@ dataSources:
           handler: handleTerminateService
       file: ./src/registryL2.ts
 
+  ### MechFactory data sources
+  # MechFactory contracts emit CreateMech events with maxDeliveryRate BEFORE MechMarketplace's CreateMech.
+  # These data sources capture maxDeliveryRate to avoid RPC calls in handleCreateMech.
+  - kind: ethereum
+    name: MechFactoryFixedPriceNative
+    network: gnosis
+    source:
+      address: "0x8b299c20F87e3fcBfF0e1B86dC0acC06AB6993EF"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 38661963
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceToken
+    network: gnosis
+    source:
+      address: "0x31ffDC795FDF36696B8eDF7583A3D115995a45FA"
+      abi: MechFactoryFixedPriceToken
+      startBlock: 38661963
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceToken
+          file: ../../abis/MechFactoryFixedPriceToken.json
+      eventHandlers:
+        - event: CreateMechFixedPriceToken(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryNvmSubscriptionNative
+    network: gnosis
+    source:
+      address: "0x65fd74C29463afe08c879a3020323DD7DF02DA57"
+      abi: MechFactoryNvmSubscriptionNative
+      startBlock: 38661963
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryNvmSubscriptionNative
+          file: ../../abis/MechFactoryNvmSubscriptionNative.json
+      eventHandlers:
+        - event: CreateMechNvmSubscriptionNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+
   ### Mech Marketplace
   # we need to support two versions of the ABIs, hence adding two different data sources, the old version (v1)
-  # will support b/w the start and end blocks defined in "networks.json", and from the next block the new 
-  # abi would be used as the source. 
+  # will support b/w the start and end blocks defined in "networks.json", and from the next block the new
+  # abi would be used as the source.
 
   # The two ABIs have the following differences:
   # 1. MarketplaceDelivery has `requesters` indexed in the older abi while it is not indexed in the new abi, we don't use the field in order to stay consistent.

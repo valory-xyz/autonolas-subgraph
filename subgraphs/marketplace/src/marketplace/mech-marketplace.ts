@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, log } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, log, store } from '@graphprotocol/graph-ts';
 import {
   CreateMech as CreateMechEvent,
   Deliver as DeliverWithSignaturesEvent,
@@ -19,6 +19,7 @@ import {
   Service,
   Request,
   CreateMech,
+  PendingMechData,
 } from '../../generated/schema';
 import {
   getOrCreateSender,
@@ -35,14 +36,13 @@ import {
   getOrCreateAtaTransaction,
   getOrCreateRequestToMarketplace,
   ataTransactionExists,
-  getPaymentType,
-  getMaxDeliveryRate,
   persistSignedDeliver,
   SignedDeliverArgs,
   getOrCreateDeliverForMarketplace,
   calculateMaxDeliveryRateUSD,
 } from './utils';
 import { getFeeUnitFromMechFactory, convertFeeToUsd } from './fee-utils';
+import { getPaymentTypeFromFactory } from './constants';
 
 export function handleCreateMech(event: CreateMechEvent): void {
   // Create CreateMech entity (used by getServiceIdFromMech)
@@ -72,13 +72,23 @@ export function handleCreateMech(event: CreateMechEvent): void {
   mechAgent.maxDeliveryRate = null;
   mechAgent.karma = BigInt.fromI32(0);
 
-  let initialMaxDeliveryRate = getMaxDeliveryRate(event.params.mech);
-  if (initialMaxDeliveryRate !== null) {
-    mechAgent.maxDeliveryRate = initialMaxDeliveryRate;
+  // Load maxDeliveryRate from PendingMechData (created by MechFactory handler)
+  // Factory event fires first, this handler fires second in same transaction
+  let mechAddress = event.params.mech.toHexString();
+  let pendingData = PendingMechData.load(mechAddress);
+  if (pendingData !== null) {
+    mechAgent.maxDeliveryRate = pendingData.maxDeliveryRate;
     mechAgent.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
-      initialMaxDeliveryRate,
+      pendingData.maxDeliveryRate,
       event.params.mechFactory
     );
+    // Clean up temporary entity - it's only needed to pass data between handlers
+    // within the same transaction. Keeping it would waste storage.
+    store.remove('PendingMechData', mechAddress);
+  } else {
+    log.warning('PendingMechData not found for mech {}. maxDeliveryRate will be null.', [
+      mechAddress,
+    ]);
   }
 
   // Get service configHash from Service entity and write it to Mech
@@ -87,8 +97,8 @@ export function handleCreateMech(event: CreateMechEvent): void {
     mechAgent.configHash = service.configHash;
   }
 
-  // Call paymentType function on the newly deployed mech contract
-  let paymentType = getPaymentType(event.params.mech);
+  // Get paymentType from factory address (static mapping, no RPC needed)
+  let paymentType = getPaymentTypeFromFactory(event.params.mechFactory);
   mechAgent.paymentType = paymentType;
   mechAgent.save();
 
@@ -429,15 +439,16 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   let feeRaw: BigInt | null = null;
   let feeUSD: BigDecimal | null = null;
 
-  let maxDeliveryRate = getMaxDeliveryRate(Address.fromBytes(priorityMech));
-  if (maxDeliveryRate !== null) {
-    feeRaw = maxDeliveryRate;
-
-    // Get mechFactory from CreateMech entity (created when mech was registered)
-    let createMechEntity = CreateMech.load(priorityMech);
-    if (createMechEntity !== null && createMechEntity.mechFactory !== null) {
-      feeUnit = getFeeUnitFromMechFactory(createMechEntity.mechFactory!);
-      feeUSD = convertFeeToUsd(maxDeliveryRate, feeUnit);
+  // Load maxDeliveryRate from Mech entity (populated by handleCreateMech) to avoid RPC calls
+  let createMechEntity = CreateMech.load(priorityMech);
+  if (createMechEntity !== null && createMechEntity.serviceId !== null) {
+    let mechEntity = Mech.load(createMechEntity.serviceId!.toString());
+    if (mechEntity !== null && mechEntity.maxDeliveryRate !== null) {
+      feeRaw = mechEntity.maxDeliveryRate;
+      if (createMechEntity.mechFactory !== null) {
+        feeUnit = getFeeUnitFromMechFactory(createMechEntity.mechFactory!);
+        feeUSD = convertFeeToUsd(mechEntity.maxDeliveryRate!, feeUnit);
+      }
     }
   }
 

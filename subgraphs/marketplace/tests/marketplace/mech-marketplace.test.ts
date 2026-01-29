@@ -30,6 +30,7 @@ import {
   CreateMech as CreateMechEntity,
   CreateMultisigWithAgents,
   Mech,
+  PendingMechData,
   Request,
   Service,
   Sender,
@@ -40,6 +41,7 @@ import {
 } from "./test-constants"
 import {
   GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  PAYMENT_TYPE_FIXED_PRICE_NATIVE,
 } from "../../src/marketplace/constants"
 
 function mockMaxDeliveryRate(mech: Address, maxDeliveryRate: BigInt): void {
@@ -67,11 +69,20 @@ function createMultisig(multisig: Address, serviceId: BigInt): void {
   entity.save()
 }
 
+// Helper to create PendingMechData entity (simulates MechFactory handler output)
+function createPendingMechData(mech: Address, maxDeliveryRate: BigInt, blockNumber: BigInt): void {
+  let pendingData = new PendingMechData(mech.toHexString())
+  pendingData.maxDeliveryRate = maxDeliveryRate
+  pendingData.createdAtBlock = blockNumber
+  pendingData.save()
+}
+
 function createMechMapping(
   mech: Address,
   serviceId: BigInt,
   mechFactory: Address,
-  owner: Address
+  owner: Address,
+  maxDeliveryRate: BigInt = BigInt.fromI32(0)
 ): void {
   let mapping = new CreateMechEntity(mech)
   mapping.mech = mech
@@ -93,13 +104,11 @@ function createMechMapping(
   mechEntity.selfDeliveredFromReceived = BigInt.fromI32(0)
   mechEntity.deliveredByOthersFromReceived = BigInt.fromI32(0)
   mechEntity.karma = BigInt.fromI32(0)
-  
-  mechEntity.paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+  mechEntity.maxDeliveryRate = maxDeliveryRate
+
+  mechEntity.paymentType = PAYMENT_TYPE_FIXED_PRICE_NATIVE
   log.info("Saving mech entity for service ID: {}", [serviceId.toString()]);
   mechEntity.save()
-
-  // Mock maxDeliveryRate for fee tracking
-  mockMaxDeliveryRate(mech, BigInt.fromI32(0))
 }
 
 function createSender(id: Address): void {
@@ -130,7 +139,7 @@ function createRequestEntity(
       return
     }
   }
-  
+
   let request = new Request(requestId.toHexString())
   // request.sender should be the Sender entity ID (Bytes), not the Address
   request.sender = senderEntity.id
@@ -150,53 +159,61 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleCreateMech stores entities and updates global counters", () => {
+    // Set network for factory address lookup
+    dataSourceMock.setNetwork("gnosis")
+
     let mech = Address.fromString("0x00000000000000000000000000000000000000aa")
-    let serviceId = BigInt.fromI32(16) 
-    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000bb")
-    let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+    let serviceId = BigInt.fromI32(16)
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
     let maxDeliveryRate = BigInt.fromI32(500)
 
-    // Mock the paymentType() function call
-    createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
-      .returns([ethereum.Value.fromBytes(paymentType)])
-    mockMaxDeliveryRate(mech, maxDeliveryRate)
+    // Create PendingMechData (simulates MechFactory handler firing before MechMarketplace)
+    createPendingMechData(mech, maxDeliveryRate, BigInt.fromI32(1000))
 
     let event = createCreateMechEvent(mech, serviceId, mechFactory)
     handleCreateMech(event)
 
     assert.fieldEquals("CreateMech", mech.toHexString(), "serviceId", "16")
     assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
-    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
+    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", PAYMENT_TYPE_FIXED_PRICE_NATIVE.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
     assert.fieldEquals("Global", "", "totalMechs", "1")
+
+    // PendingMechData should be deleted after consumption
+    assert.notInStore("PendingMechData", mech.toHexString())
   })
 
-  test("handleCreateMech retrieves and stores paymentType correctly", () => {
+  test("handleCreateMech derives paymentType from factory address", () => {
+    // Set network for factory address lookup
+    dataSourceMock.setNetwork("gnosis")
+
     let mech = Address.fromString("0x00000000000000000000000000000000000000ff")
     let serviceId = BigInt.fromI32(999)
-    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000fe")
-    let paymentType = Bytes.fromHexString("0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
     let maxDeliveryRate = BigInt.fromI32(750)
 
-    // Mock the paymentType() function call to return the paymentType
-    createMockedFunction(mech, "paymentType", "paymentType():(bytes32)")
-      .returns([ethereum.Value.fromBytes(paymentType)])
-    mockMaxDeliveryRate(mech, maxDeliveryRate)
+    // Create PendingMechData (simulates MechFactory handler firing before MechMarketplace)
+    createPendingMechData(mech, maxDeliveryRate, BigInt.fromI32(1000))
 
     let event = createCreateMechEvent(mech, serviceId, mechFactory)
     handleCreateMech(event)
 
-    // Verify paymentType was stored correctly
-    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", paymentType.toHexString())
+    // Verify paymentType was derived from factory address (not RPC call)
+    assert.fieldEquals("Mech", serviceId.toString(), "paymentType", PAYMENT_TYPE_FIXED_PRICE_NATIVE.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "address", mech.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "mechFactory", mechFactory.toHexString())
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", maxDeliveryRate.toString())
+
+    // PendingMechData should be deleted after consumption
+    assert.notInStore("PendingMechData", mech.toHexString())
   })
 
   test("handleMarketplaceDelivery persists aggregated delivery snapshot and DeliverForMarketplace", () => {
+    dataSourceMock.setNetwork("gnosis")
+
     let serviceId = BigInt.fromI32(200)
     let mech = Address.fromString("0x00000000000000000000000000000000000000cc")
-    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000cd")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
     let owner = Address.fromString("0x00000000000000000000000000000000000000ce")
     let requester = Address.fromString("0x00000000000000000000000000000000000000dd")
 
@@ -242,9 +259,11 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleMarketplaceDeliveryWithSignatures records off-chain deliveries", () => {
-    let serviceId = BigInt.fromI32(112) 
+    dataSourceMock.setNetwork("gnosis")
+
+    let serviceId = BigInt.fromI32(112)
     let mech = Address.fromString("0x00000000000000000000000000000000000000ee")
-    let mechFactory = Address.fromString("0x00000000000000000000000000000000000000ef")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
     let requester = Address.fromString("0x00000000000000000000000000000000000000f0")
     let agentId = BigInt.fromI32(33)
 
@@ -278,15 +297,18 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleDeliverWithSignaturesV1 stores delivery data and links to requester", () => {
-    let serviceId = BigInt.fromI32(160) 
+    dataSourceMock.setNetwork("gnosis")
+
+    let serviceId = BigInt.fromI32(160)
     let mech = Address.fromString("0x00000000000000000000000000000000000000f1")
     let multisig = Address.fromString("0x00000000000000000000000000000000000000f2")
     let requester = Address.fromString("0x00000000000000000000000000000000000000f3")
     let requestId = TEST_REQUEST_ID_A
     let agentId = BigInt.fromI32(50)
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
 
     createService(serviceId, [agentId])
-    createMechMapping(mech, serviceId, multisig, requester)
+    createMechMapping(mech, serviceId, mechFactory, requester)
 
     // In real scenario, both events occur in same transaction
     // handleMarketplaceDeliveryWithSignatures sets the sender
@@ -323,15 +345,18 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleDeliverWithSignaturesV2 stores delivery data and links to requester", () => {
+    dataSourceMock.setNetwork("gnosis")
+
     let serviceId = BigInt.fromI32(176)
     let mech = Address.fromString("0x00000000000000000000000000000000000000f4")
     let multisig = Address.fromString("0x00000000000000000000000000000000000000f5")
     let requester = Address.fromString("0x00000000000000000000000000000000000000f6")
     let requestId = TEST_REQUEST_ID_B
     let agentId = BigInt.fromI32(55)
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
 
     createService(serviceId, [agentId])
-    createMechMapping(mech, serviceId, multisig, requester)
+    createMechMapping(mech, serviceId, mechFactory, requester)
 
     // In real scenario, both events occur in same transaction
     // handleMarketplaceDeliveryWithSignatures sets the sender
@@ -370,10 +395,12 @@ describe("Mech Marketplace Handlers", () => {
   })
 
   test("handleMarketplaceRequest creates per-request records and updates counters", () => {
+    dataSourceMock.setNetwork("gnosis")
+
     let serviceId = BigInt.fromI32(4096)
     let requester = Address.fromString("0x0000000000000000000000000000000000000101")
     let priorityMech = Address.fromString("0x0000000000000000000000000000000000000102")
-    let mechFactory = Address.fromString("0x0000000000000000000000000000000000000103")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
     let agentId = BigInt.fromI32(44)
 
     createService(serviceId, [agentId])
@@ -411,10 +438,8 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
-    createMechMapping(priorityMech, serviceId, mechFactory, requester)
-
-    // Mock maxDeliveryRate call
-    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+    // Pass maxDeliveryRate to Mech entity (no RPC mock needed - reads from entity)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [
       Bytes.fromHexString("0xa000000000000000000000000000000000000000000000000000000000000001"),
@@ -445,10 +470,8 @@ describe("Mech Marketplace Handlers", () => {
 
     createService(serviceId, [agentId])
     createMultisig(requester, serviceId)
-    createMechMapping(priorityMech, serviceId, mechFactory, requester)
-
-    // Mock maxDeliveryRate call
-    mockMaxDeliveryRate(priorityMech, maxDeliveryRate)
+    // Pass maxDeliveryRate to Mech entity (no RPC mock needed - reads from entity)
+    createMechMapping(priorityMech, serviceId, mechFactory, requester, maxDeliveryRate)
 
     let requestIds = [
       Bytes.fromHexString("0xb000000000000000000000000000000000000000000000000000000000000001"),
@@ -481,4 +504,3 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("OwnerUpdated", id, "owner", owner.toHexString())
   })
 })
-

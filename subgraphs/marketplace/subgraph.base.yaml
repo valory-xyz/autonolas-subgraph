@@ -4,9 +4,113 @@ indexerHints:
 schema:
   file: ./schema.graphql
 dataSources:
+  ### MechFactory data sources
+  # MechFactory contracts emit CreateMech events with maxDeliveryRate BEFORE MechMarketplace's CreateMech.
+  # These data sources capture maxDeliveryRate to avoid RPC calls in handleCreateMech.
+  - kind: ethereum
+    name: MechFactoryFixedPriceNative
+    network: base
+    source:
+      address: "0x2E008211f34b25A7d7c102403c6C2C3B665a1abe"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 26642705
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceToken
+    network: base
+    source:
+      address: "0x97371B1C0cDA1D04dFc43DFb50a04645b7Bc9BEe"
+      abi: MechFactoryFixedPriceToken
+      startBlock: 26642705
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceToken
+          file: ../../abis/MechFactoryFixedPriceToken.json
+      eventHandlers:
+        - event: CreateMechFixedPriceToken(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceTokenUSDC
+    network: base
+    source:
+      address: "0x5B70A66fe68c4c86FFd724B58cc56049c70e9D3D"
+      abi: MechFactoryFixedPriceTokenUSDC
+      startBlock: 26642705
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceTokenUSDC
+          file: ../../abis/MechFactoryFixedPriceTokenUSDC.json
+      eventHandlers:
+        - event: CreateMechFixedPriceTokenUSDC(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryNvmSubscriptionNative
+    network: base
+    source:
+      address: "0x847bBE8b474e0820215f818858e23F5f5591855A"
+      abi: MechFactoryNvmSubscriptionNative
+      startBlock: 26642705
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryNvmSubscriptionNative
+          file: ../../abis/MechFactoryNvmSubscriptionNative.json
+      eventHandlers:
+        - event: CreateMechNvmSubscriptionNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryNvmSubscriptionTokenUSDC
+    network: base
+    source:
+      address: "0x7beD01f8482fF686F025628e7780ca6C1f0559fc"
+      abi: MechFactoryNvmSubscriptionTokenUSDC
+      startBlock: 26642705
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryNvmSubscriptionTokenUSDC
+          file: ../../abis/MechFactoryNvmSubscriptionTokenUSDC.json
+      eventHandlers:
+        - event: CreateMechNvmSubscriptionTokenUSDC(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+
   # we need to support two versions of the ABIs, hence adding two different data sources, the old version (v1)
-  # will support b/w the start and end blocks defined in "networks.json", and from the next block the new 
-  # abi would be used as the source. 
+  # will support b/w the start and end blocks defined in "networks.json", and from the next block the new
+  # abi would be used as the source.
 
   # The two ABIs have the following differences:
   # 1. MarketplaceDelivery has `requesters` indexed in the older abi while it is not indexed in the new abi, we don't use the field in order to stay consistent.
