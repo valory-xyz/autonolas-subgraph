@@ -26,6 +26,7 @@ type TraderAgent @entity (immutable: false) {
 type QuestionIdToConditionId @entity(immutable: true) {
   id: Bytes!
   conditionId: Bytes! # bytes32
+  oracle: Bytes! # oracle address that can resolve this condition
   transactionHash: Bytes!
 }
 
