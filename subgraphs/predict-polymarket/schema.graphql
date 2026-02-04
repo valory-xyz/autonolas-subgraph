@@ -109,6 +109,7 @@ type Global @entity (immutable: false) {
   totalPayout: BigInt!
   totalTraded: BigInt!
   totalTradedSettled: BigInt!
+  totalMarketsParticipated: Int! # count of unique markets where any agent participated
 }
 
 type DailyProfitStatistic @entity(immutable: false) {
@@ -127,4 +128,9 @@ type DailyProfitStatistic @entity(immutable: false) {
 
   # Markets affecting profit on this day
   profitParticipants: [Question!]!
+}
+
+# Tracks markets where at least one agent has participated
+type MarketParticipated @entity(immutable: true) {
+  id: Bytes! # conditionId
 }
