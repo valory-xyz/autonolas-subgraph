@@ -1,0 +1,136 @@
+# Entity is only created if trader agent (with id 86) is registered in a service
+# Allows tracking TraderAgent properly
+type TraderService @entity (immutable: true) {
+  id: ID! # serviceId
+}
+
+type TraderAgent @entity (immutable: false) {
+  id: Bytes!
+  serviceId: BigInt!
+  firstParticipation: BigInt
+  lastActive: BigInt
+  totalBets: Int! # all bets done regardless of settlement
+  totalTraded: BigInt!
+  # trades amount for settled markets
+  # for incorrect bets on settlement day
+  # for correct - on payout)
+  totalTradedSettled: BigInt!
+  totalPayout: BigInt! # all bets including for open markets
+  bets: [Bet!]! @derivedFrom(field: "bettor")
+  dailyProfitStatistics: [DailyProfitStatistic!]! @derivedFrom(field: "traderAgent")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type QuestionIdToConditionId @entity(immutable: true) {
+  id: Bytes!
+  conditionId: Bytes! # bytes32
+  oracle: Bytes! # oracle address that can resolve this condition
+  transactionHash: Bytes!
+}
+
+type Question @entity(immutable: true) {
+  id: Bytes! # conditionId
+  questionId: Bytes! # bytes32
+  isNegRisk: Boolean!
+  marketId: Bytes # The grouping ID for Neg Risk
+  metadata: MarketMetadata!
+  bets: [Bet!]! @derivedFrom(field: "question")
+  resolution: QuestionResolution @derivedFrom(field: "question")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketMetadata @entity(immutable: true) {
+  id: Bytes! # questionId
+  title: String!
+  outcomes: [String!]!
+  rawAncillaryData: String!
+}
+
+type Bet @entity (immutable: false) {
+  id: Bytes!
+  bettor: TraderAgent!
+  outcomeIndex: BigInt!
+  amount: BigInt!   # USDC spent (e.g., 1.00)
+  shares: BigInt!   # Tokens received (e.g., 2.17)
+  countedInTotal: Boolean!
+  countedInProfit: Boolean!
+  question: Question
+  dailyStatistic: DailyProfitStatistic
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# Maps tokenId to conditionId and outcome index for tracking trades
+type TokenRegistry @entity(immutable: true) {
+  id: Bytes! # tokenId as string
+  tokenId: BigInt!
+  conditionId: Bytes!
+  outcomeIndex: BigInt! # 0 or 1 for binary markets
+  transactionHash: Bytes!
+}
+
+# Tracks market finalization when UMA resolves the question
+type QuestionResolution @entity (immutable: true) {
+  id: Bytes! # conditionId
+  question: Question!
+  winningIndex: BigInt!
+  settledPrice: BigInt!
+  payouts: [BigInt!]!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# Tracks per-market statistics for each agent
+type MarketParticipant @entity (immutable: false) {
+  id: ID! # agentAddress_conditionId
+  traderAgent: TraderAgent!
+  question: Question
+  totalBets: Int!
+  totalTraded: BigInt!
+  totalTradedSettled: BigInt!
+  totalPayout: BigInt!
+  bets: [Bet!]!
+  createdAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Global @entity (immutable: false) {
+  id: ID!
+  totalTraderAgents: Int!
+  totalActiveTraderAgents: Int!
+  totalBets: Int! # all bets including for open markets
+  totalPayout: BigInt!
+  totalTraded: BigInt!
+  totalTradedSettled: BigInt!
+  totalMarketsParticipated: Int! # count of unique markets where any agent participated
+}
+
+type DailyProfitStatistic @entity(immutable: false) {
+  id: ID! # traderAgent_address + "_" + day_timestamp
+  traderAgent: TraderAgent!
+  date: BigInt!
+
+  # Activity placed on this day
+  bets: [Bet!]! @derivedFrom(field: "dailyStatistic")
+  totalBets: Int! # total Bets placed today
+  totalTraded: BigInt! # total traded today, regardless of market settlement
+  totalPayout: BigInt! # Payouts received today
+
+  # Profit realized on this day (from settlements/payouts)
+  dailyProfit: BigInt!
+
+  # Markets affecting profit on this day
+  profitParticipants: [Question!]!
+}
+
+# Tracks markets where at least one agent has participated
+type MarketParticipated @entity(immutable: true) {
+  id: Bytes! # conditionId
+}

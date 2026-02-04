@@ -4,7 +4,7 @@ import {
   CreateService,
   RegisterInstance,
   TerminateService,
-} from '../generated/ServiceRegistryL2/ServiceRegistryL2';
+} from '../generated/ServiceRegistry/ServiceRegistry';
 import {
   ExecutionSuccess,
   ExecutionFromModuleSuccess,
@@ -100,12 +100,7 @@ function updateGlobalMetrics(event: ethereum.Event): void {
 }
 
 export function handleCreateService(event: CreateService): void {
-  let service = getOrCreateService(
-    event.params.serviceId,
-    event.block.timestamp
-  );
-  service.configHash = event.params.configHash;
-  service.save();
+  getOrCreateService(event.params.serviceId, event.block.timestamp);
 }
 
 export function handleRegisterInstance(event: RegisterInstance): void {

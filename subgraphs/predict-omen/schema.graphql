@@ -1,0 +1,170 @@
+type TraderAgent @entity (immutable: false) {
+  id: Bytes!
+  serviceId: BigInt!
+  firstParticipation: BigInt
+  lastActive: BigInt
+  totalBets: Int! # all bets done regardless of settlement
+  totalTraded: BigInt! # all bets amounts at the time of bet placement
+  totalFees: BigInt! # all bets fees at the time of bet placement
+  totalPayout: BigInt! # all bets including for open markets
+  # trades amount and fees for settled markets
+  # for incorrect bets on settlement day
+  # for correct - on payout
+  totalTradedSettled: BigInt!
+  totalFeesSettled: BigInt!
+  bets: [Bet!]! @derivedFrom(field: "bettor")
+  dailyProfitStatistics: [DailyProfitStatistic!]! @derivedFrom(field: "traderAgent")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Bet @entity (immutable: false) {
+  id: ID!
+  bettor: TraderAgent!
+  outcomeIndex: BigInt!
+  amount: BigInt!
+  feeAmount: BigInt!
+  countedInProfit: Boolean!
+  countedInTotal: Boolean
+  fixedProductMarketMaker: FixedProductMarketMakerCreation
+  dailyStatistic: DailyProfitStatistic
+  timestamp: BigInt! @deprecated(reason: "Use blockTimestamp instead")
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CreatorAgent @entity (immutable: false) {
+  id: ID!
+  totalQuestions: Int!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ConditionPreparation @entity(immutable: true) {
+  id: ID!
+  conditionId: Bytes! # bytes32
+  oracle: Bytes! # address
+  questionId: Bytes! # bytes32
+  outcomeSlotCount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FixedProductMarketMakerCreation @entity (immutable: false) {
+  id: Bytes!
+  creator: Bytes! # address
+  conditionalTokens: Bytes! # address
+  collateralToken: Bytes! # address
+  conditionIds: [Bytes!]! # bytes32[]
+  question: String
+  outcomes: [String!]
+  fee: BigInt! # uint256
+  currentAnswer: Bytes
+  currentAnswerTimestamp: BigInt
+  bets: [Bet!]! @derivedFrom(field: "fixedProductMarketMaker")
+  participants: [MarketParticipant!]! @derivedFrom(field: "fixedProductMarketMaker")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketParticipant @entity (immutable: false) {
+  id: ID! # address_marketId
+  traderAgent: TraderAgent!
+  fixedProductMarketMaker: FixedProductMarketMakerCreation!
+  bets: [Bet!]!
+  totalBets: Int!
+  totalTraded: BigInt!
+  totalPayout: BigInt!
+  totalFees: BigInt!
+  totalTradedSettled: BigInt!
+  totalFeesSettled: BigInt!
+  createdAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Global @entity (immutable: false) {
+  id: ID!
+  totalTraderAgents: Int!
+  totalActiveTraderAgents: Int!
+  totalBets: Int! # all bets including for open markets
+  totalPayout: BigInt!
+  totalTraded: BigInt! # all bets at the time of bet placement
+  totalFees: BigInt! # all bets at the time of bet placement
+  totalTradedSettled: BigInt!
+  totalFeesSettled: BigInt!
+}
+
+type LogSetQuestionFee @entity(immutable: true) {
+  id: Bytes!
+  arbitrator: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LogNewTemplate @entity(immutable: true) {
+  id: Bytes!
+  template_id: BigInt! # uint256
+  user: Bytes! # address
+  question_text: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Question @entity (immutable: false) {
+  id: ID!
+  currentAnswer: Bytes
+  question: String! # string
+  currentAnswerTimestamp: BigInt
+  fixedProductMarketMaker: FixedProductMarketMakerCreation
+}
+
+type LogNewAnswer @entity (immutable: false) {
+  id: ID!
+  currentAnswer: Bytes
+  currentAnswerTimestamp: BigInt
+}
+
+type QuestionFinalized @entity (immutable: false) {
+  id: ID!
+  currentAnswer: Bytes
+  currentAnswerTimestamp: BigInt
+}
+
+type LogNotifyOfArbitrationRequest @entity (immutable: true) {
+  id: Bytes!
+  question_id: Bytes
+  user: Bytes
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DailyProfitStatistic @entity(immutable: false) {
+  id: ID! # traderAgent_address + "_" + day_timestamp
+  traderAgent: TraderAgent!
+  date: BigInt! 
+  
+  # Activity of the day
+  bets: [Bet!]! @derivedFrom(field: "dailyStatistic") # Bets placed today
+  totalBets: Int! # total Bets placed today
+  totalTraded: BigInt! # total traded today, regardless of market settlement
+  totalFees: BigInt! # total fees today, regardless of market settlement
+  totalPayout: BigInt! # Payouts received today
+  
+  # Profit
+  dailyProfit: BigInt!
+  
+  # Markets participated in profit calculation today
+  # in case of Loss - markets on the day of settlement
+  # in case of Win - markets on the day of payout (can be next day after settlement)
+  profitParticipants: [FixedProductMarketMakerCreation!]!
+}
