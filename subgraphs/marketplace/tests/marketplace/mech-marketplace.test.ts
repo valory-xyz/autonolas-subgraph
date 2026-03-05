@@ -120,6 +120,7 @@ function createSender(id: Address): void {
   sender.totalMarketplaceRequests = BigInt.fromI32(0)
   sender.totalOffChainRequests = BigInt.fromI32(0)
   sender.totalFeesPaidUSD = BigDecimal.fromString("0")
+  sender.totalPredictRequests = BigInt.fromI32(0)
   sender.save()
 }
 

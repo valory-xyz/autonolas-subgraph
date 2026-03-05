@@ -7,3 +7,4 @@ temp/
 .env
 .env.prod
 .cursor/
+.claude/projects/

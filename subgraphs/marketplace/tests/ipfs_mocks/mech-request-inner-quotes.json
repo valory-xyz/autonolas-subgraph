@@ -1,0 +1,5 @@
+{
+    "prompt": "With the given question \"Will Trump say \"Crypto\" or \"Bitcoin\" this week? (March 8)\" and the `yes` option represented by `Yes` and the `no` option represented by `No`, what are the respective probabilities of `p_yes` and `p_no` occurring?",
+    "tool": "prediction-request-rag",
+    "nonce": "c66f710b-b51d-4711-c10g-90bdcb6cd396"
+}
