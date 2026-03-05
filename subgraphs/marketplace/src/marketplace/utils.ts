@@ -44,6 +44,18 @@ import {
   OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   OPTIMISM_MECH_MARKETPLACE_ADDRESS,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  ETHEREUM_MECH_MARKETPLACE_ADDRESS,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  ARBITRUM_MECH_MARKETPLACE_ADDRESS,
+  CELO_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  CELO_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 
@@ -253,6 +265,12 @@ export function getChainId(network: string): i32 {
     return 137;
   } else if (cleanNetwork == 'optimism') {
     return 10;
+  } else if (cleanNetwork == 'mainnet') {
+    return 1;
+  } else if (cleanNetwork == 'arbitrum-one') {
+    return 42161;
+  } else if (cleanNetwork == 'celo') {
+    return 42220;
   }
 
   log.warning("Unknown network: '{}' (cleaned: '{}'), returning 0", [
@@ -279,6 +297,12 @@ function getMarketplaceAddress(): string | null {
     return POLYGON_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   } else if (network == 'optimism') {
     return OPTIMISM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'mainnet') {
+    return ETHEREUM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'arbitrum-one') {
+    return ARBITRUM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'celo') {
+    return CELO_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   }
   return null;
 }
@@ -413,6 +437,75 @@ function createOptimismMechFromFactory(mech: Address, mechFactoryAddress: string
   return false;
 }
 
+function createEthereumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Ethereum: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createArbitrumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Arbitrum: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createCeloMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (CELO_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Celo: {}', [mechFactoryAddress]);
+  return false;
+}
+
 /* Create dynamic data source for the new Mech contract based on factory address */
 export function createDataSourceForMechContract(
   mech: Address,
@@ -435,6 +528,12 @@ export function createDataSourceForMechContract(
     createPolygonMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 10) {
     createOptimismMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 1) {
+    createEthereumMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 42161) {
+    createArbitrumMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 42220) {
+    createCeloMechFromFactory(mech, mechFactoryAddress);
   } else {
     log.warning("Unsupported chain ID: {} for network: '{}'", [
       chainId.toString(),

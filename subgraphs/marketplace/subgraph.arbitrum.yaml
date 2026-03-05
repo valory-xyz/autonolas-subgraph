@@ -9,11 +9,11 @@ dataSources:
   # These data sources capture maxDeliveryRate to avoid RPC calls in handleCreateMech.
   - kind: ethereum
     name: MechFactoryFixedPriceNative
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0x87f89F94033305791B6269AE2F9cF4e09983E56e"
+      address: "0x4Cd816ce806FF1003ee459158A093F02AbF042a8"
       abi: MechFactoryFixedPriceNative
-      startBlock: 81028558
+      startBlock: 430647628
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -29,11 +29,11 @@ dataSources:
       file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceToken
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0xa0DA53447C0f6C4987964d8463da7e6628B30f82"
+      address: "0x70A0D93fb0dB6EAab871AB0A3BE279DcA37a2bcf"
       abi: MechFactoryFixedPriceToken
-      startBlock: 81028558
+      startBlock: 430648244
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -49,11 +49,11 @@ dataSources:
       file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceTokenUSDC
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0x85899f9d8C058A5BBBaF344ea0f0b63c0CcBe851"
+      address: "0x694e62BDF7Ff510A4EE66662cf4866A961a31653"
       abi: MechFactoryFixedPriceTokenUSDC
-      startBlock: 81028558
+      startBlock: 430648376
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -67,36 +67,15 @@ dataSources:
         - event: CreateMechFixedPriceTokenUSDC(indexed address,indexed uint256,uint256)
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
-  - kind: ethereum
-    name: MechFactoryNvmSubscriptionTokenUSDC
-    network: matic
-    source:
-      address: "0x43fB32f25dce34EB76c78C7A42C8F40F84BCD237"
-      abi: MechFactoryNvmSubscriptionTokenUSDC
-      startBlock: 81028558
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - PendingMechData
-      abis:
-        - name: MechFactoryNvmSubscriptionTokenUSDC
-          file: ../../abis/MechFactoryNvmSubscriptionTokenUSDC.json
-      eventHandlers:
-        - event: CreateMechNvmSubscriptionTokenUSDC(indexed address,indexed uint256,uint256)
-          handler: handleMechFactoryCreate
-      file: ./src/marketplace/mech-factory.ts
 
-  # MechMarketplaceV1 data source for type generation only (no V1 events on Polygon)
-  # V1 event signatures differ from V2, so handlers won't match V2 events
+  # MechMarketplaceV1 data source for type generation only (no V1 events on Arbitrum)
   - kind: ethereum
     name: MechMarketplaceV1
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
+      address: "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17"
       abi: MechMarketplaceV1
-      startBlock: 81028558
+      startBlock: 430646886
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -138,11 +117,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
+      address: "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17"
       abi: MechMarketplaceV2
-      startBlock: 81028558
+      startBlock: 430646886
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -184,11 +163,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: ServiceRegistryL2
-    network: matic
+    network: arbitrum-one
     source:
       address: "0xE3607b00E75f6405248323A9417ff6b39B244b50"
       abi: ServiceRegistryL2
-      startBlock: 41783952
+      startBlock: 174008819
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -219,32 +198,12 @@ dataSources:
           handler: handleTerminateService
       file: ./src/marketplace/service-registry-l-2.ts
   - kind: ethereum
-    name: ComplementaryServiceMetadata
-    network: matic
-    source:
-      address: "0xDC175E77d11246c79B23D7088750eb59160DD6b7"
-      abi: ComplementaryServiceMetadata
-      startBlock: 81433108
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Metadata
-      abis:
-        - name: ComplementaryServiceMetadata
-          file: ../../abis/ComplementaryServiceMetadata.json
-      eventHandlers:
-        - event: ComplementaryMetadataUpdated(indexed uint256,indexed bytes32)
-          handler: handleComplementaryMetadataUpdated
-      file: ./src/marketplace/complementary-service-metadata.ts
-  - kind: ethereum
     name: Karma
-    network: matic
+    network: arbitrum-one
     source:
-      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
+      address: "0x8Bc0a5c5B1612A16983B01ecd7ae130E728390CB"
       abi: Karma
-      startBlock: 81028558
+      startBlock: 430646189
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -261,7 +220,7 @@ dataSources:
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
-    network: matic
+    network: arbitrum-one
     source:
       abi: MechFixedPriceNative
     mapping:
@@ -276,6 +235,8 @@ templates:
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
+        - name: IUniswapV2Pair
+          file: ../../abis/IUniswapV2Pair.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -284,7 +245,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
-    network: matic
+    network: arbitrum-one
     source:
       abi: MechFixedPriceToken
     mapping:
@@ -311,7 +272,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
-    network: matic
+    network: arbitrum-one
     source:
       abi: MechNvmSubscriptionNative
     mapping:
@@ -332,7 +293,7 @@ templates:
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
-    network: matic
+    network: arbitrum-one
     source:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:

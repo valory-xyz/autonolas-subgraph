@@ -3,7 +3,8 @@ import {
   describe,
   test,
   clearStore,
-  afterEach
+  afterEach,
+  dataSourceMock
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import {
@@ -36,6 +37,7 @@ import {
 describe("Mech Fixed Price Native Handler", () => {
   afterEach(() => {
     clearStore()
+    dataSourceMock.setNetwork("gnosis")
   })
 
   test("Request creates Request entity", () => {
