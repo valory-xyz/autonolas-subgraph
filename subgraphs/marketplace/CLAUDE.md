@@ -101,9 +101,11 @@ Each `Mech` entity has a `maxDeliveryRateUSD: BigDecimal` field that stores the 
 - Converts using `convertFeeToUsd()`:
   - Gnosis xDAI: 1:1 USD peg
   - Base ETH: Chainlink price feed
+  - Polygon POL: Chainlink price feed
+  - Optimism ETH: Chainlink price feed
   - USDC: 1:1 USD peg
   - OLAS tokens: Balancer V2 pool prices
-  - NVM Credits: Contract-defined token ratios
+  - NVM Credits: Contract-defined token ratios (lazy-initialized getter functions to avoid WASM memory corruption)
 
 **Updated when:**
 1. `handleCreateMech` - Initial mech creation
@@ -216,11 +218,30 @@ tests/
 ├── marketplace/                    # Marketplace-specific tests
 │   ├── mech-marketplace.test.ts
 │   ├── mech-fixed-price-native.test.ts
-│   └── ...
-├── fees/                           # Fee utility tests (feature branch)
-├── *.test.ts                       # Other test files
-├── *-utils.ts                      # Test utilities
+│   ├── mech-fixed-price-token.test.ts
+│   ├── mech-nvm-subscription-*.test.ts
+│   ├── shared-mech-event-helpers.ts
+│   ├── test-constants.ts
+│   ├── ipfs-mock-helpers.ts
+│   └── *-utils.ts                  # Per-mech-type test utilities
+├── fees/                           # Fee utility tests
+│   ├── fee-utils.test.ts
+│   ├── fee-tracking.test.ts
+│   └── marketplace-fee-scope.test.ts
+├── *.test.ts                       # Legacy test files
+├── *-utils.ts                      # Legacy test utilities
 └── ipfs_mocks/                     # Mock IPFS data for tests
+
+scripts/                            # Verification and debugging scripts
+├── verify-subgraph-data.js
+├── verify-mech-counters.js
+├── verify-v5-fees.js
+├── compare-subgraph-versions.js
+├── compare-global-metrics.js
+├── compare-mech-services.js
+├── check-sync-progress.js
+├── debug-service-6-requests.js
+└── README.md
 ```
 
 ## Common Commands
@@ -244,18 +265,22 @@ graph test tests/marketplace/mech-marketplace.test.ts
 # Build specific network manifest
 graph build subgraph.gnosis.yaml
 graph build subgraph.base.yaml
+graph build subgraph.polygon.yaml
+graph build subgraph.optimism.yaml
+
+# Codegen for specific network
+yarn codegen:polygon
+yarn codegen:optimism
 ```
 
 ## API Versions
 
-Both networks use Graph Protocol API version `0.0.9`:
-
-| Network | API Version |
-|---------|-------------|
-| Gnosis  | 0.0.9       |
-| Base    | 0.0.9       |
-
-**Note**: Base was originally deployed with `apiVersion: 0.0.7` but was upgraded to `0.0.9` to fix WASM memory corruption bugs that caused entity save operations to corrupt memory pointers.
+| Network  | API Version |
+|----------|-------------|
+| Gnosis   | 0.0.9       |
+| Base     | 0.0.7       |
+| Polygon  | 0.0.7       |
+| Optimism | 0.0.7       |
 
 ## Entity Mutability
 
@@ -270,7 +295,7 @@ Both networks use Graph Protocol API version `0.0.9`:
 
 Tests use Matchstick framework. Key patterns:
 - `clearStore()` - Reset entity store between tests
-- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base)
+- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base, matic, optimism)
 - `createMockedFunction()` - Mock contract calls
 - Tests must explicitly create `CreateMultisigWithAgents` entities for `getServiceIdFromMultisig` to work
 - Tests must create `CreateMech` entities for `getServiceIdFromMech` to work
