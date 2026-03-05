@@ -63,6 +63,12 @@ function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
 }
 
+// Known closing delimiters that follow the question's closing quote in prompt templates.
+// Add new entries here when the prompt template changes.
+const QUESTION_CLOSING_DELIMITERS: string[] = [
+  '" and the',  // 'With the given question "..." and the `yes` option...'
+];
+
 function extractQuestionTitle(prompt: string): string {
   const marker = 'With the given question';
   const markerIndex = prompt.indexOf(marker);
@@ -72,10 +78,18 @@ function extractQuestionTitle(prompt: string): string {
   const firstQuote = afterMarker.indexOf('"');
   if (firstQuote === -1) return '';
 
-  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
-  if (secondQuote === -1) return '';
+  // Try each closing delimiter pattern, pick the earliest match.
+  // This handles questions with inner quotes like: "Will Trump say "Crypto"?"
+  let closingIndex: i32 = -1;
+  for (let i = 0; i < QUESTION_CLOSING_DELIMITERS.length; i++) {
+    const idx = afterMarker.indexOf(QUESTION_CLOSING_DELIMITERS[i], firstQuote + 1);
+    if (idx !== -1 && (closingIndex === -1 || idx < closingIndex)) {
+      closingIndex = idx;
+    }
+  }
+  if (closingIndex === -1) return '';
 
-  return afterMarker.slice(firstQuote + 1, secondQuote);
+  return afterMarker.slice(firstQuote + 1, closingIndex);
 }
 
 function tryGetIpfsResponse(requestHash: string): Bytes | null {
@@ -143,6 +157,22 @@ function saveParsedRequestEntity(
   parsedRequest.tool = payload.tool;
   parsedRequest.questionTitle = payload.questionTitle;
   parsedRequest.save();
+
+  // Increment prediction counters when questionTitle is non-empty
+  if (payload.questionTitle.length > 0) {
+    let global = getGlobal();
+    global.totalPredictRequests = global.totalPredictRequests.plus(BigInt.fromI32(1));
+    global.save();
+
+    let request = Request.load(requestId);
+    if (request !== null) {
+      let sender = Sender.load(request.sender);
+      if (sender !== null) {
+        sender.totalPredictRequests = sender.totalPredictRequests.plus(BigInt.fromI32(1));
+        sender.save();
+      }
+    }
+  }
 }
 
 function loadDeliveryPayload(
