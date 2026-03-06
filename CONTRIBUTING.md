@@ -3,8 +3,6 @@
 First off, thank you for taking the time to contribute! This document describes how to propose changes, report issues,
 and participate in the development of this repository.
 
-> This guide is intentionally generic and applicable to Solidity projects that use **Foundry** and/or **Hardhat**. Replace placeholders (e.g., emails, URLs) with your project’s actual values as needed.
-
 ---
 
 ## Table of Contents
@@ -21,12 +19,11 @@ and participate in the development of this repository.
   - [Install](#install)
   - [Build](#build)
   - [Test](#test)
-  - [Lint & Static Analysis](#lint--static-analysis)
-- [Solidity Style Guide](#solidity-style-guide)
+- [Subgraph Development Guide](#subgraph-development-guide)
 - [Testing Guidelines](#testing-guidelines)
 - [Commit Messages & Branching](#commit-messages--branching)
-- [Versioning & Releases](#versioning--releases)
-- [License & CLA/DCO](#license--cladco)
+- [Deployment](#deployment)
+- [License](#license)
 - [Contact](#contact)
 
 ---
@@ -39,17 +36,25 @@ This project adheres to the [Contributor Covenant](https://www.contributor-coven
 
 ## Repository Structure
 
-Common top-level directories include:
+This is a monorepo of [The Graph](https://thegraph.com/) subgraphs for the Autonolas/Olas ecosystem. Each subgraph indexes on-chain events from Olas smart contracts across multiple EVM networks.
 
-- `contracts/` — Solidity source code.
-- `test/` — Tests (JS/TS for Hardhat, `.t.sol` for Foundry, integration tests).
-- `docs/` — Project related documentation and smart contract addresses.
-- `scripts/` — Deployment and maintenance scripts (bash, TS/JS, etc.).
-- `lib/` — External libraries (submodules or packages).
-- `audits/` — Security reviews and reports (if any).
-- `README.md` — Project overview and build instructions.
+```
+subgraphs/
+├── marketplace/         # Mech marketplace (Gnosis, Base, Polygon, Optimism, Ethereum, Arbitrum, Celo)
+├── mech/                # Legacy mech subgraph (Gnosis)
+├── mech-marketplace/    # Older marketplace implementation
+├── autonolas/           # Component/Agent registry (Gnosis)
+├── autonolas-base/      # Component/Agent registry (Base)
+├── predict-omen/        # Omen prediction market tracking
+├── predict-polymarket/  # Polymarket prediction tracking
+├── service-registry/    # Service registry events
+├── staking/             # Staking contracts
+├── tokenomics/          # Tokenomics contracts
+└── babydegen-mode/      # Baby Degen on Mode
+abis/                    # Shared ABI files referenced by subgraphs
+```
 
-> The exact structure may differ; consult `README.md` for authoritative information.
+Each subgraph is an **independent package** with its own `package.json`, `schema.graphql`, manifest files (`subgraph.*.yaml`), and tests. All work is done from within a subgraph directory.
 
 ---
 
@@ -59,44 +64,38 @@ Common top-level directories include:
 
 1. **Search existing issues** to avoid duplicates.
 2. **Open a new issue** with a clear title and description.
-3. Include steps to reproduce, expected vs actual behavior, logs, and environment details (OS, Node.js, Foundry, Solidity versions).
+3. Include the affected subgraph, network, and any relevant entity IDs or transaction hashes.
 
 ### Suggesting Enhancements
 
 - Explain the motivation and expected impact.
-- Provide a minimal example or pseudo-code.
-- Consider compatibility and security implications.
+- Specify which subgraph(s) and network(s) are affected.
+- Consider compatibility with existing indexed data and entity schemas.
 
 ### Security & Responsible Disclosure
 
 **Do not** open public GitHub issues for security vulnerabilities. Instead:
 
 - Email **security@valory.xyz** with a detailed report.
-- Include steps to reproduce, the affected components, and potential impact.
-- If you propose a fix, include a patch or PR against a private fork when appropriate.
+- Include the affected subgraph, potential impact, and steps to reproduce.
 
-We aim to acknowledge receipt within 72 hours. Disclosure timelines will be coordinated with you.
-
-> Optional: link to a bug bounty policy if available.
+We aim to acknowledge receipt within 72 hours.
 
 ### Pull Requests
 
 1. Fork the repo and create your branch from `main`.
-2. If you’ve added code that should be tested, add tests.
-3. Ensure tests pass locally and CI is green.
-4. Add/adjust documentation (README, NatSpec) as needed.
-5. Use [Conventional Commits](https://www.conventionalcommits.org/) (see below).
-6. Open a PR with a clear description of the change and reasoning.
+2. If you've added or changed handler logic, add tests.
+3. Ensure the subgraph builds and all tests pass locally.
+4. Open a PR with a clear description of the change and reasoning.
 
 **PR Checklist:**
 
-- [ ] Self-reviewed, no debug prints or dead code.
-- [ ] Tests: unit + fuzz/invariant where applicable.
-- [ ] Gas impact considered; include `forge snapshot` diff if relevant.
-- [ ] No storage layout breaking changes unless explicitly intended (document in PR).
-- [ ] Public/External functions have NatSpec `@notice`/`@dev` and events where appropriate.
-- [ ] No unguarded external calls; CEI (Checks-Effects-Interactions) respected.
-- [ ] Access control and upgradability changes documented.
+- [ ] Self-reviewed, no debug logs or dead code.
+- [ ] `yarn codegen && yarn build` passes for all affected network manifests.
+- [ ] `yarn test` passes (all Matchstick tests).
+- [ ] Schema changes are backward-compatible or migration is documented.
+- [ ] New ABIs added to `abis/` and referenced in manifest `abis` sections.
+- [ ] New contract addresses added to `constants.ts` with correct network keys.
 
 ---
 
@@ -104,142 +103,126 @@ We aim to acknowledge receipt within 72 hours. Disclosure timelines will be coor
 
 ### Prerequisites
 
-- **Node.js** >= 18 and **npm** or **yarn**
-- **Foundry** (`forge`, `cast`): https://getfoundry.sh
-- **Hardhat** (optional): installed via `npm`/`yarn`
-- **Solidity** compiler handled via Foundry/Hardhat toolchains
+- **Node.js** >= 18
+- **Yarn** (v1)
+- **Graph CLI**: `yarn global add @graphprotocol/graph-cli` (or use via `npx`)
 
 ### Install
 
 ```bash
-# clone
-git clone https://github.com/<org>/<repo>.git
-cd <repo>
+git clone https://github.com/valory-xyz/autonolas-subgraph.git
+cd autonolas-subgraph
 
-# install JS deps (if applicable)
+# Navigate to the subgraph you want to work on
+cd subgraphs/marketplace
+
+# Install dependencies
 yarn install
-# or
-npm install
 ```
 
 ### Build
 
 ```bash
-# Foundry
-forge build
+# Generate TypeScript types from schema and ABIs
+yarn codegen
 
-# Hardhat
-yarn hardhat compile
-# or
-npx hardhat compile
+# Build the subgraph (compiles AssemblyScript to WASM)
+yarn build
+
+# For multi-network subgraphs, build a specific network manifest
+yarn codegen:polygon    # or codegen:optimism, codegen:mainnet, etc.
+yarn build:polygon      # or build:optimism, build:mainnet, etc.
 ```
 
 ### Test
 
 ```bash
-# Foundry (unit & fuzz)
-forge test -vvv
+# Run all tests (Matchstick framework)
+yarn test
 
-# With gas snapshots
-forge snapshot
-
-# Hardhat (JS/TS)
-yarn hardhat test
-# or
-npx hardhat test
-```
-
-> Tip: Set `FOUNDRY_PROFILE=ci` or similar profiles in `foundry.toml` to standardize CI runs.
-
-### Lint & Static Analysis
-
-Recommended (enable what your project uses):
-
-- **solhint** / **solium** for Solidity style/linting
-- **prettier-plugin-solidity** for formatting
-- **eslint**/**prettier** for JS/TS
-- **slither** for static analysis (https://github.com/crytic/slither)
-- **forge fmt** for formatting (Foundry)
-
-Example:
-
-```bash
-# Lint solidity (if solhint configured)
-npx solhint 'contracts/**/*.sol'
-
-# Format solidity with prettier
-npx prettier --write 'contracts/**/*.sol'
-
-# Run slither (requires python env)
-slither .
+# Run a specific test file
+graph test tests/marketplace/mech-marketplace.test.ts
 ```
 
 ---
 
-## Solidity Style Guide
+## Subgraph Development Guide
 
-- **SPDX** identifier at the top of each contract.
-- **Pragmas** pinned or range-constrained consistently (e.g., `^0.8.24`).
-- **NatSpec** for all public/external functions and events (`@notice`, `@dev`, `@param`, `@return`).
-- **Custom errors** instead of string `revert` for gas and clarity.
-- **Events**: emit on state changes that matter for off-chain monitoring; avoid “dangling” events (declared but never emitted).
-- **Access control**: clear roles (`owner`, `guardian`, etc.), minimize privileges, prefer `onlyRole` pattern or equivalent.
-- **CEI pattern** (Checks-Effects-Interactions) to reduce reentrancy risk.
-- **Upgradeability**: if using proxies, document storage layout and upgrade steps; avoid storage collisions.
-- **Math**: use safe libraries (e.g., OpenZeppelin/Solmate) and avoid silent overflows; consider `unchecked` only when safe and documented.
-- **Interfaces**: prefer minimal interfaces for external calls.
-- **Naming**: follow established conventions (`CamelCase` contracts, `mixedCase` functions/vars, `ALL_CAPS` constants).
+### Key Concepts
+
+- **Schema** (`schema.graphql`): Defines entities stored by the subgraph. Use `@entity(immutable: true)` for event logs that never change, `@entity(immutable: false)` for aggregated state.
+- **Manifests** (`subgraph.*.yaml`): Define data sources (contracts), event handlers, ABIs, and start blocks per network. Multi-network subgraphs have one manifest per network.
+- **Handlers** (`src/**/*.ts`): AssemblyScript event handlers that process on-chain events and write entities.
+- **Templates**: Dynamic data sources created at runtime (e.g., when a new Mech contract is deployed via a factory).
+
+### Adding a New Network
+
+1. Add contract addresses to `constants.ts`.
+2. Update factory/payment-type mappings in `constants.ts`.
+3. Add network branches to `utils.ts` (chain ID, marketplace address, factory-to-template mapping).
+4. Add fee conversion logic to `fee-utils.ts` if new price feeds or DEX pools are needed.
+5. Create a new manifest (`subgraph.<network>.yaml`) using an existing one as template.
+6. Look up contract deployment blocks (e.g., via Blockscout API) and set `startBlock` values.
+7. Add `codegen:<network>` and `build:<network>` scripts to `package.json`.
+8. Verify: `yarn codegen:<network> && yarn build:<network>`.
+
+### Adding a New ABI
+
+1. Place the ABI JSON file in the root `abis/` directory.
+2. Reference it in the manifest's data source or template `abis` section.
+3. After `yarn codegen`, import the generated types in your handler.
+
+### Common Patterns
+
+- **Cross-handler state transfer**: Use temporary entities (e.g., `PendingMechData`) when data from one event is needed by a handler for a different event in the same transaction.
+- **Fee conversion**: All fees are converted to USD via `fee-utils.ts` using Chainlink price feeds, DEX pool queries, or stablecoin pegs depending on the network and payment type.
+- **Service ID lookups**: Use `getServiceIdFromMech()` or `getServiceIdFromMultisig()` to resolve service IDs from addresses via mapping entities.
 
 ---
 
 ## Testing Guidelines
 
-- **Unit tests** for each contract; cover happy/sad paths.
-- **Fuzz tests** (`forge`) to explore edge cases automatically.
-- **Property-based / invariant tests** for protocol-level invariants.
-- **Integration tests** for cross-contract and cross-chain flows if applicable.
-- **Gas**: watch regressions using `forge snapshot` deltas.
-- **Coverage**: target high logical coverage; justify gaps (e.g., defensive code).
+Tests use the [Matchstick](https://thegraph.com/docs/en/developing/unit-testing-framework/) framework (AssemblyScript-based).
 
-Suggested structure:
-
-```
-test/
-  Unit/
-    ContractA.t.sol
-  Integration/
-    LiquidStaking.js
-  Invariants/
-    Invariant_Pps.t.sol
-```
+- Place test files in `tests/` with `.test.ts` extension.
+- Use `clearStore()` in `afterEach` to reset entity state between tests.
+- Use `dataSourceMock.setNetwork()` to set the network context (defaults to `mainnet` if not set).
+- Use `createMockedFunction()` to mock on-chain contract calls.
+- Create prerequisite entities (e.g., `CreateMech`, `CreateMultisigWithAgents`) before testing handlers that depend on them.
+- Assert entity state with `assert.fieldEquals(entityType, id, field, expected)` and `assert.entityCount(entityType, count)`.
 
 ---
 
 ## Commit Messages & Branching
 
 - Use **Conventional Commits**:
-  - `feat: ...`, `fix: ...`, `docs: ...`, `refactor: ...`, `test: ...`, `chore: ...`, `perf: ...`
+  - `feat: ...`, `fix: ...`, `docs: ...`, `refactor: ...`, `test: ...`, `chore: ...`
 - Branch names:
   - `feat/<short-topic>`, `fix/<short-topic>`, `docs/<short-topic>`
 - Reference issues/PRs in the body (e.g., `Closes #123`).
 
-> Optionally enforce **DCO** (`Signed-off-by`) or a **CLA** as part of CI.
+---
+
+## Deployment
+
+Production deployments go through **GitHub Actions**:
+
+1. Go to the Actions tab -> "Run workflow"
+2. Select environment (`production` / `staging`), subgraph, version, and manifest
+3. Production deployments are only allowed from the `main` branch
+
+Naming convention: `{subgraph}-{network}-{version}` (e.g., `marketplace-gnosis-v0_1_2`)
+
+Deployed subgraphs are available at:
+```
+https://subgraph.autonolas.tech/subgraphs/name/{SUBGRAPH_NAME}
+```
 
 ---
 
-## Versioning & Releases
+## License
 
-- Use **SemVer** where applicable.
-- Tag releases (e.g., `v1.2.3`).
-- For upgradeable deployments, include a migration plan and storage layout diff in release notes.
-- Provide addresses/chain IDs and verification links when deployments are in scope.
-
----
-
-## License & CLA/DCO
-
-- This project is licensed under **MIT** (or your chosen license). See `LICENSE`.
-- If required, contributors must sign a **CLA** or use **DCO** sign-offs. Document the process in this section or link to your CLA portal.
+This project is licensed under the terms specified in `LICENSE`.
 
 ---
 
@@ -248,4 +231,4 @@ test/
 - General questions: **info@valory.xyz**
 - Security: **security@valory.xyz**
 
-Thank you for contributing! 🚀
+Thank you for contributing!
