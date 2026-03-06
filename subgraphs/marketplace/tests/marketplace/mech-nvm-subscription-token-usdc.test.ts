@@ -3,7 +3,8 @@ import {
   describe,
   test,
   afterEach,
-  clearStore
+  clearStore,
+  dataSourceMock
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, BigInt as BI } from "@graphprotocol/graph-ts"
 import { handleDeliver, handleRequest, handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-nvm-subscription-token-usdc"
@@ -57,6 +58,7 @@ function createMechWithMapping(mechAddress: Address, serviceId: BigInt): void {
 describe("Mech NVM Subscription Token USDC Handler", () => {
   afterEach(() => {
     clearStore()
+    dataSourceMock.setNetwork("gnosis")
   })
 
   test("Request creates Request entity", () => {

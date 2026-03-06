@@ -9,11 +9,11 @@ dataSources:
   # These data sources capture maxDeliveryRate to avoid RPC calls in handleCreateMech.
   - kind: ethereum
     name: MechFactoryFixedPriceNative
-    network: matic
+    network: celo
     source:
-      address: "0x87f89F94033305791B6269AE2F9cF4e09983E56e"
+      address: "0xDd1252c5a75be568B5E6e50bA542680b38dbd68f"
       abi: MechFactoryFixedPriceNative
-      startBlock: 81028558
+      startBlock: 58841401
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -29,11 +29,11 @@ dataSources:
       file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceToken
-    network: matic
+    network: celo
     source:
-      address: "0xa0DA53447C0f6C4987964d8463da7e6628B30f82"
+      address: "0xA123748Ce7609F507060F947b70298D0bde621E6"
       abi: MechFactoryFixedPriceToken
-      startBlock: 81028558
+      startBlock: 58841482
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -49,11 +49,11 @@ dataSources:
       file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceTokenUSDC
-    network: matic
+    network: celo
     source:
-      address: "0x85899f9d8C058A5BBBaF344ea0f0b63c0CcBe851"
+      address: "0xE3e5Df46060370af5Fd37B2aA11e7dac3cCB4bd0"
       abi: MechFactoryFixedPriceTokenUSDC
-      startBlock: 81028558
+      startBlock: 58841543
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -67,36 +67,15 @@ dataSources:
         - event: CreateMechFixedPriceTokenUSDC(indexed address,indexed uint256,uint256)
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
-  - kind: ethereum
-    name: MechFactoryNvmSubscriptionTokenUSDC
-    network: matic
-    source:
-      address: "0x43fB32f25dce34EB76c78C7A42C8F40F84BCD237"
-      abi: MechFactoryNvmSubscriptionTokenUSDC
-      startBlock: 81028558
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - PendingMechData
-      abis:
-        - name: MechFactoryNvmSubscriptionTokenUSDC
-          file: ../../abis/MechFactoryNvmSubscriptionTokenUSDC.json
-      eventHandlers:
-        - event: CreateMechNvmSubscriptionTokenUSDC(indexed address,indexed uint256,uint256)
-          handler: handleMechFactoryCreate
-      file: ./src/marketplace/mech-factory.ts
 
-  # MechMarketplaceV1 data source for type generation only (no V1 events on Polygon)
-  # V1 event signatures differ from V2, so handlers won't match V2 events
+  # MechMarketplaceV1 data source for type generation only (no V1 events on Celo)
   - kind: ethereum
     name: MechMarketplaceV1
-    network: matic
+    network: celo
     source:
-      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
+      address: "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8"
       abi: MechMarketplaceV1
-      startBlock: 81028558
+      startBlock: 58841368
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -138,11 +117,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
-    network: matic
+    network: celo
     source:
-      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
+      address: "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8"
       abi: MechMarketplaceV2
-      startBlock: 81028558
+      startBlock: 58841368
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -184,11 +163,11 @@ dataSources:
       file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: ServiceRegistryL2
-    network: matic
+    network: celo
     source:
       address: "0xE3607b00E75f6405248323A9417ff6b39B244b50"
       abi: ServiceRegistryL2
-      startBlock: 41783952
+      startBlock: 24205712
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -220,11 +199,11 @@ dataSources:
       file: ./src/marketplace/service-registry-l-2.ts
   - kind: ethereum
     name: ComplementaryServiceMetadata
-    network: matic
+    network: celo
     source:
-      address: "0xDC175E77d11246c79B23D7088750eb59160DD6b7"
+      address: "0xc096362fa6f4A4B1a9ea68b1043416f3381ce300"
       abi: ComplementaryServiceMetadata
-      startBlock: 81433108
+      startBlock: 60900782
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -240,11 +219,11 @@ dataSources:
       file: ./src/marketplace/complementary-service-metadata.ts
   - kind: ethereum
     name: Karma
-    network: matic
+    network: celo
     source:
-      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
+      address: "0x02C26437B292D86c5F4F21bbCcE0771948274f84"
       abi: Karma
-      startBlock: 81028558
+      startBlock: 58841280
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -261,7 +240,7 @@ dataSources:
 templates:
   - kind: ethereum
     name: MechFixedPriceNative
-    network: matic
+    network: celo
     source:
       abi: MechFixedPriceNative
     mapping:
@@ -276,6 +255,8 @@ templates:
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
+        - name: IUniswapV2Pair
+          file: ../../abis/IUniswapV2Pair.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver
@@ -284,7 +265,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
-    network: matic
+    network: celo
     source:
       abi: MechFixedPriceToken
     mapping:
@@ -311,7 +292,7 @@ templates:
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
-    network: matic
+    network: celo
     source:
       abi: MechNvmSubscriptionNative
     mapping:
@@ -332,7 +313,7 @@ templates:
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
-    network: matic
+    network: celo
     source:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:
