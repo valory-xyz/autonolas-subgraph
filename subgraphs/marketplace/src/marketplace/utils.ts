@@ -44,6 +44,18 @@ import {
   OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   OPTIMISM_MECH_MARKETPLACE_ADDRESS,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  ETHEREUM_MECH_MARKETPLACE_ADDRESS,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  ARBITRUM_MECH_MARKETPLACE_ADDRESS,
+  CELO_MECH_FACTORY_FIXED_PRICE_NATIVE,
+  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN,
+  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  CELO_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 
@@ -66,6 +78,12 @@ class RequestPayload {
   }
 }
 
+// Known closing delimiters that follow the question's closing quote in prompt templates.
+// Add new entries here when the prompt template changes.
+const QUESTION_CLOSING_DELIMITERS: string[] = [
+  '" and the',  // 'With the given question "..." and the `yes` option...'
+];
+
 function extractQuestionTitle(prompt: string): string {
   const marker = 'With the given question';
   const markerIndex = prompt.indexOf(marker);
@@ -75,10 +93,18 @@ function extractQuestionTitle(prompt: string): string {
   const firstQuote = afterMarker.indexOf('"');
   if (firstQuote === -1) return '';
 
-  const secondQuote = afterMarker.indexOf('"', firstQuote + 1);
-  if (secondQuote === -1) return '';
+  // Try each closing delimiter pattern, pick the earliest match.
+  // This handles questions with inner quotes like: "Will Trump say "Crypto"?"
+  let closingIndex: i32 = -1;
+  for (let i = 0; i < QUESTION_CLOSING_DELIMITERS.length; i++) {
+    const idx = afterMarker.indexOf(QUESTION_CLOSING_DELIMITERS[i], firstQuote + 1);
+    if (idx !== -1 && (closingIndex === -1 || idx < closingIndex)) {
+      closingIndex = idx;
+    }
+  }
+  if (closingIndex === -1) return '';
 
-  return afterMarker.slice(firstQuote + 1, secondQuote);
+  return afterMarker.slice(firstQuote + 1, closingIndex);
 }
 
 class DeliveryPayload {
@@ -118,6 +144,9 @@ export function getGlobal(): Global {
 
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
+
+    // Prediction-specific counters
+    global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global;
 }
@@ -135,6 +164,8 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalOffChainRequests = BigInt.fromI32(0);
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
+    // Prediction-specific counters
+    sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender;
 }
@@ -234,6 +265,12 @@ export function getChainId(network: string): i32 {
     return 137;
   } else if (cleanNetwork == 'optimism') {
     return 10;
+  } else if (cleanNetwork == 'mainnet') {
+    return 1;
+  } else if (cleanNetwork == 'arbitrum-one') {
+    return 42161;
+  } else if (cleanNetwork == 'celo') {
+    return 42220;
   }
 
   log.warning("Unknown network: '{}' (cleaned: '{}'), returning 0", [
@@ -260,6 +297,12 @@ function getMarketplaceAddress(): string | null {
     return POLYGON_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   } else if (network == 'optimism') {
     return OPTIMISM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'mainnet') {
+    return ETHEREUM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'arbitrum-one') {
+    return ARBITRUM_MECH_MARKETPLACE_ADDRESS.toLowerCase();
+  } else if (network == 'celo') {
+    return CELO_MECH_MARKETPLACE_ADDRESS.toLowerCase();
   }
   return null;
 }
@@ -394,6 +437,75 @@ function createOptimismMechFromFactory(mech: Address, mechFactoryAddress: string
   return false;
 }
 
+function createEthereumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Ethereum: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createArbitrumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Arbitrum: {}', [mechFactoryAddress]);
+  return false;
+}
+
+function createCeloMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
+  if (CELO_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceNative.create(mech);
+    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+    MechFixedPriceToken.create(mech);
+    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
+    return true;
+  }
+
+  log.warning('Unknown mech factory address on Celo: {}', [mechFactoryAddress]);
+  return false;
+}
+
 /* Create dynamic data source for the new Mech contract based on factory address */
 export function createDataSourceForMechContract(
   mech: Address,
@@ -416,6 +528,12 @@ export function createDataSourceForMechContract(
     createPolygonMechFromFactory(mech, mechFactoryAddress);
   } else if (chainId == 10) {
     createOptimismMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 1) {
+    createEthereumMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 42161) {
+    createArbitrumMechFromFactory(mech, mechFactoryAddress);
+  } else if (chainId == 42220) {
+    createCeloMechFromFactory(mech, mechFactoryAddress);
   } else {
     log.warning("Unsupported chain ID: {} for network: '{}'", [
       chainId.toString(),
@@ -650,6 +768,22 @@ function saveParsedRequestEntity(
   parsedRequest.tool = payload.tool;
   parsedRequest.questionTitle = payload.questionTitle;
   parsedRequest.save();
+
+  // Increment prediction counters when questionTitle is non-empty
+  if (payload.questionTitle.length > 0) {
+    let global = getGlobal();
+    global.totalPredictRequests = global.totalPredictRequests.plus(BigInt.fromI32(1));
+    global.save();
+
+    let request = Request.load(requestId);
+    if (request !== null) {
+      let sender = Sender.load(request.sender);
+      if (sender !== null) {
+        sender.totalPredictRequests = sender.totalPredictRequests.plus(BigInt.fromI32(1));
+        sender.save();
+      }
+    }
+  }
 }
 
 function requestIdToDecimal(requestId: Bytes): string {

@@ -81,6 +81,24 @@ describe("questionTitle extraction from request prompts", () => {
         );
     });
 
+    test("extracts questionTitle when question contains inner quotes", () => {
+        const baseCid = "f01701220innerquotes";
+        const requestId = "0xinnerquotes123456";
+
+        mockIpfsFile(baseCid + "/metadata.json", "tests/ipfs_mocks/mech-request-inner-quotes.json");
+        mockIpfsFile(baseCid, "tests/ipfs_mocks/mech-request-inner-quotes.json");
+
+        parseRequestIpfs(requestId, baseCid);
+
+        assert.entityCount("ParsedRequest", 1);
+        assert.fieldEquals(
+            "ParsedRequest",
+            requestId,
+            "questionTitle",
+            'Will Trump say "Crypto" or "Bitcoin" this week? (March 8)'
+        );
+    });
+
     test("extracts questionTitle from real China WTO example with prediction-offline tool", () => {
         const baseCid = "f01701220chinawto";
         const requestId = "0xchinawto123456ab";

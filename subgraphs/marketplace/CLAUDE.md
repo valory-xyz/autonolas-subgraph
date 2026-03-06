@@ -4,7 +4,7 @@ This document provides context for the marketplace subgraph, the most complex su
 
 ## Overview
 
-The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base**, **Polygon**, and **Optimism** networks. It tracks:
+The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base**, **Polygon**, **Optimism**, **Ethereum**, **Arbitrum**, and **Celo** networks. It tracks:
 - Mech creation and registration
 - Request/delivery lifecycle (on-chain and off-chain/signed)
 - Service activity metrics
@@ -101,9 +101,14 @@ Each `Mech` entity has a `maxDeliveryRateUSD: BigDecimal` field that stores the 
 - Converts using `convertFeeToUsd()`:
   - Gnosis xDAI: 1:1 USD peg
   - Base ETH: Chainlink price feed
+  - Polygon POL: Chainlink price feed
+  - Optimism ETH: Chainlink price feed
+  - Ethereum ETH: Chainlink price feed
+  - Arbitrum ETH: Chainlink price feed
+  - Celo CELO: Chainlink price feed
   - USDC: 1:1 USD peg
-  - OLAS tokens: Balancer V2 pool prices
-  - NVM Credits: Contract-defined token ratios
+  - OLAS tokens: Balancer V2 pool prices (Gnosis/Base/Arbitrum), Uniswap V2 (Ethereum), unavailable on Celo
+  - NVM Credits: Contract-defined token ratios (lazy-initialized getter functions to avoid WASM memory corruption)
 
 **Updated when:**
 1. `handleCreateMech` - Initial mech creation
@@ -216,11 +221,30 @@ tests/
 ├── marketplace/                    # Marketplace-specific tests
 │   ├── mech-marketplace.test.ts
 │   ├── mech-fixed-price-native.test.ts
-│   └── ...
-├── fees/                           # Fee utility tests (feature branch)
-├── *.test.ts                       # Other test files
-├── *-utils.ts                      # Test utilities
+│   ├── mech-fixed-price-token.test.ts
+│   ├── mech-nvm-subscription-*.test.ts
+│   ├── shared-mech-event-helpers.ts
+│   ├── test-constants.ts
+│   ├── ipfs-mock-helpers.ts
+│   └── *-utils.ts                  # Per-mech-type test utilities
+├── fees/                           # Fee utility tests
+│   ├── fee-utils.test.ts
+│   ├── fee-tracking.test.ts
+│   └── marketplace-fee-scope.test.ts
+├── *.test.ts                       # Legacy test files
+├── *-utils.ts                      # Legacy test utilities
 └── ipfs_mocks/                     # Mock IPFS data for tests
+
+scripts/                            # Verification and debugging scripts
+├── verify-subgraph-data.js
+├── verify-mech-counters.js
+├── verify-v5-fees.js
+├── compare-subgraph-versions.js
+├── compare-global-metrics.js
+├── compare-mech-services.js
+├── check-sync-progress.js
+├── debug-service-6-requests.js
+└── README.md
 ```
 
 ## Common Commands
@@ -244,18 +268,31 @@ graph test tests/marketplace/mech-marketplace.test.ts
 # Build specific network manifest
 graph build subgraph.gnosis.yaml
 graph build subgraph.base.yaml
+graph build subgraph.polygon.yaml
+graph build subgraph.optimism.yaml
+graph build subgraph.mainnet.yaml
+graph build subgraph.arbitrum.yaml
+graph build subgraph.celo.yaml
+
+# Codegen for specific network
+yarn codegen:polygon
+yarn codegen:optimism
+yarn codegen:mainnet
+yarn codegen:arbitrum
+yarn codegen:celo
 ```
 
 ## API Versions
 
-Both networks use Graph Protocol API version `0.0.9`:
-
-| Network | API Version |
-|---------|-------------|
-| Gnosis  | 0.0.9       |
-| Base    | 0.0.9       |
-
-**Note**: Base was originally deployed with `apiVersion: 0.0.7` but was upgraded to `0.0.9` to fix WASM memory corruption bugs that caused entity save operations to corrupt memory pointers.
+| Network  | API Version |
+|----------|-------------|
+| Gnosis   | 0.0.9       |
+| Base     | 0.0.7       |
+| Polygon  | 0.0.7       |
+| Optimism | 0.0.7       |
+| Ethereum | 0.0.7       |
+| Arbitrum | 0.0.7       |
+| Celo     | 0.0.7       |
 
 ## Entity Mutability
 
@@ -270,7 +307,7 @@ Both networks use Graph Protocol API version `0.0.9`:
 
 Tests use Matchstick framework. Key patterns:
 - `clearStore()` - Reset entity store between tests
-- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base)
+- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base, matic, optimism)
 - `createMockedFunction()` - Mock contract calls
 - Tests must explicitly create `CreateMultisigWithAgents` entities for `getServiceIdFromMultisig` to work
 - Tests must create `CreateMech` entities for `getServiceIdFromMech` to work
@@ -304,3 +341,21 @@ Tests use Matchstick framework. Key patterns:
 - MechFactory (FixedPriceToken): `0x26Ea2dC7ce1b41d0AD0E0521535655d7a94b684c`
 - MechFactory (FixedPriceTokenUSDC): `0x93111f6C267068A5d7356114D61d0f09bFD53a54`
 - MechFactory (NvmSubscriptionTokenUSDC): `0x02C26437B292D86c5F4F21bbCcE0771948274f84`
+
+### Ethereum
+- Marketplace: `0x3d6494CE09a9f40c0B5a92BdBD7c7A9b0e3912b1`
+- MechFactory (FixedPriceNative): `0x3515a36AF270070635Fa3E957e006aaF6078e658`
+- MechFactory (FixedPriceToken/OLAS): `0xddF6c8521195AC613626aE7a8E7d645128bc26fD`
+- MechFactory (FixedPriceTokenUSDC): `0xF95BfBBA428dfb454Cd59C9c2d309bd6452d12A8`
+
+### Arbitrum
+- Marketplace: `0xf76953444C35F1FcE2F6CA1b167173357d3F5C17`
+- MechFactory (FixedPriceNative): `0x4Cd816ce806FF1003ee459158A093F02AbF042a8`
+- MechFactory (FixedPriceToken/OLAS): `0x70A0D93fb0dB6EAab871AB0A3BE279DcA37a2bcf`
+- MechFactory (FixedPriceTokenUSDC): `0x694e62BDF7Ff510A4EE66662cf4866A961a31653`
+
+### Celo
+- Marketplace: `0x17d96ba4532fe91809326092fE4D5606A7B7a0d8`
+- MechFactory (FixedPriceNative): `0xDd1252c5a75be568B5E6e50bA542680b38dbd68f`
+- MechFactory (FixedPriceToken/OLAS): `0xA123748Ce7609F507060F947b70298D0bde621E6`
+- MechFactory (FixedPriceTokenUSDC): `0xE3e5Df46060370af5Fd37B2aA11e7dac3cCB4bd0`

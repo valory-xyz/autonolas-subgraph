@@ -1,6 +1,6 @@
 specVersion: 1.2.0
 indexerHints:
-  prune: auto
+  prune: 300
 schema:
   file: ./schema.graphql
 dataSources:
@@ -121,6 +121,8 @@ dataSources:
           file: ../../abis/BalancerV2Vault.json
         - name: BalancerV2WeightedPool
           file: ../../abis/BalancerV2WeightedPool.json
+        - name: IUniswapV2Pair
+          file: ../../abis/IUniswapV2Pair.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -165,6 +167,8 @@ dataSources:
           file: ../../abis/BalancerV2Vault.json
         - name: BalancerV2WeightedPool
           file: ../../abis/BalancerV2WeightedPool.json
+        - name: IUniswapV2Pair
+          file: ../../abis/IUniswapV2Pair.json
       eventHandlers:
         - event: CreateMech(indexed address,indexed uint256,indexed address)
           handler: handleCreateMech
@@ -297,6 +301,8 @@ templates:
           file: ../../abis/BalancerV2Vault.json
         - name: BalancerV2WeightedPool
           file: ../../abis/BalancerV2WeightedPool.json
+        - name: IUniswapV2Pair
+          file: ../../abis/IUniswapV2Pair.json
       eventHandlers:
         - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
           handler: handleDeliver

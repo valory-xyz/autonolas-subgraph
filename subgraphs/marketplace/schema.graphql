@@ -252,6 +252,9 @@ type Global @entity(immutable: false) {
 
   # Fee tracking
   totalFeesPaidUSD: BigDecimal! # Total marketplace fees in USD
+
+  # Prediction-specific counters (only requests with non-empty questionTitle)
+  totalPredictRequests: BigInt!
 }
 
 type RequestsPerAgent @entity(immutable: false) {
@@ -415,6 +418,9 @@ type Sender @entity(immutable: false) {
 
   # Fee tracking
   totalFeesPaidUSD: BigDecimal! # Cumulative fees paid in USD
+
+  # Prediction-specific counters (only requests with non-empty questionTitle)
+  totalPredictRequests: BigInt!
 }
 
 type Service @entity(immutable: false) {
