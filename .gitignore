@@ -7,3 +7,7 @@ temp/
 .env
 .env.prod
 .cursor/
+
+.DS_Store
+.bin
+

@@ -3,93 +3,6 @@ import { Global, TraderAgent, MarketParticipant, DailyProfitStatistic } from "..
 import { ONE_DAY } from "./constants";
 
 /**
- * Track payment for market in case of won bet
- **/
-export function updateTraderAgentPayout(address: Address, payout: BigInt): void {
-  let agent = TraderAgent.load(address);
-  if (agent !== null) {
-    agent.totalPayout = agent.totalPayout.plus(payout);
-    agent.save();
-  }
-}
-
-/**
- * Consolidates all activity and volume updates into a single pass.
- */
-export function processTradeActivity(
-  agent: TraderAgent,
-  market: Address,
-  betId: string,
-  amount: BigInt,
-  fees: BigInt,
-  timestamp: BigInt,
-  blockNumber: BigInt,
-  txHash: Bytes
-): void {
-  let global = getGlobal();
-
-  // 1. Update Global
-  global.totalBets += 1;
-  global.totalTraded = global.totalTraded.plus(amount);
-  global.totalFees = global.totalFees.plus(fees);
-
-  // 2. Update TraderAgent
-  if (agent.firstParticipation === null) {
-    agent.firstParticipation = timestamp;
-    global.totalActiveTraderAgents += 1;
-  }
-  agent.totalBets += 1;
-  agent.lastActive = timestamp;
-  agent.totalTraded = agent.totalTraded.plus(amount);
-  agent.totalFees = agent.totalFees.plus(fees);
-
-  // 3. Update or Create MarketParticipant
-  let participantId = agent.id.toHexString() + "_" + market.toHexString();
-  let participant = MarketParticipant.load(participantId);
-  
-  if (participant == null) {
-    participant = new MarketParticipant(participantId);
-    participant.traderAgent = agent.id;
-    participant.fixedProductMarketMaker = market;
-    participant.totalBets = 0;
-    participant.totalTraded = BigInt.zero();
-    participant.totalPayout = BigInt.zero();
-    participant.totalFees = BigInt.zero();
-    participant.totalTradedSettled = BigInt.zero();
-    participant.totalFeesSettled = BigInt.zero();
-    participant.createdAt = timestamp;
-    participant.bets = [];
-  }
-
-  let bets = participant.bets;
-  bets.push(betId);
-  participant.bets = bets;
-  participant.totalBets += 1;
-  participant.totalTraded = participant.totalTraded.plus(amount);
-  participant.totalFees = participant.totalFees.plus(fees);
-  participant.blockTimestamp = timestamp;
-  participant.blockNumber = blockNumber;
-  participant.transactionHash = txHash;
-
-  // 4. Save all
-  global.save();
-  agent.save();
-  participant.save();
-}
-
-/**
- * Update market participant payout in case of winning
- **/
-export function updateMarketParticipantPayout(trader: Address, market: Bytes, payout: BigInt): void {
-  let participantId = trader.toHexString() + "_" + market.toHexString();
-  let participant = MarketParticipant.load(participantId);
-  if (participant != null) {
-    participant.totalPayout = participant.totalPayout.plus(payout);
-    participant.save();
-  }
-}
-
-/**
  * Return global entity for updates
  * Create new if doesn't exist
  */
@@ -105,18 +18,21 @@ export function getGlobal(): Global {
     global.totalPayout = BigInt.zero();
     global.totalTradedSettled = BigInt.zero();
     global.totalFeesSettled = BigInt.zero();
+    global.totalExpectedPayout = BigInt.zero();
   }
   return global as Global;
 }
 
 /**
- * Update total payout in global entity
- * Should be used only for payouts for our markets
+ * Helper for saving entities in maps (batch save optimization)
  */
-export function updateGlobalPayout(payout: BigInt): void {
-  let global = getGlobal();
-  global.totalPayout = global.totalPayout.plus(payout);
-  global.save();
+export function saveMapValues<T>(map: Map<string, T>): void {
+  let values = map.values();
+  // @ts-ignore - AssemblyScript Map.values() returns array-like structure
+  for (let i = 0; i < values.length; i++) {
+    // @ts-ignore - Graph-cli entities have a .save() method
+    values[i].save();
+  }
 }
 
 /**
@@ -132,7 +48,7 @@ export function bytesToBigInt(bytes: Bytes): BigInt {
 }
 
 /**
- * Get daily profit entity
+ * Get or create daily profit statistic for an agent on a specific day
  */
 export function getDailyProfitStatistic(agentAddress: Bytes, timestamp: BigInt): DailyProfitStatistic {
   let dayTimestamp = getDayTimestamp(timestamp);
@@ -168,11 +84,86 @@ export function addProfitParticipant(statistic: DailyProfitStatistic, marketId: 
   }
 }
 
-// Helper for saving entities in sets
-export function saveMapValues<T>(map: Map<string, T>): void {
-  let values = map.values();
-  for (let i = 0; i < values.length; i++) {
-    // @ts-ignore - Graph-cli entities have a .save() method
-    values[i].save();
+export function removeProfitParticipant(statistic: DailyProfitStatistic, marketId: Bytes): void {
+  let participants = statistic.profitParticipants;
+  let index = participants.indexOf(marketId);
+  if (index !== -1) {
+    participants.splice(index, 1);
+    statistic.profitParticipants = participants;
   }
+}
+
+/**
+ * Consolidates all activity and volume updates into a single pass.
+ */
+export function processTradeActivity(
+  agent: TraderAgent,
+  market: Address,
+  betId: string,
+  amount: BigInt,
+  fees: BigInt,
+  timestamp: BigInt,
+  blockNumber: BigInt,
+  txHash: Bytes,
+  outcomeIndex: BigInt,
+  outcomeTokenAmount: BigInt
+): void {
+  let global = getGlobal();
+
+  // 1. Update Global
+  global.totalBets += 1;
+  global.totalTraded = global.totalTraded.plus(amount);
+  global.totalFees = global.totalFees.plus(fees);
+
+  // 2. Update TraderAgent
+  if (agent.firstParticipation === null) {
+    agent.firstParticipation = timestamp;
+    global.totalActiveTraderAgents += 1;
+  }
+  agent.totalBets += 1;
+  agent.lastActive = timestamp;
+  agent.totalTraded = agent.totalTraded.plus(amount);
+  agent.totalFees = agent.totalFees.plus(fees);
+
+  // 3. Update or Create MarketParticipant
+  let participantId = agent.id.toHexString() + "_" + market.toHexString();
+  let participant = MarketParticipant.load(participantId);
+  
+  if (participant == null) {
+    participant = new MarketParticipant(participantId);
+    participant.traderAgent = agent.id;
+    participant.fixedProductMarketMaker = market;
+    participant.totalBets = 0;
+    participant.totalTraded = BigInt.zero();
+    participant.totalPayout = BigInt.zero();
+    participant.totalFees = BigInt.zero();
+    participant.totalTradedSettled = BigInt.zero();
+    participant.totalFeesSettled = BigInt.zero();
+    participant.outcomeTokenBalance0 = BigInt.zero();
+    participant.outcomeTokenBalance1 = BigInt.zero();
+    participant.expectedPayout = BigInt.zero();
+    participant.settled = false;
+    participant.createdAt = timestamp;
+    participant.bets = [];
+  }
+
+  let bets = participant.bets;
+  bets.push(betId);
+  participant.bets = bets;
+  participant.totalBets += 1;
+  participant.totalTraded = participant.totalTraded.plus(amount);
+  participant.totalFees = participant.totalFees.plus(fees);
+  if (outcomeIndex.equals(BigInt.zero())) {
+    participant.outcomeTokenBalance0 = participant.outcomeTokenBalance0.plus(outcomeTokenAmount);
+  } else {
+    participant.outcomeTokenBalance1 = participant.outcomeTokenBalance1.plus(outcomeTokenAmount);
+  }
+  participant.blockTimestamp = timestamp;
+  participant.blockNumber = blockNumber;
+  participant.transactionHash = txHash;
+
+  // 4. Save all
+  global.save();
+  agent.save();
+  participant.save();
 }
