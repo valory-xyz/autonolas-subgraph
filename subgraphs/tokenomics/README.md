@@ -1,5 +1,7 @@
 # Tokenomics Subgraph
 
+> **Migration note**: This subgraph was moved from [autonolas-subgraph-studio](https://github.com/valory-xyz/autonolas-subgraph-studio) to this infra repo because Mode chain is not supported by The Graph's hosted service and we needed historical data. This subgraph is not actively maintained and will not be updated unless absolutely necessary. Only the Mode mainnet manifest (`subgraph.mode-mainnet.yaml`) exists in this directory — other network deployments are managed separately.
+
 This directory contains subgraphs for tracking the economic activity and mechanisms of the OLAS token across Ethereum mainnet and various L2 networks.
 
 ## Architecture

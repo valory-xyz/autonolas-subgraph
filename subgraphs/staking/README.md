@@ -1,5 +1,7 @@
 # Staking Subgraph
 
+> **Migration note**: This subgraph was moved from [autonolas-subgraph-studio](https://github.com/valory-xyz/autonolas-subgraph-studio) to this infra repo because Mode chain is not supported by The Graph's hosted service and we needed historical data. This subgraph is not actively maintained and will not be updated unless absolutely necessary. Only the Mode mainnet manifest (`subgraph.mode-mainnet.yaml`) exists in this directory — other network deployments are managed separately.
+
 This subgraph tracks staking activities and reward distributions across multiple networks in the OLAS ecosystem. It monitors staking factory contracts and individual staking proxy instances to provide comprehensive analytics for staking participants, service providers, and reward distributions.
 
 ## Overview
