@@ -2,7 +2,7 @@
 
 A GraphQL API for indexing the Autonolas service registry on Base network, with daily activity tracking for services with agent ID 41.
 
-> **Technical reference**: See [claude.md](claude.md) for full schema reference, handler details, constants, and business rules.
+> **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full schema reference, handler details, constants, and business rules.
 
 ## Quick Overview
 

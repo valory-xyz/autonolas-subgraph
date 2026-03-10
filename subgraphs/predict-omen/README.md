@@ -2,7 +2,7 @@
 
 A streamlined GraphQL API for tracking prediction markets and Autonolas agent performance on Gnosis Chain.
 
-> **Technical reference**: See [CLAUDE.md](claude.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.
+> **Technical reference**: See [claude.md](claude.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.
 
 ## Quick Overview
 

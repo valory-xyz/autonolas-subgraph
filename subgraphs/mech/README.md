@@ -2,7 +2,7 @@
 
 A GraphQL API for indexing the legacy Autonolas AI mech infrastructure on Gnosis Chain.
 
-> **Technical reference**: See [claude.md](claude.md) for full schema reference, handler details, IPFS parsing, and business rules.
+> **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full schema reference, handler details, IPFS parsing, and business rules.
 >
 > **Deprecated**: Use the [marketplace](../marketplace/) subgraph instead. On Gnosis, the marketplace subgraph merges both legacy mech data (from this subgraph) and new Mech Marketplace data into a single unified API. On other chains (Base, Polygon, Optimism, Ethereum, Arbitrum, Celo), it indexes only new Mech Marketplace data. This subgraph is kept for reference but is no longer actively maintained.
 

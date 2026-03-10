@@ -43,10 +43,10 @@ subgraphs/autonolas-base/
 ## Schema Reference
 
 ### Unit
-Same as the [autonolas subgraph](../autonolas/claude.md#unit) — stores metadata for registered services.
+Same as the [autonolas subgraph](../autonolas/CLAUDE.md#unit) — stores metadata for registered services.
 
 ### Service
-Tracks service state and configuration. Same fields as [autonolas](../autonolas/claude.md#service).
+Tracks service state and configuration. Same fields as [autonolas](../autonolas/CLAUDE.md#service).
 
 ### Multisig (Immutable)
 Links Gnosis Safe multisigs to their services. **Only created for services with agent ID 41.**
@@ -109,7 +109,7 @@ Base16HashPrefix = "f01701220"          // IPFS hash prefix conversion
 2. **SafeReceived Eligibility**: Three conditions must all be met: service deployed (state 4), multisig is current, service has agent 41.
 3. **Daily Deduplication**: Each service only increments DailyActivity.count once per day.
 4. **Service State from Contract**: `handleServiceUpdate()` always fetches fresh on-chain state via `getService()` and `getAgentInstances()`.
-5. **IPFS Metadata**: Same resolution pattern as the [autonolas subgraph](../autonolas/claude.md#ipfs-metadata-resolution).
+5. **IPFS Metadata**: Same resolution pattern as the [autonolas subgraph](../autonolas/CLAUDE.md#ipfs-metadata-resolution).
 6. **Dynamic Template**: GnosisSafe template instantiated per multisig address on `CreateMultisigWithAgents`.
 
 ---
