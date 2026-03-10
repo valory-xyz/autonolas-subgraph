@@ -2,7 +2,7 @@
 
 A streamlined GraphQL API for tracking Autonolas agent performance on Polymarket prediction markets on Polygon.
 
-> **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.
+> **Technical reference**: See [claude.md](claude.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.
 
 ## Quick Overview
 

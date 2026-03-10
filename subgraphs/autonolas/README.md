@@ -2,7 +2,7 @@
 
 A GraphQL API for indexing the Autonolas component, agent, and service registries on Ethereum mainnet.
 
-> **Technical reference**: See [claude.md](claude.md) for full schema reference, handler details, IPFS metadata resolution, and business rules.
+> **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full schema reference, handler details, IPFS metadata resolution, and business rules.
 
 ## Quick Overview
 
