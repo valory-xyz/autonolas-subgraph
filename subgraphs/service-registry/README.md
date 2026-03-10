@@ -72,7 +72,7 @@ This query fetches the total count of distinct active multisigs across all agent
 
 ```graphql
 query GetDAAOverall {
-  dailyActiveMultisigs_(
+  dailyActiveMultisigs(
     orderBy: dayTimestamp
     orderDirection: desc
     # Use a Unix timestamp for the desired start date
