@@ -9,6 +9,7 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
 - Request/delivery lifecycle (on-chain and off-chain/signed)
 - Service activity metrics
 - ATA (Autonomous Transaction Agent) counting
+- Mech karma tracking
 - IPFS metadata parsing for prompts/responses
 
 ## Architecture
@@ -27,6 +28,12 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
    - `CreateMultisigWithAgents` - Maps multisig address → serviceId
    - `RegisterInstance` - Tracks agent instances
    - `TerminateService` - Clears agent set
+   - `ActivateRegistration` - Registration activation
+   - `DeployService` - Service deployment
+   - `Deposit` - Deposit tracking
+   - `UpdateService` - Service configuration changes
+   - `Transfer` - Service ownership transfer
+   - `OwnerUpdated` - Owner change
 
 3. **MechFactory** - Factory contracts that emit `CreateMech` with `maxDeliveryRate`
    - `MechFactoryFixedPriceNative` - Native token payment factory
@@ -40,6 +47,13 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
    - `MechFixedPriceToken` - ERC20 token payment
    - `MechNvmSubscriptionNative` - NVM subscription (native)
    - `MechNvmSubscriptionTokenUSDC` - NVM subscription (USDC)
+   - Each template handles: `Request`, `Deliver`, `RevokeRequest`, `MaxDeliveryRateUpdated`
+
+5. **Karma** - Mech karma tracking contract
+   - `MechKarmaChanged` - Updates cumulative karma on Mech entity
+
+6. **ComplementaryServiceMetadata** - Service metadata updates
+   - `MetadataUpdated` - Updates complementary metadata for services
 
 ### Key Entity Relationships
 
@@ -237,8 +251,10 @@ tests/
 
 scripts/                            # Verification and debugging scripts
 ├── verify-subgraph-data.js
+├── verify-subgraph-data.test.js
 ├── verify-mech-counters.js
 ├── verify-v5-fees.js
+├── verify-v5-metrics.sh
 ├── compare-subgraph-versions.js
 ├── compare-global-metrics.js
 ├── compare-mech-services.js
@@ -307,7 +323,7 @@ yarn codegen:celo
 
 Tests use Matchstick framework. Key patterns:
 - `clearStore()` - Reset entity store between tests
-- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base, matic, optimism)
+- `dataSourceMock.setNetwork()` - Mock network context (gnosis, base, matic, optimism, mainnet, arbitrum-one, celo)
 - `createMockedFunction()` - Mock contract calls
 - Tests must explicitly create `CreateMultisigWithAgents` entities for `getServiceIdFromMultisig` to work
 - Tests must create `CreateMech` entities for `getServiceIdFromMech` to work

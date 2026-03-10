@@ -1,6 +1,6 @@
 # Marketplace Subgraph
 
-A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis**, **Base**, **Polygon**, and **Optimism** networks.
+A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis**, **Base**, **Polygon**, **Optimism**, **Ethereum**, **Arbitrum**, and **Celo** networks.
 
 ## When to Read This
 
@@ -25,6 +25,9 @@ This subgraph indexes:
 | Base | `0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020` | 26642705 |
 | Polygon | `0x343F2B005cF6D70bA610CD9F1F1927049414B582` | 66632853 |
 | Optimism | `0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461` | 130872124 |
+| Ethereum | `0x3d6494CE09a9f40c0B5a92BdBD7c7A9b0e3912b1` | 24427441 |
+| Arbitrum | `0xf76953444C35F1FcE2F6CA1b167173357d3F5C17` | 430646886 |
+| Celo | `0x17d96ba4532fe91809326092fE4D5606A7B7a0d8` | 58841368 |
 
 ## Quick Start
 
@@ -54,6 +57,9 @@ graph build subgraph.gnosis.yaml
 graph build subgraph.base.yaml
 graph build subgraph.polygon.yaml
 graph build subgraph.optimism.yaml
+graph build subgraph.mainnet.yaml
+graph build subgraph.arbitrum.yaml
+graph build subgraph.celo.yaml
 ```
 
 ### Test
@@ -69,9 +75,6 @@ graph test tests/marketplace/mech-marketplace.test.ts
 ### Local Development
 
 ```bash
-# Start local Graph node (requires Docker)
-docker-compose up -d
-
 # Create subgraph on local node
 yarn create-local
 
@@ -88,13 +91,15 @@ yarn deploy-local
 | `Service` | Olas service with mech(s), requests, and deliveries | Mutable (aggregated state) |
 | `Request` | A request to a mech for AI inference | Mutable (aggregated state) |
 | `Deliver` | Delivery of a request response | Mutable (aggregated state) |
-| `Mech` | Legacy AgentMech instance (Gnosis only, uint256 request IDs) | Mutable (aggregated state) |
-| `MarketplaceMech` | Marketplace mech instance (Gnosis/Base, bytes32 request IDs) | Mutable (aggregated state) |
+| `Mech` | Marketplace mech instance with karma and fee tracking | Mutable (aggregated state) |
+| `MarketplaceMech` | Legacy marketplace mech (tracks transactions per service) | Mutable (aggregated state) |
+| `Global` | Aggregate counters (marketplace + legacy requests, deliveries, fees) | Mutable (aggregated state) |
 | `Sender` | Address that has made requests | Mutable (aggregated state) |
 | `ParsedRequest` | IPFS-parsed request content (prompt, tool) | Immutable (event log) |
 | `ParsedDelivery` | IPFS-parsed delivery content (response, model) | Immutable (event log) |
 | `MarketplaceRequest` | On-chain marketplace request event | Immutable (event log) |
 | `MarketplaceDelivery` | On-chain marketplace delivery event | Immutable (event log) |
+| `AtaTransaction` | Deduplicated ATA transaction record | Immutable (event log) |
 
 ### Key Relationships
 
@@ -197,9 +202,17 @@ https://subgraph.autonolas.tech/subgraphs/name/marketplace-{network}-{version}
 
 ### Data Sources
 
-1. **MechMarketplace** - Main marketplace contract
-2. **ServiceRegistryL2** - Service lifecycle events
-3. **Mech Templates** (dynamic) - Per-mech events
+1. **MechMarketplace** (V1/V2) - Main marketplace contract
+2. **MechFactory** - Factory contracts that emit `CreateMech` with `maxDeliveryRate`
+   - `MechFactoryFixedPriceNative`
+   - `MechFactoryFixedPriceToken`
+   - `MechFactoryFixedPriceTokenUSDC`
+   - `MechFactoryNvmSubscriptionNative`
+   - `MechFactoryNvmSubscriptionTokenUSDC`
+3. **ServiceRegistryL2** - Service lifecycle events
+4. **Karma** - Mech karma tracking
+5. **ComplementaryServiceMetadata** - Service metadata updates
+6. **Mech Templates** (dynamic) - Per-mech events
    - `MechFixedPriceNative`
    - `MechFixedPriceToken`
    - `MechNvmSubscriptionNative`
@@ -215,8 +228,12 @@ Fees are converted to USD using:
 | Base | ETH | Chainlink ETH/USD price feed |
 | Polygon | POL | Chainlink POL/USD price feed |
 | Optimism | ETH | Chainlink ETH/USD price feed |
+| Ethereum | ETH | Chainlink ETH/USD price feed |
+| Arbitrum | ETH | Chainlink ETH/USD price feed |
+| Celo | CELO | Chainlink CELO/USD price feed |
 | Any | USDC | 1:1 peg |
-| Gnosis/Base | OLAS | Balancer V2 pool prices |
+| Gnosis/Base/Arbitrum | OLAS | Balancer V2 pool prices |
+| Ethereum | OLAS | Uniswap V2 pool price |
 | Any | NVM Credits | Contract token ratios |
 
 **Scope:** Fee tracking applies only to on-chain marketplace requests (emitted via `MarketplaceRequest` events). Off-chain signed deliveries and legacy AgentMech requests do not have fee data.
@@ -229,7 +246,7 @@ Fees are converted to USD using:
 ```typescript
 import { dataSourceMock } from "matchstick-as/assembly/index";
 
-dataSourceMock.setNetwork("gnosis");  // or "base"
+dataSourceMock.setNetwork("gnosis");  // or "base", "matic", "optimism", "mainnet", "arbitrum-one", "celo"
 ```
 
 **Mock contract calls:**

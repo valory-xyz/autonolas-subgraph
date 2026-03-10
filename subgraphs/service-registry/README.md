@@ -1,50 +1,50 @@
 # Service Registry Subgraph
 
-This directory contains subgraphs for tracking the lifecycle of services, including agent registration, multisig creation, and daily activity metrics across Ethereum mainnet and various L2 networks.
+> **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full schema reference, handler details, daily aggregation logic, utility functions, and business rules.
+
+This directory contains subgraphs for tracking the lifecycle of services, including agent registration, multisig creation, and daily activity metrics across L2 networks.
 
 ## Architecture
 
-The project is structured with a shared core logic and network-specific configurations:
+All source files, the schema, and network-specific manifests live in a single flat directory:
 
--   **Common Logic (`common/`)**: This directory contains the shared GraphQL schema (`schema.graphql`), mapping logic (`mappers/mapping.ts`), and utility functions (`utils.ts`) used by all network subgraphs.
--   **Network Subgraphs (`service-registry-*/`)**: Each supported network has its own directory containing the `subgraph.<network>.yaml` manifest file. These manifests define the specific contract addresses and start blocks for that network while referencing the common mapping and schema.
+-   **Schema** (`schema.graphql`): Shared GraphQL schema defining 14 entity types.
+-   **Mapping Logic** (`src/mapping.ts`): Event handlers for L2 networks (ServiceRegistryL2 + GnosisSafe).
+-   **Mainnet Mapping** (`src/mapping-eth.ts`): Event handlers for Ethereum mainnet (imports from `ServiceRegistry` ABI instead of `ServiceRegistryL2`; does not set `configHash` on service creation).
+-   **Utilities** (`src/utils.ts`): Shared entity getters, daily aggregation functions, and deduplication logic.
+-   **Network Manifests** (`subgraph.*.yaml`): Per-network manifests with contract addresses and start blocks.
+-   **Template** (`subgraph.template.yaml`): Template manifest using `{{ variable }}` placeholders, substituted from `networks.json`.
 
 ## Indexed Contracts
 
-The subgraphs index data from the following contracts:
-
--   **`ServiceRegistry` (Mainnet)**: The core contract on Ethereum mainnet for managing services, agent registrations, and multisig deployments.
--   **`ServiceRegistryL2` (L2s)**: The equivalent contract deployed on various L2 networks.
--   **`GnosisSafe` (All Networks)**: The multisig wallet contract used by services. This is indexed dynamically using a template when a new multisig is created for a service.
+-   **`ServiceRegistryL2` (L2s)**: The contract deployed on L2 networks for managing services, agent registrations, and multisig deployments.
+-   **`GnosisSafe` (All Networks)**: The multisig wallet contract used by services. Indexed dynamically via a template when a new multisig is created for a service.
 
 ## Core Entities
 
--   **`Service`**: Represents a service, linking it to its registered agent instances and multisig wallet.
--   **`Multisig`**: Tracks Gnosis Safe wallets, including their creator, creation timestamp, and associated agent instances.
--   **`Agent`**: Represents a unique autonomous agent.
--   **`AgentRegistration`**: Records the registration of an agent to a service, capturing the timestamp.
--   **`AgentPerformance`**: Aggregates the total transaction count for each agent across all their activity.
--   **`Global`**: A singleton entity for global statistics, such as the total transaction count and the total number of unique agents.
+-   **`Service`**: Represents a service with its registered agent IDs (`agentIds`), multisig address, config hash, creator, and creation timestamp.
+-   **`Multisig`**: Tracks Gnosis Safe wallets, including their creator address, creation timestamp, transaction hash, service ID, and the most-recently-registered agent (stored in `agentIds`).
+-   **`AgentRegistration`**: Records the registration of an agent to a service, capturing the service ID, agent ID, and registration timestamp. ID format: `{serviceId}-{agentId}`.
+-   **`AgentPerformance`**: Aggregates the total transaction count (`txCount` as `BigInt`) for each agent across all activity.
+-   **`Creator`**: Tracks service creator addresses. Services are derived via `@derivedFrom`.
+-   **`Operator`**: Tracks unique operator addresses registered across services.
+-   **`Global`**: A singleton entity (id: `""`) for global statistics: total transaction count, last updated timestamp, and total unique operators.
 
 ### Daily Aggregation Entities
 
-To provide insights into daily activity, the subgraph generates several daily snapshot entities:
+To provide insights into daily activity, the subgraph generates several daily snapshot entities with deduplication links:
 
 -   **`DailyServiceActivity`**: Tracks the active agents for each service on a daily basis.
--   **`DailyUniqueAgents`**: Counts the number of unique active agents across all services each day.
--   **`DailyAgentPerformance`**: Records the daily transaction count for each agent.
--   **`DailyActiveMultisigs`**: Tracks the number of multisig wallets that had on-chain activity each day.
+-   **`DailyUniqueAgents`** / **`DailyUniqueAgent`**: Counts unique active agents per day. `DailyUniqueAgent` is a deduplication link ensuring each agent is counted once per day.
+-   **`DailyAgentPerformance`** / **`DailyAgentMultisig`**: Records daily transaction count and active multisig count per agent. `DailyAgentMultisig` deduplicates multisigs per agent per day.
+-   **`DailyActiveMultisigs`** / **`DailyActiveMultisig`**: Tracks multisig wallets with on-chain activity each day. `DailyActiveMultisig` deduplicates per day.
 
 ## Supported Networks
 
--   **Ethereum Mainnet**: `service-registry-eth/subgraph.yaml`
--   **Arbitrum**: `service-registry-arbitrum/subgraph.arbitrum.yaml`
--   **Base**: `service-registry-base/subgraph.base.yaml`
--   **Celo**: `service-registry-celo/subgraph.celo.yaml`
--   **Gnosis**: `service-registry-gnosis/subgraph.gnosis.yaml`
--   **Mode**: `service-registry-mode/subgraph.mode.yaml`
--   **Optimism**: `service-registry-optimism/subgraph.optimism.yaml`
--   **Polygon**: `service-registry-polygon/subgraph.polygon.yaml`
+Currently deployed manifests:
+
+-   **Gnosis**: `subgraph.gnosis.yaml`
+-   **Mode**: `subgraph.mode-mainnet.yaml`
 
 ## Usage Examples
 
@@ -66,13 +66,13 @@ query GetDAAForAgent {
 }
 ```
 
-### 2. Daily Active Agents (DAA) Across All Agents
+### 2. Daily Active Multisigs Across All Agents
 
 This query fetches the total count of distinct active multisigs across all agents for each day.
 
 ```graphql
 query GetDAAOverall {
-  dailyActiveMultisigs(
+  dailyActiveMultisigs_(
     orderBy: dayTimestamp
     orderDirection: desc
     # Use a Unix timestamp for the desired start date
@@ -108,6 +108,20 @@ This query retrieves the total number of transactions processed across all servi
 query GetTotalTxsPerChain {
   global(id: "") {
     txCount
+  }
+}
+```
+
+### 5. Global Statistics
+
+This query retrieves all global metrics including total operators.
+
+```graphql
+query GetGlobalStats {
+  global(id: "") {
+    txCount
+    lastUpdated
+    totalOperators
   }
 }
 ``` 

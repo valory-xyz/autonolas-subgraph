@@ -1,5 +1,7 @@
 # BabyDegen Subgraph - MODE Network
 
+> **Migration note**: This subgraph was moved from [autonolas-subgraph-studio](https://github.com/valory-xyz/autonolas-subgraph-studio) to this infra repo because Mode chain is not supported by The Graph's hosted service and we needed historical data. This subgraph is not actively maintained and will not be updated unless absolutely necessary.
+
 This subgraph tracks agent portfolio performance and population-level metrics for the BabyDegen agent economy on MODE Network. It monitors autonomous agents participating in DeFi protocols, tracking their portfolio performance, position management, and providing aggregated population statistics.
 
 ## Overview
