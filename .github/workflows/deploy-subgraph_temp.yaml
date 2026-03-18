@@ -1,4 +1,4 @@
-name: Deploy Subgraph
+name: Deploy Subgraph Temp
 
 run-name: Deploy ${{ inputs.subgraph }} to ${{ inputs.environment }}
 
@@ -146,6 +146,7 @@ jobs:
           yarn graph deploy \
             --node=${{ env.GRAPH_NODE_URL }} \
             --ipfs=https://registry.autonolas.tech \
+            --version-label v0.0.1 \
             ${{ env.SUBGRAPH_NAME }} \
             ${{ env.MANIFEST }}
 
