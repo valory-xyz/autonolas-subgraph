@@ -1,44 +1,4 @@
 {
-  "mainnet": {
-    "ServiceRegistry": {
-      "address": "0x48b6af7B12C71f09e2fC8aF4855De4Ff54e775cA",
-      "startBlock": 15178299
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x461A76074596F080dfba414532Ab51280611B8e6",
-      "startBlock": 24341433
-    }
-  },
-  "optimism": {
-    "ServiceRegistryL2": {
-      "address": "0x3d77596beb0f130a4415df3D2D8232B3d3D31e44",
-      "startBlock": 116423039
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140",
-      "startBlock": 147564576
-    }
-  },
-  "base": {
-    "ServiceRegistryL2": {
-      "address": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
-      "startBlock": 10827380
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x67722c823010ceb4bed5325fe109196c0f67d053",
-      "startBlock": 41675072
-    }
-  },
-  "celo": {
-    "ServiceRegistryL2": {
-      "address": "0xE3607b00E75f6405248323A9417ff6b39B244b50",
-      "startBlock": 24205712
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140",
-      "startBlock": 59336472
-    }
-  },
   "gnosis": {
     "ServiceRegistryL2": {
       "address": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
@@ -49,24 +9,10 @@
       "startBlock": 44506664
     }
   },
-  "matic": {
+  "mode-mainnet": {
     "ServiceRegistryL2": {
-      "address": "0xE3607b00E75f6405248323A9417ff6b39B244b50",
-      "startBlock": 41783952
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x6F121552765424f0B2331B541C0938480cA314Db",
-      "startBlock": 82500133
-    }
-  },
-  "arbitrum-one": {
-    "ServiceRegistryL2": {
-      "address": "0xE3607b00E75f6405248323A9417ff6b39B244b50",
-      "startBlock": 174008819
-    },
-    "IdentityRegistryBridger": {
-      "address": "0x22be6fdcd3e29851b29b512f714c328a00a96b83",
-      "startBlock": 428942714
+      "address": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
+      "startBlock": 14444011
     }
   }
 }
