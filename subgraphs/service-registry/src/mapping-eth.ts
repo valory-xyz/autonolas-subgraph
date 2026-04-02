@@ -4,7 +4,13 @@ import {
   CreateService,
   RegisterInstance,
   TerminateService,
+  UpdateService,
 } from '../generated/ServiceRegistry/ServiceRegistry';
+import {
+  ServiceAgentLinked,
+  AgentWalletSet,
+  MetadataSet,
+} from '../generated/IdentityRegistryBridger/IdentityRegistryBridger';
 import {
   ExecutionSuccess,
   ExecutionFromModuleSuccess,
@@ -27,11 +33,14 @@ import {
   getMostRecentAgentId,
   updateUniqueOperators,
   getOrCreateServiceCreator,
+  getOrCreateERC8004Agent,
+  getOrCreateERC8004Metadata,
+  initializeERC8004DefaultMetadata,
 } from './utils';
 
 function updateDailyAgentPerformance(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   // Process each agent associated with this multisig
   for (let i = 0; i < multisig.agentIds.length; i++) {
@@ -43,7 +52,7 @@ function updateDailyAgentPerformance(
     if (entity.agentId != agentId) {
       log.error(
         'CRITICAL BUG: Agent ID mismatch! Entity {} has agentId {} but expected {}',
-        [entity.id, entity.agentId.toString(), agentId.toString()]
+        [entity.id, entity.agentId.toString(), agentId.toString()],
       );
       // Skip this update to prevent data corruption
       continue;
@@ -64,7 +73,7 @@ function updateDailyAgentPerformance(
 
 function updateDailyUniqueAgents(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyUniqueAgents = getOrCreateDailyUniqueAgents(event);
   for (let i = 0; i < multisig.agentIds.length; i++) {
@@ -77,7 +86,7 @@ function updateDailyUniqueAgents(
 function updateDailyActivity(
   service: Service,
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyActivity = getOrCreateDailyServiceActivity(service.id, event);
   dailyActivity.agentIds = multisig.agentIds;
@@ -86,7 +95,7 @@ function updateDailyActivity(
 
 function updateDailyActiveMultisigs(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyEntity = getOrCreateDailyActiveMultisigs(event);
   createDailyActiveMultisig(dailyEntity, multisig);
@@ -103,6 +112,14 @@ export function handleCreateService(event: CreateService): void {
   getOrCreateService(event.params.serviceId, event.block.timestamp);
 }
 
+export function handleUpdateService(event: UpdateService): void {
+  let service = Service.load(event.params.serviceId.toString());
+  if (service != null) {
+    service.configHash = event.params.configHash;
+    service.save();
+  }
+}
+
 export function handleRegisterInstance(event: RegisterInstance): void {
   let service = getOrCreateService(event.params.serviceId);
   const newAgentId = event.params.agentId.toI32();
@@ -111,7 +128,7 @@ export function handleRegisterInstance(event: RegisterInstance): void {
   createOrUpdateAgentRegistration(
     event.params.serviceId.toI32(),
     newAgentId,
-    event.block.timestamp
+    event.block.timestamp,
   );
 
   // Add agent if not already in the list to avoid duplicates
@@ -148,7 +165,7 @@ export function handleCreateMultisig(event: CreateMultisigWithAgents): void {
     const mostRecentAgentId = getMostRecentAgentId(
       event.params.serviceId.toI32(),
       service.agentIds,
-      event.block.timestamp
+      event.block.timestamp,
     );
 
     if (mostRecentAgentId != -1) {
@@ -195,7 +212,7 @@ export function handleExecutionSuccess(event: ExecutionSuccess): void {
 }
 
 export function handleExecutionFromModuleSuccess(
-  event: ExecutionFromModuleSuccess
+  event: ExecutionFromModuleSuccess,
 ): void {
   let multisig = Multisig.load(event.address);
   if (multisig != null) {
@@ -213,4 +230,34 @@ export function handleExecutionFromModuleSuccess(
       ]);
     }
   }
+}
+
+export function handleServiceAgentLinked(event: ServiceAgentLinked): void {
+  let service = Service.load(event.params.serviceId.toString());
+  if (service != null) {
+    let agentId = event.params.agentId.toI32();
+    let serviceId = event.params.serviceId.toI32();
+    let erc8004Agent = getOrCreateERC8004Agent(agentId);
+    service.erc8004Agent = erc8004Agent.id;
+    service.save();
+    initializeERC8004DefaultMetadata(agentId, serviceId);
+  } else {
+    log.warning('Service {} not found for ServiceAgentLinked event', [
+      event.params.serviceId.toString(),
+    ]);
+  }
+}
+
+export function handleAgentWalletSet(event: AgentWalletSet): void {
+  let agentId = event.params.agentId.toI32();
+  let erc8004Agent = getOrCreateERC8004Agent(agentId);
+  erc8004Agent.agentWallet = event.params.multisig;
+  erc8004Agent.save();
+}
+
+export function handleMetadataSet(event: MetadataSet): void {
+  let agentId = event.params.agentId.toI32();
+  let metadata = getOrCreateERC8004Metadata(agentId, event.params.metadataKey);
+  metadata.value = event.params.metadataValue.toString();
+  metadata.save();
 }

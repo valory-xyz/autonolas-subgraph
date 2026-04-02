@@ -1,15 +1,14 @@
-
 specVersion: 0.0.5
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
     name: ServiceRegistryL2
-    network:  mode-mainnet
+    network: optimism
     source:
-      address: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"
+      address: "0x3d77596beb0f130a4415df3D2D8232B3d3D31e44"
       abi: ServiceRegistryL2
-      startBlock: 14444011
+      startBlock: 116423039
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -27,9 +26,13 @@ dataSources:
       abis:
         - name: ServiceRegistryL2
           file: ../../abis/ServiceRegistryL2.json
+        - name: GnosisSafe
+          file: ../../abis/GnosisSafe.json
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
+        - event: UpdateService(indexed uint256,bytes32)
+          handler: handleUpdateService
         - event: CreateMultisigWithAgents(indexed uint256,indexed address)
           handler: handleCreateMultisig
         - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
@@ -37,11 +40,35 @@ dataSources:
         - event: TerminateService(indexed uint256)
           handler: handleTerminateService
       file: ./src/mapping.ts
+  - kind: ethereum/contract
+    name: IdentityRegistryBridger
+    network: optimism
+    source:
+      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
+      abi: IdentityRegistryBridger
+      startBlock: 147564576
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - Service
+      abis:
+        - name: IdentityRegistryBridger
+          file: ../../abis/IdentityRegistryBridge.json
+      eventHandlers:
+        - event: ServiceAgentLinked(indexed uint256,indexed uint256)
+          handler: handleServiceAgentLinked
+        - event: AgentWalletSet(indexed uint256,indexed uint256,indexed address)
+          handler: handleAgentWalletSet
+        - event: MetadataSet(indexed uint256,indexed uint256,string,bytes)
+          handler: handleMetadataSet
+      file: ./src/mapping.ts
 
 templates:
   - kind: ethereum/contract
     name: GnosisSafe
-    network: mode-mainnet
+    network: optimism
     source:
       abi: GnosisSafe
     mapping:
@@ -68,4 +95,3 @@ templates:
           handler: handleExecutionSuccess
         - event: ExecutionFromModuleSuccess(indexed address)
           handler: handleExecutionFromModuleSuccess
-      

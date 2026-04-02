@@ -4,11 +4,11 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: ServiceRegistryL2
-    network: gnosis
+    network: celo
     source:
-      address: "0x9338b5153AE39BB89f50468E608eD9d764B755fD"
+      address: "0xE3607b00E75f6405248323A9417ff6b39B244b50"
       abi: ServiceRegistryL2
-      startBlock: 27871084
+      startBlock: 24205712
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -40,11 +40,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: IdentityRegistryBridger
-    network: gnosis
+    network: celo
     source:
-      address: "0x6e8F740F23f07cE129Daa59786926fecA8C2D2F3"
+      address: "0x7fc0ddf4DFB61CfA5519db2A5eE7B2Eb02De0140"
       abi: IdentityRegistryBridger
-      startBlock: 44506664
+      startBlock: 59336472
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -66,7 +66,7 @@ dataSources:
 templates:
   - kind: ethereum/contract
     name: GnosisSafe
-    network: gnosis
+    network: celo
     source:
       abi: GnosisSafe
     mapping:

@@ -1,11 +1,10 @@
-
 specVersion: 0.0.5
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
     name: ServiceRegistryL2
-    network:  {{ network }}
+    network: {{ network }}
     source:
       address: "{{ ServiceRegistryL2.address }}"
       abi: ServiceRegistryL2
@@ -30,6 +29,8 @@ dataSources:
       eventHandlers:
         - event: CreateService(indexed uint256,bytes32)
           handler: handleCreateService
+        - event: UpdateService(indexed uint256,bytes32)
+          handler: handleUpdateService
         - event: CreateMultisigWithAgents(indexed uint256,indexed address)
           handler: handleCreateMultisig
         - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
@@ -37,11 +38,35 @@ dataSources:
         - event: TerminateService(indexed uint256)
           handler: handleTerminateService
       file: ./src/mapping.ts
+  - kind: ethereum/contract
+    name: IdentityRegistryBridger
+    network: {{ network }}
+    source:
+      address: "{{ IdentityRegistryBridger.address }}"
+      abi: IdentityRegistryBridger
+      startBlock: {{ IdentityRegistryBridger.startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - Service
+      abis:
+        - name: IdentityRegistryBridger
+          file: ../../abis/IdentityRegistryBridge.json
+      eventHandlers:
+        - event: ServiceAgentLinked(indexed uint256,indexed uint256)
+          handler: handleServiceAgentLinked
+        - event: AgentWalletSet(indexed uint256,indexed uint256,indexed address)
+          handler: handleAgentWalletSet
+        - event: MetadataSet(indexed uint256,indexed uint256,string,bytes)
+          handler: handleMetadataSet
+      file: ./src/mapping.ts
 
 templates:
   - kind: ethereum/contract
     name: GnosisSafe
-    network: mode-mainnet
+    network: {{ network }}
     source:
       abi: GnosisSafe
     mapping:
@@ -68,4 +93,3 @@ templates:
           handler: handleExecutionSuccess
         - event: ExecutionFromModuleSuccess(indexed address)
           handler: handleExecutionFromModuleSuccess
-      
