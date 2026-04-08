@@ -6,9 +6,15 @@ temp/
 
 .env
 .env.prod
-.cursor/
 
 .DS_Store
 .bin
+.latest.json
 
+# IDE
+.idea/
+.cursor/
+.vscode/
+
+# Claude Code
 .claude/projects/
