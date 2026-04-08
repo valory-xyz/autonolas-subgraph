@@ -10,12 +10,9 @@ import {
 } from "./utils";
 
 export function handleConditionPreparation(event: ConditionPreparationEvent): void {
-  let question = Question.load(event.params.questionId.toHexString());
-  // only safe conditions for our markets
-  if (question === null) {
-    return;
-  }
-
+  // Save unconditionally — the Question may not exist yet if ConditionPreparation
+  // fires before LogNewQuestion in the same block. The link is checked later
+  // during market creation in handleFixedProductMarketMakerCreation.
   let entity = new ConditionPreparation(event.params.conditionId.toHexString());
   entity.conditionId = event.params.conditionId;
   entity.oracle = event.params.oracle;

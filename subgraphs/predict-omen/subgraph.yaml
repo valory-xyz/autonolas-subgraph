@@ -16,11 +16,15 @@ dataSources:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - CreateMultisigWithAgents
+        - TraderAgent
+        - TraderService
+        - Global
       abis:
         - name: ServiceRegistryL2
           file: ../../abis/ServiceRegistryL2.json
       eventHandlers:
+        - event: RegisterInstance(indexed address,indexed uint256,indexed address,uint256)
+          handler: handleRegisterInstance
         - event: CreateMultisigWithAgents(indexed uint256,indexed address)
           handler: handleCreateMultisigWithAgents
       file: ./src/service-registry-l-2.ts
