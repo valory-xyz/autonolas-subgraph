@@ -63,22 +63,49 @@ graft:
   alive until then in case we need to rebuild.
 
 **Grafting constraints to remember:**
-- Schema must be additive vs. the base. We're not changing the schema at all, so
-  this is trivially satisfied.
+- Schema must be additive vs. the base. We're only adding two optional
+  fields (`Bet.builder`, `Bet.metadata`) and no new required fields, so
+  this is satisfied.
 - Graft base must remain available on the indexer until we drop the graft block.
+- **Pruning window.** The base runs with `indexerHints: prune: 300`, so
+  only the last 300 blocks (~10 minutes on Polygon) of entity history are
+  retained. The graft block must fall inside `[head - 300, head]` at the
+  moment of deploy, or the source state is already pruned and the graft
+  fails. See "Paused-base strategy" below.
 
-## Block pinning (2026-04-23)
+## Paused-base strategy
 
-Reference point from the team: Polygon block `85924498` has timestamp
-`1776969040` ≈ 2026-04-23 10:30 UTC (i.e. "today"). With Polygon's ~2s
-blocktime, cutover on 2026-04-28 11:00 UTC lands around block `86145578`,
-and cutover + 14 days around block `86750378`.
+Because pruning gives us only a ~10-minute window, we can't pre-pick a
+graft block days in advance and have it still be valid at deploy time.
+Instead:
+
+1. **Pause the base subgraph** (`graphman pause <deployment>`). Its head
+   stops advancing, so the pruning window stops advancing too. Whatever
+   block the base was at when paused stays queryable indefinitely.
+2. **Commit that block** as `graft.block` and as both v2 exchange
+   `startBlock`s in `subgraph.yaml`. The exact number is pinned in the
+   PR, code-reviewed, reproducible in staging.
+3. **Deploy the grafted subgraph** and verify it starts indexing v2
+   events from the graft block forward.
+4. **Resume the base** (`graphman resume <deployment>`). It catches up
+   from its paused head; no data loss. Keep it live until the Phase 4
+   "drop graft:" follow-up deploy lands.
+
+Prereq to verify with infra before cutover: confirm graph-node's pruning
+is head-triggered (it is in the standard build — pruning runs as part of
+indexing progress, so a paused subgraph does not prune).
+
+## Block pinning (2026-04-24)
+
+Paused the production base at Polygon block **85952819** (2026-04-24).
+With Polygon's ~2s blocktime, cutover on 2026-04-28 11:00 UTC lands
+around block `86145578`, and cutover + 14 days around block `86750378`.
 
 | Manifest field                    | Block    | Notes                                                 |
 | --------------------------------- | -------- | ----------------------------------------------------- |
-| `graft.block`                     | 85924498 | "today" — base subgraph must have indexed up to here  |
-| `CTFExchangeV2.startBlock`        | 85924498 | same — captures any pre-cutover v2 test-market events |
-| `NegRiskCTFExchangeV2.startBlock` | 85924498 | same                                                  |
+| `graft.block`                     | 85952819 | frozen head of the paused base subgraph               |
+| `CTFExchangeV2.startBlock`        | 85952819 | same — must match graft.block                         |
+| `NegRiskCTFExchangeV2.startBlock` | 85952819 | same                                                  |
 | `CTFExchange.endBlock` (v1)       | 86750000 | ~cutover + 2 weeks, rounded                           |
 | `NegRiskCTFExchange.endBlock` (v1)| 86750000 | ~cutover + 2 weeks, rounded                           |
 
@@ -95,24 +122,30 @@ manifest edit.
 Net effect: we get an explicit stopping point for v1 (cleaner operational
 signal, clearer "retired" status) without being fragile to small slips.
 
-### Why start v2 at "today" instead of cutover block
+### Why this block and not "slightly before cutover"
 
-`startBlock` near cutover would be marginally cheaper to sync, but "today"
-has two real benefits:
+The paused-base strategy decouples the graft block from the cutover block
+entirely. The base is paused now; its head will stay at 85952819 until
+we deploy, regardless of wall-clock time. Benefits:
 
-1. **Pre-cutover validation.** Polymarket has v2 test markets live now
-   (events 73106 and 79831). Starting today means any test-market trades
-   flow through our handlers before cutover. We'll see whether the v2
-   `OrderFilled` handler produces the right numbers on real traffic, not
-   just Matchstick fixtures.
-2. **Avoid cutover-minute precision.** We don't need to re-pick a block
-   the morning of cutover — today's block is picked, done. If the deploy
-   itself slips a few days, we can bump both numbers together without
-   re-reasoning about the cutover moment.
+1. **Stable, code-reviewable block number.** Pinned in the PR today,
+   rehearsable in staging against the same block, no cutover-morning
+   YAML edit.
+2. **No 10-minute deploy pressure.** The pruning window for this graft
+   block doesn't advance while the base is paused, so we're not racing
+   a clock.
 
-Cost: the indexer scans ~216000 blocks pre-cutover looking for v2 Exchange
-events. Those exchanges are low-volume test markets right now, so it's
-cheap.
+Tradeoff: we lose the "capture pre-cutover v2 test-market trades"
+benefit the earlier plan argued for. Polymarket's v2 test markets
+trading between 2026-04-24 and cutover happen at blocks **after**
+85952819, so those events do still fall within the v2 dataSource's
+indexing range — they'll be picked up when the grafted subgraph starts
+syncing forward from 85952819. Only events between 2026-04-23 (the
+originally proposed block) and 2026-04-24 are forgone.
+
+If the deploy slips by more than a few days, re-pause the (resumed)
+base at its new head and bump this block + both v2 startBlocks
+together.
 
 ## Pre-work (Apr 23 – Apr 25)
 
@@ -251,47 +284,59 @@ migration docs:
   across the cutover (same unit, same scale).
 - No schema change, no reporting note needed.
 
-### 7. Graft + v2 start block — DONE
+### 7. Graft + v2 start block — DONE (2026-04-24)
 
-Pinned in the manifest (see "Block pinning" section above):
+Paused the production base at block **85952819** and pinned that block in
+the manifest (see "Block pinning" section above):
 
-- `graft.block` = `CTFExchangeV2.startBlock` = `NegRiskCTFExchangeV2.startBlock` = **85924498** (2026-04-23)
+- `graft.block` = `CTFExchangeV2.startBlock` = `NegRiskCTFExchangeV2.startBlock` = **85952819** (paused-base head, 2026-04-24)
 - `CTFExchange.endBlock` = `NegRiskCTFExchange.endBlock` = **86750000** (~cutover + 2 weeks)
 
-Revisit if the deploy slips past late April 2026 — both v2 startBlocks and
-the graft block should move forward together to avoid wasted head-sync on
-the v2 contracts.
+The base must stay paused from now until the grafted subgraph is deployed
+and verified. If the deploy slips by more than a few days, re-pause the
+base at its new head and bump this block + both v2 startBlocks together.
 
 ## Phased timeline
 
 **Apr 23–25 — Prep**
-- [ ] Fetch v2 ABIs, diff events, decide reuse vs. v2 handler variants.
-- [ ] Implement v2 dataSources + handlers (if needed) behind a new branch.
-- [ ] Add Matchstick tests covering v2 fixtures from Polymarket's test markets.
-- [ ] `yarn codegen && yarn build && yarn test` clean.
+- [x] Fetch v2 ABIs, diff events, decide reuse vs. v2 handler variants.
+- [x] Implement v2 dataSources + handlers (if needed) behind a new branch.
+- [x] Add Matchstick tests covering v2 fixtures from Polymarket's test markets.
+- [x] `yarn codegen && yarn build && yarn test` clean.
+- [x] Pause production base at block 85952819; pin that block as `graft.block`
+      and both v2 `startBlock`s.
 
-**Apr 26–27 — Staging**
-- [ ] Deploy grafted version to our staging indexer.
-- [ ] Let it catch up (should be fast — graft skips history).
+**Apr 26–27 — Staging rehearsal**
+- [ ] Pause staging base; note its head block.
+- [ ] Point a staging-only manifest at that block; deploy grafted subgraph
+      to staging indexer.
+- [ ] Verify graft succeeds and v2 exchanges start indexing from the head.
+- [ ] Resume staging base; confirm it catches up cleanly.
 - [ ] Spot-check: TraderAgent rows, Global counters, a few known agents still on v1.
 - [ ] Run `scripts/validate-global.js` against staging.
 
 **Apr 28 ~11:00 UTC — Cutover**
-- [ ] Promote grafted version to production on our infra.
-- [ ] Monitor first v2 `OrderFilled` events: confirm agents load, Bet rows land,
-      `Global.totalBets` increments.
+- [ ] Confirm production base is still paused at 85952819 (and that no one
+      resumed it between now and cutover).
+- [ ] Deploy grafted subgraph to production.
+- [ ] Verify graft succeeded (entity counts match the paused base).
+- [ ] Resume the production base immediately after graft deploy is verified
+      (so it stays available as a graft source until Phase 4).
+- [ ] Monitor first v2 `OrderFilled` events after cutover: confirm agents
+      load, Bet rows land, `Global.totalBets` increments.
 
 **Apr 28+ — Post-cutover**
 - [ ] 24h later: re-run `validate-global.js`.
 - [ ] Once stable, plan a follow-up deployment that drops the `graft:` block so the
       subgraph becomes self-contained again.
-- [ ] Keep pre-graft deployment alive until the follow-up lands.
+- [ ] Keep pre-graft deployment alive (and indexing) until the follow-up lands.
 
 ## Rollback
 
 v1 handlers and entities are untouched, so rollback is cheap:
 
-- Revert the indexer's active deployment to the pre-graft version.
+- Revert the indexer's active deployment to the pre-graft version (the
+  paused-then-resumed base).
 - A few hours of v2 trades go un-indexed; they backfill on re-deploy of the fixed
   v2 handler version.
 - No data loss, no schema churn.
@@ -299,15 +344,20 @@ v1 handlers and entities are untouched, so rollback is cheap:
 ## Risks
 
 - **ABI drift on v2 `OrderFilled`.** Biggest risk. Mitigation: verify before writing
-  any handler code.
+  any handler code — done.
+- **Base resumed prematurely.** If someone resumes the paused base before
+  we deploy, its head advances and 85952819 eventually falls outside the
+  300-block pruning window, invalidating the pinned graft block. Mitigation:
+  clear ownership of the paused state + a runbook note; re-pause and bump
+  the block if it happens.
 - **Graft base unavailable.** If the indexer loses the source deployment before we
   drop `graft:`, the grafted subgraph can't be rebuilt from scratch without
   re-indexing. Mitigation: keep the pre-graft deployment pinned until Phase 4
   lands.
-- **pUSD decimals or other surprise.** Low-probability, flagged above.
-- **Migration slip.** If Polymarket postpones, the graft block may be stale by the
-  time we cut over. Re-pick graft block on the day of cutover; it's just a YAML
-  edit + redeploy.
+- **pUSD decimals or other surprise.** Resolved in section 6 — no surprise.
+- **Migration slip.** If Polymarket postpones, re-pause the base at its
+  new head and bump `graft.block` + both v2 `startBlock`s together. One
+  manifest edit + redeploy.
 
 ## Confirmed
 

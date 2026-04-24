@@ -5,15 +5,17 @@ features:
   - grafting
 # Graft on top of the current production deployment so we keep all v1-era
 # entities (TraderAgent, Question, Bet, TokenRegistry, ...) without
-# re-indexing. Block 85924498 ≈ 2026-04-23 10:30 UTC (ts 1776969040), i.e.
-# roughly "today" relative to the Polymarket v2 cutover on 2026-04-28 11:00
-# UTC. Same block is used as the v2 dataSource startBlock below so anything
-# v2 contracts emit between now and cutover (test-market trades, etc.) gets
-# indexed too. Bump this and v2 startBlocks to a more recent block if the
-# deploy slips beyond today.
+# re-indexing. Block 85952819 is the frozen head of the paused production
+# base on 2026-04-24 — the base is paused so its head (and pruning window)
+# stay put while we deploy. `indexerHints: prune: 300` above means we can
+# only graft within [head - 300, head]; pausing makes that window stable.
+# The same block is the startBlock for both v2 Exchange dataSources.
+# Procedure: pause base → commit this block → deploy grafted subgraph →
+# verify → resume base. If the deploy slips and the base is resumed + its
+# head advances, re-pause and bump this block + both v2 startBlocks.
 graft:
   base: QmZXBjgbyCNCrrB51kEPtNHtzzwwNHy8GnSGmLFHFGDc5Z
-  block: 85924498
+  block: 85952819
 schema:
   file: ./schema.graphql
 dataSources:
@@ -227,7 +229,7 @@ dataSources:
     source:
       address: "0xE111180000d2663C0091e4f400237545B87B996B"
       abi: CTFExchangeV2
-      startBlock: 85924498 # 2026-04-23 ~10:30 UTC, matches graft.block above
+      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -253,7 +255,7 @@ dataSources:
     source:
       address: "0xe2222d279d744050d28e00520010520000310F59"
       abi: CTFExchangeV2
-      startBlock: 85924498 # 2026-04-23 ~10:30 UTC, matches graft.block above
+      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
