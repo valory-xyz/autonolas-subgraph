@@ -1,6 +1,21 @@
 specVersion: 1.0.0
 indexerHints:
   prune: 300
+features:
+  - grafting
+# Graft on top of the current production deployment so we keep all v1-era
+# entities (TraderAgent, Question, Bet, TokenRegistry, ...) without
+# re-indexing. Block 85952819 is the frozen head of the paused production
+# base on 2026-04-24 — the base is paused so its head (and pruning window)
+# stay put while we deploy. `indexerHints: prune: 300` above means we can
+# only graft within [head - 300, head]; pausing makes that window stable.
+# The same block is the startBlock for both v2 Exchange dataSources.
+# Procedure: pause base → commit this block → deploy grafted subgraph →
+# verify → resume base. If the deploy slips and the base is resumed + its
+# head advances, re-pause and bump this block + both v2 startBlocks.
+graft:
+  base: QmZXBjgbyCNCrrB51kEPtNHtzzwwNHy8GnSGmLFHFGDc5Z
+  block: 85952819
 schema:
   file: ./schema.graphql
 dataSources:
@@ -47,6 +62,7 @@ dataSources:
         - Bet
         - Global
         - DailyProfitStatistic
+        - TokenRegistry
       abis:
         - name: ConditionalTokens
           file: ../../abis/ConditionalTokens.json
@@ -141,6 +157,10 @@ dataSources:
           handler: handleOutcomeReported
         - event: PayoutRedemption(indexed address,indexed bytes32,uint256[],uint256)
           handler: handleNegRiskPayoutRedemption
+  # v1 CTF Exchange — retired at Polymarket v2 cutover 2026-04-28 11:00 UTC.
+  # endBlock 86750000 ≈ May 12 2026 (cutover + ~2 weeks) as a safety buffer
+  # for any tail trades on v1 post-cutover. If the migration slips or v1
+  # remains active past then, extend this endBlock.
   - kind: ethereum/contract
     name: CTFExchange
     network: matic
@@ -148,6 +168,7 @@ dataSources:
       address: "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982e"
       abi: CTFExchange
       startBlock: 78425180
+      endBlock: 86750000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -176,6 +197,7 @@ dataSources:
       address: "0xC5d563A36AE78145C45a50134d48A1215220f80a"
       abi: CTFExchange
       startBlock: 78425180
+      endBlock: 86750000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -197,3 +219,59 @@ dataSources:
           handler: handleOrderFilled
         - event: TokenRegistered(indexed uint256,indexed uint256,indexed bytes32)
           handler: handleTokenRegistered
+  # v2 CTF Exchange (Polymarket CLOB v2, cutover 2026-04-28 ~11:00 UTC).
+  # OrderFilled signature changed: side + tokenId replace makerAssetId/takerAssetId,
+  # and the exchange no longer emits TokenRegistered (handled via eth_call at
+  # ConditionPreparation time instead — see src/conditional-tokens.ts).
+  - kind: ethereum/contract
+    name: CTFExchangeV2
+    network: matic
+    source:
+      address: "0xE111180000d2663C0091e4f400237545B87B996B"
+      abi: CTFExchangeV2
+      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/ctf-exchange-v2.ts
+      entities:
+        - Bet
+        - Question
+        - TokenRegistry
+        - TraderAgent
+        - Global
+        - MarketParticipant
+        - DailyProfitStatistic
+      abis:
+        - name: CTFExchangeV2
+          file: ../../abis/CTFExchangeV2.json
+      eventHandlers:
+        - event: OrderFilled(indexed bytes32,indexed address,indexed address,uint8,uint256,uint256,uint256,uint256,bytes32,bytes32)
+          handler: handleOrderFilledV2
+  - kind: ethereum/contract
+    name: NegRiskCTFExchangeV2
+    network: matic
+    source:
+      address: "0xe2222d279d744050d28e00520010520000310F59"
+      abi: CTFExchangeV2
+      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/ctf-exchange-v2.ts
+      entities:
+        - Bet
+        - Question
+        - TokenRegistry
+        - TraderAgent
+        - Global
+        - MarketParticipant
+        - DailyProfitStatistic
+      abis:
+        - name: CTFExchangeV2
+          file: ../../abis/CTFExchangeV2.json
+      eventHandlers:
+        - event: OrderFilled(indexed bytes32,indexed address,indexed address,uint8,uint256,uint256,uint256,uint256,bytes32,bytes32)
+          handler: handleOrderFilledV2

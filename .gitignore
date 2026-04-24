@@ -10,5 +10,6 @@ temp/
 
 .DS_Store
 .bin
+.latest.json
 
 .claude/projects/
