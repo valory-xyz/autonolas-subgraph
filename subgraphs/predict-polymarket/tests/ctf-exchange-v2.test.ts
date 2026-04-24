@@ -42,6 +42,8 @@ function createOrderFilledV2Event(
   makerAmountFilled: BigInt,
   takerAmountFilled: BigInt,
   fee: BigInt,
+  builder: Bytes,
+  metadata: Bytes,
 ): OrderFilled {
   let event = changetype<OrderFilled>(newMockEvent());
   event.parameters = new Array();
@@ -54,8 +56,8 @@ function createOrderFilledV2Event(
   event.parameters.push(new ethereum.EventParam("makerAmountFilled", ethereum.Value.fromUnsignedBigInt(makerAmountFilled)));
   event.parameters.push(new ethereum.EventParam("takerAmountFilled", ethereum.Value.fromUnsignedBigInt(takerAmountFilled)));
   event.parameters.push(new ethereum.EventParam("fee", ethereum.Value.fromUnsignedBigInt(fee)));
-  event.parameters.push(new ethereum.EventParam("builder", ethereum.Value.fromFixedBytes(BUILDER)));
-  event.parameters.push(new ethereum.EventParam("metadata", ethereum.Value.fromFixedBytes(METADATA)));
+  event.parameters.push(new ethereum.EventParam("builder", ethereum.Value.fromFixedBytes(builder)));
+  event.parameters.push(new ethereum.EventParam("metadata", ethereum.Value.fromFixedBytes(metadata)));
 
   return event;
 }
@@ -132,6 +134,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(500000), // makerAmountFilled (USDC paid)
       BigInt.fromI32(1000000), // takerAmountFilled (shares received)
       BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -168,6 +172,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(600000), // makerAmountFilled (shares given)
       BigInt.fromI32(300000), // takerAmountFilled (USDC received)
       BigInt.fromI32(500),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -200,6 +206,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(500000),
       BigInt.fromI32(1000000),
       BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -229,6 +237,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(500000),
       BigInt.fromI32(1000000),
       BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -259,6 +269,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(500000),
       BigInt.fromI32(1000000),
       BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -288,6 +300,8 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       BigInt.fromI32(500000),
       BigInt.fromI32(1000000),
       BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
     );
 
     handleOrderFilledV2(event);
@@ -299,5 +313,44 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
     // Outcome 1 buy adds to outcomeShares1
     assert.fieldEquals("MarketParticipant", participantId, "outcomeShares0", "0");
     assert.fieldEquals("MarketParticipant", participantId, "outcomeShares1", "1000000");
+  });
+
+  test("Should persist builder and metadata from v2 event on Bet", () => {
+    setupTraderAgent(MAKER, BigInt.fromI32(1));
+    setupQuestion(
+      CONDITION_ID,
+      Bytes.fromHexString(
+        "0x1234567890123456789012345678901234567890123456789012345678901234",
+      ),
+    );
+    setupTokenRegistry(TOKEN_ID_1, CONDITION_ID, 1);
+
+    let customBuilder = Bytes.fromHexString(
+      "0x00000000000000000000000000000000000000000000000000000000deadbeef",
+    );
+    let customMetadata = Bytes.fromHexString(
+      "0x00000000000000000000000000000000000000000000000000000000cafebabe",
+    );
+
+    let event = createOrderFilledV2Event(
+      ORDER_HASH,
+      MAKER,
+      TAKER,
+      0,
+      TOKEN_ID_1,
+      BigInt.fromI32(500000),
+      BigInt.fromI32(1000000),
+      BigInt.fromI32(1000),
+      customBuilder,
+      customMetadata,
+    );
+
+    handleOrderFilledV2(event);
+
+    let betId = event.transaction.hash
+      .concat(Bytes.fromI32(event.logIndex.toI32()))
+      .toHexString();
+    assert.fieldEquals("Bet", betId, "builder", customBuilder.toHexString());
+    assert.fieldEquals("Bet", betId, "metadata", customMetadata.toHexString());
   });
 });

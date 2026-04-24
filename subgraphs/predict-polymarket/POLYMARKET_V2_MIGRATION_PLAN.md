@@ -240,14 +240,18 @@ No tx hashes in the docs. Plan:
   `ConditionPreparation` events.
 - Bake resulting tx hashes into `tests/ctf-exchange-v2.test.ts` fixtures.
 
-### 3. pUSD sanity check
+### 6. pUSD sanity check — DONE (2026-04-23)
 
-- Confirm pUSD is 6-decimal on the proxy `0xC011a7E1…`.
-- If so, `Bet.amount` values remain comparable across the cutover (same unit).
-- If not, flag for discussion — there's no schema change on the table but reporting
-  may need a unit note.
+Verified via the constructor-args decode in section 2 and the Polymarket v2
+migration docs:
 
-### 4. Graft + v2 start block — DONE
+- pUSD (`0xC011a7E1…`) is the user-facing wrapper; `ctfCollateral = USDC.e`
+  handles position-ID derivation internally. pUSD is 6-decimal and 1:1
+  USDC-backed per the migration docs, so `Bet.amount` stays comparable
+  across the cutover (same unit, same scale).
+- No schema change, no reporting note needed.
+
+### 7. Graft + v2 start block — DONE
 
 Pinned in the manifest (see "Block pinning" section above):
 

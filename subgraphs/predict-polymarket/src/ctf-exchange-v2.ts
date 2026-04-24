@@ -58,6 +58,8 @@ export function handleOrderFilledV2(event: OrderFilledV2Event): void {
   bet.dailyStatistic = dailyStat.id;
   bet.countedInTotal = false;
   bet.countedInProfit = false;
+  bet.builder = event.params.builder;
+  bet.metadata = event.params.metadata;
 
   let question = Question.load(tokenRegistry.conditionId);
   if (question !== null) {

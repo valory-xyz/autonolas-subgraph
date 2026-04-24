@@ -72,6 +72,11 @@ export function handleConditionPreparation(
   let bridge = QuestionIdToConditionId.load(event.params.questionId);
 
   if (bridge !== null) {
+    // NOTE: this early-return also gates the v2 TokenRegistry derivation below.
+    // For v2-exclusive markets with questionId reuse, the second conditionId's
+    // tokens won't be derived and handleOrderFilledV2 will drop trades via the
+    // TokenRegistry.load === null warning path. v1-era repeats are covered by
+    // handleTokenRegistered.
     log.warning(
       "REPETITIVE_QUESTION_ID detected: {} | Existing ConditionId: {} | New ConditionId: {} | Txn Hash: {}",
       [

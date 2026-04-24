@@ -224,15 +224,15 @@ describe("ConditionalTokens - v2 TokenRegistry derivation", () => {
   });
 
   test("Should skip TokenRegistry derivation for non-binary markets", () => {
-    // Non-binary markets short-circuit before eth_calls, so mocks not needed.
+    // Mock the eth_calls so that, if the outcomeSlotCount guard were removed,
+    // registerOutcomeToken would succeed and create rows. This proves the
+    // guard is what gates creation — not unmocked-call auto-reverts.
+    mockConditionalTokensCalls(CONDITION_ID, USDC_E);
+
     let event = createConditionPreparationEvent(CONDITION_ID, ORACLE, QUESTION_ID, 3);
     handleConditionPreparation(event);
 
-    // No TokenRegistry rows should be created.
-    let shouldBeNull = TokenRegistry.load(
-      Bytes.fromHexString("0x01" + CONDITION_ID.toHexString().slice(4)),
-    );
-    assert.assertTrue(shouldBeNull === null, "TokenRegistry should not be created for non-binary markets");
+    assert.entityCount("TokenRegistry", 0);
   });
 
   test("Should not overwrite existing TokenRegistry entries (idempotent)", () => {
