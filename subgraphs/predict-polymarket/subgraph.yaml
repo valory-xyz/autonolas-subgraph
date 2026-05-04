@@ -19,7 +19,7 @@ features:
 #   Phase 2 (later) — drop grafting and re-index from scratch on a fresh
 #   deployment hash. Both `CollateralAdapter*` and `CollateralAdapter*Old`
 #   dataSources then run over the full chain history, contiguous via the
-#   [86219367, 86386437] / [86386437, ∞) split below, producing correct
+#   [86219367, 86397457] / [86397457, ∞) split below, producing correct
 #   per-agent `totalPayout`. The grafted deployment is retired at that point.
 #
 # Pause base → commit this block → deploy grafted subgraph → verify → resume
@@ -28,7 +28,7 @@ features:
 # endBlock on the two `CollateralAdapter*Old` entries).
 graft:
   base: QmUMaqgrL8tTJmrSTbajqG6TFhdL2etFYJQ4EjmdjuaN6T
-  block: 86386437
+  block: 86397457
 schema:
   file: ./schema.graphql
 dataSources:
@@ -300,7 +300,7 @@ dataSources:
   #     phase 1 from graft.block forward and by phase 2 from same block forward.
   #   • *Old addresses (PR #929, live ~2026-04-30 → 2026-05-01) — inert in
   #     phase 1 (window is fully behind graft.block), engaged in phase 2 to
-  #     backfill the historical [86219367, 86386437] window.
+  #     backfill the historical [86219367, 86397457] window.
   # Same ABI, same handler.
   - kind: ethereum/contract
     name: CtfCollateralAdapter
@@ -308,7 +308,7 @@ dataSources:
     source:
       address: "0xAdA100Db00Ca00073811820692005400218FcE1f"
       abi: CtfCollateralAdapter
-      startBlock: 86386437
+      startBlock: 86397457
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -333,7 +333,7 @@ dataSources:
     source:
       address: "0xadA2005600Dec949baf300f4C6120000bDB6eAab"
       abi: CtfCollateralAdapter
-      startBlock: 86386437
+      startBlock: 86397457
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -355,9 +355,9 @@ dataSources:
   # *Old adapters: live ~2026-04-30 (trader PR #929 merge, block 86219367) →
   # 2026-05-01 15:00 UTC (relayer cutoff per PR #935). Inert in phase 1 (graft)
   # — their entire window is behind graft.block — and engaged in phase 2
-  # (re-index without graft) to backfill the historical [86219367, 86386437]
+  # (re-index without graft) to backfill the historical [86219367, 86397457]
   # window. endBlock is pinned to graft.block above so phase-2 coverage is
-  # contiguous with the current adapter dataSources from 86386437 forward.
+  # contiguous with the current adapter dataSources from 86397457 forward.
   - kind: ethereum/contract
     name: CtfCollateralAdapterOld
     network: matic
@@ -365,7 +365,7 @@ dataSources:
       address: "0xADa100874d00e3331d00f2007a9c336a65009718"
       abi: CtfCollateralAdapter
       startBlock: 86219367
-      endBlock: 86386437
+      endBlock: 86397457
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -391,7 +391,7 @@ dataSources:
       address: "0xAdA200001000ef00D07553cEE7006808F895c6F1"
       abi: CtfCollateralAdapter
       startBlock: 86219367
-      endBlock: 86386437
+      endBlock: 86397457
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
