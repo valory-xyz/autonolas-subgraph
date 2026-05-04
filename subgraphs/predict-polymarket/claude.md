@@ -633,7 +633,7 @@ Two redemption paths exist post-v2-cutover:
   - `CtfCollateralAdapter` (current): `0xAdA100Db00Ca00073811820692005400218FcE1f`
   - `NegRiskCtfCollateralAdapter` (current): `0xadA2005600Dec949baf300f4C6120000bDB6eAab`
   - `CtfCollateralAdapter` (old, PR #929 deploy → PR #935 swap): `0xADa100874d00e3331d00f2007a9c336a65009718`
-  - `NegRiskCtfCollateralAdapter` (old): `0xAdA200000C32C19ed1a2EaB1c2C9F95E5E70c6F1`
+  - `NegRiskCtfCollateralAdapter` (old): `0xAdA200001000ef00D07553cEE7006808F895c6F1`
 
 `processRedemption` (utils.ts), shared by both paths:
 - Validates agent, question, and participant exist

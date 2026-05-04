@@ -388,7 +388,7 @@ dataSources:
     name: NegRiskCtfCollateralAdapterOld
     network: matic
     source:
-      address: "0xAdA200000C32C19ed1a2EaB1c2C9F95E5E70c6F1"
+      address: "0xAdA200001000ef00D07553cEE7006808F895c6F1"
       abi: CtfCollateralAdapter
       startBlock: 86219367
       endBlock: 86386437
