@@ -3,19 +3,32 @@ indexerHints:
   prune: 300
 features:
   - grafting
-# Graft on top of the current production deployment so we keep all v1-era
-# entities (TraderAgent, Question, Bet, TokenRegistry, ...) without
-# re-indexing. Block 85952819 is the frozen head of the paused production
-# base on 2026-04-24 — the base is paused so its head (and pruning window)
-# stay put while we deploy. `indexerHints: prune: 300` above means we can
-# only graft within [head - 300, head]; pausing makes that window stable.
-# The same block is the startBlock for both v2 Exchange dataSources.
-# Procedure: pause base → commit this block → deploy grafted subgraph →
-# verify → resume base. If the deploy slips and the base is resumed + its
-# head advances, re-pause and bump this block + both v2 startBlocks.
+# Two-phase deploy plan:
+#
+#   Phase 1 (this commit) — chain-graft on top of the v2-grafted deployment
+#   (which itself grafts on QmZXBjgbyCNCrrB51kEPtNHtzzwwNHy8GnSGmLFHFGDc5Z @
+#   85952819). We can't reuse that v1 base directly — it has indexed far past
+#   its 300-block prune window — so we graft on the current v2 head instead.
+#   Fast deploy, ships the collateral-adapter handlers forward from now.
+#   Trade-off: adapter activity in [85952819, this block] is NOT backfilled —
+#   that's the ~6-day window of historical adapter redemptions (post-v2-cutover
+#   on 2026-04-28, including the PR #929 deploy on 2026-04-30 and the PR #935
+#   address swap on 2026-05-01) that the existing deployment silently dropped.
+#   Per-agent `totalPayout` will be understated until phase 2.
+#
+#   Phase 2 (later) — drop grafting and re-index from scratch on a fresh
+#   deployment hash. Both `CollateralAdapter*` and `CollateralAdapter*Old`
+#   dataSources then run over the full chain history, contiguous via the
+#   [86219367, 86386437] / [86386437, ∞) split below, producing correct
+#   per-agent `totalPayout`. The grafted deployment is retired at that point.
+#
+# Pause base → commit this block → deploy grafted subgraph → verify → resume
+# base. If the deploy slips and the base resumes + advances, re-pause and bump
+# this block + the two `CollateralAdapter*` startBlocks (and the matching
+# endBlock on the two `CollateralAdapter*Old` entries).
 graft:
-  base: QmZXBjgbyCNCrrB51kEPtNHtzzwwNHy8GnSGmLFHFGDc5Z
-  block: 85952819
+  base: QmUMaqgrL8tTJmrSTbajqG6TFhdL2etFYJQ4EjmdjuaN6T
+  block: 86386437
 schema:
   file: ./schema.graphql
 dataSources:
@@ -275,3 +288,125 @@ dataSources:
       eventHandlers:
         - event: OrderFilled(indexed bytes32,indexed address,indexed address,uint8,uint256,uint256,uint256,uint256,bytes32,bytes32)
           handler: handleOrderFilledV2
+  # Polymarket v2 collateral adapters. Trader (PR valory-xyz/trader#929) routes
+  # redemptions through these adapters so the Safe receives pUSD directly. The
+  # legacy CTF / NegRiskAdapter PayoutRedemption events still fire but with
+  # `redeemer = adapter` — those fall through TraderAgent.load == null in our
+  # existing handlers, so no double-counting. Actual Safe payout is in the
+  # adapter-side PositionsRedeemed event (`initiator` = Safe, `payout` in pUSD).
+  #
+  # The two address pairs below cover both deploy phases (see graft note above):
+  #   • Current addresses (PR #935, live from 2026-05-01 15:00 UTC) — used by
+  #     phase 1 from graft.block forward and by phase 2 from same block forward.
+  #   • *Old addresses (PR #929, live ~2026-04-30 → 2026-05-01) — inert in
+  #     phase 1 (window is fully behind graft.block), engaged in phase 2 to
+  #     backfill the historical [86219367, 86386437] window.
+  # Same ABI, same handler.
+  - kind: ethereum/contract
+    name: CtfCollateralAdapter
+    network: matic
+    source:
+      address: "0xAdA100Db00Ca00073811820692005400218FcE1f"
+      abi: CtfCollateralAdapter
+      startBlock: 86386437
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/collateral-adapter.ts
+      entities:
+        - TraderAgent
+        - MarketParticipant
+        - Question
+        - Global
+        - DailyProfitStatistic
+        - PayoutRedemption
+      abis:
+        - name: CtfCollateralAdapter
+          file: ../../abis/CtfCollateralAdapter.json
+      eventHandlers:
+        - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
+          handler: handlePositionsRedeemed
+  - kind: ethereum/contract
+    name: NegRiskCtfCollateralAdapter
+    network: matic
+    source:
+      address: "0xadA2005600Dec949baf300f4C6120000bDB6eAab"
+      abi: CtfCollateralAdapter
+      startBlock: 86386437
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/collateral-adapter.ts
+      entities:
+        - TraderAgent
+        - MarketParticipant
+        - Question
+        - Global
+        - DailyProfitStatistic
+        - PayoutRedemption
+      abis:
+        - name: CtfCollateralAdapter
+          file: ../../abis/CtfCollateralAdapter.json
+      eventHandlers:
+        - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
+          handler: handlePositionsRedeemed
+  # *Old adapters: live ~2026-04-30 (trader PR #929 merge, block 86219367) →
+  # 2026-05-01 15:00 UTC (relayer cutoff per PR #935). Inert in phase 1 (graft)
+  # — their entire window is behind graft.block — and engaged in phase 2
+  # (re-index without graft) to backfill the historical [86219367, 86386437]
+  # window. endBlock is pinned to graft.block above so phase-2 coverage is
+  # contiguous with the current adapter dataSources from 86386437 forward.
+  - kind: ethereum/contract
+    name: CtfCollateralAdapterOld
+    network: matic
+    source:
+      address: "0xADa100874d00e3331d00f2007a9c336a65009718"
+      abi: CtfCollateralAdapter
+      startBlock: 86219367
+      endBlock: 86386437
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/collateral-adapter.ts
+      entities:
+        - TraderAgent
+        - MarketParticipant
+        - Question
+        - Global
+        - DailyProfitStatistic
+        - PayoutRedemption
+      abis:
+        - name: CtfCollateralAdapter
+          file: ../../abis/CtfCollateralAdapter.json
+      eventHandlers:
+        - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
+          handler: handlePositionsRedeemed
+  - kind: ethereum/contract
+    name: NegRiskCtfCollateralAdapterOld
+    network: matic
+    source:
+      address: "0xAdA200000C32C19ed1a2EaB1c2C9F95E5E70c6F1"
+      abi: CtfCollateralAdapter
+      startBlock: 86219367
+      endBlock: 86386437
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/collateral-adapter.ts
+      entities:
+        - TraderAgent
+        - MarketParticipant
+        - Question
+        - Global
+        - DailyProfitStatistic
+        - PayoutRedemption
+      abis:
+        - name: CtfCollateralAdapter
+          file: ../../abis/CtfCollateralAdapter.json
+      eventHandlers:
+        - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
+          handler: handlePositionsRedeemed
