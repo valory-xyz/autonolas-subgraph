@@ -1,34 +1,6 @@
 specVersion: 1.0.0
 indexerHints:
   prune: 300
-features:
-  - grafting
-# Two-phase deploy plan:
-#
-#   Phase 1 (this commit) — chain-graft on top of the v2-grafted deployment
-#   (which itself grafts on QmZXBjgbyCNCrrB51kEPtNHtzzwwNHy8GnSGmLFHFGDc5Z @
-#   85952819). We can't reuse that v1 base directly — it has indexed far past
-#   its 300-block prune window — so we graft on the current v2 head instead.
-#   Fast deploy, ships the collateral-adapter handlers forward from now.
-#   Trade-off: adapter activity in [85952819, this block] is NOT backfilled —
-#   that's the ~6-day window of historical adapter redemptions (post-v2-cutover
-#   on 2026-04-28, including the PR #929 deploy on 2026-04-30 and the PR #935
-#   address swap on 2026-05-01) that the existing deployment silently dropped.
-#   Per-agent `totalPayout` will be understated until phase 2.
-#
-#   Phase 2 (later) — drop grafting and re-index from scratch on a fresh
-#   deployment hash. Both `CollateralAdapter*` and `CollateralAdapter*Old`
-#   dataSources then run over the full chain history, contiguous via the
-#   [86219367, 86397457] / [86397457, ∞) split below, producing correct
-#   per-agent `totalPayout`. The grafted deployment is retired at that point.
-#
-# Pause base → commit this block → deploy grafted subgraph → verify → resume
-# base. If the deploy slips and the base resumes + advances, re-pause and bump
-# this block + the two `CollateralAdapter*` startBlocks (and the matching
-# endBlock on the two `CollateralAdapter*Old` entries).
-graft:
-  base: QmUMaqgrL8tTJmrSTbajqG6TFhdL2etFYJQ4EjmdjuaN6T
-  block: 86397457
 schema:
   file: ./schema.graphql
 dataSources:
@@ -242,7 +214,7 @@ dataSources:
     source:
       address: "0xE111180000d2663C0091e4f400237545B87B996B"
       abi: CTFExchangeV2
-      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
+      startBlock: 85952819 # before v2 cutover (2026-04-28); no events fire until cutover
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -268,7 +240,7 @@ dataSources:
     source:
       address: "0xe2222d279d744050d28e00520010520000310F59"
       abi: CTFExchangeV2
-      startBlock: 85952819 # paused-base head on 2026-04-24, matches graft.block above
+      startBlock: 85952819 # before v2 cutover (2026-04-28); no events fire until cutover
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -288,27 +260,27 @@ dataSources:
       eventHandlers:
         - event: OrderFilled(indexed bytes32,indexed address,indexed address,uint8,uint256,uint256,uint256,uint256,bytes32,bytes32)
           handler: handleOrderFilledV2
-  # Polymarket v2 collateral adapters. Trader (PR valory-xyz/trader#929) routes
-  # redemptions through these adapters so the Safe receives pUSD directly. The
-  # legacy CTF / NegRiskAdapter PayoutRedemption events still fire but with
+  # Polymarket v2 collateral adapters. Post-cutover, redemptions are routed
+  # through these adapters so the Safe receives pUSD directly. The legacy
+  # CTF / NegRiskAdapter PayoutRedemption events still fire but with
   # `redeemer = adapter` — those fall through TraderAgent.load == null in our
   # existing handlers, so no double-counting. Actual Safe payout is in the
   # adapter-side PositionsRedeemed event (`initiator` = Safe, `payout` in pUSD).
   #
-  # The two address pairs below cover both deploy phases (see graft note above):
-  #   • Current addresses (PR #935, live from 2026-05-01 15:00 UTC) — used by
-  #     phase 1 from graft.block forward and by phase 2 from same block forward.
-  #   • *Old addresses (PR #929, live ~2026-04-30 → 2026-05-01) — inert in
-  #     phase 1 (window is fully behind graft.block), engaged in phase 2 to
-  #     backfill the historical [86219367, 86397457] window.
-  # Same ABI, same handler.
+  # Two address pairs (same ABI, same handler) because Polymarket directed
+  # redemptions through one set of adapter contracts for a short window, then
+  # switched to a different set:
+  #   • Current addresses, live from 2026-05-01 15:00 UTC onward,
+  #     startBlock 86263778.
+  #   • *Old addresses, live ~2026-04-30 → 2026-05-01, pinned to
+  #     [86219367, 86263778] so coverage is contiguous with the current pair.
   - kind: ethereum/contract
     name: CtfCollateralAdapter
     network: matic
     source:
       address: "0xAdA100Db00Ca00073811820692005400218FcE1f"
       abi: CtfCollateralAdapter
-      startBlock: 86397457
+      startBlock: 86263778
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -333,7 +305,7 @@ dataSources:
     source:
       address: "0xadA2005600Dec949baf300f4C6120000bDB6eAab"
       abi: CtfCollateralAdapter
-      startBlock: 86397457
+      startBlock: 86263778
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -352,12 +324,10 @@ dataSources:
       eventHandlers:
         - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
           handler: handlePositionsRedeemed
-  # *Old adapters: live ~2026-04-30 (trader PR #929 merge, block 86219367) →
-  # 2026-05-01 15:00 UTC (relayer cutoff per PR #935). Inert in phase 1 (graft)
-  # — their entire window is behind graft.block — and engaged in phase 2
-  # (re-index without graft) to backfill the historical [86219367, 86397457]
-  # window. endBlock is pinned to graft.block above so phase-2 coverage is
-  # contiguous with the current adapter dataSources from 86397457 forward.
+  # *Old adapters: the initial set Polymarket directed redemptions through,
+  # live ~2026-04-30 (block 86219367) → 2026-05-01 15:00 UTC. Pinned to
+  # [86219367, 86263778] so coverage is contiguous with the current adapter
+  # dataSources from 86263778 forward.
   - kind: ethereum/contract
     name: CtfCollateralAdapterOld
     network: matic
@@ -365,7 +335,7 @@ dataSources:
       address: "0xADa100874d00e3331d00f2007a9c336a65009718"
       abi: CtfCollateralAdapter
       startBlock: 86219367
-      endBlock: 86397457
+      endBlock: 86263778
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -391,7 +361,7 @@ dataSources:
       address: "0xAdA200001000ef00D07553cEE7006808F895c6F1"
       abi: CtfCollateralAdapter
       startBlock: 86219367
-      endBlock: 86397457
+      endBlock: 86263778
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
