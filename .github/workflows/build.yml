@@ -1,0 +1,86 @@
+name: Build smoke-test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.subgraph }} (${{ matrix.manifest }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 17 (subgraph, manifest) pairs covering every deployable manifest
+        # under subgraphs/. Each entry runs `graph codegen` + `graph build`
+        # to catch regressions from dep bumps, schema changes, or handler
+        # edits before they reach a deploy. Service-registry generates
+        # additional L2 manifests via `yarn generate-manifests`; only the
+        # checked-in ones are smoke-tested here.
+        include:
+          - { subgraph: autonolas,           manifest: subgraph.yaml }
+          - { subgraph: autonolas-base,      manifest: subgraph.yaml }
+          - { subgraph: babydegen-mode,      manifest: subgraph.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.gnosis.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.base.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.polygon.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.optimism.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.mainnet.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.arbitrum.yaml }
+          - { subgraph: marketplace,         manifest: subgraph.celo.yaml }
+          - { subgraph: mech,                manifest: subgraph.yaml }
+          - { subgraph: predict-omen,        manifest: subgraph.yaml }
+          - { subgraph: predict-polymarket,  manifest: subgraph.yaml }
+          - { subgraph: service-registry,    manifest: subgraph.gnosis.yaml }
+          - { subgraph: service-registry,    manifest: subgraph.mode-mainnet.yaml }
+          - { subgraph: staking,             manifest: subgraph.mode-mainnet.yaml }
+          - { subgraph: tokenomics,          manifest: subgraph.mode-mainnet.yaml }
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: subgraphs/${{ matrix.subgraph }}/yarn.lock
+
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
+      - name: Install ${{ matrix.subgraph }} dependencies
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn install --frozen-lockfile
+
+      - name: Codegen
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn graph codegen ${{ matrix.manifest }}
+
+      - name: Build
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn graph build ${{ matrix.manifest }}
+
+  all-builds-passed:
+    name: All builds passed
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "::error::One or more build matrix jobs did not succeed"
+            exit 1
+          fi
+          echo "All builds passed."

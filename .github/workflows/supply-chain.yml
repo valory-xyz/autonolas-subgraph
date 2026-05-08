@@ -1,0 +1,140 @@
+name: Supply Chain
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 11 paths: root + 10 subgraphs. Per-path matrix because of
+        # heterogeneous graph-cli versions across subgraphs (0.64.0 →
+        # 0.98.x); root audit alone wouldn't surface advisories that
+        # only exist in the older trees.
+        path:
+          - "."
+          - "subgraphs/autonolas"
+          - "subgraphs/autonolas-base"
+          - "subgraphs/babydegen-mode"
+          - "subgraphs/marketplace"
+          - "subgraphs/mech"
+          - "subgraphs/predict-omen"
+          - "subgraphs/predict-polymarket"
+          - "subgraphs/service-registry"
+          - "subgraphs/staking"
+          - "subgraphs/tokenomics"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
+      # `yarn audit` reads yarn.lock directly; no install needed.
+      # The audit script self-locates its allowlist via import.meta.url
+      # so a single .supply-chain/audit-allowlist.json at the repo root
+      # governs every matrix entry.
+      - name: Run audit (${{ matrix.path }})
+        working-directory: ${{ matrix.path }}
+        run: node "${{ github.workspace }}/scripts/audit.mjs"
+
+  install-hooks:
+    name: Install-hook audit (root tree)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
+      # `--ignore-scripts` so the hooks don't run while we're enumerating them.
+      # Audited at root only: graph-cli's transitive tree is the dominant
+      # source of install hooks, present in every subgraph too. Any
+      # subgraph-specific hook (e.g. matchstick-as native bindings) shows
+      # up via the lockfile-lint matrix below.
+      - name: Install dependencies (no hooks)
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Run install-hook audit
+        run: yarn audit:install-hooks
+
+  lockfile-lint:
+    name: Lockfile validation
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same 11 paths as the audit matrix. Catches non-registry
+        # sources (e.g. codeload.github.com) and missing integrity
+        # hashes on every yarn.lock.
+        path:
+          - "."
+          - "subgraphs/autonolas"
+          - "subgraphs/autonolas-base"
+          - "subgraphs/babydegen-mode"
+          - "subgraphs/marketplace"
+          - "subgraphs/mech"
+          - "subgraphs/predict-omen"
+          - "subgraphs/predict-polymarket"
+          - "subgraphs/service-registry"
+          - "subgraphs/staking"
+          - "subgraphs/tokenomics"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Lint ${{ matrix.path }}/yarn.lock
+        working-directory: ${{ matrix.path }}
+        run: |
+          npx --yes lockfile-lint \
+            --path yarn.lock \
+            --type yarn \
+            --validate-https \
+            --allowed-hosts yarn npm \
+            --empty-hostname false
+
+  # Aggregator that fails iff any of the above fails. Promote this single
+  # check to required-status in branch protection (rather than each job
+  # individually) for a stable interface that survives matrix changes.
+  all-checks-passed:
+    name: All checks passed
+    needs: [audit, install-hooks, lockfile-lint]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "::error::One or more required jobs did not succeed"
+            exit 1
+          fi
+          echo "All supply-chain checks passed."

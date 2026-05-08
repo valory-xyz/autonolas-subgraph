@@ -134,6 +134,12 @@ jobs:
           node-version-file: .nvmrc
           cache: "yarn"
 
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
       - name: Prepare environment
         env:
           GRAPH_NODE_USER: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_USER || secrets.GRAPH_NODE_STAGING_USER }}

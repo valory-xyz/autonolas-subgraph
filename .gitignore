@@ -24,3 +24,7 @@ bun.lockb
 
 # Tier-0 audit baseline drop (gitignored; informational only)
 /audit
+
+# yarn-generated error logs from failed installs/audits
+yarn-error.log
+**/yarn-error.log

@@ -179,6 +179,29 @@ yarn test
 graph test tests/marketplace/mech-marketplace.test.ts
 ```
 
+### Supply-chain audit (run from repo root)
+
+```bash
+# Audit gate — fails on high/critical advisories not in the allowlist
+yarn audit:prod
+
+# Install-hook audit — diffs node_modules against the allowlist (run after `yarn install`)
+yarn audit:install-hooks
+
+# Regenerate the install-hooks allowlist after a dep change
+yarn audit:install-hooks:update
+```
+
+The audit gate runs across every subgraph's `yarn.lock` in CI (matrix in `.github/workflows/supply-chain.yml`). To audit a single subgraph locally:
+
+```bash
+( cd subgraphs/marketplace && node ../../scripts/audit.mjs )
+```
+
+The allowlist at `.supply-chain/audit-allowlist.json` is shared across all subgraphs — entries need `id`, `reason`, `added`, and `review` (YYYY-MM-DD). See [SUPPLY-CHAIN-SECURITY.md](SUPPLY-CHAIN-SECURITY.md) §5 for policy.
+
+**Naming gotcha:** the script is `audit:prod`, NOT `audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts.
+
 ---
 
 ## Subgraph Development Guide

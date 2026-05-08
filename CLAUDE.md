@@ -212,4 +212,30 @@ All versions are pinned exactly (no carets). graph-cli is heterogeneous across s
 | `autonolas` | 0.64.0 | 0.29.1 |
 | `autonolas-base` | 0.64.0 | 0.29.1 |
 
-`matchstick-as` is converged to `0.6.0` across all subgraphs. Root `package.json` requires Node `>=24.0.0` and pins `@graphprotocol/graph-cli 0.98.1`, `@clack/prompts 0.11.0`, `@types/node 24.3.1`, and `typescript 5.9.3`.
+`matchstick-as` is converged to `0.6.0` across all subgraphs. Root `package.json` requires Node `>=24.0.0` and pins `@graphprotocol/graph-cli 0.98.1`, `@clack/prompts 0.11.0`, `@types/node 24.3.1`, and `typescript 5.9.3`. Yarn is pinned to `1.22.22` via the root `packageManager` field + Corepack activation in CI/deploy workflows.
+
+## Supply chain & security
+
+PR-time CI gates are concentrated in three workflows:
+
+- [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every (subgraph, manifest) pair (17 jobs).
+- [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod` matrix across the 11 paths, install-hook audit at root, lockfile-lint matrix, with an `All checks passed` aggregator job.
+- [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — gitleaks scan, SHA-pinned binary download.
+
+Local commands:
+
+```bash
+yarn audit:prod                  # high/critical advisory gate against .supply-chain/audit-allowlist.json
+yarn audit:install-hooks         # diff node_modules against .supply-chain/install-hooks.allowlist
+yarn audit:install-hooks:update  # regenerate the install-hooks allowlist after dep changes
+```
+
+**Naming gotcha:** the script is `audit:prod`, NOT `audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts in `package.json`.
+
+Policy + threat model: [SUPPLY-CHAIN-SECURITY.md](SUPPLY-CHAIN-SECURITY.md). Disclosure: [SECURITY.md](SECURITY.md).
+
+When adding a dep:
+1. Update `package.json` (no carets — exact versions only).
+2. Run `yarn install` to update the lockfile.
+3. If the dep introduces a new install-hook package, run `yarn audit:install-hooks:update` and review the diff before committing.
+4. If the dep introduces a high/critical advisory that has no fix, add an allowlist entry to `.supply-chain/audit-allowlist.json` with `id` + `reason` + `added` + `review` (90 days out).
