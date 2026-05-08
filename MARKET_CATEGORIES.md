@@ -92,14 +92,143 @@ Add a small normalisation step downstream (consumer side or constants file) to m
 
 Because category is not in `ancillaryData`, on-chain extraction is impossible. Two viable paths, neither perfect:
 
-**Option A — off-chain enrichment in the consuming app (recommended)**
+**Option A — off-chain enrichment via Vercel (recommended)**
 
-Keep the subgraph as-is. In the olas-website API route, fetch categories from Polymarket's Gamma API keyed by `conditionId` / `questionId` and join them onto the trader-agent activity at query time. Cache aggressively (Gamma data rarely changes per market).
+Strategy: Use a **Vercel Cron Job + Vercel KV or Blob** to periodically sync Polymarket market metadata (including categories) from the Gamma API, then join at query time.
 
-Pros: zero subgraph work, categories always match what Polymarket itself shows.
-Cons: extra dependency at request time, aggregation logic moves into the API route.
+**Why this approach:**
+- Categories always match what Polymarket shows (Gamma is canonical)
+- Zero subgraph re-indexing required
+- Reliable caching means minimal Gamma API load
+- Works perfectly for the `MarketParticipated` entity that already tracks all indexed markets
+- Can backfill historical markets in one pass
 
-This is the right default for predict-polymarket given the constraint.
+**Implementation overview:**
+
+1. **Vercel Cron Job** (runs daily or every 6h):
+   ```
+   `/api/cron/sync-polymarket-categories`
+   ```
+   - Query `MarketParticipated` entities from the predict-polymarket subgraph (all `conditionId`s we've indexed)
+   - Map each `conditionId` → Polymarket's `questionId` (call Gamma API `/markets` endpoint, filter by `conditionId`)
+   - For each market, fetch category, subcategory, and other metadata from Gamma
+   - Write the full metadata map to **Vercel Blob** under a key like `polymarket:categories`
+   - Log errors and deduplicate API calls (Gamma rarely changes per market)
+
+2. **Vercel Blob** (stores the cache):
+   ```
+   Key: "polymarket:categories"
+   Value: JSON map
+   {
+     "0xconditionId1": { "title": "...", "category": "Politics", "subcategory": "US Elections", "url": "..." },
+     "0xconditionId2": { "title": "...", "category": "Crypto", "subcategory": "Bitcoin Price", "url": "..." },
+     ...
+   }
+   TTL: 7 days (auto-refresh via cron, or no TTL with manual refresh on cron run)
+   ```
+
+3. **Query-time join** (in olas-website API route):
+   - When building the predict page, fetch `TraderAgent` + `MarketParticipant` from GraphQL
+   - For each market in the results, look up `conditionId` in the Blob cache
+   - Augment the response with category data
+   - If a market is missing from the cache (shouldn't happen, but fallback), either:
+     - Use a keyword-based category guess (see B2 below)
+     - Render as "Unknown" / "Other"
+
+**Example code structure (pseudocode):**
+
+```typescript
+// /api/cron/sync-polymarket-categories (Vercel Cron)
+import { put } from '@vercel/blob';
+
+export const config = {
+  maxDuration: 60, // 60 second timeout
+};
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 1. Get all markets from predict-polymarket subgraph
+  const markets = await fetchAllMarketParticipatedFromSubgraph();
+  
+  // 2. Deduplicate conditionIds
+  const conditionIds = [...new Set(markets.map(m => m.conditionId))];
+  
+  // 3. Fetch Gamma metadata (batch requests)
+  const gammaMetadata = await fetchGammaMetadata(conditionIds);
+  
+  // 4. Build cache object
+  const categoryCache = {};
+  for (const market of gammaMetadata) {
+    categoryCache[market.conditionId] = {
+      title: market.title,
+      category: market.category,        // e.g. "Politics"
+      subcategory: market.subcategory,  // e.g. "Elections"
+      url: market.url,
+    };
+  }
+  
+  // 5. Store in Blob
+  await put('polymarket:categories', JSON.stringify(categoryCache), {
+    access: 'public',
+  });
+  
+  res.status(200).json({ synced: conditionIds.length });
+}
+
+// /api/predict-page (main query endpoint)
+import { get } from '@vercel/blob';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 1. Query subgraph
+  const traderAgents = await queryPredictPolymarket();
+  
+  // 2. Load category cache from Blob
+  const cacheBuf = await get('polymarket:categories');
+  const categoryCache = JSON.parse(cacheBuf.text());
+  
+  // 3. Augment results with categories
+  const enriched = traderAgents.map(agent => ({
+    ...agent,
+    marketCategories: agent.marketParticipants.map(market => ({
+      ...market,
+      category: categoryCache[market.conditionId]?.category || 'Other',
+      subcategory: categoryCache[market.conditionId]?.subcategory || null,
+    })),
+  }));
+  
+  res.status(200).json(enriched);
+}
+```
+
+**Gamma API notes:**
+- Endpoint: `https://gamma-api.polymarket.com/markets` (public, no auth required)
+- Returns: `conditionId`, `title`, `category`, `subcategory`, `slug`, `liquidity`, `volume_24h`, etc.
+- Bulk fetch: supports filter params like `condition_ids=0x...,0x...,` (check docs for batch param)
+- Rate limit: typically 10-50 req/sec for public endpoints; cron jobs are bursty, so batch aggressively
+- Fallback: if Gamma is down, use cached categories from last successful sync
+
+**Backfill (one-time):**
+```bash
+# Before first cron run, manually backfill all historical markets:
+# POST /api/cron/sync-polymarket-categories?backfill=true
+# This runs the same sync but logs all markets, not just new ones.
+```
+
+**Effort:** ~2–3 hours (cron handler + Blob integration + error handling)
+
+**Pros:**
+- ✅ Zero subgraph changes
+- ✅ Categories always canonical (from Gamma)
+- ✅ Cheap to run (cron job + Blob reads << frequent API calls)
+- ✅ Can serve historical data after backfill
+- ✅ Resilient to Gamma temporary outages (cached data)
+
+**Cons:**
+- ⚠️ Categories lag by up to ~6 hours (cron frequency)
+- ⚠️ Requires Vercel Blob (cost: ~$1-5/mo for typical usage)
+- ⚠️ New markets added to Polymarket won't have categories until next cron run
+- ⚠️ Requires olas-website to be Vercel-hosted (likely already true)
+
+---
 
 **Option B2 — keyword classifier in the mapping (fallback only)**
 
@@ -110,15 +239,15 @@ Schema addition either way:
 ```graphql
 type MarketMetadata @entity(immutable: true) {
   ...
-  category: String      # nullable; null until enriched (Option A) or always set (Option B2)
+  category: String      # populated by Gamma sync (Option A) or keyword classifier (Option B2)
 }
 ```
 
-If Option A is chosen, the `category` field can stay out of the schema entirely — it's enriched at query time, not stored. Add the field only if we commit to B2.
+If Option A is chosen, the `category` field stays out of the schema entirely — it's enriched at query time in the Vercel API. Add the field to the schema only if we commit to B2 (keyword-based).
 
 ### Optional Option C — per-category aggregate entities
 
-Once category is reliably populated (Omen: at market creation; Polymarket: only viable under B2), add a rollup entity to keep the read path on the predict page cheap:
+Once category is reliably populated (Omen: at market creation; Polymarket: via Vercel cron + Blob), add a rollup entity to keep the read path on the predict page cheap:
 
 ```graphql
 type TraderAgentCategoryMetric @entity(immutable: false) {
@@ -132,29 +261,92 @@ type TraderAgentCategoryMetric @entity(immutable: false) {
 }
 ```
 
-Mirrors the existing `MarketParticipant` rollup pattern. Defer until B is stable; on Polymarket, only meaningful if we go down B2.
+Mirrors the existing `MarketParticipant` rollup pattern. Defer until B is stable; on Polymarket, only meaningful if we go down B2 (on-chain keyword).
 
 ## Open questions
 
 - **Realitio template coverage on Omen**: of currently-indexed markets, what fraction has `fields.length >= 3` after the `␟` split? Run a one-off script over historical `Question` entities to confirm coverage before shipping. If coverage is, say, > 95%, B1 is enough; otherwise we need a B2 fallback on Omen too.
-- **Realitio category vocabulary**: the categories in the Realitio template are creator-specified strings, not a fixed enum. We need a normalisation table from raw strings (`"crypto"`, `"Cryptocurrency"`, `"Blockchain"`, …) to canonical buckets (`"Crypto"`). Do this in `src/constants.ts` or in the consuming app — leaning toward the subgraph for stability.
+- **Realitio category vocabulary**: the categories in the Realitio template are creator-specified strings, not a fixed enum. We need a normalisation table from raw strings (`"crypto"`, `"Cryptocurrency"`, `"Blockchain"`, …) to canonical buckets (`"Crypto"`). Do this in `src/constants.ts` or in the consuming app — leaning toward the subgraph for stability. **Next PR should include this.**
 - **Canonical bucket list**: align with whatever §7 of the predict-page plan settles on — the doc currently lists "politics, crypto, sports, culture" as examples, but the Figma chart shows more rows. Lock the list before either subgraph ships.
-- **Polymarket — Gamma cache strategy**: TTL, fallback when Gamma is down, dedupe of category lookups across requests. Belongs in the consuming app design, not here, but flag now.
-- **Backfill on Omen**: schema additions to `FixedProductMarketMakerCreation` (`immutable: false`) don't *require* a full re-index, but `category` will only be populated for markets indexed *after* the deployment unless we backfill. Decide whether to:
-  - Re-deploy from genesis (clean, slow), or
-  - Add a one-off migration that walks existing `Question` entities and writes `category` onto their linked `FixedProductMarketMakerCreation` (fast, but requires a custom handler).
+- **Polymarket — cron timing**: how fresh do categories need to be? Every 6 hours? Daily? Less frequently if we manually trigger on new market discoveries?
+- **Gamma API SLA**: if Gamma is down during cron run, should we retry, or just use stale cache? (Recommended: retry with exponential backoff, use stale data as fallback.)
+
+---
+
+## Implementation notes
+
+### Omen (predict-omen) — Code & Testing Status
+
+**Code changes** (complete):
+- Schema: Added `category` and `language` fields to `FixedProductMarketMakerCreation`
+- Mapping: Extended parsing to extract fields[2] and fields[3] from Realitio template; fields trimmed of whitespace
+- Nesting: new blocks are inside `if (fields.length >= 1)` — slightly redundant but readable, no performance impact
+
+**Testing** (complete):
+- File: `subgraphs/predict-omen/tests/category-parsing.test.ts`
+- Fixtures cover:
+  - Full 4-field template (category + language both populated)
+  - 3-field template (category only, language null)
+  - 2-field legacy template (both null)
+  - Whitespace trimming
+  - Complex outcomes with special characters (to ensure category parsing isn't affected by outcomes parsing)
+- Run with: `graph test tests/category-parsing.test.ts` or `yarn test`
+
+**Backfill strategy** (decided):
+- Deploy to production with no re-index (future markets indexed with category)
+- Historical markets (`category = null`) render as "Other" on predict page
+- Optional one-off migration later if backfill coverage is needed (low priority)
+
+### Commit Strategy
+
+**Option 1: Two commits (recommended for clean history)**
+```bash
+# Commit 1: Expand MARKET_CATEGORIES.md with Polymarket Vercel strategy + backfill guidance
+git commit -m "docs: expand MARKET_CATEGORIES.md with Polymarket Vercel Cron+Blob strategy
+
+- Concrete Vercel approach to sync Gamma API categories via cron job + Blob cache
+- Pseudocode examples for cron handler and query-time join
+- Effort estimates and tradeoffs per option
+- Backfill strategy for Omen (staged: deploy without re-index, backfill only if needed)
+- Updated effort table reflecting schema+mapping+tests as complete"
+
+# Commit 2: Implement Omen B1 path (schema, mapping, tests)
+git commit -m "feat(predict-omen): index market categories and language from Realitio template
+
+- Add category/language fields to FixedProductMarketMakerCreation schema
+- Parse from Realitio question template fields[2] and fields[3]
+- Add Matchstick test suite (5 fixtures covering template variants)
+- See MARKET_CATEGORIES.md for backfill strategy"
+```
+
+**Option 2: Single combined commit (if you prefer less granularity)**
+```bash
+git commit -m "feat(predict-omen): add category/language indexing + Polymarket strategy docs
+
+- Schema: Add nullable category/language to FixedProductMarketMakerCreation
+- Mapping: Parse from existing Realitio template (fields[2] and fields[3])
+- Tests: 5 Matchstick fixtures covering template variants, whitespace, edge cases
+- Docs: Expand MARKET_CATEGORIES.md with detailed Vercel Cron+Blob approach for Polymarket
+- Backfill: Staged deployment (no re-index initially, optional backfill later)"
+```
+
+Either way, the CRLF warning from git is harmless (Windows line ending conversion in MARKET_CATEGORIES.md) — just commit normally.
 
 ## Effort estimate
 
-| Subgraph | Path | Effort |
-|---|---|---|
-| predict-omen | Schema + mapping change (B1) | ~0.5 day |
-| predict-omen | Realitio category normalisation table | ~0.25 day |
-| predict-omen | Backfill / re-index | ~1 day depending on choice |
-| predict-omen | Optional `TraderAgentCategoryMetric` rollup (C) | ~0.5 day |
-| predict-polymarket | Option A: consumer-side Gamma join | ~1 day in olas-website (no subgraph work) |
-| predict-polymarket | Option B2: keyword classifier + schema field | ~1 day + curation effort to maintain keyword list |
+| Subgraph | Path | Effort | Status |
+|---|---|---|---|
+| predict-omen | Schema + mapping change (B1) | ~0.5 day | ✅ **COMPLETE** |
+| predict-omen | Matchstick tests for category/language parsing | ~0.25 day | ✅ **COMPLETE** |
+| predict-omen | Realitio category normalisation table | ~0.25 day | Pending: next step |
+| predict-omen | Backfill / re-index | 0 days initially; ~0.5 day if backfill needed later | Staged approach |
+| predict-omen | Optional `TraderAgentCategoryMetric` rollup (C) | ~0.5 day | Optional |
+| predict-polymarket | Vercel Cron + Blob sync (Option A) | ~2-3 days (olas-website) | Recommended |
+| predict-polymarket | Option B2: keyword classifier + schema field | ~1 day + curation effort | Fallback only |
 
-Total if we go Omen-B1 + Polymarket-A: **~2 days subgraph work + ~1 day consuming-app work**, no Polymarket re-index needed.
+**Recommended path: Omen-B1 (complete + tested) + Polymarket-A (Vercel cron/blob)**
+- Subgraph work: ~1 day (Omen normalisation table + decide backfill)
+- Consuming-app work: ~2-3 days (Vercel cron handler + Blob integration in olas-website)
+- **Total: ~3-4 days**, zero Polymarket re-index needed, Omen ready to ship after normalisation
 
-Total if we additionally do Polymarket-B2: add **~1 day subgraph work + Polygon re-index time** (Polygon is heavier than Gnosis; budget ~1 day end-to-end).
+**If we add per-category rollups (Option C):** add ~0.5 day per subgraph

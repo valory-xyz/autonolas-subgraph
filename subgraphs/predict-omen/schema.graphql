@@ -61,6 +61,8 @@ type FixedProductMarketMakerCreation @entity (immutable: false) {
   conditionIds: [Bytes!]! # bytes32[]
   question: String
   outcomes: [String!]
+  category: String      # nullable; parsed from Realitio template field[2]
+  language: String      # nullable; parsed from Realitio template field[3]
   fee: BigInt! # uint256
   currentAnswer: Bytes
   currentAnswerTimestamp: BigInt
