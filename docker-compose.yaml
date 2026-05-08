@@ -19,7 +19,7 @@ services:
     environment:
       postgres_host: postgres
       postgres_user: graph-node
-      postgres_pass: let-me-in
+      postgres_pass: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.local before running docker-compose}
       postgres_db: graph-node
       ethereum: "mainnet:https://rpc-gate.autonolas.tech/ethereum-rpc/ --ethereum-rpc base:https://rpc-gate.autonolas.tech/base-rpc/ --ethereum-rpc gnosis:https://rpc-gate.autonolas.tech/gnosis-rpc/ --ethereum-rpc mode-mainnet:https://mainnet.mode-mainnet.network/"
       ipfs: ${IPFS_URL:-https://registry.autonolas.tech}
@@ -38,7 +38,7 @@ services:
     command: [ "postgres", "-cshared_preload_libraries=pg_stat_statements" ]
     environment:
       POSTGRES_USER: graph-node
-      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.local before running docker-compose}
       POSTGRES_DB: graph-node
       PGDATA: "/var/lib/postgresql/data"
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"

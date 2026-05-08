@@ -166,10 +166,15 @@ src/marketplace/
 
 ## Deployment
 
-Production deployments go through GitHub Actions (`.github/workflows/deploy-subgraph.yaml`):
+Production deployments go through GitHub Actions. There are two related workflows:
+- [`.github/workflows/deploy-subgraph.yaml`](.github/workflows/deploy-subgraph.yaml) — primary deploy with a versioned slug (e.g. `marketplace-gnosis-v0_1_2`).
+- [`.github/workflows/deploy-subgraph-no-version-label.yaml`](.github/workflows/deploy-subgraph-no-version-label.yaml) — variant for the `autonolas` subgraph that uses an unversioned slug. Identical hardening; differs only in the deploy-slug shape and the `--version-label` flag (hardcoded `v0.0.1`).
+
+To deploy:
 1. Actions tab -> "Run workflow"
-2. Select environment (production/staging), subgraph, version, manifest
-3. Production deployments are gated to the `main` branch
+2. Select environment (production/staging), subgraph, version (only for the primary workflow), manifest
+3. Production deployments are gated to the `main` branch (staging deploys allowed from any branch)
+4. Both workflows pin the Node version via [`.nvmrc`](.nvmrc), require `yarn install --frozen-lockfile`, set `permissions: contents: read`, validate inputs against regex, and scope `GRAPH_NODE_*` secrets via the GitHub Environment matching the chosen `environment` input
 
 Or use the interactive helper to generate the `gh workflow run` command:
 ```bash
