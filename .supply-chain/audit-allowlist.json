@@ -20,6 +20,15 @@
       "review": "2026-08-06"
     },
     {
+      "id": 1097723,
+      "ghsa": "GHSA-h755-8qp9-cq85",
+      "package": "protobufjs",
+      "severity": "critical",
+      "reason": "Baselined at PR2 — surfaced by subgraphs/mech only (graph-cli 0.86.x ships older protobufjs in the 6.10–6.11.4 range; root tree on graph-cli 0.98.x has the newer protobufjs that triggers advisory 1117571 instead). Re-evaluate when mech moves to graph-cli 0.98.x in Tier 3 Wave 2.",
+      "added": "2026-05-11",
+      "review": "2026-08-09"
+    },
+    {
       "id": 1098094,
       "ghsa": "GHSA-grv7-fg5c-xmjg",
       "package": "braces",
