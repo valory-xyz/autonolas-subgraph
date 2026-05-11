@@ -64,16 +64,19 @@ The quarterly rotation cadence is the primary mitigation. The longer-term fix is
 
 ## 4. Dependabot
 
-This repo uses [`.github/dependabot.yml`](.github/dependabot.yml) to track dependency updates across the root + 10 subgraph npm directories + GitHub Actions. Configuration notes:
+This repo intentionally does **not** ship a `.github/dependabot.yml`. Routine version-update PRs across 11 npm scopes + `github-actions` would generate ~10–15 PRs/week — high noise relative to the team's review bandwidth, especially while heterogeneous `@graphprotocol/graph-cli` versions persist (0.64.0 → 0.98.x; Tier 3 convergence is a separate PR). Without convergence, Dependabot would open the same advisory PR against 6+ different graph-cli version lines.
 
-- `versioning-strategy: increase` rewrites `package.json`, preserving the no-carets invariant established in PR 1 (Tier 1.4).
-- Each subgraph is its own Dependabot scope. This is deliberate: heterogeneous `@graphprotocol/graph-cli` versions across subgraphs (0.64.0 → 0.98.x — Tier 3 convergence is a separate PR) mean root-only Dependabot would miss sub-tree drift.
-- Expect a bursty initial wave (~10–15 PRs per week for the first month) as Dependabot catches up on the existing version surface. After Tier 3 lands the noise drops.
+Vulnerability surfacing is still active via the **Security tab**, configured in repo Settings → Code security and analysis:
 
-To enable Dependabot security alerts (separate from version-update PRs):
+1. **Dependabot alerts** → Enable. Surfaces known-CVE advisories in the Security tab as they're disclosed. No PRs. This is the primary signal we rely on.
+2. **Dependabot security updates** → Leave **disabled** for now. (When enabled, it opens auto-fix PRs *only* for known-CVE alerts — far lower volume than version updates, but currently we'd prefer to triage from the Security tab and bump deps manually as part of regular work.)
 
-1. Repo Settings → Code security and analysis → **Dependabot alerts** → Enable.
-2. (Optional, recommended) Same page → **Dependabot security updates** → Enable. This opens PRs *only* for known-vulnerability fixes — not for routine version bumps.
+The CI-side audit gate ([`scripts/audit.mjs`](scripts/audit.mjs), §5) is the enforcement counterpart — it blocks PRs that introduce new high/critical advisories. Dependabot alerts and the audit gate cover different parts of the lifecycle:
+
+- **Audit gate** — blocks new advisories landing.
+- **Dependabot alerts** — surfaces newly disclosed advisories on already-merged code.
+
+Revisit the policy after Tier 3 (graph-cli convergence) lands: with a single graph-cli version line, ordinary version-update PRs become tractable and we may opt in by adding a `.github/dependabot.yml`.
 
 ## 5. Audit gate (`yarn audit:prod`)
 
