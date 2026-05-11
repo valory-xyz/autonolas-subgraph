@@ -74,6 +74,11 @@ function runYarnAudit() {
 
 function parseAdvisories(stdout) {
   const advisories = new Map();
+  // Track whether we saw any well-formed yarn-audit JSON row. If a
+  // registry outage or network failure left us with garbled / partial
+  // output, `advisories` would stay empty AND `sawAuditRow` would be
+  // false — distinguishes "no advisories" from "could not parse".
+  let sawAuditRow = false;
   for (const line of stdout.split('\n')) {
     if (!line.trim()) continue;
     let row;
@@ -82,13 +87,19 @@ function parseAdvisories(stdout) {
     } catch {
       continue;
     }
+    // yarn-audit's JSON output always emits at least an `auditSummary`
+    // (success) or an `error` row. Seeing either confirms the run reached
+    // a final state, not a truncated stream.
+    if (row.type === 'auditAdvisory' || row.type === 'auditSummary') {
+      sawAuditRow = true;
+    }
     if (row.type !== 'auditAdvisory') continue;
     const a = row.data.advisory;
     const key = a.id;
     if (!advisories.has(key)) advisories.set(key, { advisory: a, paths: new Set() });
     advisories.get(key).paths.add(row.data.resolution.path);
   }
-  return [...advisories.values()];
+  return { advisories: [...advisories.values()], sawAuditRow };
 }
 
 const allowlist = loadAllowlist();
@@ -108,7 +119,18 @@ if (!stdout) {
   process.exit(2);
 }
 
-const advisories = parseAdvisories(stdout);
+const { advisories, sawAuditRow } = parseAdvisories(stdout);
+
+// A successful `yarn audit` always emits at least an `auditSummary` row.
+// If we got output but couldn't recognize any audit-shaped JSON, the
+// stream was likely truncated by a registry / network failure — fail loudly
+// rather than silently passing.
+if (!sawAuditRow) {
+  console.error('::error::`yarn audit` produced output but no recognizable advisory or summary rows.');
+  console.error('This typically indicates a registry outage or truncated stream.');
+  if (stderr) console.error(stderr);
+  process.exit(2);
+}
 
 const blocking = [];
 const suppressed = [];

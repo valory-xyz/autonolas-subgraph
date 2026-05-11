@@ -57,8 +57,29 @@ jobs:
         run: node "${{ github.workspace }}/scripts/audit.mjs"
 
   install-hooks:
-    name: Install-hook audit (root tree)
+    name: Install-hook audit
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same 11 paths as the audit and lockfile-lint matrices. lockfile-lint
+        # only validates package sources and integrity hashes — it does NOT
+        # inspect install-script contents. A malicious dep with a legitimate
+        # npm-registry URL and matching integrity hash would slip past
+        # lockfile-lint while running arbitrary code in postinstall. Per-path
+        # install-hook coverage closes that gap across all 11 trees.
+        path:
+          - "."
+          - "subgraphs/autonolas"
+          - "subgraphs/autonolas-base"
+          - "subgraphs/babydegen-mode"
+          - "subgraphs/marketplace"
+          - "subgraphs/mech"
+          - "subgraphs/predict-omen"
+          - "subgraphs/predict-polymarket"
+          - "subgraphs/service-registry"
+          - "subgraphs/staking"
+          - "subgraphs/tokenomics"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -73,15 +94,13 @@ jobs:
           [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
 
       # `--ignore-scripts` so the hooks don't run while we're enumerating them.
-      # Audited at root only: graph-cli's transitive tree is the dominant
-      # source of install hooks, present in every subgraph too. Any
-      # subgraph-specific hook (e.g. matchstick-as native bindings) shows
-      # up via the lockfile-lint matrix below.
       - name: Install dependencies (no hooks)
+        working-directory: ${{ matrix.path }}
         run: yarn install --frozen-lockfile --ignore-scripts
 
-      - name: Run install-hook audit
-        run: yarn audit:install-hooks
+      - name: Run install-hook audit (${{ matrix.path }})
+        working-directory: ${{ matrix.path }}
+        run: node "${{ github.workspace }}/scripts/audit-install-hooks.mjs"
 
   lockfile-lint:
     name: Lockfile validation

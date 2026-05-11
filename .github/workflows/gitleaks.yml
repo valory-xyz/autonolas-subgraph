@@ -66,3 +66,14 @@ jobs:
               --report-path /tmp/leaks.json \
               -v
           fi
+
+      # On failure, surface the (redacted) JSON report as an artifact so
+      # reviewers can act on it without trawling masked CI logs.
+      - name: Upload gitleaks report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: gitleaks-report
+          path: /tmp/leaks.json
+          if-no-files-found: warn
+          retention-days: 7

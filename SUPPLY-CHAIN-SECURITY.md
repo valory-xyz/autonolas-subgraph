@@ -82,8 +82,9 @@ Revisit the policy after Tier 3 (graph-cli convergence) lands: with a single gra
 
 Yarn 1.x `yarn audit` exits with a *severity bitmask*, not a threshold, and has no suppression mechanism — a single unfixable transitive advisory blocks every PR. To work around this, [`scripts/audit.mjs`](scripts/audit.mjs) wraps `yarn audit --json` and:
 
-1. Fails on any **high** or **critical** advisory not listed in [`.supply-chain/audit-allowlist.json`](.supply-chain/audit-allowlist.json).
+1. Fails on any **high** or **critical** advisory not listed in [`.supply-chain/audit-allowlist.json`](.supply-chain/audit-allowlist.json). **Moderate and low advisories are not gated** — they print but do not block. Revisit if the noise ratio shifts.
 2. Surfaces allowlist entries whose `review` date has passed as a **CI warning** (does not fail; review and renew or remove).
+3. Fails loudly (exit 2) if `yarn audit` produces output but emits no `auditAdvisory` or `auditSummary` rows — i.e. a registry / network outage truncated the stream. Prevents a silent green pass on a non-functional gate.
 
 **Critical naming detail**: the script is exposed as `yarn audit:prod`, NOT `yarn audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts in `package.json`, so naming the script `audit` would silently invoke the built-in instead.
 
@@ -102,15 +103,19 @@ npx --yes lockfile-lint --path yarn.lock --type yarn --validate-https \
 
 Catches non-registry deps (e.g., `codeload.github.com` URLs from forked-and-patched packages), HTTP-only sources, and missing integrity hashes. A new GitHub-source dep should be allowlisted explicitly with a comment naming the package — never blanket-allow.
 
+**What lockfile-lint does NOT catch:** install-script contents. A malicious dep added to a legitimate-looking npm-registry URL with a matching integrity hash slips past lockfile-lint while still running arbitrary code in `postinstall`. That's the gap §7's per-subgraph matrix closes.
+
 ## 7. Install-hook gate
 
-[`scripts/audit-install-hooks.mjs`](scripts/audit-install-hooks.mjs) enumerates every package in `node_modules` that declares a non-trivial `preinstall` / `install` / `postinstall` script and diffs the list against [`.supply-chain/install-hooks.allowlist`](.supply-chain/install-hooks.allowlist). Drift in either direction (new hook OR removed hook) fails the job — the latter catches stale allowlist entries.
+[`scripts/audit-install-hooks.mjs`](scripts/audit-install-hooks.mjs) enumerates every package in `node_modules` that declares a non-trivial `preinstall` / `install` / `postinstall` script and diffs the list against [`.supply-chain/install-hooks.allowlist`](.supply-chain/install-hooks.allowlist). New names in the tree but not in the allowlist fail the job.
 
 A new package with an install hook NOT in the allowlist requires an explicit decision: vet what the hook does, then run `yarn audit:install-hooks:update` to add it (with an inline comment describing what the hook does). Anything you can't justify in a sentence shouldn't go in.
 
 The Graph CLI's transitive tree includes `node-gyp-build` and similar legitimate native-binding bootstrappers; those are expected and allowlisted. Anything else is suspicious.
 
-The install-hook audit runs at **the root tree only** in CI (after `yarn install --frozen-lockfile --ignore-scripts`). Graph-cli's transitive tree is the dominant source of install hooks and is present in every subgraph; subgraph-specific hooks (e.g. `matchstick-as`'s native bindings) are expected to surface via the lockfile-lint matrix.
+The install-hook audit runs as a **matrix across all 11 paths** in CI (root + 10 subgraphs), each after `yarn install --frozen-lockfile --ignore-scripts` in that tree. Per-path coverage is necessary because lockfile-lint (§6) validates source URLs and integrity hashes only — it doesn't inspect install-script contents, so a malicious script in a legitimately-sourced dep would slip past lockfile-lint at the subgraph level. The matrix closes that gap.
+
+`--update` is run at root after `yarn install` in every affected tree; it aggregates hook-bearing packages across all populated `node_modules` trees and writes the union to the allowlist. Stale-entry detection (allowlist entry no longer in some tree) is intentionally not enforced per-CI-run, since some hook-bearing packages legitimately surface in only some trees (e.g. `keccak` / `secp256k1` / `protobufjs` appear in the legacy-graph-cli trees of `autonolas` / `autonolas-base` / `mech` but not the 0.98.x trees).
 
 ## 8. Secret scanning (gitleaks)
 

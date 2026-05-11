@@ -4,20 +4,28 @@
  * preinstall / install / postinstall script, and diff the list against
  * a checked-in allowlist at .supply-chain/install-hooks.allowlist.
  *
- * New names in the tree but not in the allowlist = fail. Names in the
- * allowlist but not in the tree = fail (drift — allowlist is stale).
+ * New names in the tree but not in the allowlist = fail.
  *
  * Use `--update` to regenerate the allowlist from the current tree.
- * Run after any dependency change:
- *   yarn install
+ * `--update` aggregates across the root tree + every `subgraphs/*` tree
+ * that has a populated `node_modules`, so a single allowlist at the repo
+ * root captures the union of hooks across all 11 trees. Run after any
+ * dependency change:
+ *   yarn install            (at root + any affected subgraph)
  *   node scripts/audit-install-hooks.mjs --update
  *   git add .supply-chain/install-hooks.allowlist
  *
  * The allowlist path is anchored to the script's own location so a
  * single allowlist at the repo root governs every node_modules tree
  * (root + per-subgraph). The script audits whatever node_modules
- * exists in the current working directory; CI runs it once at root
- * after `yarn install --frozen-lockfile --ignore-scripts`.
+ * exists in the current working directory; CI runs it across all 11
+ * paths in a matrix after `yarn install --frozen-lockfile
+ * --ignore-scripts` per tree.
+ *
+ * Stale-entry detection (allowlist entry not present in current tree)
+ * is intentionally NOT enforced — in a per-tree matrix, a hook-bearing
+ * package may only surface in some trees. Drift cleanup happens at
+ * `--update` time, not per-CI-run.
  *
  * See SUPPLY-CHAIN-SECURITY.md §7.
  */
@@ -159,40 +167,74 @@ function writeAllowlist(hooks) {
   writeFileSync(ALLOWLIST_PATH, lines.join('\n') + '\n');
 }
 
-const found = collectHooks();
+function collectHooksAcrossTrees() {
+  // Aggregate across root + every subgraphs/* directory that has a
+  // populated node_modules. Used by --update to capture the union.
+  const REPO_ROOT = resolve(SCRIPT_DIR, '..');
+  const candidates = [REPO_ROOT];
+  const subgraphsDir = join(REPO_ROOT, 'subgraphs');
+  if (existsSync(subgraphsDir)) {
+    for (const entry of readdirSync(subgraphsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      candidates.push(join(subgraphsDir, entry.name));
+    }
+  }
+  const aggregate = new Map();
+  let treesScanned = 0;
+  for (const tree of candidates) {
+    const nm = join(tree, 'node_modules');
+    if (!existsSync(nm)) continue;
+    treesScanned++;
+    for (const path of walkPackageJsons(nm)) {
+      let pkg;
+      try {
+        pkg = JSON.parse(readFileSync(path, 'utf8'));
+      } catch {
+        continue;
+      }
+      if (!pkg.name || !pkg.scripts) continue;
+      for (const hook of HOOK_KEYS) {
+        const cmd = pkg.scripts[hook];
+        if (!cmd || isTrivial(cmd)) continue;
+        if (!aggregate.has(pkg.name)) aggregate.set(pkg.name, new Set());
+        aggregate.get(pkg.name).add(`${hook}: ${cmd.replace(/\s+/g, ' ').trim()}`);
+      }
+    }
+  }
+  return { aggregate, treesScanned };
+}
 
 if (UPDATE) {
-  writeAllowlist(found);
-  console.log(`Wrote ${found.size} entries to ${ALLOWLIST_PATH}.`);
+  const { aggregate, treesScanned } = collectHooksAcrossTrees();
+  if (treesScanned === 0) {
+    console.error('No node_modules trees found. Run `yarn install` at root and in every subgraph first.');
+    process.exit(2);
+  }
+  writeAllowlist(aggregate);
+  console.log(`Wrote ${aggregate.size} entries to ${ALLOWLIST_PATH} (aggregated across ${treesScanned} tree(s)).`);
   process.exit(0);
 }
 
+const found = collectHooks();
 const allowed = loadAllowlist();
 const foundNames = new Set(found.keys());
 const unexpected = [...foundNames].filter((n) => !allowed.has(n)).sort();
-const missing = [...allowed].filter((n) => !foundNames.has(n)).sort();
 
-if (unexpected.length === 0 && missing.length === 0) {
-  console.log(`install-hooks: OK (${foundNames.size} allowlisted).`);
+// Stale-entry detection intentionally omitted: per-tree matrix means
+// some hook-bearing packages legitimately only surface in some trees.
+// Cleanup happens at `--update` time.
+
+if (unexpected.length === 0) {
+  console.log(`install-hooks: OK (${foundNames.size} in tree, all in allowlist).`);
   process.exit(0);
 }
 
-if (unexpected.length > 0) {
-  console.error('::error::install-hook audit found NEW packages with install hooks not in the allowlist:');
-  for (const name of unexpected) {
-    console.error(`  + ${name}`);
-    for (const hook of found.get(name)) console.error(`      ${hook}`);
-  }
-  console.error('');
-  console.error('Review the hook. If it is legitimate, add the package to');
-  console.error('.supply-chain/install-hooks.allowlist (run: yarn audit:install-hooks:update).');
+console.error('::error::install-hook audit found NEW packages with install hooks not in the allowlist:');
+for (const name of unexpected) {
+  console.error(`  + ${name}`);
+  for (const hook of found.get(name)) console.error(`      ${hook}`);
 }
-
-if (missing.length > 0) {
-  console.error('::error::install-hook allowlist has entries no longer in the tree (drift):');
-  for (const name of missing) console.error(`  - ${name}`);
-  console.error('');
-  console.error('Remove the stale entries (run: yarn audit:install-hooks:update).');
-}
-
+console.error('');
+console.error('Review the hook. If it is legitimate, run `yarn audit:install-hooks:update`');
+console.error('at repo root (after `yarn install` in every affected tree) to refresh the allowlist.');
 process.exit(1);
