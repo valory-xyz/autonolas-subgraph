@@ -26,7 +26,7 @@ The following are in scope:
 
 - Vulnerabilities in [The Graph](https://thegraph.com/) protocol itself, in `graph-node`, or in the broader Graph Protocol stack — please report those upstream.
 - Vulnerabilities in Valory's hosted graph-node infrastructure (`admin.subgraph.autonolas.tech`, `admin.subgraph.staging.autonolas.tech`) — those are tracked separately by the infra team; route via security@valory.xyz and the infra owners will pick them up.
-- Issues in third-party dependencies that have already been disclosed publicly and are tracked via the audit allowlist in `.supply-chain/`.
+- Issues in third-party dependencies that have already been publicly disclosed (NPM/GHSA advisories surfaced by `yarn audit`); these are tracked via our audit gate and triaged separately.
 - Vulnerabilities in the on-chain Olas smart contracts indexed by these subgraphs — please report those to the [Olas core repositories](https://github.com/valory-xyz).
 
 ## Disclosure

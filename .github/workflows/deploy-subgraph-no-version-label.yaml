@@ -82,6 +82,11 @@ jobs:
             echo "Received: '$INPUT_MANIFEST'"
             exit 1
           fi
+          if [[ "$INPUT_MANIFEST" == *.template.yaml ]]; then
+            echo "❌ Error: Mustache template files (*.template.yaml) are not deployable manifests"
+            echo "Received: '$INPUT_MANIFEST'"
+            exit 1
+          fi
           echo "✅ Manifest filename format is valid: $INPUT_MANIFEST"
 
       - name: Validate subgraph folder exists

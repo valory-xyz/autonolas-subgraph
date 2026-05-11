@@ -197,10 +197,19 @@ When adding external contract calls (e.g., Chainlink, Balancer), add the ABI and
 
 ## Tooling Versions
 
-graph-cli and graph-ts versions vary by subgraph (newer subgraphs are on the latest):
-- `marketplace`, `predict-polymarket`: graph-cli ^0.98.x, graph-ts ^0.38.x
-- `service-registry`, `staking`, `tokenomics`, `babydegen-mode`, `predict-omen`: graph-cli ^0.97.x, graph-ts ^0.38.x
-- `mech`: graph-cli ^0.86.x, graph-ts ^0.35.x
-- `autonolas`, `autonolas-base`: graph-cli 0.64.0, graph-ts 0.29.x-0.32.x (oldest — predates newer specVersion features)
+All versions are pinned exactly (no carets). graph-cli is heterogeneous across subgraphs pending Tier 3 convergence:
 
-Matchstick: 0.5.0 - 0.6.0. Root `package.json` requires Node >=24.0.0.
+| Subgraph | graph-cli | graph-ts |
+|---|---|---|
+| `marketplace` | 0.98.1 | 0.37.0 |
+| `predict-polymarket` | 0.98.1 | 0.38.2 |
+| `predict-omen` | 0.97.1 | 0.38.2 |
+| `staking` | 0.97.1 | 0.38.1 |
+| `babydegen-mode` | 0.97.0 | 0.38.0 |
+| `service-registry` | 0.97.0 | 0.38.0 |
+| `tokenomics` | 0.97.0 | 0.38.0 |
+| `mech` | 0.86.0 | 0.35.1 |
+| `autonolas` | 0.64.0 | 0.29.1 |
+| `autonolas-base` | 0.64.0 | 0.29.1 |
+
+`matchstick-as` is converged to `0.6.0` across all subgraphs. Root `package.json` requires Node `>=24.0.0` and pins `@graphprotocol/graph-cli 0.98.1`, `@clack/prompts 0.11.0`, `@types/node 24.3.1`, and `typescript 5.9.3`.
