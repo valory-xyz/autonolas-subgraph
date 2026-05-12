@@ -35,12 +35,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Display deployment plan
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
         run: |
           echo "## 📋 Deployment Plan" >> $GITHUB_STEP_SUMMARY
-          echo "- Environment: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Subgraph: \`${{ inputs.subgraph }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Version: \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Manifest: \`${{ inputs.manifest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: \`$INPUT_ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Subgraph: \`$INPUT_SUBGRAPH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: \`$INPUT_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest: \`$INPUT_MANIFEST\`" >> $GITHUB_STEP_SUMMARY
 
   validate-inputs:
     needs: plan
@@ -61,12 +66,14 @@ jobs:
           echo "✅ Branch validation passed: deploying from main branch"
 
       - name: Validate version format
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [[ ! "${{ inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$INPUT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "❌ Error: Version must follow format vX.Y.Z (e.g., v0.1.2)"
             exit 1
           fi
-          echo "✅ Version format is valid: ${{ inputs.version }}"
+          echo "✅ Version format is valid: $INPUT_VERSION"
 
       - name: Validate subgraph name format
         env:
@@ -140,14 +147,24 @@ jobs:
           node-version-file: .nvmrc
           cache: "yarn"
 
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
       - name: Prepare environment
         env:
-          VERSION: ${{ inputs.version }}
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_VERSION: ${{ inputs.version }}
           GRAPH_NODE_USER: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_USER || secrets.GRAPH_NODE_STAGING_USER }}
           GRAPH_NODE_PASSWORD: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_PASSWORD || secrets.GRAPH_NODE_STAGING_PASSWORD }}
         run: |
           # Export variables for subsequent steps
-          MANIFEST="${{ inputs.manifest }}"
+          MANIFEST="$INPUT_MANIFEST"
+          VERSION="$INPUT_VERSION"
           echo "MANIFEST=$MANIFEST" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
@@ -161,13 +178,13 @@ jobs:
 
           # Build Subgraph name
           if [ -n "$NETWORK" ]; then
-            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${NETWORK}-${VERSION//./_}" >> $GITHUB_ENV
+            echo "SUBGRAPH_NAME=${INPUT_SUBGRAPH}-${NETWORK}-${VERSION//./_}" >> $GITHUB_ENV
           else
-            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${VERSION//./_}" >> $GITHUB_ENV
+            echo "SUBGRAPH_NAME=${INPUT_SUBGRAPH}-${VERSION//./_}" >> $GITHUB_ENV
           fi
 
           # Create masked node URL based on environment
-          if [ "${{ inputs.environment }}" == "production" ]; then
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
             GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
           else
             GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.staging.autonolas.tech"
@@ -181,39 +198,41 @@ jobs:
 
       - name: Generate code
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph codegen ${{ env.MANIFEST }}
+        run: yarn graph codegen "$MANIFEST"
 
       - name: Build subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph build ${{ env.MANIFEST }}
+        run: yarn graph build "$MANIFEST"
 
       - name: Create subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
+        run: yarn graph create --node="$GRAPH_NODE_URL" "$SUBGRAPH_NAME"
 
       - name: Deploy subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
         run: |
           yarn graph deploy \
-            --node=${{ env.GRAPH_NODE_URL }} \
+            --node="$GRAPH_NODE_URL" \
             --ipfs=https://registry.autonolas.tech \
-            ${{ env.SUBGRAPH_NAME }} \
-            ${{ env.MANIFEST }} \
-            -l ${{ env.VERSION }}
+            "$SUBGRAPH_NAME" \
+            "$MANIFEST" \
+            -l "$VERSION"
 
       - name: Deployment summary
         if: success()
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           echo "✅ Subgraph deployed successfully"
-          echo "- Environment: ${{ inputs.environment }}"
-          echo "- Subgraph name: ${{ env.SUBGRAPH_NAME }}"
-          echo "- Version: ${{ env.VERSION }}"
-          echo "- Manifest: ${{ env.MANIFEST }}"
+          echo "- Environment: $INPUT_ENVIRONMENT"
+          echo "- Subgraph name: $SUBGRAPH_NAME"
+          echo "- Version: $VERSION"
+          echo "- Manifest: $MANIFEST"
 
-          if [ "${{ inputs.environment }}" == "production" ]; then
-            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
-            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
+            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
-            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
+            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
           fi
