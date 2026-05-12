@@ -513,6 +513,42 @@
       "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
+    },
+    {
+      "id": 1118641,
+      "ghsa": "GHSA-66ff-xgx4-vchm",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118645,
+      "ghsa": "GHSA-75px-5xx7-5xc7",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118647,
+      "ghsa": "GHSA-jvwf-75h9-cwgg",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118649,
+      "ghsa": "GHSA-685m-2w69-288q",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
     }
   ]
 }
