@@ -142,8 +142,9 @@ async function promptForConfiguration(): Promise<DeploymentConfig> {
 async function deploySubgraph(config: DeploymentConfig) {
   const { subgraphName, manifestFile, version } = config;
 
-  const command = `gh workflow run deploy-prod-subgraph.yaml \\
+  const command = `gh workflow run deploy-subgraph.yaml \\
   --ref main \\
+  -f environment=production \\
   -f subgraph=${subgraphName} \\
   -f version=${version} \\
   -f manifest=${manifestFile}`;

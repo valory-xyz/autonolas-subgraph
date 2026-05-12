@@ -6,6 +6,7 @@ temp/
 
 .env
 .env.prod
+.env.local
 .cursor/
 
 .DS_Store
@@ -13,3 +14,13 @@ temp/
 .latest.json
 
 .claude/projects/
+
+/.plans
+
+# Other-package-manager lockfiles (this repo uses yarn 1.x)
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
+
+# Tier-0 audit baseline drop (gitignored; informational only)
+/audit
