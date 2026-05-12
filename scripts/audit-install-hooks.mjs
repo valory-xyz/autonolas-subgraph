@@ -180,11 +180,15 @@ function collectHooksAcrossTrees() {
     }
   }
   const aggregate = new Map();
-  let treesScanned = 0;
+  const scanned = [];
+  const skipped = [];
   for (const tree of candidates) {
     const nm = join(tree, 'node_modules');
-    if (!existsSync(nm)) continue;
-    treesScanned++;
+    if (!existsSync(nm)) {
+      skipped.push(tree);
+      continue;
+    }
+    scanned.push(tree);
     for (const path of walkPackageJsons(nm)) {
       let pkg;
       try {
@@ -201,17 +205,29 @@ function collectHooksAcrossTrees() {
       }
     }
   }
-  return { aggregate, treesScanned };
+  return { aggregate, scanned, skipped };
 }
 
 if (UPDATE) {
-  const { aggregate, treesScanned } = collectHooksAcrossTrees();
-  if (treesScanned === 0) {
+  const REPO_ROOT = resolve(SCRIPT_DIR, '..');
+  const { aggregate, scanned, skipped } = collectHooksAcrossTrees();
+  if (scanned.length === 0) {
     console.error('No node_modules trees found. Run `yarn install` at root and in every subgraph first.');
     process.exit(2);
   }
+  if (skipped.length > 0) {
+    // Warn but proceed: partial allowlist is still better than no update, and
+    // CI will surface any missed hook on the next PR. Tell the contributor
+    // exactly which trees to install so they can rerun for a complete refresh.
+    console.warn('::warning::install-hook --update scanned a partial set of trees:');
+    for (const tree of skipped) {
+      const rel = tree.startsWith(REPO_ROOT) ? tree.slice(REPO_ROOT.length + 1) || '.' : tree;
+      console.warn(`  - missing node_modules: ${rel}`);
+    }
+    console.warn('Run `yarn install` in each missing tree and rerun this command for a complete allowlist.');
+  }
   writeAllowlist(aggregate);
-  console.log(`Wrote ${aggregate.size} entries to ${ALLOWLIST_PATH} (aggregated across ${treesScanned} tree(s)).`);
+  console.log(`Wrote ${aggregate.size} entries to ${ALLOWLIST_PATH} (aggregated across ${scanned.length} of ${scanned.length + skipped.length} tree(s)).`);
   process.exit(0);
 }
 
