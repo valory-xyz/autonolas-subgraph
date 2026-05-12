@@ -32,7 +32,8 @@ subgraphs/service-registry/
 ├── networks.json                   # Contract addresses & start blocks per network
 ├── src/
 │   ├── mapping.ts                  # L2 handlers (imports ServiceRegistryL2)
-│   ├── mapping-eth.ts              # Mainnet handlers (imports ServiceRegistry)
+│   ├── bridger.ts                  # IdentityRegistryBridger handlers (Gnosis only)
+│   ├── mapping-eth.ts              # Mainnet handlers (scaffolding; no manifest currently wired)
 │   └── utils.ts                    # Shared helpers & entity factories
 └── package.json                    # graph-cli ^0.97.0, graph-ts ^0.38.0
 ```
@@ -298,13 +299,13 @@ Uses **template pattern**: `subgraph.template.yaml` + `networks.json` + `scripts
 |-------------|--------|--------------|
 | ServiceRegistry (mainnet) | `CreateService(indexed uint256)`, `CreateMultisigWithAgents`, `RegisterInstance`, `TerminateService` | `mapping-eth.ts` |
 | ServiceRegistryL2 (L2s) | `CreateService(indexed uint256, bytes32)`, `CreateMultisigWithAgents`, `RegisterInstance`, `TerminateService` | `mapping.ts` |
-| IdentityRegistryBridger | `ServiceAgentLinked`, `AgentWalletSet`, `MetadataSet` | `mapping.ts` / `mapping-eth.ts` |
+| IdentityRegistryBridger | `ServiceAgentLinked`, `AgentWalletSet`, `MetadataSet` | `bridger.ts` |
 
 ### Dynamic Template
 
 | Template | Events | Handler File |
 |----------|--------|--------------|
-| GnosisSafe | `ExecutionSuccess(bytes32, uint256)`, `ExecutionFromModuleSuccess(indexed address)` | `mapping.ts` / `mapping-eth.ts` |
+| GnosisSafe | `ExecutionSuccess(bytes32, uint256)`, `ExecutionFromModuleSuccess(indexed address)` | `mapping.ts` |
 
 **Spec**: v0.0.5 | **API**: 0.0.6
 

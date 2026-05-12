@@ -38,11 +38,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Display deployment plan
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
         run: |
           echo "## 📋 Deployment Plan" >> $GITHUB_STEP_SUMMARY
-          echo "- Environment: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Subgraph: \`${{ inputs.subgraph }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Manifest: \`${{ inputs.manifest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: \`$INPUT_ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Subgraph: \`$INPUT_SUBGRAPH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest: \`$INPUT_MANIFEST\`" >> $GITHUB_STEP_SUMMARY
 
   validate-inputs:
     needs: plan
@@ -142,10 +146,13 @@ jobs:
 
       - name: Prepare environment
         env:
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
           GRAPH_NODE_USER: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_USER || secrets.GRAPH_NODE_STAGING_USER }}
           GRAPH_NODE_PASSWORD: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_PASSWORD || secrets.GRAPH_NODE_STAGING_PASSWORD }}
         run: |
-          MANIFEST="${{ inputs.manifest }}"
+          MANIFEST="$INPUT_MANIFEST"
           echo "MANIFEST=$MANIFEST" >> $GITHUB_ENV
 
           if [[ "$MANIFEST" =~ ^subgraph\.(.+)\.yaml$ ]]; then
@@ -156,12 +163,12 @@ jobs:
           echo "NETWORK=$NETWORK" >> $GITHUB_ENV
 
           if [ -n "$NETWORK" ]; then
-            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}-${NETWORK}" >> $GITHUB_ENV
+            echo "SUBGRAPH_NAME=${INPUT_SUBGRAPH}-${NETWORK}" >> $GITHUB_ENV
           else
-            echo "SUBGRAPH_NAME=${{ inputs.subgraph }}" >> $GITHUB_ENV
+            echo "SUBGRAPH_NAME=$INPUT_SUBGRAPH" >> $GITHUB_ENV
           fi
 
-          if [ "${{ inputs.environment }}" == "production" ]; then
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
             GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
           else
             GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.staging.autonolas.tech"
@@ -175,38 +182,40 @@ jobs:
 
       - name: Generate code
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph codegen ${{ env.MANIFEST }}
+        run: yarn graph codegen "$MANIFEST"
 
       - name: Build subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph build ${{ env.MANIFEST }}
+        run: yarn graph build "$MANIFEST"
 
       - name: Create subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
-        run: yarn graph create --node=${{ env.GRAPH_NODE_URL }} ${{ env.SUBGRAPH_NAME }}
+        run: yarn graph create --node="$GRAPH_NODE_URL" "$SUBGRAPH_NAME"
 
       - name: Deploy subgraph
         working-directory: subgraphs/${{ inputs.subgraph }}
         run: |
           yarn graph deploy \
-            --node=${{ env.GRAPH_NODE_URL }} \
+            --node="$GRAPH_NODE_URL" \
             --ipfs=https://registry.autonolas.tech \
             --version-label v0.0.1 \
-            ${{ env.SUBGRAPH_NAME }} \
-            ${{ env.MANIFEST }}
+            "$SUBGRAPH_NAME" \
+            "$MANIFEST"
 
       - name: Deployment summary
         if: success()
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           echo "✅ Subgraph deployed successfully"
-          echo "- Environment: ${{ inputs.environment }}"
-          echo "- Subgraph name: ${{ env.SUBGRAPH_NAME }}"
-          echo "- Manifest: ${{ env.MANIFEST }}"
+          echo "- Environment: $INPUT_ENVIRONMENT"
+          echo "- Subgraph name: $SUBGRAPH_NAME"
+          echo "- Manifest: $MANIFEST"
 
-          if [ "${{ inputs.environment }}" == "production" ]; then
-            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
-            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
+            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}"
-            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/${{ env.SUBGRAPH_NAME }}" >> $GITHUB_STEP_SUMMARY
+            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
           fi
