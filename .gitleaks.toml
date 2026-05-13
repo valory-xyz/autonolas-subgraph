@@ -1,0 +1,28 @@
+# gitleaks config for autonolas-subgraph.
+#
+# This is a subgraph monorepo, so it is full of Ethereum contract addresses
+# (20-byte, 40 hex chars) and bytes32 identifiers / hashes (32-byte, 64
+# hex chars). Those values are PUBLIC by definition — they live on
+# public chains and IPFS — and they intentionally end up in source code
+# as constants (factory addresses, mech IDs, agent IDs, content hashes).
+#
+# Gitleaks' bundled `generic-api-key` rule fires on high-entropy hex
+# strings without semantic knowledge of EVM addressing, so every new
+# constant we add would otherwise trip the gate. This allowlist tells
+# gitleaks to ignore *only* the value when it matches the EVM address
+# or bytes32 shape; the rest of the rule set (real API key formats,
+# AWS keys, GitHub tokens, private keys, etc.) is unchanged.
+#
+# Extend, do not replace. We keep every default rule active and only
+# narrow the false-positive surface.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ethereum addresses (20-byte) and bytes32 hashes (32-byte) — public on-chain values, not secrets"
+regexTarget = "match"
+regexes = [
+  '''(?i)0x[a-f0-9]{40}\b''',
+  '''(?i)0x[a-f0-9]{64}\b''',
+]
