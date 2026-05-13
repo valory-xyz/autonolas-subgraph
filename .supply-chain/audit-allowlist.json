@@ -15,25 +15,16 @@
       "ghsa": "GHSA-phwq-j96m-2c2q",
       "package": "ejs",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
-    },
-    {
-      "id": 1097723,
-      "ghsa": "GHSA-h755-8qp9-cq85",
-      "package": "protobufjs",
-      "severity": "critical",
-      "reason": "Baselined at PR2 — surfaced by subgraphs/mech only (graph-cli 0.86.x ships older protobufjs in the 6.10–6.11.4 range; root tree on graph-cli 0.98.x has the newer protobufjs that triggers advisory 1117571 instead). Re-evaluate when mech moves to graph-cli 0.98.x in Tier 3 Wave 2.",
-      "added": "2026-05-11",
-      "review": "2026-08-09"
     },
     {
       "id": 1098094,
       "ghsa": "GHSA-grv7-fg5c-xmjg",
       "package": "braces",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -42,7 +33,7 @@
       "ghsa": "GHSA-3h5v-q93c-6h6q",
       "package": "ws",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -51,7 +42,7 @@
       "ghsa": "GHSA-584q-6j8j-r5pm",
       "package": "secp256k1",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -60,7 +51,7 @@
       "ghsa": "GHSA-hcrg-fc28-fcg5",
       "package": "parse-duration",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -69,7 +60,7 @@
       "ghsa": "GHSA-vjh7-7g9h-fjfh",
       "package": "elliptic",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -78,7 +69,7 @@
       "ghsa": "GHSA-xq7p-g2vc-g82p",
       "package": "base-x",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -87,7 +78,7 @@
       "ghsa": "GHSA-3xgq-45jj-v275",
       "package": "cross-spawn",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -96,7 +87,7 @@
       "ghsa": "GHSA-3xgq-45jj-v275",
       "package": "cross-spawn",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -105,7 +96,7 @@
       "ghsa": "GHSA-h7cp-r72f-jxh6",
       "package": "pbkdf2",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -114,7 +105,7 @@
       "ghsa": "GHSA-vj76-c3g6-qr5v",
       "package": "tar-fs",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -123,7 +114,7 @@
       "ghsa": "GHSA-95m3-7q98-8xr5",
       "package": "sha.js",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -132,7 +123,7 @@
       "ghsa": "GHSA-cpq7-6gpm-g9rc",
       "package": "cipher-base",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -141,7 +132,7 @@
       "ghsa": "GHSA-fjxv-7rqg-78g4",
       "package": "form-data",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -150,7 +141,7 @@
       "ghsa": "GHSA-8cj5-5rvv-wf4v",
       "package": "tar-fs",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -159,7 +150,7 @@
       "ghsa": "GHSA-pq67-2wwv-3xjx",
       "package": "tar-fs",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -168,7 +159,7 @@
       "ghsa": "GHSA-5j98-mcp5-4vw2",
       "package": "glob",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -177,7 +168,7 @@
       "ghsa": "GHSA-jr5f-v2jv-69x6",
       "package": "axios",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -186,7 +177,7 @@
       "ghsa": "GHSA-34x7-hfp2-rc4v",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -195,7 +186,7 @@
       "ghsa": "GHSA-c2qf-rxjj-qqgw",
       "package": "semver",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -204,7 +195,7 @@
       "ghsa": "GHSA-c2qf-rxjj-qqgw",
       "package": "semver",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -213,7 +204,7 @@
       "ghsa": "GHSA-7h2j-956f-4vf2",
       "package": "@isaacs/brace-expansion",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -222,7 +213,7 @@
       "ghsa": "GHSA-v62p-rq8g-8h59",
       "package": "pbkdf2",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -231,7 +222,7 @@
       "ghsa": "GHSA-8qq5-rm4j-mr97",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -240,7 +231,7 @@
       "ghsa": "GHSA-83g3-92jg-28cx",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -249,7 +240,7 @@
       "ghsa": "GHSA-3ppc-4f35-3m26",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -258,7 +249,7 @@
       "ghsa": "GHSA-3ppc-4f35-3m26",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -267,7 +258,7 @@
       "ghsa": "GHSA-3ppc-4f35-3m26",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -276,7 +267,7 @@
       "ghsa": "GHSA-3ppc-4f35-3m26",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -285,7 +276,7 @@
       "ghsa": "GHSA-3ppc-4f35-3m26",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -294,7 +285,7 @@
       "ghsa": "GHSA-7r86-cg39-jmmj",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -303,7 +294,7 @@
       "ghsa": "GHSA-7r86-cg39-jmmj",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -312,7 +303,7 @@
       "ghsa": "GHSA-7r86-cg39-jmmj",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -321,7 +312,7 @@
       "ghsa": "GHSA-7r86-cg39-jmmj",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -330,7 +321,7 @@
       "ghsa": "GHSA-7r86-cg39-jmmj",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -339,7 +330,7 @@
       "ghsa": "GHSA-23c5-xmqv-rm74",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -348,7 +339,7 @@
       "ghsa": "GHSA-23c5-xmqv-rm74",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -357,7 +348,7 @@
       "ghsa": "GHSA-23c5-xmqv-rm74",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -366,7 +357,7 @@
       "ghsa": "GHSA-23c5-xmqv-rm74",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -375,7 +366,7 @@
       "ghsa": "GHSA-23c5-xmqv-rm74",
       "package": "minimatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -384,7 +375,7 @@
       "ghsa": "GHSA-qffp-2rhf-9h96",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -393,7 +384,7 @@
       "ghsa": "GHSA-9ppj-qmqm-q256",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -402,7 +393,7 @@
       "ghsa": "GHSA-f269-vfmq-vjvj",
       "package": "undici",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -411,7 +402,7 @@
       "ghsa": "GHSA-vrm6-8vpv-qv8q",
       "package": "undici",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -420,7 +411,7 @@
       "ghsa": "GHSA-v9p9-hfj2-hcw8",
       "package": "undici",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -429,7 +420,7 @@
       "ghsa": "GHSA-r6q2-hw4h-h46w",
       "package": "tar",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -438,7 +429,7 @@
       "ghsa": "GHSA-c2c7-rcm5-vvqj",
       "package": "picomatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -447,7 +438,7 @@
       "ghsa": "GHSA-c2c7-rcm5-vvqj",
       "package": "picomatch",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -456,7 +447,7 @@
       "ghsa": "GHSA-r5fr-rjxr-66jc",
       "package": "lodash",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -465,7 +456,7 @@
       "ghsa": "GHSA-wf6x-7x77-mvgw",
       "package": "immutable",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -474,7 +465,7 @@
       "ghsa": "GHSA-wf6x-7x77-mvgw",
       "package": "immutable",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -483,7 +474,7 @@
       "ghsa": "GHSA-xq3m-2v4x-88gg",
       "package": "protobufjs",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -492,7 +483,7 @@
       "ghsa": "GHSA-pmwg-cvhr-8vh7",
       "package": "axios",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -501,7 +492,7 @@
       "ghsa": "GHSA-pf86-5x62-jrwf",
       "package": "axios",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -510,7 +501,7 @@
       "ghsa": "GHSA-6chq-wfr3-2hj9",
       "package": "axios",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
     },
@@ -519,9 +510,45 @@
       "ghsa": "GHSA-43fc-jf86-j433",
       "package": "axios",
       "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli; the heterogeneous graph-cli versions across subgraphs (0.64.0 → 0.98.x) means upstream patches do not reach every tree. Re-evaluate after Tier 3 (graph-cli convergence) and when graph-cli upstream picks up the fix.",
+      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"
+    },
+    {
+      "id": 1118641,
+      "ghsa": "GHSA-66ff-xgx4-vchm",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118645,
+      "ghsa": "GHSA-75px-5xx7-5xc7",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118647,
+      "ghsa": "GHSA-jvwf-75h9-cwgg",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
+    },
+    {
+      "id": 1118649,
+      "ghsa": "GHSA-685m-2w69-288q",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-05-12 (upstream advisory drift mid-PR). Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-05-12",
+      "review": "2026-08-10"
     }
   ]
 }
