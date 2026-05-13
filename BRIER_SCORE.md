@@ -42,10 +42,10 @@ brierCount: Int!
 
 `MarketParticipant` (so re-answer can reverse exactly):
 ```graphql
-# Nullable: participants indexed before Brier was added read as null and are treated as zero
-# in the re-answer reversal path (no historical contribution to reverse).
-brierSumApplied: BigInt
-brierCountApplied: Int
+# Required: pre-Brier participants read as zero (graph-node default for missing fields),
+# which is exactly the correct reversal value — no historical Brier was credited.
+brierSumApplied: BigInt!
+brierCountApplied: Int!
 ```
 
 ### Where it's set

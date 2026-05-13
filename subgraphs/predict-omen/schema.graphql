@@ -96,10 +96,10 @@ type MarketParticipant @entity (immutable: false) {
   expectedPayout: BigInt! # calculated at settlement from token balance
   # Brier sum and count last credited to a daily stat for this participant. Stored so re-answer
   # can subtract exactly what was added (handles bets placed between answers correctly).
-  # Nullable so participants indexed before Brier was added (no historical contribution to
-  # reverse) read as null and are treated as zero in the re-answer reversal path.
-  brierSumApplied: BigInt
-  brierCountApplied: Int
+  # Required: pre-Brier participants read as zero (graph-node default for missing fields),
+  # which is exactly the correct reversal value — no historical Brier was credited.
+  brierSumApplied: BigInt!
+  brierCountApplied: Int!
   settled: Boolean! # idempotency flag - prevents re-processing on re-answer
   createdAt: BigInt!
   blockNumber: BigInt!

@@ -148,15 +148,10 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
       oldDailyStat.dailyFeesSettled = oldDailyStat.dailyFeesSettled.minus(participant.totalFeesSettled);
       // Reverse exactly the Brier contribution credited at the previous settlement. Stored
       // on the participant so this works even if bets were placed between answers.
-      // Null on participants from before Brier was tracked — no prior contribution to reverse.
-      let prevBrierSum = participant.brierSumApplied !== null
-        ? (participant.brierSumApplied as BigInt)
-        : BigInt.zero();
-      let prevBrierCount = participant.brierCountApplied !== null
-        ? (participant.brierCountApplied as i32)
-        : 0;
-      oldDailyStat.brierSum = oldDailyStat.brierSum.minus(prevBrierSum);
-      oldDailyStat.brierCount = oldDailyStat.brierCount - prevBrierCount;
+      // Pre-Brier participants (indexed before this deploy) default to zero, so the reversal
+      // is a no-op — which is correct, since no Brier was tracked for them.
+      oldDailyStat.brierSum = oldDailyStat.brierSum.minus(participant.brierSumApplied);
+      oldDailyStat.brierCount = oldDailyStat.brierCount - participant.brierCountApplied;
       removeProfitParticipant(oldDailyStat, fpmm.id);
       dailyStatsCache.set(oldStatId, oldDailyStat);
 
