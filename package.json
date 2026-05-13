@@ -2,6 +2,12 @@
   "name": "autonolas-subgraph",
   "type": "module",
   "private": true,
+  "packageManager": "yarn@1.22.22",
+  "scripts": {
+    "audit:prod": "node scripts/audit.mjs",
+    "audit:install-hooks": "node scripts/audit-install-hooks.mjs",
+    "audit:install-hooks:update": "node scripts/audit-install-hooks.mjs --update"
+  },
   "peerDependencies": {
     "typescript": "5.9.3"
   },
@@ -12,4 +18,5 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  }}
+  }
+}
