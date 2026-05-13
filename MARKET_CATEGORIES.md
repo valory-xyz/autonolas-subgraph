@@ -1,7 +1,7 @@
 # Market categories — design doc
 
-Status: Proposal
-Scope: `subgraphs/predict-polymarket`, `subgraphs/predict-omen`
+Status: predict-omen ✅ implemented; predict-polymarket ⏳ planning
+Scope: `subgraphs/predict-omen`, `subgraphs/predict-polymarket`
 Driver: Predict page redesign §7 — "Volume / Trades by market category" per economy (Politics, Crypto, Sports, Culture, etc.).
 
 ## Why this doc exists
@@ -296,41 +296,6 @@ Mirrors the existing `MarketParticipant` rollup pattern. Defer until B is stable
 - Deploy to production with no re-index (future markets indexed with category)
 - Historical markets (`category = null`) render as "Other" on predict page
 - Optional one-off migration later if backfill coverage is needed (low priority)
-
-### Commit Strategy
-
-**Option 1: Two commits (recommended for clean history)**
-```bash
-# Commit 1: Expand MARKET_CATEGORIES.md with Polymarket Vercel strategy + backfill guidance
-git commit -m "docs: expand MARKET_CATEGORIES.md with Polymarket Vercel Cron+Blob strategy
-
-- Concrete Vercel approach to sync Gamma API categories via cron job + Blob cache
-- Pseudocode examples for cron handler and query-time join
-- Effort estimates and tradeoffs per option
-- Backfill strategy for Omen (staged: deploy without re-index, backfill only if needed)
-- Updated effort table reflecting schema+mapping+tests as complete"
-
-# Commit 2: Implement Omen B1 path (schema, mapping, tests)
-git commit -m "feat(predict-omen): index market categories and language from Realitio template
-
-- Add category/language fields to FixedProductMarketMakerCreation schema
-- Parse from Realitio question template fields[2] and fields[3]
-- Add Matchstick test suite (5 fixtures covering template variants)
-- See MARKET_CATEGORIES.md for backfill strategy"
-```
-
-**Option 2: Single combined commit (if you prefer less granularity)**
-```bash
-git commit -m "feat(predict-omen): add category/language indexing + Polymarket strategy docs
-
-- Schema: Add nullable category/language to FixedProductMarketMakerCreation
-- Mapping: Parse from existing Realitio template (fields[2] and fields[3])
-- Tests: 5 Matchstick fixtures covering template variants, whitespace, edge cases
-- Docs: Expand MARKET_CATEGORIES.md with detailed Vercel Cron+Blob approach for Polymarket
-- Backfill: Staged deployment (no re-index initially, optional backfill later)"
-```
-
-Either way, the CRLF warning from git is harmless (Windows line ending conversion in MARKET_CATEGORIES.md) — just commit normally.
 
 ## Effort estimate
 
