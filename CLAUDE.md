@@ -197,20 +197,22 @@ When adding external contract calls (e.g., Chainlink, Balancer), add the ABI and
 
 ## Tooling Versions
 
-All versions are pinned exactly (no carets). graph-cli is heterogeneous across subgraphs pending Tier 3 convergence:
+All versions are pinned exactly (no carets). 8 of 10 subgraphs are converged on graph-cli `0.98.1`; `autonolas` and `autonolas-base` remain on the legacy `0.64.0` line pending Tier 3 Wave 3 (a separate multi-week migration that crosses AssemblyScript runtime + manifest specVersion boundaries).
 
 | Subgraph | graph-cli | graph-ts |
 |---|---|---|
 | `marketplace` | 0.98.1 | 0.37.0 |
 | `predict-polymarket` | 0.98.1 | 0.38.2 |
-| `predict-omen` | 0.97.1 | 0.38.2 |
-| `staking` | 0.97.1 | 0.38.1 |
-| `babydegen-mode` | 0.97.0 | 0.38.0 |
-| `service-registry` | 0.97.0 | 0.38.0 |
-| `tokenomics` | 0.97.0 | 0.38.0 |
-| `mech` | 0.86.0 | 0.35.1 |
+| `predict-omen` | 0.98.1 | 0.38.2 |
+| `staking` | 0.98.1 | 0.38.2 |
+| `babydegen-mode` | 0.98.1 | 0.38.2 |
+| `service-registry` | 0.98.1 | 0.38.2 |
+| `tokenomics` | 0.98.1 | 0.38.2 |
+| `mech` | 0.98.1 | 0.38.2 |
 | `autonolas` | 0.64.0 | 0.29.1 |
 | `autonolas-base` | 0.64.0 | 0.29.1 |
+
+`marketplace` is deliberately held back on `graph-ts 0.37.0` while every other current-gen subgraph runs `0.38.2` — bumping the most actively developed subgraph belongs in its own PR with a focused regression check, not bundled into Tier 3.
 
 `matchstick-as` is converged to `0.6.0` across all subgraphs. Root `package.json` requires Node `>=24.0.0` and pins `@graphprotocol/graph-cli 0.98.1`, `@clack/prompts 0.11.0`, `@types/node 24.3.1`, and `typescript 5.9.3`. Yarn is pinned to `1.22.22` via the root `packageManager` field + Corepack activation in CI/deploy workflows.
 
