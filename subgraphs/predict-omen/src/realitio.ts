@@ -202,7 +202,7 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
         // Buy-side bets with a recorded implied probability contribute to Brier.
         if (bet.impliedProbability !== null && bet.amount.gt(BigInt.zero())) {
           let actual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
-          reBrierSum = reBrierSum.plus(brierContribution(bet.impliedProbability as BigInt, actual));
+          reBrierSum = reBrierSum.plus(brierContribution(bet.impliedProbability!, actual));
           reBrierCount += 1;
         }
       }
@@ -290,7 +290,7 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
       }
       if (bet.impliedProbability !== null && bet.amount.gt(BigInt.zero())) {
         let actual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
-        brierSum = brierSum.plus(brierContribution(bet.impliedProbability as BigInt, actual));
+        brierSum = brierSum.plus(brierContribution(bet.impliedProbability!, actual));
         brierCount += 1;
       }
     }

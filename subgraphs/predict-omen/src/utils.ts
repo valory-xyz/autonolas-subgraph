@@ -107,7 +107,10 @@ export function actualForOutcome(betOutcomeIndex: BigInt, winningOutcome: BigInt
   if (isInvalid) {
     return HALF_PROBABILITY_SCALE;
   }
-  return betOutcomeIndex.equals(winningOutcome) ? PROBABILITY_SCALE : BigInt.zero();
+  if (betOutcomeIndex.equals(winningOutcome)) {
+    return PROBABILITY_SCALE;
+  }
+  return BigInt.zero();
 }
 
 /**
