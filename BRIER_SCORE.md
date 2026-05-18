@@ -25,8 +25,9 @@ Neither predict subgraph indexed predicted probability before this work. This do
 # Implied probability the market assigned to `outcomeIndex` at trade time, 1e18-scaled.
 # Buy:  investmentAmount * 1e18 / outcomeTokensBought
 # Sell: returnAmount      * 1e18 / outcomeTokensSold
-# Nullable to permit zero-token edge cases and pre-deployment legacy bets.
-impliedProbability: BigInt
+# Required; zero is sentinel for zero-token edge cases and pre-deployment legacy bets
+# (Brier aggregation filters out zero-probability bets).
+impliedProbability: BigInt!
 ```
 
 `DailyProfitStatistic`:

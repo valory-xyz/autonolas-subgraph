@@ -30,8 +30,8 @@ type Bet @entity (immutable: false) {
   #   implied probability that `outcomeIndex` resolves true (i.e. the agent's prediction).
   # For Sell: returnAmount * 1e18 / outcomeTokensSold — the price the agent received to close
   #   a position. NOT a prediction; sells are excluded from Brier aggregation at settlement.
-  # Nullable to permit zero-token edge cases and pre-deployment legacy bets.
-  impliedProbability: BigInt
+  # Zero sentinel for zero-token edge cases and pre-deployment legacy bets (Brier skips zero).
+  impliedProbability: BigInt!
   countedInProfit: Boolean!
   countedInTotal: Boolean
   fixedProductMarketMaker: FixedProductMarketMakerCreation

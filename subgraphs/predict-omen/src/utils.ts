@@ -81,11 +81,12 @@ export function getDailyProfitStatistic(agentAddress: Bytes, timestamp: BigInt):
 
 /**
  * Implied probability for a trade: amount / outcomeTokenAmount, 1e18-scaled.
- * Returns null when the denominator is zero (defensive — should not happen for valid trades).
+ * Returns zero when the denominator is zero (degenerate — should not happen for valid trades).
+ * Brier aggregation skips zero-probability bets.
  */
-export function computeImpliedProbability(amount: BigInt, outcomeTokenAmount: BigInt): BigInt | null {
+export function computeImpliedProbability(amount: BigInt, outcomeTokenAmount: BigInt): BigInt {
   if (outcomeTokenAmount.equals(BigInt.zero())) {
-    return null;
+    return BigInt.zero();
   }
   return amount.times(PROBABILITY_SCALE).div(outcomeTokenAmount);
 }

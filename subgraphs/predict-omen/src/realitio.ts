@@ -200,9 +200,12 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
           bet.save();
         }
         // Buy-side bets with a recorded implied probability contribute to Brier.
-        if (bet.impliedProbability !== null && bet.amount.gt(BigInt.zero())) {
-          let actual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
-          reBrierSum = reBrierSum.plus(brierContribution(bet.impliedProbability!, actual));
+        // Zero-probability is sentinel for "no recorded price" (legacy / degenerate); skip those.
+        let reImp = bet.impliedProbability;
+        if (reImp.gt(BigInt.zero()) && bet.amount.gt(BigInt.zero())) {
+          let reActual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
+          let reContribution = brierContribution(reImp, reActual);
+          reBrierSum = reBrierSum.plus(reContribution);
           reBrierCount += 1;
         }
       }
@@ -288,9 +291,13 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
         bet.countedInTotal = true;
         bet.save();
       }
-      if (bet.impliedProbability !== null && bet.amount.gt(BigInt.zero())) {
+      // Buy-side bets with a recorded implied probability contribute to Brier.
+      // Zero-probability is sentinel for "no recorded price" (legacy / degenerate); skip those.
+      let imp = bet.impliedProbability;
+      if (imp.gt(BigInt.zero()) && bet.amount.gt(BigInt.zero())) {
         let actual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
-        brierSum = brierSum.plus(brierContribution(bet.impliedProbability!, actual));
+        let contribution = brierContribution(imp, actual);
+        brierSum = brierSum.plus(contribution);
         brierCount += 1;
       }
     }

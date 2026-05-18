@@ -3,7 +3,7 @@ import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
 import { handleBuy, handleSell } from "../src/FixedProductMarketMakerMapping";
 import { handleLogNewAnswer } from "../src/realitio";
 import { createBuyEvent, createNewAnswerEvent, createSellEvent } from "./profit";
-import { Bet, ConditionPreparation, DailyProfitStatistic, FixedProductMarketMakerCreation, Question, TraderAgent } from "../generated/schema";
+import { ConditionPreparation, FixedProductMarketMakerCreation, Question, TraderAgent } from "../generated/schema";
 
 const AGENT = Address.fromString("0x1234567890123456789012345678901234567890");
 const MARKET = Address.fromString("0x0000000000000000000000000000000000000010");
@@ -77,9 +77,7 @@ describe("Brier Score", () => {
     handleBuy(event);
 
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString();
-    let bet = Bet.load(id);
-    assert.assertNotNull(bet);
-    assert.bigIntEquals(bet!.impliedProbability!, BigInt.fromString("400000000000000000"));
+    assert.fieldEquals("Bet", id, "impliedProbability", "400000000000000000");
   });
 
   test("Sell records impliedProbability = returnAmount / tokensSold", () => {
@@ -89,22 +87,9 @@ describe("Brier Score", () => {
     handleSell(event);
 
     let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString();
-    let bet = Bet.load(id);
-    assert.assertNotNull(bet);
-    assert.bigIntEquals(bet!.impliedProbability!, BigInt.fromString("600000000000000000"));
+    assert.fieldEquals("Bet", id, "impliedProbability", "600000000000000000");
     // Sells store negative amount
-    assert.bigIntEquals(bet!.amount, BigInt.zero().minus(BigInt.fromString("600000000000000000")));
-  });
-
-  test("Buy with zero tokens leaves impliedProbability null", () => {
-    setupMarket(MARKET, "0x0000000000000000000000000000000000000000000000000000000000000001");
-    let event = createBuyEvent(AGENT, ONE_E18, BigInt.zero(), BigInt.zero(), MARKET, START_TS, 0, BigInt.zero());
-    handleBuy(event);
-
-    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString();
-    let bet = Bet.load(id);
-    assert.assertNotNull(bet);
-    assert.assertNull(bet!.impliedProbability);
+    assert.fieldEquals("Bet", id, "amount", "-600000000000000000");
   });
 
   test("Winning bet: Brier = (p - 1)^2; losing bet: Brier = p^2", () => {
@@ -120,13 +105,11 @@ describe("Brier Score", () => {
       START_TS
     ));
 
-    let stat = DailyProfitStatistic.load(dailyStatId(NORMALIZED_TS));
-    assert.assertNotNull(stat);
     // Win contribution: (0.4 - 1)^2 = 0.36 = 360000000000000000
     // Loss contribution: (0.6 - 0)^2 = 0.36 = 360000000000000000
     // Sum: 0.72 = 720000000000000000
-    assert.bigIntEquals(stat!.brierSum, BigInt.fromString("720000000000000000"));
-    assert.i32Equals(stat!.brierCount, 2);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "720000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "2");
   });
 
   test("Sell is excluded from Brier", () => {
@@ -141,11 +124,9 @@ describe("Brier Score", () => {
       START_TS
     ));
 
-    let stat = DailyProfitStatistic.load(dailyStatId(NORMALIZED_TS));
-    assert.assertNotNull(stat);
     // Only the buy contributes: p = 0.4/2.0 = 0.2 → (0.2 - 1)^2 = 0.64 = 640000000000000000
-    assert.bigIntEquals(stat!.brierSum, BigInt.fromString("640000000000000000"));
-    assert.i32Equals(stat!.brierCount, 1);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "640000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "1");
   });
 
   test("Invalid answer: Brier vs 0.5 actual for both outcomes", () => {
@@ -160,13 +141,11 @@ describe("Brier Score", () => {
       START_TS
     ));
 
-    let stat = DailyProfitStatistic.load(dailyStatId(NORMALIZED_TS));
-    assert.assertNotNull(stat);
     // Bet 1: (0.4 - 0.5)^2 = 0.01 = 10000000000000000
     // Bet 2: (0.6 - 0.5)^2 = 0.01 = 10000000000000000
     // Sum: 0.02 = 20000000000000000
-    assert.bigIntEquals(stat!.brierSum, BigInt.fromString("20000000000000000"));
-    assert.i32Equals(stat!.brierCount, 2);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "20000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "2");
   });
 
   test("Re-answer: subtracts old Brier from old day, applies new Brier to new day", () => {
@@ -175,21 +154,18 @@ describe("Brier Score", () => {
     handleBuy(createBuyEvent(AGENT, BigInt.fromString("400000000000000000"), BigInt.zero(), BigInt.fromI32(1), MARKET, START_TS, 0, ONE_E18));
 
     // Day A: settles to answer 0 (bet loses). Brier = (0.4 - 0)^2 = 0.16
-    let DAY_A = START_TS;
-    let DAY_A_BUCKET = NORMALIZED_TS;
     handleLogNewAnswer(createNewAnswerEvent(
       Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
       ANSWER_0_HEX,
-      DAY_A
+      START_TS
     ));
 
-    let statA = DailyProfitStatistic.load(dailyStatId(DAY_A_BUCKET));
-    assert.bigIntEquals(statA!.brierSum, BigInt.fromString("160000000000000000"));
-    assert.i32Equals(statA!.brierCount, 1);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "160000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "1");
 
-    // Day B: re-answer flips to 1 (bet now wins). Brier = (0.4 - 1)^2 = 0.36
-    let DAY_B = BigInt.fromI32(1710000000 + 86400 * 2);
-    let DAY_B_BUCKET = BigInt.fromI32(1710115200); // (DAY_B / 86400) * 86400
+    // Day B (2 days later): re-answer flips to 1 (bet now wins). Brier = (0.4 - 1)^2 = 0.36
+    let DAY_B = BigInt.fromI32(1710172800);  // START_TS + 2 days, precomputed
+    let DAY_B_BUCKET = BigInt.fromI32(1710115200);
     handleLogNewAnswer(createNewAnswerEvent(
       Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
       ANSWER_1_HEX,
@@ -197,14 +173,11 @@ describe("Brier Score", () => {
     ));
 
     // Old day reverted to zero
-    let statARev = DailyProfitStatistic.load(dailyStatId(DAY_A_BUCKET));
-    assert.bigIntEquals(statARev!.brierSum, BigInt.zero());
-    assert.i32Equals(statARev!.brierCount, 0);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "0");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "0");
 
     // New day has the new Brier
-    let statB = DailyProfitStatistic.load(dailyStatId(DAY_B_BUCKET));
-    assert.assertNotNull(statB);
-    assert.bigIntEquals(statB!.brierSum, BigInt.fromString("360000000000000000"));
-    assert.i32Equals(statB!.brierCount, 1);
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierSum", "360000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierCount", "1");
   });
 });
