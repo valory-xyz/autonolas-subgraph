@@ -25,7 +25,7 @@ Neither predict subgraph indexed predicted probability before this work. This do
 # Implied probability the market assigned to `outcomeIndex` at trade time, 1e18-scaled.
 # Buy:  investmentAmount * 1e18 / outcomeTokensBought
 # Sell: returnAmount      * 1e18 / outcomeTokensSold
-# Required; zero is sentinel for zero-token edge cases and pre-deployment legacy bets
+# Required; zero is the sentinel for genuine zero-token degenerate trades
 # (Brier aggregation filters out zero-probability bets).
 impliedProbability: BigInt!
 ```
@@ -93,17 +93,13 @@ const brier = cnt === 0 ? null : Number(sum * 10000n / BigInt(cnt) / 10n ** 18n)
 
 ### Backfill
 
-Schema is `immutable: false` so no genesis re-index is strictly required, but `impliedProbability` / `brierSum` / `brierCount` will only populate for events processed **after** deployment. The team needs to decide between:
-
-- **Re-deploy from genesis** — clean, all historical bets contribute. Slow (full reindex).
-- **No backfill** — windowed Brier is empty for the first N days post-deploy, then ramps up. Acceptable if the predict-economy launch can wait for the window to fill.
-- **One-off historical re-settlement** — custom script that walks finalised `FixedProductMarketMakerCreation` entities and re-runs the Brier-only aggregation. Not implemented; would be the right approach if backfill is needed without a full reindex.
+**Re-index from genesis on deploy.** `impliedProbability` is computed from event params at trade time and `brierSum` / `brierCount` are populated at settlement — there's no way to retroactively fill them on existing entities without replaying the events. A full re-index ensures every historical bet contributes to windowed Brier from day one.
 
 ### Tests
 
 `tests/brier-score.test.ts` — 7 cases:
 - Buy / Sell record `impliedProbability` correctly
-- Zero-tokens edge case leaves it null
+- Zero-token degenerate trade stores `impliedProbability = 0` and is skipped at Brier aggregation
 - Winning + losing bets sum into `brierSum` with correct count
 - Sells excluded from Brier
 - Invalid answer uses 0.5 actual for both outcomes

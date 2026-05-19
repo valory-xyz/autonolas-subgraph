@@ -92,6 +92,21 @@ describe("Brier Score", () => {
     assert.fieldEquals("Bet", id, "amount", "-600000000000000000");
   });
 
+  test("Buy with zero tokens stores zero probability and is skipped at Brier", () => {
+    setupMarket(MARKET, "0x0000000000000000000000000000000000000000000000000000000000000001");
+    let event = createBuyEvent(AGENT, ONE_E18, BigInt.zero(), BigInt.zero(), MARKET, START_TS, 0, BigInt.zero());
+    handleBuy(event);
+    let id = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString();
+    assert.fieldEquals("Bet", id, "impliedProbability", "0");
+
+    handleLogNewAnswer(createNewAnswerEvent(
+      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
+      ANSWER_1_HEX,
+      START_TS
+    ));
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "0");
+  });
+
   test("Winning bet: Brier = (p - 1)^2; losing bet: Brier = p^2", () => {
     setupMarket(MARKET, "0x0000000000000000000000000000000000000000000000000000000000000001");
     // Bet on outcome 1 at p=0.4, market resolves to 1 (win).
