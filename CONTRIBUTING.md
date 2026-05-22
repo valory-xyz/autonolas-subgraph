@@ -103,7 +103,7 @@ We aim to acknowledge receipt within 72 hours.
 
 ### Prerequisites
 
-- **Node.js** >= 18
+- **Node.js** — pinned via [`.nvmrc`](.nvmrc) at the repo root. Run `nvm use` to switch.
 - **Yarn** (v1)
 - **Graph CLI**: `yarn global add @graphprotocol/graph-cli` (or use via `npx`)
 
@@ -113,12 +113,47 @@ We aim to acknowledge receipt within 72 hours.
 git clone https://github.com/valory-xyz/autonolas-subgraph.git
 cd autonolas-subgraph
 
+# Match the pinned Node version
+nvm use   # reads .nvmrc
+
 # Navigate to the subgraph you want to work on
 cd subgraphs/marketplace
 
-# Install dependencies
-yarn install
+# Install dependencies. Use --frozen-lockfile to fail on any lockfile drift.
+yarn install --frozen-lockfile
 ```
+
+### Local Graph Node (optional)
+
+The repo's [`docker-compose.yaml`](docker-compose.yaml) starts a local `graph-node` + Postgres for local subgraph testing. The Postgres password is read from the `POSTGRES_PASSWORD` environment variable (no checked-in default).
+
+**First-time setup (fresh clone, no existing `./data/postgres`):**
+
+```bash
+# Create .env.local at the repo root (gitignored)
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > .env.local
+
+# Start the stack
+docker-compose --env-file .env.local up
+```
+
+**Migration for existing dev environments** (i.e. anyone who ran `docker-compose up` before this change):
+
+The Postgres password is initialized into the on-disk `./data/postgres` only on first run. Existing data dirs were initialized with the old hardcoded password `let-me-in`, so you must either keep that value or reset the data dir.
+
+- *Option A — keep existing local data:* set the same password in your `.env.local`:
+  ```bash
+  echo "POSTGRES_PASSWORD=let-me-in" > .env.local
+  ```
+- *Option B — fresh start, lose locally indexed data:*
+  ```bash
+  docker-compose down -v
+  rm -rf ./data/postgres
+  echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > .env.local
+  docker-compose --env-file .env.local up
+  ```
+
+If you skip this step you'll see graph-node fail with a `password authentication failed for user "graph-node"` error.
 
 ### Build
 
@@ -143,6 +178,29 @@ yarn test
 # Run a specific test file
 graph test tests/marketplace/mech-marketplace.test.ts
 ```
+
+### Supply-chain audit (run from repo root)
+
+```bash
+# Audit gate — fails on high/critical advisories not in the allowlist
+yarn audit:prod
+
+# Install-hook audit — diffs node_modules against the allowlist (run after `yarn install`)
+yarn audit:install-hooks
+
+# Regenerate the install-hooks allowlist after a dep change
+yarn audit:install-hooks:update
+```
+
+The audit gate runs across every subgraph's `yarn.lock` in CI (matrix in `.github/workflows/supply-chain.yml`). To audit a single subgraph locally:
+
+```bash
+( cd subgraphs/marketplace && node ../../scripts/audit.mjs )
+```
+
+The allowlist at `.supply-chain/audit-allowlist.json` is shared across all subgraphs — entries need `id`, `reason`, `added`, and `review` (YYYY-MM-DD). See [SUPPLY-CHAIN-SECURITY.md](SUPPLY-CHAIN-SECURITY.md) §5 for policy.
+
+**Naming gotcha:** the script is `audit:prod`, NOT `audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts.
 
 ---
 

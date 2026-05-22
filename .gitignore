@@ -6,6 +6,7 @@ temp/
 
 .env
 .env.prod
+.env.local
 
 .DS_Store
 .bin
@@ -18,3 +19,18 @@ temp/
 
 # Claude Code
 .claude/projects/
+.claude/settings.local.json
+
+/.plans
+
+# Other-package-manager lockfiles (this repo uses yarn 1.x)
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
+
+# Tier-0 audit baseline drop (gitignored; informational only)
+/audit
+
+# yarn-generated error logs from failed installs/audits
+yarn-error.log
+**/yarn-error.log

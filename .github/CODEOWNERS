@@ -1,0 +1,47 @@
+# CODEOWNERS for autonolas-subgraph
+#
+# This file routes review of security- and supply-chain-sensitive files
+# to the security reviewer(s). Enforcement requires "Require review from
+# Code Owners" in branch protection settings — until that is enabled
+# this file is advisory and only nudges GitHub's PR review-request UI.
+#
+# Owner is an individual until a security team exists; switch to a team
+# handle (e.g., @valory-xyz/<team>) once one is created.
+
+# Default owner: any unowned path falls back here.
+*                                @Tanya-atatakai
+
+# Workflows, actions config, repository-level GitHub config.
+/.github/                        @Tanya-atatakai
+
+# Top-level package metadata + lockfile.
+/package.json                    @Tanya-atatakai
+/yarn.lock                       @Tanya-atatakai
+
+# Node-version pin enforced by Corepack in CI.
+/.nvmrc                          @Tanya-atatakai
+
+# Supply-chain controls: scripts that gate CI + allowlists they consult.
+/scripts/                        @Tanya-atatakai
+/.supply-chain/                  @Tanya-atatakai
+
+# Disclosure + threat-model docs.
+/SECURITY.md                     @Tanya-atatakai
+/SUPPLY-CHAIN-SECURITY.md        @Tanya-atatakai
+
+# AI / contributor onboarding context — changes here shape future agent behavior.
+/CLAUDE.md                       @Tanya-atatakai
+
+# Local-dev infra (postgres password lives here as env-var requirement).
+/docker-compose.yaml             @Tanya-atatakai
+
+# Per-subgraph package metadata + lockfiles.
+/subgraphs/*/package.json        @Tanya-atatakai
+/subgraphs/*/yarn.lock           @Tanya-atatakai
+
+# Per-subgraph manifests — contract addresses + start blocks live here.
+# These deserve security review because a malicious manifest edit could
+# index events from a malicious contract address with the same signature
+# as a legitimate one.
+/subgraphs/*/subgraph.yaml       @Tanya-atatakai
+/subgraphs/*/subgraph.*.yaml     @Tanya-atatakai

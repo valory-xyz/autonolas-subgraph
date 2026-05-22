@@ -2,14 +2,21 @@
   "name": "autonolas-subgraph",
   "type": "module",
   "private": true,
+  "packageManager": "yarn@1.22.22",
+  "scripts": {
+    "audit:prod": "node scripts/audit.mjs",
+    "audit:install-hooks": "node scripts/audit-install-hooks.mjs",
+    "audit:install-hooks:update": "node scripts/audit-install-hooks.mjs --update"
+  },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "5.9.3"
   },
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "@graphprotocol/graph-cli": "^0.98.1",
-    "@types/node": "^24.3.1"
+    "@clack/prompts": "0.11.0",
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@types/node": "24.3.1"
   },
   "engines": {
     "node": ">=24.0.0"
-  }}
+  }
+}

@@ -1,18 +1,18 @@
 {
   "name": "autonolas-service-registry-subgraph",
-  "license": "UNLICENSED",
   "scripts": {
     "codegen": "graph codegen subgraph.gnosis.yaml",
     "build": "graph build subgraph.gnosis.yaml",
     "generate-manifests": "node ../../scripts/generate-manifests.ts",
+    "deploy-gnosis": "graph deploy --network gnosis --studio olas-gnosis-registry subgraph.gnosis.yaml",
     "deploy-mode": "graph deploy --network mode-mainnet --studio olas-mode-service-registry subgraph.mode-mainnet.yaml",
     "test": "graph test"
   },
   "dependencies": {
-    "@graphprotocol/graph-cli": "^0.97.0",
-    "@graphprotocol/graph-ts": "^0.38.0"
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2"
   },
   "devDependencies": {
-    "matchstick-as": "0.5.0"
+    "matchstick-as": "0.6.0"
   }
 }

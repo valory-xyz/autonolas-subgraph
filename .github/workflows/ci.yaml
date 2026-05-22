@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    name: ${{ matrix.subgraph }} (${{ matrix.manifest }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # autonolas / autonolas-base run graph-cli 0.64.0, whose bundled
+          # matchstick downloader doesn't recognize Linux x64 + Node 24 and
+          # crashes with "Unsupported platform". `yarn build` works; tests
+          # are temporarily skipped until the graph-cli convergence migration
+          # for these two subgraphs lands (a separate multi-week project
+          # because it crosses AssemblyScript runtime + manifest specVersion
+          # boundaries).
+          - { subgraph: autonolas,          manifest: subgraph.yaml,              test: false }
+          - { subgraph: autonolas-base,     manifest: subgraph.yaml,              test: false }
+          - { subgraph: babydegen-mode,     manifest: subgraph.yaml,              test: false }
+          - { subgraph: marketplace,        manifest: subgraph.arbitrum.yaml,     test: false }
+          - { subgraph: marketplace,        manifest: subgraph.base.yaml,         test: false }
+          - { subgraph: marketplace,        manifest: subgraph.celo.yaml,         test: false }
+          - { subgraph: marketplace,        manifest: subgraph.gnosis.yaml,       test: true  }
+          - { subgraph: marketplace,        manifest: subgraph.mainnet.yaml,      test: false }
+          - { subgraph: marketplace,        manifest: subgraph.optimism.yaml,     test: false }
+          - { subgraph: marketplace,        manifest: subgraph.polygon.yaml,      test: false }
+          # mech is on graph-cli 0.86.0 with the same Node 24 matchstick
+          # incompatibility. Flip back to `test: true` once mech is bumped to
+          # graph-cli 0.98.x (planned in a follow-up PR).
+          - { subgraph: mech,               manifest: subgraph.yaml,              test: false }
+          - { subgraph: predict-omen,       manifest: subgraph.yaml,              test: true  }
+          - { subgraph: predict-polymarket, manifest: subgraph.yaml,              test: true  }
+          - { subgraph: service-registry,   manifest: subgraph.gnosis.yaml,       test: false }
+          - { subgraph: service-registry,   manifest: subgraph.mode-mainnet.yaml, test: false }
+          - { subgraph: staking,            manifest: subgraph.mode-mainnet.yaml, test: false }
+          - { subgraph: tokenomics,         manifest: subgraph.mode-mainnet.yaml, test: false }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: |
+          if [ -f yarn.lock ]; then
+            yarn install --frozen-lockfile
+          else
+            yarn install
+          fi
+
+      - name: Codegen
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn graph codegen ${{ matrix.manifest }}
+
+      - name: Build
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn graph build ${{ matrix.manifest }}
+
+      - name: Test
+        if: matrix.test
+        working-directory: subgraphs/${{ matrix.subgraph }}
+        run: yarn test
+
+  all-checks-passed:
+    name: All checks passed
+    needs: [check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || \
+             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::One or more required jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All checks passed"

@@ -1,4 +1,3 @@
-
 specVersion: 0.0.5
 schema:
   file: ./schema.graphql
@@ -68,4 +67,3 @@ templates:
           handler: handleExecutionSuccess
         - event: ExecutionFromModuleSuccess(indexed address)
           handler: handleExecutionFromModuleSuccess
-      

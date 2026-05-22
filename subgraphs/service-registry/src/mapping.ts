@@ -4,6 +4,7 @@ import {
   CreateService,
   RegisterInstance,
   TerminateService,
+  UpdateService,
 } from '../generated/ServiceRegistryL2/ServiceRegistryL2';
 import {
   ExecutionSuccess,
@@ -31,7 +32,7 @@ import {
 
 function updateDailyAgentPerformance(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   // Process each agent associated with this multisig
   for (let i = 0; i < multisig.agentIds.length; i++) {
@@ -43,7 +44,7 @@ function updateDailyAgentPerformance(
     if (entity.agentId != agentId) {
       log.error(
         'CRITICAL BUG: Agent ID mismatch! Entity {} has agentId {} but expected {}',
-        [entity.id, entity.agentId.toString(), agentId.toString()]
+        [entity.id, entity.agentId.toString(), agentId.toString()],
       );
       // Skip this update to prevent data corruption
       continue;
@@ -64,7 +65,7 @@ function updateDailyAgentPerformance(
 
 function updateDailyUniqueAgents(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyUniqueAgents = getOrCreateDailyUniqueAgents(event);
   for (let i = 0; i < multisig.agentIds.length; i++) {
@@ -77,7 +78,7 @@ function updateDailyUniqueAgents(
 function updateDailyActivity(
   service: Service,
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyActivity = getOrCreateDailyServiceActivity(service.id, event);
   dailyActivity.agentIds = multisig.agentIds;
@@ -86,7 +87,7 @@ function updateDailyActivity(
 
 function updateDailyActiveMultisigs(
   event: ethereum.Event,
-  multisig: Multisig
+  multisig: Multisig,
 ): void {
   const dailyEntity = getOrCreateDailyActiveMultisigs(event);
   createDailyActiveMultisig(dailyEntity, multisig);
@@ -102,10 +103,18 @@ function updateGlobalMetrics(event: ethereum.Event): void {
 export function handleCreateService(event: CreateService): void {
   let service = getOrCreateService(
     event.params.serviceId,
-    event.block.timestamp
+    event.block.timestamp,
   );
   service.configHash = event.params.configHash;
   service.save();
+}
+
+export function handleUpdateService(event: UpdateService): void {
+  let service = Service.load(event.params.serviceId.toString());
+  if (service != null) {
+    service.configHash = event.params.configHash;
+    service.save();
+  }
 }
 
 export function handleRegisterInstance(event: RegisterInstance): void {
@@ -116,7 +125,7 @@ export function handleRegisterInstance(event: RegisterInstance): void {
   createOrUpdateAgentRegistration(
     event.params.serviceId.toI32(),
     newAgentId,
-    event.block.timestamp
+    event.block.timestamp,
   );
 
   // Add agent if not already in the list to avoid duplicates
@@ -153,7 +162,7 @@ export function handleCreateMultisig(event: CreateMultisigWithAgents): void {
     const mostRecentAgentId = getMostRecentAgentId(
       event.params.serviceId.toI32(),
       service.agentIds,
-      event.block.timestamp
+      event.block.timestamp,
     );
 
     if (mostRecentAgentId != -1) {
@@ -200,7 +209,7 @@ export function handleExecutionSuccess(event: ExecutionSuccess): void {
 }
 
 export function handleExecutionFromModuleSuccess(
-  event: ExecutionFromModuleSuccess
+  event: ExecutionFromModuleSuccess,
 ): void {
   let multisig = Multisig.load(event.address);
   if (multisig != null) {
@@ -219,3 +228,8 @@ export function handleExecutionFromModuleSuccess(
     }
   }
 }
+
+// IdentityRegistryBridger handlers live in src/bridger.ts. Splitting them
+// out keeps mapping.ts free of the generated IdentityRegistryBridger import,
+// so manifests that don't deploy the bridger (e.g. subgraph.mode-mainnet.yaml)
+// can compile without referencing a module their codegen never produces.

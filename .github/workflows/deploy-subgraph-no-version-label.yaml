@@ -1,0 +1,221 @@
+# Variant of deploy-subgraph.yaml that omits the `version` input and deploys
+# with --version-label v0.0.1. Used historically for the `autonolas` subgraph
+# (most recent runs: 2026-03-18). Kept as a separate workflow rather than
+# folded into the primary one because the primary one's deploy-slug includes
+# the version (e.g. `autonolas-mainnet-v0_1_2`), and `autonolas` deployments
+# do not use that slug shape. Harden in lockstep with deploy-subgraph.yaml.
+
+name: Deploy Subgraph (no version label)
+
+run-name: Deploy ${{ inputs.subgraph }} to ${{ inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+        default: "staging"
+      subgraph:
+        description: "Subgraph (e.g., autonolas)"
+        required: true
+        type: string
+      manifest:
+        description: "Manifest file (e.g., subgraph.yaml)"
+        required: true
+        type: string
+        default: "subgraph.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Display deployment plan
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+        run: |
+          echo "## 📋 Deployment Plan" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: \`$INPUT_ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Subgraph: \`$INPUT_SUBGRAPH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest: \`$INPUT_MANIFEST\`" >> $GITHUB_STEP_SUMMARY
+
+  validate-inputs:
+    needs: plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Validate production deployment branch
+        if: inputs.environment == 'production'
+        run: |
+          CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+          if [ "$CURRENT_BRANCH" != "main" ]; then
+            echo "❌ Error: Production deployments are only allowed from the 'main' branch"
+            echo "Current branch: $CURRENT_BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch validation passed: deploying from main branch"
+
+      - name: Validate subgraph name format
+        env:
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+        run: |
+          if [[ ! "$INPUT_SUBGRAPH" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+            echo "❌ Error: Subgraph name must be lowercase alphanumeric with dashes/underscores (e.g., 'autonolas', 'predict-omen')"
+            echo "Received: '$INPUT_SUBGRAPH'"
+            exit 1
+          fi
+          echo "✅ Subgraph name format is valid: $INPUT_SUBGRAPH"
+
+      - name: Validate manifest filename format
+        env:
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+        run: |
+          if [[ ! "$INPUT_MANIFEST" =~ ^subgraph(\.[a-z0-9_-]+)?\.yaml$ ]]; then
+            echo "❌ Error: Manifest must match 'subgraph[.network].yaml'"
+            echo "Received: '$INPUT_MANIFEST'"
+            exit 1
+          fi
+          if [[ "$INPUT_MANIFEST" == *.template.yaml ]]; then
+            echo "❌ Error: Mustache template files (*.template.yaml) are not deployable manifests"
+            echo "Received: '$INPUT_MANIFEST'"
+            exit 1
+          fi
+          echo "✅ Manifest filename format is valid: $INPUT_MANIFEST"
+
+      - name: Validate subgraph folder exists
+        env:
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+        run: |
+          SUBGRAPH_PATH="subgraphs/$INPUT_SUBGRAPH"
+
+          if [ ! -d "$SUBGRAPH_PATH" ]; then
+            echo "❌ Error: Subgraph folder '$SUBGRAPH_PATH' does not exist!"
+            echo ""
+            echo "Available subgraphs:"
+            ls -1 subgraphs/
+            exit 1
+          fi
+          echo "✅ Subgraph folder found: $SUBGRAPH_PATH"
+
+      - name: Validate manifest file exists
+        env:
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+        run: |
+          MANIFEST_PATH="subgraphs/$INPUT_SUBGRAPH/$INPUT_MANIFEST"
+
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "❌ Error: Manifest file '$MANIFEST_PATH' does not exist!"
+            echo ""
+            echo "Available files in subgraphs/$INPUT_SUBGRAPH:"
+            ls -1 "subgraphs/$INPUT_SUBGRAPH/" | grep subgraph
+            exit 1
+          fi
+          echo "✅ Manifest file found: $MANIFEST_PATH"
+
+  deploy:
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: "yarn"
+
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          [ "$(yarn --version)" = "1.22.22" ] || { echo "::error::corepack activation failed"; exit 1; }
+
+      - name: Prepare environment
+        env:
+          INPUT_SUBGRAPH: ${{ inputs.subgraph }}
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          GRAPH_NODE_USER: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_USER || secrets.GRAPH_NODE_STAGING_USER }}
+          GRAPH_NODE_PASSWORD: ${{ inputs.environment == 'production' && secrets.GRAPH_NODE_PROD_PASSWORD || secrets.GRAPH_NODE_STAGING_PASSWORD }}
+        run: |
+          MANIFEST="$INPUT_MANIFEST"
+          echo "MANIFEST=$MANIFEST" >> $GITHUB_ENV
+
+          if [[ "$MANIFEST" =~ ^subgraph\.(.+)\.yaml$ ]]; then
+            NETWORK="${BASH_REMATCH[1]}"
+          else
+            NETWORK=""
+          fi
+          echo "NETWORK=$NETWORK" >> $GITHUB_ENV
+
+          if [ -n "$NETWORK" ]; then
+            echo "SUBGRAPH_NAME=${INPUT_SUBGRAPH}-${NETWORK}" >> $GITHUB_ENV
+          else
+            echo "SUBGRAPH_NAME=$INPUT_SUBGRAPH" >> $GITHUB_ENV
+          fi
+
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
+            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.autonolas.tech"
+          else
+            GRAPH_NODE_URL="https://${GRAPH_NODE_USER}:${GRAPH_NODE_PASSWORD}@admin.subgraph.staging.autonolas.tech"
+          fi
+          echo "::add-mask::$GRAPH_NODE_URL"
+          echo "GRAPH_NODE_URL=$GRAPH_NODE_URL" >> $GITHUB_ENV
+
+      - name: Install subgraph packages
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn install --frozen-lockfile
+
+      - name: Generate code
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn graph codegen "$MANIFEST"
+
+      - name: Build subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn graph build "$MANIFEST"
+
+      - name: Create subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: yarn graph create --node="$GRAPH_NODE_URL" "$SUBGRAPH_NAME"
+
+      - name: Deploy subgraph
+        working-directory: subgraphs/${{ inputs.subgraph }}
+        run: |
+          yarn graph deploy \
+            --node="$GRAPH_NODE_URL" \
+            --ipfs=https://registry.autonolas.tech \
+            --version-label v0.0.1 \
+            "$SUBGRAPH_NAME" \
+            "$MANIFEST"
+
+      - name: Deployment summary
+        if: success()
+        env:
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "✅ Subgraph deployed successfully"
+          echo "- Environment: $INPUT_ENVIRONMENT"
+          echo "- Subgraph name: $SUBGRAPH_NAME"
+          echo "- Manifest: $MANIFEST"
+
+          if [ "$INPUT_ENVIRONMENT" == "production" ]; then
+            echo "- URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME"
+            echo "URL: https://subgraph.staging.autonolas.tech/subgraphs/name/$SUBGRAPH_NAME" >> $GITHUB_STEP_SUMMARY
+          fi
