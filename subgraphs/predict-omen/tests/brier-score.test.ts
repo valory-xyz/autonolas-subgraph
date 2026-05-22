@@ -195,4 +195,47 @@ describe("Brier Score", () => {
     assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierSum", "360000000000000000");
     assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierCount", "1");
   });
+
+  test("Chained re-answer (A→B→A): reversal walks back to the original Brier on the latest day", () => {
+    setupMarket(MARKET, "0x0000000000000000000000000000000000000000000000000000000000000001");
+    // Buy on outcome 1 at p=0.4.
+    handleBuy(createBuyEvent(AGENT, BigInt.fromString("400000000000000000"), BigInt.zero(), BigInt.fromI32(1), MARKET, START_TS, 0, ONE_E18));
+
+    // Day A: answer 0 (bet loses). Brier = (0.4 - 0)^2 = 0.16
+    handleLogNewAnswer(createNewAnswerEvent(
+      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
+      ANSWER_0_HEX,
+      START_TS
+    ));
+
+    // Day B (+2 days): re-answer flips to 1 (bet wins). Brier = (0.4 - 1)^2 = 0.36
+    let DAY_B = BigInt.fromI32(1710172800);
+    let DAY_B_BUCKET = BigInt.fromI32(1710115200);
+    handleLogNewAnswer(createNewAnswerEvent(
+      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
+      ANSWER_1_HEX,
+      DAY_B
+    ));
+
+    // Day C (+4 days): re-answer flips back to 0 (bet loses again). Brier should be (0.4 - 0)^2 = 0.16
+    let DAY_C = BigInt.fromI32(1710345600);
+    let DAY_C_BUCKET = BigInt.fromI32(1710288000);
+    handleLogNewAnswer(createNewAnswerEvent(
+      Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000001"),
+      ANSWER_0_HEX,
+      DAY_C
+    ));
+
+    // Day A still reverted to zero (was zeroed at the A→B step, B→A reversal targets day B only).
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierSum", "0");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(NORMALIZED_TS), "brierCount", "0");
+
+    // Day B is now reverted: B→A reversal subtracted the 0.36 credited at A→B.
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierSum", "0");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_B_BUCKET), "brierCount", "0");
+
+    // Day C carries the latest Brier — same as the original day-A value, but attributed to day C.
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_C_BUCKET), "brierSum", "160000000000000000");
+    assert.fieldEquals("DailyProfitStatistic", dailyStatId(DAY_C_BUCKET), "brierCount", "1");
+  });
 });

@@ -81,6 +81,14 @@ export function getDailyProfitStatistic(agentAddress: Bytes, timestamp: BigInt):
 
 /**
  * Implied probability for a trade: amount / outcomeTokenAmount, 1e18-scaled.
+ *
+ * Expected range: [0, PROBABILITY_SCALE] (i.e. [0, 1e18]). FPMM invariants guarantee
+ * the trade price is in [0, 1] collateral per outcome token:
+ *   - Buy:  outcomeTokensBought >= investmentAmount (per-token cost ≤ 1)
+ *   - Sell: outcomeTokensSold   >= returnAmount     (per-token return ≤ 1)
+ * so the ratio cannot exceed 1e18 for any well-formed FPMM trade. No explicit clamp:
+ * if the invariant is ever violated upstream we want it to surface, not get masked.
+ *
  * Returns zero when the denominator is zero (degenerate — should not happen for valid trades).
  * Brier aggregation skips zero-probability bets.
  */

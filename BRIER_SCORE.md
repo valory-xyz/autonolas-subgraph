@@ -93,7 +93,9 @@ const brier = cnt === 0 ? null : Number(sum * 10000n / BigInt(cnt) / 10n ** 18n)
 
 ### Backfill
 
-**Re-index from genesis on deploy.** `impliedProbability` is computed from event params at trade time and `brierSum` / `brierCount` are populated at settlement — there's no way to retroactively fill them on existing entities without replaying the events. A full re-index ensures every historical bet contributes to windowed Brier from day one.
+**Re-index the entire subgraph from the start block on deploy.** `impliedProbability` is computed from event params at trade time and `brierSum` / `brierCount` are populated at settlement — there's no way to retroactively fill them on existing entities without replaying the events. A full re-index ensures every historical bet contributes to windowed Brier from day one.
+
+This re-index is shared with the market-categories work in [MARKET_CATEGORIES.md](MARKET_CATEGORIES.md) — both features land in the same deploy and are backfilled together in a single pass from the start block. No separate migration handler is needed.
 
 ### Tests
 

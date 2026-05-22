@@ -293,9 +293,9 @@ Mirrors the existing `MarketParticipant` rollup pattern. Defer until B is stable
 - Run with: `graph test tests/category-parsing.test.ts` or `yarn test`
 
 **Backfill strategy** (decided):
-- Deploy to production with no re-index (future markets indexed with category)
-- Historical markets (`category = null`) render as "Other" on predict page
-- Optional one-off migration later if backfill coverage is needed (low priority)
+- **Re-index the entire subgraph from the start block on deploy.** Every historical market is replayed through the updated parser, so `category`/`language` are populated for the full history wherever the Realitio template carried them.
+- Markets whose templates only carried 2 fields (or non-standard variants) still resolve to `category = null` and render as "Other" on the predict page.
+- This re-index is shared with the Brier-score work in [BRIER_SCORE.md](BRIER_SCORE.md) — both features land in one deploy and are backfilled in a single pass from the start block. No separate migration handler.
 
 ## Effort estimate
 
@@ -304,7 +304,7 @@ Mirrors the existing `MarketParticipant` rollup pattern. Defer until B is stable
 | predict-omen | Schema + mapping change (B1) | ~0.5 day | ✅ **COMPLETE** |
 | predict-omen | Matchstick tests for category/language parsing | ~0.25 day | ✅ **COMPLETE** |
 | predict-omen | Realitio category normalisation table | ~0.25 day | Pending: next step |
-| predict-omen | Backfill / re-index | 0 days initially; ~0.5 day if backfill needed later | Staged approach |
+| predict-omen | Backfill via full re-index from start block (shared with Brier deploy) | ~0 days dev; re-index runs as part of deploy | ✅ **Decided** |
 | predict-omen | Optional `TraderAgentCategoryMetric` rollup (C) | ~0.5 day | Optional |
 | predict-polymarket | Vercel Cron + Blob sync (Option A) | ~2-3 days (olas-website) | Recommended |
 | predict-polymarket | Option B2: keyword classifier + schema field | ~1 day + curation effort | Fallback only |
