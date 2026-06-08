@@ -27,7 +27,7 @@
   "author": "Autonolas",
   "license": "MIT",
   "resolutions": {
-    "tmp": "^0.2.6",
-    "axios": "^1.7.9"
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
   }
 }

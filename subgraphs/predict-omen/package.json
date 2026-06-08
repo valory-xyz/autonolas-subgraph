@@ -13,7 +13,7 @@
     "matchstick-as": "0.6.0"
   },
   "resolutions": {
-    "tmp": "^0.2.6",
-    "axios": "^1.7.9"
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
   }
 }
