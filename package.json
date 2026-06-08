@@ -18,5 +18,9 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "resolutions": {
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
   }
 }
