@@ -66,3 +66,14 @@ yarn deploy-local     # uploads to the node's IPFS (registry.autonolas.tech)
 `deploy-local` points `--ipfs` at `https://registry.autonolas.tech` to match the
 `ipfs:` the graph-node uses in `docker-compose.yaml` (the node must fetch from
 the same IPFS the CLI uploads to). Adjust if your node uses a different IPFS.
+
+## Known risk — token-Transfer firehose
+
+The `OLAS` / `WrappedNative` / `USDC` / `USDC.e` data sources index **every**
+token `Transfer` on Gnosis from block `27871084` (filtered in-handler via
+`classifyTransfer`). Starting at the registry block bounds it, but it's still a
+full-token firehose and is the **most plausible driver of the Studio
+"deterministic indexer stall"** — more so than the Gnosis RPC. Self-hosting +
+a healthier archive RPC does **not** reduce this event volume, so the stall can
+reproduce here. Any real fix (e.g. narrowing the indexed Transfer set) must land
+in the canonical `autonolas-tokenomics-subgraph` first per the sync policy above.

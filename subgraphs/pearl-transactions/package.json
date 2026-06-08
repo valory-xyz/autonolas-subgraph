@@ -6,8 +6,7 @@
     "test": "graph test",
     "create-local": "graph create --node http://localhost:8020/ pearl-transactions",
     "remove-local": "graph remove --node http://localhost:8020/ pearl-transactions",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech pearl-transactions subgraph.yaml",
-    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ pearl-transactions subgraph.yaml"
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech pearl-transactions subgraph.yaml"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",

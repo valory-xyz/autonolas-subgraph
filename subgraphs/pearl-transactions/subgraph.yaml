@@ -139,9 +139,10 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleErc20Transfer
       file: ./src/erc20.ts
-  # Phase 2b — per-network stablecoin Transfer data sources (USDC /
-  # USDC.e / pUSD), expanded from networks.json `erc20Tokens` by
-  # generate-manifests.js. Count varies per chain (1–3).
+  # Gnosis stablecoin Transfer data sources: USDC + USDC.e (6 decimals).
+  # Hand-maintained here as a concrete Gnosis manifest; the canonical
+  # autonolas-tokenomics-subgraph generates these from networks.json
+  # `erc20Tokens` (pUSD is Polygon-only and intentionally absent here).
   - kind: ethereum
     name: USDC
     network: gnosis
