@@ -202,6 +202,9 @@ templates:
       entities:
         - Service
         - MasterSafe
+        - AgentSafe
+        - TrackedSafe
+        - TrackedEOA
         - FundsMovement
         - DailyServiceFunds
       abis:
@@ -238,6 +241,7 @@ templates:
       entities:
         - FundsMovement
         - MasterSafe
+        - AgentFundingEvent
         - TokenBalance
         - Token
       abis:
