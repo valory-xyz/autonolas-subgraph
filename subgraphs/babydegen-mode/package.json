@@ -25,5 +25,9 @@
     "portfolio"
   ],
   "author": "Autonolas",
-  "license": "MIT"
+  "license": "MIT",
+  "resolutions": {
+    "tmp": "^0.2.6",
+    "axios": "^1.7.9"
+  }
 }
