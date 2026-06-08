@@ -585,6 +585,60 @@
       "reason": "Surfaced 2026-05-13 — npm advisory database re-numbered GHSA-3h5v-q93c-6h6q (originally id 1098393, already allowlisted). Same root cause and scope: transitive of @graphprotocol/graph-cli (jayson > ws) in autonolas/autonolas-base (0.64.0) and mech. After Tier 3 Waves 1+2 (PR98), only these three remain on older graph-cli lines pulling the vulnerable ws version; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-14",
       "review": "2026-08-12"
+    },
+    {
+      "id": 1119610,
+      "ghsa": "GHSA-ph9p-34f9-6g65",
+      "package": "tmp",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (build-time temp-dir helper), NOT present in the compiled WASM subgraph artifact. Path traversal via unsanitized prefix/postfix. Re-evaluate when graph-cli upstream bumps tmp to >=0.2.6.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
+    },
+    {
+      "id": 1119666,
+      "ghsa": "GHSA-pjwm-pj3p-43mv",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (gluegun > axios), build-time CLI tooling that is NOT present in the compiled WASM subgraph artifact. Surfaced after the 2026-05 allowlist refresh; same class and scope as the existing graph-cli transitives. Re-evaluate after Tier 3 Wave 3 lands and when graph-cli upstream bumps axios to >=0.32.0.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
+    },
+    {
+      "id": 1119673,
+      "ghsa": "GHSA-3g43-6gmg-66jw",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (gluegun > axios), build-time CLI tooling that is NOT present in the compiled WASM subgraph artifact. Surfaced after the 2026-05 allowlist refresh; same class and scope as the existing graph-cli transitives. Re-evaluate after Tier 3 Wave 3 lands and when graph-cli upstream bumps axios to >=0.32.0.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
+    },
+    {
+      "id": 1120072,
+      "ghsa": "GHSA-hfxv-24rg-xrqf",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (gluegun > axios), build-time CLI tooling that is NOT present in the compiled WASM subgraph artifact. Surfaced after the 2026-05 allowlist refresh; same class and scope as the existing graph-cli transitives. Re-evaluate after Tier 3 Wave 3 lands and when graph-cli upstream bumps axios to >=0.32.0.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
+    },
+    {
+      "id": 1120075,
+      "ghsa": "GHSA-p92q-9vqr-4j8v",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (gluegun > axios), build-time CLI tooling that is NOT present in the compiled WASM subgraph artifact. Surfaced after the 2026-05 allowlist refresh; same class and scope as the existing graph-cli transitives. Re-evaluate after Tier 3 Wave 3 lands and when graph-cli upstream bumps axios to >=0.32.0.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
+    },
+    {
+      "id": 1120077,
+      "ghsa": "GHSA-j5f8-grm9-p9fc",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Baselined 2026-06-08 — transitive of @graphprotocol/graph-cli (gluegun > axios), build-time CLI tooling that is NOT present in the compiled WASM subgraph artifact. Surfaced after the 2026-05 allowlist refresh; same class and scope as the existing graph-cli transitives. Re-evaluate after Tier 3 Wave 3 lands and when graph-cli upstream bumps axios to >=0.32.0.",
+      "added": "2026-06-08",
+      "review": "2026-09-08"
     }
   ]
 }
