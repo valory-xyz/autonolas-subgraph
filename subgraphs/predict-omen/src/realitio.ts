@@ -16,7 +16,7 @@ import {
   DailyProfitStatistic,
 } from "../generated/schema";
 import { CREATOR_ADDRESSES } from "./constants";
-import { addProfitParticipant, removeProfitParticipant, bytesToBigInt, getDailyProfitStatistic, getDayTimestamp, getGlobal, saveMapValues } from "./utils";
+import { actualForOutcome, addProfitParticipant, brierContribution, bytesToBigInt, getDailyProfitStatistic, getDayTimestamp, getGlobal, removeProfitParticipant, saveMapValues } from "./utils";
 
 export function handleLogNewQuestion(event: LogNewQuestionEvent): void {
   // only safe questions for our creators
@@ -72,6 +72,10 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
   let answerBigInt = bytesToBigInt(event.params.answer);
   let isAnswer0 = answerBigInt.equals(BigInt.zero());
   let isAnswer1 = answerBigInt.equals(BigInt.fromI32(1));
+  let isInvalid = !isAnswer0 && !isAnswer1;
+  // For Brier: which outcome resolved true. Only meaningful when !isInvalid —
+  // actualForOutcome() short-circuits on isInvalid and ignores this value.
+  let winningOutcome = isAnswer1 ? BigInt.fromI32(1) : BigInt.zero();
   let TWO = BigInt.fromI32(2);
 
   let global = getGlobal();
@@ -142,6 +146,12 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
       // the exact amount added on the previous settlement, regardless of chain length.
       oldDailyStat.dailyTradedSettled = oldDailyStat.dailyTradedSettled.minus(participant.totalTradedSettled);
       oldDailyStat.dailyFeesSettled = oldDailyStat.dailyFeesSettled.minus(participant.totalFeesSettled);
+      // Reverse exactly the Brier contribution credited at the previous settlement. Stored
+      // on the participant so this works even if bets were placed between answers.
+      // Pre-Brier participants (indexed before this deploy) default to zero, so the reversal
+      // is a no-op — which is correct, since no Brier was tracked for them.
+      oldDailyStat.brierSum = oldDailyStat.brierSum.minus(participant.brierSumApplied);
+      oldDailyStat.brierCount = oldDailyStat.brierCount - participant.brierCountApplied;
       removeProfitParticipant(oldDailyStat, fpmm.id);
       dailyStatsCache.set(oldStatId, oldDailyStat);
 
@@ -177,16 +187,33 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
       globalTradedSettledDelta = globalTradedSettledDelta.plus(newAmountToSettle);
       globalFeesSettledDelta = globalFeesSettledDelta.plus(newFeesToSettle);
 
-      // 10. Mark any new bets as counted
+      // 10. Mark any new bets as counted AND accumulate Brier for new answer
       let reBetIds = participant.bets;
+      let reBrierSum = BigInt.zero();
+      let reBrierCount = 0;
       for (let j = 0; j < reBetIds.length; j++) {
         let bet = Bet.load(reBetIds[j]);
-        if (bet !== null && !bet.countedInProfit) {
+        if (bet === null) continue;
+        if (!bet.countedInProfit) {
           bet.countedInProfit = true;
           bet.countedInTotal = true;
           bet.save();
         }
+        // Buy-side bets with a recorded implied probability contribute to Brier.
+        // Zero-probability is sentinel for "no recorded price" (legacy / degenerate); skip those.
+        let reImp = bet.impliedProbability;
+        if (reImp.gt(BigInt.zero()) && bet.amount.gt(BigInt.zero())) {
+          let reActual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
+          let reContribution = brierContribution(reImp, reActual);
+          reBrierSum = reBrierSum.plus(reContribution);
+          reBrierCount += 1;
+        }
       }
+      newDailyStat.brierSum = newDailyStat.brierSum.plus(reBrierSum);
+      newDailyStat.brierCount = newDailyStat.brierCount + reBrierCount;
+      dailyStatsCache.set(newStatId, newDailyStat);
+      participant.brierSumApplied = reBrierSum;
+      participant.brierCountApplied = reBrierCount;
 
       participant.save();
       continue;
@@ -252,15 +279,33 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
     globalExpectedPayoutDelta = globalExpectedPayoutDelta.plus(expectedPayout);
 
     // 10. Mark individual bets via participant.bets (stored array, not derived)
+    //     and accumulate Brier contribution for this participant.
     let betIds = participant.bets;
+    let brierSum = BigInt.zero();
+    let brierCount = 0;
     for (let j = 0; j < betIds.length; j++) {
       let bet = Bet.load(betIds[j]);
-      if (bet !== null && !bet.countedInProfit) {
+      if (bet === null) continue;
+      if (!bet.countedInProfit) {
         bet.countedInProfit = true;
         bet.countedInTotal = true;
         bet.save();
       }
+      // Buy-side bets with a recorded implied probability contribute to Brier.
+      // Zero-probability is sentinel for "no recorded price" (legacy / degenerate); skip those.
+      let imp = bet.impliedProbability;
+      if (imp.gt(BigInt.zero()) && bet.amount.gt(BigInt.zero())) {
+        let actual = actualForOutcome(bet.outcomeIndex, winningOutcome, isInvalid);
+        let contribution = brierContribution(imp, actual);
+        brierSum = brierSum.plus(contribution);
+        brierCount += 1;
+      }
     }
+    dailyStat.brierSum = dailyStat.brierSum.plus(brierSum);
+    dailyStat.brierCount = dailyStat.brierCount + brierCount;
+    dailyStatsCache.set(statId, dailyStat);
+    participant.brierSumApplied = brierSum;
+    participant.brierCountApplied = brierCount;
 
     participant.save();
   }

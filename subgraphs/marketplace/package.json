@@ -24,5 +24,9 @@
     "@graphprotocol/graph-cli": "0.98.1",
     "@graphprotocol/graph-ts": "0.37.0"
   },
-  "devDependencies": { "matchstick-as": "0.6.0" }
+  "devDependencies": { "matchstick-as": "0.6.0" },
+  "resolutions": {
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
+  }
 }
