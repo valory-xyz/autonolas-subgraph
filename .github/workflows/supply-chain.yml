@@ -143,6 +143,27 @@ jobs:
             --allowed-hosts yarn npm \
             --empty-hostname false
 
+  license-check:
+    name: License allowlist gate
+    # License allowlist gate (PARANOID): every production dependency's license
+    # must be on the allowlist in .supply-chain/license-allowlist.json, or be a
+    # reasoned exemption.
+    # NON-BLOCKING PILOT: deliberately NOT in `all-checks-passed.needs` below, so
+    # it reports without gating merges. Promote to required by adding it to that
+    # `needs:` array (+ branch protection). See .plans/license-check-gate.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Activate pinned Yarn via Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+      - run: yarn install --frozen-lockfile
+      - run: yarn license-check
+
   # Aggregator that fails iff any of the above fails. Promote this single
   # check to required-status in branch protection (rather than each job
   # individually) for a stable interface that survives matrix changes.
