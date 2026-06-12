@@ -12,21 +12,21 @@ Analysis of `predict-omen` and `predict-polymarket` subgraph logic, correctness,
 
 Previously, `handleCreateMultisigWithAgents` created a `TraderAgent` for **every** service that creates a multisig — no agent ID check. Non-prediction agents trading on whitelisted markets would be counted.
 
-**Fix**: Added two-step `RegisterInstance` + `TraderService` filtering pattern (matching polymarket). Added `PREDICT_AGENT_ID = 14` constant. Only services with the correct agent ID create `TraderAgent` entities.
+**Fix**: Added two-step `RegisterInstance` + `TraderService` filtering pattern (matching polymarket). Added `PREDICT_AGENT_ID = 25` constant. Only services with the correct agent ID create `TraderAgent` entities.
 
 **Tests added**: `tests/service-registry-l-2.test.ts` (11 tests) — covers agent ID filtering, duplicate prevention, wrong agent ID rejection, Global tracking.
 
 ---
 
-### 2. Event Ordering Race Condition (Medium Priority) — FIXED
+### 2. Event Ordering Race Condition (Medium Priority) — NOT AN ISSUE
 
-**File changed**: `src/conditional-tokens.ts`
+**File changed**: `src/conditional-tokens.ts` (comment only)
 
-`handleConditionPreparation` only saved if a `Question` already existed for the `questionId`. If `ConditionPreparation` fired before `LogNewQuestion` in the same block, the condition was silently dropped, causing **missed markets**.
+`handleConditionPreparation` only saves if a `Question` already exists for the `questionId`. Initially flagged as a race condition (condition dropped if `ConditionPreparation` fired before `LogNewQuestion`), but the ordering is guaranteed: `LogNewQuestion` always fires before `ConditionPreparation` (the `questionId` comes from Reality.eth), which in turn precedes `FixedProductMarketMakerCreation`.
 
-**Fix**: `ConditionPreparation` is now saved unconditionally. The Question link is checked later during market creation in `handleFixedProductMarketMakerCreation`.
+**Resolution**: Kept the original Question-existence guard — saving unconditionally would store a `ConditionPreparation` for every CTF condition ever prepared on Gnosis (unnecessary DB load). Added a comment in the handler documenting the ordering guarantee.
 
-**Tests added**: `tests/conditional-tokens.test.ts` (3 tests) — covers saving without Question, saving with Question, block metadata.
+**Tests added**: `tests/conditional-tokens.test.ts` (3 tests) — covers skipping unknown questions, saving with known Question, block metadata.
 
 ---
 
@@ -119,7 +119,7 @@ If `OrderFilled` fires before `QuestionInitialized`, the bet won't link to a que
 | # | Priority | Subgraph | Issue | Status |
 |---|----------|----------|-------|--------|
 | 1 | **High** | predict-omen | No agent ID filtering — tracked all services | FIXED + 11 tests |
-| 2 | **Medium** | predict-omen | Event ordering race — ConditionPreparation dropped | FIXED + 3 tests |
+| 2 | **Medium** | predict-omen | Event ordering race — ConditionPreparation dropped | NOT AN ISSUE (ordering guaranteed) + 3 tests |
 | 3 | **Low** | predict-omen | Dead code — orphaned handlers and unused entities | FIXED |
 | 4 | **Low** | predict-omen | `handleLogFinalize` overwrites without loading | FIXED (removed) |
 | 5 | **Low** | predict-polymarket | `Bet.question` null if traded before init | FIXED (warning log) |

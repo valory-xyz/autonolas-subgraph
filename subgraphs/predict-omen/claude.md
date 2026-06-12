@@ -199,7 +199,7 @@ Singleton aggregate statistics (id: `""`).
 |--------|---------|---------|
 | TraderService | Immutable | Helper entity for agent ID filtering. Only created for services with `PREDICT_AGENT_ID = 25` |
 | CreatorAgent | No | Tracks whitelisted market creators. Fields: `totalQuestions`, block metadata |
-| ConditionPreparation | Immutable | Links `conditionId` to `questionId`. Saved unconditionally (no Question dependency) |
+| ConditionPreparation | Immutable | Links `conditionId` to `questionId`. Only saved for known questions (event ordering guarantees `LogNewQuestion` fires first) |
 | Question | No | Raw question text + link to FPMM. `currentAnswer`/`currentAnswerTimestamp` updated at settlement |
 | PayoutRedemption | Immutable | Debug log for every `PayoutRedemption` event. Fields: redeemer, conditionId, payoutAmount, FPMM, block metadata |
 
@@ -246,9 +246,9 @@ Singleton aggregate statistics (id: `""`).
 ### 4. handleConditionPreparation
 **File**: `src/conditional-tokens.ts` | **Event**: `ConditionPreparation(...)`
 
-- Saves `ConditionPreparation` unconditionally (no Question dependency — avoids event ordering race condition)
+- Only saves conditions where the `questionId` matches a known Question entity (whitelisted-creator markets)
+- Event ordering is guaranteed: `LogNewQuestion` always fires before `ConditionPreparation`, which precedes `FixedProductMarketMakerCreation` — so the Question always exists for tracked markets
 - Creates `ConditionPreparation` linking `conditionId` to `questionId`
-- The Question link is verified later during market creation in `handleFixedProductMarketMakerCreation`
 
 ### 5. handleBuy / handleSell
 **File**: `src/FixedProductMarketMakerMapping.ts` | **Events**: `FPMMBuy(...)`, `FPMMSell(...)`
@@ -474,7 +474,7 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 | PayoutRedemption creates PayoutRedemption | Immutable log entity with correct fields |
 | Invalid answer: expectedPayout = balance0/2 + balance1/2 | Correct payout for invalid markets with [1,1] split |
 | **Agent ID filtering (11 tests)** | RegisterInstance creates TraderService for correct agent ID, rejects wrong ID, duplicate prevention, CreateMultisigWithAgents requires TraderService, Global tracking |
-| **ConditionPreparation (3 tests)** | Saves without Question (race condition fix), saves with Question, block metadata |
+| **ConditionPreparation (3 tests)** | Skips unknown questions, saves with known Question, block metadata |
 
 ---
 

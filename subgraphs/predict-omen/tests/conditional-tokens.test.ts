@@ -36,8 +36,8 @@ describe("ConditionalTokens - ConditionPreparation Handler", () => {
     clearStore();
   });
 
-  test("Should save ConditionPreparation even when Question does not exist yet", () => {
-    // This tests the race condition fix: ConditionPreparation fires BEFORE LogNewQuestion
+  test("Should NOT save ConditionPreparation when Question does not exist", () => {
+    // Conditions for questions we don't track (non-whitelisted creators) are skipped
     let event = createConditionPreparationEvent(
       CONDITION_ID,
       ORACLE,
@@ -47,15 +47,12 @@ describe("ConditionalTokens - ConditionPreparation Handler", () => {
 
     handleConditionPreparation(event);
 
-    let id = CONDITION_ID.toHexString();
-    assert.fieldEquals("ConditionPreparation", id, "conditionId", CONDITION_ID.toHexString());
-    assert.fieldEquals("ConditionPreparation", id, "questionId", QUESTION_ID.toHexString());
-    assert.fieldEquals("ConditionPreparation", id, "oracle", ORACLE.toHexString());
-    assert.fieldEquals("ConditionPreparation", id, "outcomeSlotCount", "2");
+    assert.notInStore("ConditionPreparation", CONDITION_ID.toHexString());
   });
 
-  test("Should save ConditionPreparation when Question already exists", () => {
-    // Create Question first (normal ordering)
+  test("Should save ConditionPreparation when Question exists", () => {
+    // LogNewQuestion always fires before ConditionPreparation, so the Question
+    // entity exists for every market we track
     let question = new Question(QUESTION_ID.toHexString());
     question.question = "Will it rain?";
     question.save();
@@ -72,9 +69,15 @@ describe("ConditionalTokens - ConditionPreparation Handler", () => {
     let id = CONDITION_ID.toHexString();
     assert.fieldEquals("ConditionPreparation", id, "conditionId", CONDITION_ID.toHexString());
     assert.fieldEquals("ConditionPreparation", id, "questionId", QUESTION_ID.toHexString());
+    assert.fieldEquals("ConditionPreparation", id, "oracle", ORACLE.toHexString());
+    assert.fieldEquals("ConditionPreparation", id, "outcomeSlotCount", "2");
   });
 
   test("Should store block metadata correctly", () => {
+    let question = new Question(QUESTION_ID.toHexString());
+    question.question = "Will it rain?";
+    question.save();
+
     let event = createConditionPreparationEvent(
       CONDITION_ID,
       ORACLE,
