@@ -1,0 +1,22 @@
+{
+  "name": "pearl-transactions",
+  "scripts": {
+    "codegen": "graph codegen subgraph.yaml",
+    "build": "graph build subgraph.yaml",
+    "test": "graph test",
+    "create-local": "graph create --node http://localhost:8020/ pearl-transactions",
+    "remove-local": "graph remove --node http://localhost:8020/ pearl-transactions",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs https://registry.autonolas.tech pearl-transactions subgraph.yaml"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2"
+  },
+  "devDependencies": {
+    "matchstick-as": "0.6.0"
+  },
+  "resolutions": {
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
+  }
+}

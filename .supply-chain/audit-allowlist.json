@@ -164,15 +164,6 @@
       "review": "2026-08-06"
     },
     {
-      "id": 1111034,
-      "ghsa": "GHSA-jr5f-v2jv-69x6",
-      "package": "axios",
-      "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
-      "added": "2026-05-08",
-      "review": "2026-08-06"
-    },
-    {
       "id": 1112659,
       "ghsa": "GHSA-34x7-hfp2-rc4v",
       "package": "tar",
@@ -474,42 +465,6 @@
       "ghsa": "GHSA-xq3m-2v4x-88gg",
       "package": "protobufjs",
       "severity": "critical",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
-      "added": "2026-05-08",
-      "review": "2026-08-06"
-    },
-    {
-      "id": 1117575,
-      "ghsa": "GHSA-pmwg-cvhr-8vh7",
-      "package": "axios",
-      "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
-      "added": "2026-05-08",
-      "review": "2026-08-06"
-    },
-    {
-      "id": 1117590,
-      "ghsa": "GHSA-pf86-5x62-jrwf",
-      "package": "axios",
-      "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
-      "added": "2026-05-08",
-      "review": "2026-08-06"
-    },
-    {
-      "id": 1117592,
-      "ghsa": "GHSA-6chq-wfr3-2hj9",
-      "package": "axios",
-      "severity": "high",
-      "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
-      "added": "2026-05-08",
-      "review": "2026-08-06"
-    },
-    {
-      "id": 1117857,
-      "ghsa": "GHSA-43fc-jf86-j433",
-      "package": "axios",
-      "severity": "high",
       "reason": "Baselined at PR2 — transitive of @graphprotocol/graph-cli. After Tier 3 Waves 1+2 (PR98), only autonolas/autonolas-base remain on graph-cli 0.64.0; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-08",
       "review": "2026-08-06"

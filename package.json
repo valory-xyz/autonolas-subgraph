@@ -6,7 +6,9 @@
   "scripts": {
     "audit:prod": "node scripts/audit.mjs",
     "audit:install-hooks": "node scripts/audit-install-hooks.mjs",
-    "audit:install-hooks:update": "node scripts/audit-install-hooks.mjs --update"
+    "audit:install-hooks:update": "node scripts/audit-install-hooks.mjs --update",
+    "license-check": "node scripts/license-check.mjs",
+    "license-check:test": "node --test scripts/license-check.test.mjs"
   },
   "peerDependencies": {
     "typescript": "5.9.3"
@@ -16,7 +18,14 @@
     "@graphprotocol/graph-cli": "0.98.1",
     "@types/node": "24.3.1"
   },
+  "devDependencies": {
+    "license-checker-rseidelsohn": "5.0.1"
+  },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "resolutions": {
+    "tmp": "0.2.7",
+    "axios": "1.17.0"
   }
 }
