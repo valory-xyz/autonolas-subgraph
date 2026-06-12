@@ -78,6 +78,10 @@ type FixedProductMarketMakerCreation @entity (immutable: false) {
   fee: BigInt! # uint256
   currentAnswer: Bytes
   currentAnswerTimestamp: BigInt
+  # Scheduled finalization time (answer ts + question timeout), recomputed on each
+  # re-answer. Set to block ts on arbitrator LogFinalize; null while arbitration is
+  # pending. The answer is final once answerFinalizedTimestamp <= now.
+  answerFinalizedTimestamp: BigInt
   bets: [Bet!]! @derivedFrom(field: "fixedProductMarketMaker")
   participants: [MarketParticipant!]! @derivedFrom(field: "fixedProductMarketMaker")
   blockNumber: BigInt!
@@ -139,6 +143,7 @@ type Question @entity (immutable: false) {
   currentAnswer: Bytes
   question: String! # string
   currentAnswerTimestamp: BigInt
+  timeout: BigInt # Reality.eth answer timeout (seconds), from LogNewQuestion
   fixedProductMarketMaker: FixedProductMarketMakerCreation
 }
 

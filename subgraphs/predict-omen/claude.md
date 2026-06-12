@@ -69,7 +69,7 @@ subgraphs/predict/predict-omen/
    - `profitParticipants` removed from old daily stat, added to new daily stat.
    - Same-answer resubmissions (higher bond) are no-ops — `settled` flag + answer equality check skip processing.
    - Chains correctly for arbitrary re-answer sequences (A→B→C→...).
-7. **No Arbitration Events**: Only `LogNewQuestion` and `LogNewAnswer` are registered in subgraph.yaml.
+7. **Answer Finalization Tracking**: `FixedProductMarketMakerCreation.answerFinalizedTimestamp` exposes when the current answer becomes final (Protofire `omen-xdai` semantics). Set to `answer ts + question.timeout` on every `LogNewAnswer` (re-answers push it out), cleared on `LogNotifyOfArbitrationRequest` (finalization frozen during arbitration), and set to `block.timestamp` on arbitrator `LogFinalize`. Consumers should treat an answer as final only when `answerFinalizedTimestamp <= now`.
 8. **Mech Fee Correlation**: `profitParticipants` on `DailyProfitStatistic` lists the markets that contributed to PnL on a given day. This is used to cross-reference with the **Mech subgraph** — agents send requests to a Mech to decide how to trade (yes/no) on a market question. By matching market titles between subgraphs, Mech request fees can be attributed to specific profit events at settlement time.
 
 ---
@@ -132,6 +132,7 @@ A prediction market.
 | fee | `BigInt!` | |
 | currentAnswer | `Bytes` | Oracle answer (set at settlement) |
 | currentAnswerTimestamp | `BigInt` | |
+| answerFinalizedTimestamp | `BigInt` | **Nullable.** Scheduled finalization (`answer ts + timeout`); block ts on arbitrator `LogFinalize`; null while arbitration pending. Final when `<= now` |
 | bets | `[Bet!]!` | `@derivedFrom(field: "fixedProductMarketMaker")` |
 | participants | `[MarketParticipant!]!` | `@derivedFrom(field: "fixedProductMarketMaker")` |
 | blockNumber | `BigInt!` | |
@@ -200,7 +201,7 @@ Singleton aggregate statistics (id: `""`).
 | TraderService | Immutable | Helper entity for agent ID filtering. Only created for services with an agent ID in `PREDICT_AGENT_IDS = [14, 25]` |
 | CreatorAgent | No | Tracks whitelisted market creators. Fields: `totalQuestions`, block metadata |
 | ConditionPreparation | Immutable | Links `conditionId` to `questionId`. Only saved for known questions (event ordering guarantees `LogNewQuestion` fires first) |
-| Question | No | Raw question text + link to FPMM. `currentAnswer`/`currentAnswerTimestamp` updated at settlement |
+| Question | No | Raw question text, `timeout` (from `LogNewQuestion`) + link to FPMM. `currentAnswer`/`currentAnswerTimestamp` updated at settlement |
 | PayoutRedemption | Immutable | Debug log for every `PayoutRedemption` event. Fields: redeemer, conditionId, payoutAmount, FPMM, block metadata |
 
 ---
@@ -427,7 +428,7 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 | ServiceRegistryL2 | `RegisterInstance`, `CreateMultisigWithAgents` | `service-registry-l-2.ts` |
 | ConditionalTokens | `ConditionPreparation`, `PayoutRedemption` | `conditional-tokens.ts` |
 | FPMMDeterministicFactory | `FixedProductMarketMakerCreation` | `FPMMDeterministicFactoryMapping.ts` |
-| Realitio | `LogNewQuestion`, `LogNewAnswer` | `realitio.ts` |
+| Realitio | `LogNewQuestion`, `LogNewAnswer`, `LogFinalize`, `LogNotifyOfArbitrationRequest` | `realitio.ts` |
 
 ### Dynamic Template
 
@@ -437,7 +438,7 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 
 **Spec**: v1.0.0 | **API**: 0.0.7 | **Network**: gnosis | **Pruning**: auto
 
-**Note**: Realitio source only registers 2 of its available events: `LogNewQuestion` and `LogNewAnswer`.
+**Note**: Realitio registers 4 events: `LogNewQuestion`, `LogNewAnswer` (settlement), plus `LogFinalize` and `LogNotifyOfArbitrationRequest` (finalization tracking only — they never touch profit/settlement state).
 
 ---
 
@@ -594,6 +595,6 @@ graph deploy --studio autonolas-predict
 7. **Participant-level settlement with re-answer support**: `participant.settled` flag provides idempotency for same-answer resubmissions. For different-answer re-answers, the handler reverses old profit and applies new full profit (`expectedPayout - totalTraded - totalFees`). Iteration is over `fpmm.participants.load()`, not `fpmm.bets.load()` (fewer entities, pruning-resilient).
 8. **`processTradeActivity()`** is the consolidated function for all trade updates (agent, participant, global). Tracks outcome token balances. Increments `totalActiveTraderAgents` on first bet.
 9. **Caching is essential**: `handleLogNewAnswer` uses Map caches for TraderAgent and DailyProfitStatistic, delta accumulation for Global.
-10. **Only 2 Realitio events are registered**: `LogNewQuestion` and `LogNewAnswer`.
+10. **4 Realitio events are registered**: `LogNewQuestion` and `LogNewAnswer` drive settlement; `LogFinalize` / `LogNotifyOfArbitrationRequest` only maintain `answerFinalizedTimestamp` (settlement for arbitrated answers still runs via the `LogNewAnswer` emitted in the same tx).
 11. **Re-answer profit uses full market cost**: `newProfit = newExpectedPayout - totalTraded - totalFees` (not incremental). This is critical for correct `oldProfit` reconstruction on subsequent re-answers, since `totalTradedSettled = totalTraded` after each settlement.
 12. **`totalExpectedPayout` vs `totalPayout`**: Compare these on TraderAgent/Global to measure claim rate (how much agents actually redeem vs what they're entitled to).

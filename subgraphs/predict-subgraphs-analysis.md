@@ -92,6 +92,32 @@ If `OrderFilled` fires before `QuestionInitialized`, the bet won't link to a que
 
 ---
 
+## Follow-up issues (studio repo)
+
+### 8. `answerFinalizedTimestamp` missing on FPMM ([studio#114](https://github.com/valory-xyz/autonolas-subgraph-studio/issues/114)) — FIXED
+
+**Files changed**: `predict-omen/schema.graphql`, `src/realitio.ts`, `subgraph.yaml`
+
+Reality.eth answers can flip during the dispute window; without a finalization field consumers can't distinguish a provisional answer from a settled one (e.g. a temporary `0xff…ff` invalid sentinel cached as permanently invalid).
+
+**Fix** (Protofire `omen-xdai` semantics): added `answerFinalizedTimestamp` to `FixedProductMarketMakerCreation` and `timeout` to `Question`. Set to `answer ts + timeout` on every `LogNewAnswer` (normal finalization is implicit — no event fires at timeout), cleared on `LogNotifyOfArbitrationRequest`, set to `block.timestamp` on arbitrator `LogFinalize`. The two newly wired events never touch settlement state — arbitrated answers still settle via the `LogNewAnswer` emitted in the same tx.
+
+**Tests added**: `tests/finalization.test.ts` (7 tests).
+
+---
+
+### 9. Head-to-head markets dropped — null `bet.question` ([studio#128](https://github.com/valory-xyz/autonolas-subgraph-studio/issues/128)) — FIXED
+
+**Files changed**: `predict-polymarket/src/uma-mapping.ts`, `tests/uma-mapping.test.ts`
+
+`extractBinaryOutcomes` rejected any 2-outcome market whose labels weren't literally Yes/No, so head-to-head markets (team-name outcomes) never got a `Question`/`MarketMetadata` — nulling `bet.question` AND short-circuiting `processMarketResolution`, which excluded those bets from profit aggregates.
+
+**Fix**: accept any 2-outcome market, preserving real labels; still reject >2-outcome lists (binary-ness is also enforced upstream via `outcomeSlotCount == 2`). Hardened the label parser to truncate at the `, p3` clause before the `.` fallback, so names like "Gen.G" / "St. Louis" survive intact.
+
+**Deploy note**: requires a full re-sync — the affected `QuestionInitialized`/`OrderFilled` events are in the past, `Question` is immutable, and `bet.question` is only written at bet time. Expect a one-time retroactive shift in ROI/profit aggregates as the previously-dropped markets fold into totals (the correction, not a regression).
+
+---
+
 ## Both Subgraphs: Logic Correctness
 
 ### Core settlement logic is sound
@@ -125,6 +151,8 @@ If `OrderFilled` fires before `QuestionInitialized`, the bet won't link to a que
 | 5 | **Low** | predict-polymarket | `Bet.question` null if traded before init | FIXED (warning log) |
 | 6 | **Low** | predict-polymarket | `QuestionResolution` duplicate risk | FIXED + 1 test |
 | 7 | **Low** | predict-polymarket | `global.save()` called unnecessarily | FIXED + 1 test |
+| 8 | **Medium** | predict-omen | No `answerFinalizedTimestamp` (studio#114) | FIXED + 7 tests |
+| 9 | **High** | predict-polymarket | Head-to-head markets dropped (studio#128) | FIXED + tests flipped/added |
 
 ### Test Results After Fixes
 - **predict-omen**: 33 tests pass (19 existing + 14 new)

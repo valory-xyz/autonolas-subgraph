@@ -2,6 +2,8 @@ import { BigInt, log } from "@graphprotocol/graph-ts";
 import {
   LogNewQuestion as LogNewQuestionEvent,
   LogNewAnswer as LogNewAnswerEvent,
+  LogFinalize as LogFinalizeEvent,
+  LogNotifyOfArbitrationRequest as LogNotifyOfArbitrationRequestEvent,
 } from "../generated/Realitio/Realitio";
 import {
   Bet,
@@ -21,6 +23,7 @@ export function handleLogNewQuestion(event: LogNewQuestionEvent): void {
 
   let entity = new Question(event.params.question_id.toHexString());
   entity.question = event.params.question;
+  entity.timeout = event.params.timeout;
   entity.save();
 }
 
@@ -51,6 +54,13 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
   let previousAnswerTimestamp = fpmm.currentAnswerTimestamp;
   fpmm.currentAnswer = event.params.answer;
   fpmm.currentAnswerTimestamp = event.block.timestamp;
+  // Scheduled finalization: the answer becomes final at ts + timeout unless a new
+  // answer (or arbitration) supersedes it. Recomputed on every answer, so re-answers
+  // push the finalization time out — matching Reality.eth semantics.
+  let timeout = question.timeout;
+  if (timeout !== null) {
+    fpmm.answerFinalizedTimestamp = event.params.ts.plus(timeout);
+  }
   fpmm.save();
 
   let isReAnswer = previousAnswer !== null && previousAnswer != event.params.answer;
@@ -318,3 +328,36 @@ export function handleLogNewAnswer(event: LogNewAnswerEvent): void {
   }
 }
 
+
+export function handleLogFinalize(event: LogFinalizeEvent): void {
+  let question = Question.load(event.params.question_id.toHexString());
+  if (question === null) return;
+
+  let id = question.fixedProductMarketMaker;
+  if (id === null) return;
+
+  let fpmm = FixedProductMarketMakerCreation.load(id);
+  if (fpmm === null) return;
+
+  // Arbitrator finalization is immediate. The answer itself was already applied by
+  // the LogNewAnswer emitted earlier in the same transaction (submitAnswerByArbitrator
+  // emits both), so settlement/re-answer logic has run — only the finality changes.
+  fpmm.answerFinalizedTimestamp = event.block.timestamp;
+  fpmm.save();
+}
+
+export function handleLogNotifyOfArbitrationRequest(event: LogNotifyOfArbitrationRequestEvent): void {
+  let question = Question.load(event.params.question_id.toHexString());
+  if (question === null) return;
+
+  let id = question.fixedProductMarketMaker;
+  if (id === null) return;
+
+  let fpmm = FixedProductMarketMakerCreation.load(id);
+  if (fpmm === null) return;
+
+  // Finalization is frozen while arbitration is pending; the arbitrator's LogFinalize
+  // (or a post-arbitration answer) sets it again.
+  fpmm.answerFinalizedTimestamp = null;
+  fpmm.save();
+}
