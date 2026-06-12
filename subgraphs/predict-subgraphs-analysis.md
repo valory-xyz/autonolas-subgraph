@@ -12,7 +12,7 @@ Analysis of `predict-omen` and `predict-polymarket` subgraph logic, correctness,
 
 Previously, `handleCreateMultisigWithAgents` created a `TraderAgent` for **every** service that creates a multisig — no agent ID check. Non-prediction agents trading on whitelisted markets would be counted.
 
-**Fix**: Added two-step `RegisterInstance` + `TraderService` filtering pattern (matching polymarket). Added `PREDICT_AGENT_ID = 25` constant. Only services with the correct agent ID create `TraderAgent` entities.
+**Fix**: Added two-step `RegisterInstance` + `TraderService` filtering pattern (matching polymarket). Added `PREDICT_AGENT_IDS = [14, 25]` constant (both Valory trader agent IDs on Gnosis, per https://olas.network/data). Only services with the correct agent ID create `TraderAgent` entities.
 
 **Tests added**: `tests/service-registry-l-2.test.ts` (11 tests) — covers agent ID filtering, duplicate prevention, wrong agent ID rejection, Global tracking.
 

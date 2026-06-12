@@ -5,11 +5,11 @@ import {
 } from "../generated/ServiceRegistryL2/ServiceRegistryL2";
 import { TraderAgent, TraderService } from "../generated/schema";
 import { getGlobal } from "./utils";
-import { PREDICT_AGENT_ID } from "./constants";
+import { PREDICT_AGENT_IDS } from "./constants";
 
 export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   let agentId = event.params.agentId.toI32();
-  if (agentId !== PREDICT_AGENT_ID) return;
+  if (PREDICT_AGENT_IDS.indexOf(agentId) === -1) return;
 
   let serviceId = event.params.serviceId.toHexString();
   let traderService = TraderService.load(serviceId);

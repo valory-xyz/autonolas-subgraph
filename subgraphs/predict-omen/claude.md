@@ -52,7 +52,7 @@ subgraphs/predict/predict-omen/
 
 ### Core Business Rules
 
-1. **Selective Tracking**: Only tracks services with agent ID 25 (`PREDICT_AGENT_ID`) registered via `ServiceRegistryL2`, using a two-step `RegisterInstance` + `TraderService` filtering pattern. Markets are further filtered by whitelisted creators (see [constants](#constants)).
+1. **Selective Tracking**: Only tracks services with the Valory trader agent IDs 14 or 25 (`PREDICT_AGENT_IDS`) registered via `ServiceRegistryL2`, using a two-step `RegisterInstance` + `TraderService` filtering pattern. Markets are further filtered by whitelisted creators (see [constants](#constants)).
 2. **Market Lifecycle**: 4-day trading window; payouts 24+ hours after closing.
 3. **Two-Tier Accounting**:
    - `totalTraded` / `totalFees`: Updated **immediately** when bets are placed.
@@ -197,7 +197,7 @@ Singleton aggregate statistics (id: `""`).
 
 | Entity | Mutable | Purpose |
 |--------|---------|---------|
-| TraderService | Immutable | Helper entity for agent ID filtering. Only created for services with `PREDICT_AGENT_ID = 25` |
+| TraderService | Immutable | Helper entity for agent ID filtering. Only created for services with an agent ID in `PREDICT_AGENT_IDS = [14, 25]` |
 | CreatorAgent | No | Tracks whitelisted market creators. Fields: `totalQuestions`, block metadata |
 | ConditionPreparation | Immutable | Links `conditionId` to `questionId`. Only saved for known questions (event ordering guarantees `LogNewQuestion` fires first) |
 | Question | No | Raw question text + link to FPMM. `currentAnswer`/`currentAnswerTimestamp` updated at settlement |
@@ -210,7 +210,7 @@ Singleton aggregate statistics (id: `""`).
 ### 1. handleRegisterInstance
 **File**: `src/service-registry-l-2.ts` | **Event**: `RegisterInstance(indexed address, indexed uint256, indexed address, uint256)`
 
-- Checks if `agentId == PREDICT_AGENT_ID (25)` — skips non-prediction services
+- Checks if `agentId` is in `PREDICT_AGENT_IDS (14, 25)` — skips non-prediction services
 - Creates `TraderService` marker entity (prevents duplicates)
 
 ### 1b. handleCreateMultisigWithAgents
@@ -403,7 +403,7 @@ Full market cost is used (not incremental) so that `oldProfit` reconstruction al
 From `src/constants.ts`:
 
 ```typescript
-PREDICT_AGENT_ID = 25          // Agent ID for prediction services
+PREDICT_AGENT_IDS = [14, 25]   // Valory trader agent IDs (https://olas.network/data)
 CREATOR_ADDRESSES = [
   "0x89c5cc945dd550bcffb72fe42bff002429f46fec",
   "0xffc8029154ecd55abed15bd428ba596e7d23f557"

@@ -2,7 +2,10 @@ import { assert, describe, test, clearStore, beforeEach, newMockEvent } from "ma
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 import { handleRegisterInstance, handleCreateMultisigWithAgents } from "../src/service-registry-l-2";
 import { RegisterInstance, CreateMultisigWithAgents } from "../generated/ServiceRegistryL2/ServiceRegistryL2";
-import { PREDICT_AGENT_ID } from "../src/constants";
+import { PREDICT_AGENT_IDS } from "../src/constants";
+
+// Any whitelisted trader agent ID works for the generic tests
+const PREDICT_AGENT_ID = PREDICT_AGENT_IDS[0];
 
 const SERVICE_ID_1 = BigInt.fromI32(100);
 const SERVICE_ID_2 = BigInt.fromI32(200);
@@ -50,12 +53,14 @@ describe("ServiceRegistryL2 - RegisterInstance Handler", () => {
     clearStore();
   });
 
-  test("Should create TraderService when agent ID matches PREDICT_AGENT_ID", () => {
-    let event = createRegisterInstanceEvent(OPERATOR, SERVICE_ID_1, AGENT_INSTANCE, BigInt.fromI32(PREDICT_AGENT_ID));
-    handleRegisterInstance(event);
+  test("Should create TraderService for each whitelisted agent ID", () => {
+    for (let i = 0; i < PREDICT_AGENT_IDS.length; i++) {
+      let serviceId = BigInt.fromI32(100 + i);
+      let event = createRegisterInstanceEvent(OPERATOR, serviceId, AGENT_INSTANCE, BigInt.fromI32(PREDICT_AGENT_IDS[i]));
+      handleRegisterInstance(event);
 
-    let serviceId = getServiceId(SERVICE_ID_1);
-    assert.fieldEquals("TraderService", serviceId, "id", serviceId);
+      assert.fieldEquals("TraderService", getServiceId(serviceId), "id", getServiceId(serviceId));
+    }
   });
 
   test("Should NOT create TraderService when agent ID does not match", () => {
