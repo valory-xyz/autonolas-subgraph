@@ -7,12 +7,17 @@ temp/
 .env
 .env.prod
 .env.local
-.cursor/
 
 .DS_Store
 .bin
 .latest.json
 
+# IDE
+.idea/
+.cursor/
+.vscode/
+
+# Claude Code
 .claude/projects/
 .claude/settings.local.json
 

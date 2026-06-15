@@ -892,4 +892,55 @@ describe("Profit Chart Integration", () => {
     assert.fieldEquals("Global", "", "totalPayout", "2000");
     assert.fieldEquals("Global", "", "totalTraded", "3500");
   });
+
+  /**
+   * Test: Duplicate resolution is a no-op (fix #6)
+   * If QuestionResolved fires twice for the same market, the second is skipped.
+   */
+  test("Duplicate resolution: second QuestionResolved is a no-op", () => {
+    setupMarket(CONDITION_LOST, QUESTION_LOST, TOKEN_0_LOST, TOKEN_1_LOST);
+
+    handleOrderFilled(createOrderFilledEvent(AGENT, BigInt.fromI32(1000), BigInt.fromI32(2000), TOKEN_0_LOST, START_TS));
+
+    // First resolution
+    let day3TS = START_TS.plus(BigInt.fromI32(DAY * 2));
+    let payouts = [BigInt.fromI32(0), BigInt.fromString("1000000000000000000")];
+    handleOOQuestionResolved(createQuestionResolvedEvent(QUESTION_LOST, payouts, BigInt.fromI32(1), day3TS));
+
+    assert.fieldEquals("TraderAgent", AGENT.toHexString(), "totalTradedSettled", "1000");
+    assert.fieldEquals("TraderAgent", AGENT.toHexString(), "totalExpectedPayout", "0");
+
+    // Second resolution (duplicate) — should be no-op
+    let day5TS = START_TS.plus(BigInt.fromI32(DAY * 4));
+    handleOOQuestionResolved(createQuestionResolvedEvent(QUESTION_LOST, payouts, BigInt.fromI32(1), day5TS));
+
+    // Totals unchanged — no double-counting
+    assert.fieldEquals("TraderAgent", AGENT.toHexString(), "totalTradedSettled", "1000");
+    assert.fieldEquals("TraderAgent", AGENT.toHexString(), "totalExpectedPayout", "0");
+    assert.fieldEquals("Global", "", "totalTradedSettled", "1000");
+  });
+
+  /**
+   * Test: Global is NOT updated when no participants are processed (fix #7)
+   * Resolution with no bets but an existing Global doesn't modify settled totals.
+   */
+  test("Resolution with no participants: global settled totals unchanged", () => {
+    setupMarket(CONDITION_LOST, QUESTION_LOST, TOKEN_0_LOST, TOKEN_1_LOST);
+    setupMarket(CONDITION_WON, QUESTION_WON, TOKEN_0_WON, TOKEN_1_WON);
+
+    // Place a bet on CONDITION_WON so Global gets created
+    handleOrderFilled(createOrderFilledEvent(AGENT, BigInt.fromI32(500), BigInt.fromI32(1000), TOKEN_0_WON, START_TS));
+
+    assert.fieldEquals("Global", "", "totalTraded", "500");
+    assert.fieldEquals("Global", "", "totalTradedSettled", "0");
+
+    // Resolve CONDITION_LOST (no participants in this market) — global should NOT change
+    let day3TS = START_TS.plus(BigInt.fromI32(DAY * 2));
+    let payouts = [BigInt.fromI32(0), BigInt.fromString("1000000000000000000")];
+    handleOOQuestionResolved(createQuestionResolvedEvent(QUESTION_LOST, payouts, BigInt.fromI32(1), day3TS));
+
+    // Global unchanged — no participants to settle
+    assert.fieldEquals("Global", "", "totalTradedSettled", "0");
+    assert.fieldEquals("Global", "", "totalExpectedPayout", "0");
+  });
 });
