@@ -540,6 +540,42 @@
       "reason": "Surfaced 2026-05-13 — npm advisory database re-numbered GHSA-3h5v-q93c-6h6q (originally id 1098393, already allowlisted). Same root cause and scope: transitive of @graphprotocol/graph-cli (jayson > ws) in autonolas/autonolas-base (0.64.0) and mech. After Tier 3 Waves 1+2 (PR98), only these three remain on older graph-cli lines pulling the vulnerable ws version; Wave 3 is a separate multi-week migration. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
       "added": "2026-05-14",
       "review": "2026-08-12"
+    },
+    {
+      "id": 1120731,
+      "ghsa": "GHSA-96hv-2xvq-fx4p",
+      "package": "ws",
+      "severity": "high",
+      "reason": "Surfaced 2026-06-18 — newly published advisory. Transitive of @graphprotocol/graph-cli (jayson > ws); same root cause and scope as the PR2 ws baseline (ids 1098393 / 1118729). Fixed only by the Tier 3 Wave 3 migration off the older graph-cli lines. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
+      "added": "2026-06-18",
+      "review": "2026-09-16"
+    },
+    {
+      "id": 1120743,
+      "ghsa": "GHSA-hmw2-7cc7-3qxx",
+      "package": "form-data",
+      "severity": "high",
+      "reason": "Surfaced 2026-06-18 — newly published advisory. Transitive of @graphprotocol/graph-cli (gluegun > apisauce > axios > form-data); same class as the PR2 form-data baseline (id 1109540). Fixed only by the Tier 3 Wave 3 migration off the older graph-cli lines. Re-evaluate after Wave 3 lands and when graph-cli upstream picks up the fix.",
+      "added": "2026-06-18",
+      "review": "2026-09-16"
+    },
+    {
+      "id": 1120745,
+      "ghsa": "GHSA-hmw2-7cc7-3qxx",
+      "package": "form-data",
+      "severity": "high",
+      "reason": "Surfaced 2026-06-18 — newly published advisory (same GHSA as id 1120743, different affected version range). Transitive of @graphprotocol/graph-cli 0.64.0 (request > form-data) in autonolas + autonolas-base only. Fixed only by the Tier 3 Wave 3 migration off graph-cli 0.64.0. Re-evaluate after Wave 3 lands.",
+      "added": "2026-06-18",
+      "review": "2026-09-16"
+    },
+    {
+      "id": 1120799,
+      "ghsa": "GHSA-wcpc-wj8m-hjx6",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-06-18 — newly published advisory. Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
+      "added": "2026-06-18",
+      "review": "2026-09-16"
     }
   ]
 }
