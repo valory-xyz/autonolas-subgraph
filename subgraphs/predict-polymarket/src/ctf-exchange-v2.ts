@@ -1,12 +1,28 @@
 import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import { OrderFilled as OrderFilledV2Event } from "../generated/CTFExchangeV2/CTFExchangeV2";
-import { Bet, Question, TokenRegistry, TraderAgent } from "../generated/schema";
+import {
+  Bet,
+  DepositWallet,
+  Question,
+  TokenRegistry,
+  TraderAgent,
+} from "../generated/schema";
 import { getDailyProfitStatistic, processTradeActivity } from "./utils";
 
 export function handleOrderFilledV2(event: OrderFilledV2Event): void {
-  // 1. Identify if the maker is one of our TraderAgents
+  // 1. Identify the TraderAgent behind the maker.
+  //    Pre-Path A the maker IS the service safe (a TraderAgent). Under Path A
+  //    (Polymarket CLOB v2) the maker is a per-user DepositWallet funded by the
+  //    safe; resolve it to its TraderAgent via the DepositWallet link recorded
+  //    from the pUSD top-up (see src/deposit-wallet.ts). Everything below is
+  //    unchanged: volume/shares come from OrderFilled, not from token custody.
   let agent = TraderAgent.load(event.params.maker);
-  if (agent === null) return;
+  if (agent === null) {
+    let dw = DepositWallet.load(event.params.maker);
+    if (dw === null) return; // unknown maker, not one of our DWs
+    agent = TraderAgent.load(dw.traderAgent);
+  }
+  if (agent === null) return; // defensive: DW points at a missing TraderAgent
 
   // 2. Direction: side 0 = BUY, 1 = SELL (v2 is explicit)
   //    BUY  — maker pays collateral (makerAmountFilled), receives shares (takerAmountFilled)

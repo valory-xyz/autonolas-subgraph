@@ -3,6 +3,8 @@ data/
 build/
 generated/
 temp/
+# matchstick `graph test -d` (Docker mode) build artifact
+**/tests/.docker/
 
 .env
 .env.prod

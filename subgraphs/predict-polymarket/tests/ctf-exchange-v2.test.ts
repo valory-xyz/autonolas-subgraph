@@ -11,6 +11,7 @@ import { handleOrderFilledV2 } from "../src/ctf-exchange-v2";
 import { OrderFilled } from "../generated/CTFExchangeV2/CTFExchangeV2";
 import {
   TraderAgent,
+  DepositWallet,
   Question,
   MarketMetadata,
   TokenRegistry,
@@ -352,5 +353,61 @@ describe("CTFExchangeV2 - OrderFilled Handler", () => {
       .toHexString();
     assert.fieldEquals("Bet", betId, "builder", customBuilder.toHexString());
     assert.fieldEquals("Bet", betId, "metadata", customMetadata.toHexString());
+  });
+
+  test("Resolves a DepositWallet maker to its funding TraderAgent (Path A)", () => {
+    let safe = Address.fromString(
+      "0x3334567890123456789012345678901234567890",
+    );
+    let dw = Address.fromString("0x4445567890123456789012345678901234567890");
+
+    // safe is the registered TraderAgent; dw is its Path A deposit wallet.
+    setupTraderAgent(safe, BigInt.fromI32(1));
+    let depositWallet = new DepositWallet(dw);
+    depositWallet.traderAgent = safe;
+    depositWallet.blockNumber = BigInt.fromI32(1);
+    depositWallet.blockTimestamp = BigInt.fromI32(1);
+    depositWallet.transactionHash = ORDER_HASH;
+    depositWallet.save();
+
+    setupQuestion(
+      CONDITION_ID,
+      Bytes.fromHexString(
+        "0x1234567890123456789012345678901234567890123456789012345678901234",
+      ),
+    );
+    setupTokenRegistry(TOKEN_ID_1, CONDITION_ID, 1);
+
+    // maker = the DW (not a TraderAgent) -> handler must fall back to the link.
+    let event = createOrderFilledV2Event(
+      ORDER_HASH,
+      dw,
+      TAKER,
+      0, // BUY
+      TOKEN_ID_1,
+      BigInt.fromI32(500000),
+      BigInt.fromI32(1000000),
+      BigInt.fromI32(1000),
+      BUILDER,
+      METADATA,
+    );
+
+    handleOrderFilledV2(event);
+
+    let betId = event.transaction.hash
+      .concat(Bytes.fromI32(event.logIndex.toI32()))
+      .toHexString();
+    // Attribution lands on the safe, never the DW.
+    assert.fieldEquals("Bet", betId, "bettor", safe.toHexString());
+    assert.fieldEquals("TraderAgent", safe.toHexString(), "totalBets", "1");
+    assert.fieldEquals("TraderAgent", safe.toHexString(), "totalTraded", "500000");
+    assert.notInStore("TraderAgent", dw.toHexString());
+    let participantId = safe.toHexString() + "_" + CONDITION_ID.toHexString();
+    assert.fieldEquals(
+      "MarketParticipant",
+      participantId,
+      "outcomeShares1",
+      "1000000",
+    );
   });
 });
