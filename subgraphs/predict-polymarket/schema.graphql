@@ -26,7 +26,13 @@ type TraderAgent @entity (immutable: false) {
 # Olas service safe that funds it. Recorded forward-only from the pUSD top-up
 # (safe -> DW) which always precedes the bet, so handleOrderFilledV2 can resolve
 # a DW maker to its TraderAgent. See src/deposit-wallet.ts.
-type DepositWallet @entity(immutable: true) {
+#
+# Written exactly once per DW (guarded by DepositWallet.load in the handler), so
+# it is logically immutable. Declared `immutable: false` deliberately: adding a
+# new `immutable: true` entity makes graph-node's graft copy fail with
+# "Unexpected null for non-null column" (the immutable `block$` storage path).
+# Mutable storage (block_range) sidesteps that, with no functional difference here.
+type DepositWallet @entity(immutable: false) {
   id: Bytes! # DW address
   traderAgent: TraderAgent! # the funding service safe
   blockNumber: BigInt!
