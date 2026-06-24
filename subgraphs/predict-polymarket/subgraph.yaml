@@ -2,12 +2,13 @@ specVersion: 1.0.0
 features:
   - grafting
 graft:
-  # Base = current serving deployment of predict-polymarket-v1_1_1 (measured 2026-06-18).
-  # Re-confirm BOTH values at deploy time via `_meta { deployment block { number } }`:
-  # the graft block must be <= the base's synced head AND <= the first Path A trade
-  # block. The PUSD data-source startBlock below MUST equal this graft block.
+  # Base = predict-polymarket-v1_1_1 (deployment QmNUEbu...). The base was PAUSED at
+  # block 86236491 (frozen head confirmed 2026-06-20), which is <= the first DW
+  # trade (88031656), so grafting here loses zero DW trades. block is set to the
+  # frozen head minus a 250-block safety margin to minimise forward re-indexing. The
+  # PUSD data-source startBlock below MUST equal this graft block.
   base: QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE
-  block: 85750043
+  block: 86236241
 indexerHints:
   prune: 300
 schema:
@@ -398,7 +399,7 @@ dataSources:
       # top-up safe -> DepositWallet) to map a DW back to its TraderAgent.
       address: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"
       abi: ERC20
-      startBlock: 85750043 # MUST equal the graft block above (forward-only)
+      startBlock: 86236241 # MUST equal the graft block above (forward-only)
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
