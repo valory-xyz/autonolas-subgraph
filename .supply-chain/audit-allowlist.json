@@ -576,6 +576,15 @@
       "reason": "Surfaced 2026-06-18 — newly published advisory. Transitive of @graphprotocol/graph-cli 0.64.0 (ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs) in autonolas + autonolas-base only. All other subgraphs on graph-cli 0.98.1 already ship a protobufjs version with the fix. Re-evaluate after Tier 3 Wave 3 lands.",
       "added": "2026-06-18",
       "review": "2026-09-16"
+    },
+    {
+      "id": 1121244,
+      "ghsa": "GHSA-vxpw-j846-p89q",
+      "package": "undici",
+      "severity": "high",
+      "reason": "Surfaced 2026-06-20 — newly published advisory. Transitive of @graphprotocol/graph-cli (graph-cli > undici) on the 0.98.1 line; same class as the existing undici baseline entries (1114591 / 1114637 / 1114639). No fix until graph-cli upstream bumps undici to >=7.28.0 / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-06-20",
+      "review": "2026-09-18"
     }
   ]
 }
