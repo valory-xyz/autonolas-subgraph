@@ -128,6 +128,7 @@ Both follow the same shape — `TraderAgent` -> `Bet` -> settlement -> `DailyPro
 
 `predict-polymarket` (Polygon, UMA OptimisticOracleV3 + CTF Exchange order book + NegRiskAdapter):
 - **Agents are makers, not takers**: trade direction is inferred from asset flow in `OrderFilled` (if maker gives USDC -> buy).
+- **Path A (CLOB v2 DepositWallets)**: under v2 the `OrderFilled.maker` is a per-user Polymarket `DepositWallet` (DW), not the service safe. `src/deposit-wallet.ts` (`handleCollateralTransfer`) indexes the global pUSD `Transfer` stream and, for outflows *from* a `TraderAgent` safe (the just-in-time top-up that precedes each bet), records a write-once `DepositWallet` → safe link. `handleOrderFilledV2` then falls back to `DepositWallet.load(maker)` to resolve the funding agent. Store-reads only (no eth_calls / templates); covers both standard and NegRisk v2 exchanges.
 - **Agent ID gating**: Only agent ID 86 is tracked. `handleRegisterInstance` creates a `TraderService` gate-keeper entity that `handleCreateMultisigWithAgents` checks before creating a `TraderAgent`.
 - UMA ancillary data is parsed into `MarketMetadata` (title, outcomes).
 - **No re-answer logic** — Polymarket resolutions are final.

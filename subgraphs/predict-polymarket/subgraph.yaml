@@ -1,4 +1,14 @@
 specVersion: 1.0.0
+features:
+  - grafting
+graft:
+  # Base = predict-polymarket-v1_1_1 (deployment QmNUEbu...). The base was PAUSED at
+  # block 86236491 (frozen head confirmed 2026-06-20), which is <= the first DW
+  # trade (88031656), so grafting here loses zero DW trades. block is set to the
+  # frozen head minus a 250-block safety margin to minimise forward re-indexing. The
+  # PUSD data-source startBlock below MUST equal this graft block.
+  base: QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE
+  block: 86236241
 indexerHints:
   prune: 300
 schema:
@@ -380,3 +390,27 @@ dataSources:
       eventHandlers:
         - event: PositionsRedeemed(indexed address,indexed bytes32,uint256[],uint256)
           handler: handlePositionsRedeemed
+  - kind: ethereum
+    name: pUSD
+    network: matic
+    source:
+      # pUSD — Polymarket CLOB v2 collateral token. We index its global Transfer
+      # stream and keep only outflows FROM one of our service safes (the JIT
+      # top-up safe -> DepositWallet) to map a DW back to its TraderAgent.
+      address: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"
+      abi: ERC20
+      startBlock: 86236241 # MUST equal the graft block above (forward-only)
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/deposit-wallet.ts
+      entities:
+        - DepositWallet
+        - TraderAgent
+      abis:
+        - name: ERC20
+          file: ../../abis/ERC20Detailed.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleCollateralTransfer

@@ -22,6 +22,18 @@ type TraderAgent @entity (immutable: false) {
   transactionHash: Bytes!
 }
 
+# Polymarket CLOB v2 "Path A": maps a per-user DepositWallet (DW) back to the
+# Olas service safe that funds it. Recorded forward-only from the pUSD top-up
+# (safe -> DW) which always precedes the bet, so handleOrderFilledV2 can resolve
+# a DW maker to its TraderAgent. See src/deposit-wallet.ts.
+type DepositWallet @entity(immutable: true) {
+  id: Bytes! # DW address
+  traderAgent: TraderAgent! # the funding service safe
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
 type QuestionIdToConditionId @entity(immutable: true) {
   id: Bytes!
   oracle: Bytes! # address
