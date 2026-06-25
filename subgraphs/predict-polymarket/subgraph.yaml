@@ -2,13 +2,16 @@ specVersion: 1.0.0
 features:
   - grafting
 graft:
-  # Base = predict-polymarket-v1_1_1 (deployment QmNUEbu...). The base was PAUSED at
-  # block 86236491 (frozen head confirmed 2026-06-20), which is <= the first DW
-  # trade (88031656), so grafting here loses zero DW trades. block is set to the
-  # frozen head minus a 250-block safety margin to minimise forward re-indexing. The
-  # PUSD data-source startBlock below MUST equal this graft block.
+  # Base = predict-polymarket-v1_1_1 (deployment QmNUEbu...), PAUSED at its head
+  # block 86236491 (confirmed 2026-06-20), which is <= the first DW trade (88031656),
+  # so grafting here loses zero DW trades. block is set to the EXACT base head:
+  # prod's shared chain block cache has evicted the older blocks around the graft
+  # point (they're ~2.5M blocks behind the live head), so a head-250 graft can't
+  # resolve the graft block's hash -> graft-copy aborts with "Unexpected null for
+  # non-null column". The exact head's hash is recorded in subgraphs.head, so
+  # grafting at the head should resolve. The PUSD startBlock below MUST equal this.
   base: QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE
-  block: 86236241
+  block: 86236491
 indexerHints:
   prune: 300
 schema:
@@ -399,7 +402,7 @@ dataSources:
       # top-up safe -> DepositWallet) to map a DW back to its TraderAgent.
       address: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"
       abi: ERC20
-      startBlock: 86236241 # MUST equal the graft block above (forward-only)
+      startBlock: 86236491 # MUST equal the graft block above (forward-only)
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
