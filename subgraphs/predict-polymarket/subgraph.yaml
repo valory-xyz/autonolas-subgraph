@@ -11,7 +11,7 @@ graft:
   # non-null column". The exact head's hash is recorded in subgraphs.head, so
   # grafting at the head should resolve. The PUSD startBlock below MUST equal this.
   base: QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE
-  block: 86236491
+  block: 86236542
 indexerHints:
   prune: 300
 schema:
@@ -402,7 +402,7 @@ dataSources:
       # top-up safe -> DepositWallet) to map a DW back to its TraderAgent.
       address: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"
       abi: ERC20
-      startBlock: 86236491 # MUST equal the graft block above (forward-only)
+      startBlock: 86236542 # MUST equal the graft block above (forward-only)
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
