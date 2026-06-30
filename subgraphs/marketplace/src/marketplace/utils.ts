@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, DataSourceContext, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -21,6 +21,7 @@ import {
   MechFixedPriceToken,
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
+  ParsedRequestFile,
 } from '../../generated/templates';
 import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
@@ -1070,13 +1071,20 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
     request.save();
   }
 
-  // IPFS parsing runs for both marketplace and direct requests
+  // Request metadata is fetched + parsed OFF the indexing critical path by an offchain
+  // file data source (handleParsedRequest in parsed-request-file.ts). Spawning is cheap and
+  // non-blocking, so unreachable/abusive IPFS hashes (staking-reward farming) can no longer
+  // stall the chain head — they just fail in the background and the request stays unenriched.
+  // (Replaces the former synchronous `parseRequestIpfs` → ipfs.cat, which blocked per hash.)
   let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
   if (requestBaseHash === null) {
     return;
   }
 
-  parseRequestIpfs(request.id, requestBaseHash);
+  let ctx = new DataSourceContext();
+  ctx.setString('requestId', request.id);
+  ctx.setString('baseHash', requestBaseHash);
+  ParsedRequestFile.createWithContext(requestBaseHash + '/metadata.json', ctx);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
