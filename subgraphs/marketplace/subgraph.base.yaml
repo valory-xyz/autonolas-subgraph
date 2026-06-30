@@ -378,6 +378,22 @@ templates:
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
+  ### Offchain request metadata (IPFS) — fetched async, OFF the indexing critical path.
+  ### Spawned per request by processOnChainRequest; unreachable/abusive hashes fail in the
+  ### background instead of blocking the chain head (was: synchronous ipfs.cat in handlers).
+  - name: ParsedRequestFile
+    kind: file/ipfs
+    mapping:
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/marketplace/parsed-request-file.ts
+      handler: handleParsedRequest
+      entities:
+        - ParsedRequest
+      abis:
+        - name: AgentMech
+          file: ../../abis/AgentMech.json
+
 features:
   - fullTextSearch
   - ipfsOnEthereumContracts
