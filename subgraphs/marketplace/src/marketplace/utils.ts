@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, Bytes, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, DataSourceContext, JSONValueKind, dataSource, ipfs, json, log, store } from '@graphprotocol/graph-ts';
 import {
   Global,
   Sender,
@@ -21,6 +21,8 @@ import {
   MechFixedPriceToken,
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
+  ParsedRequestFile,
+  ParsedDeliveryFile,
 } from '../../generated/templates';
 import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
@@ -58,66 +60,25 @@ import {
   CELO_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+import {
+  CTX_BASE_HASH,
+  CTX_REQUEST_ID,
+  RequestPayload,
+  parseRequestPayload,
+} from './request-metadata';
+import {
+  CTX_DELIVER_ID,
+  CTX_DELIVER_REQUEST,
+  DeliveryPayload,
+  parseDeliveryPayload,
+} from './delivery-metadata';
 
 // Re-export fee conversion functions for backward compatibility with tests
 export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
 
-const UNHANDLED_TYPE = '[unhandled type]';
-
-class RequestPayload {
-  content: string;
-  prompt: string;
-  tool: string;
-  questionTitle: string;
-
-  constructor(content: string, prompt: string, tool: string, questionTitle: string) {
-    this.content = content;
-    this.prompt = prompt;
-    this.tool = tool;
-    this.questionTitle = questionTitle;
-  }
-}
-
-// Known closing delimiters that follow the question's closing quote in prompt templates.
-// Add new entries here when the prompt template changes.
-const QUESTION_CLOSING_DELIMITERS: string[] = [
-  '" and the',  // 'With the given question "..." and the `yes` option...'
-];
-
-function extractQuestionTitle(prompt: string): string {
-  const marker = 'With the given question';
-  const markerIndex = prompt.indexOf(marker);
-  if (markerIndex === -1) return '';
-
-  const afterMarker = prompt.slice(markerIndex + marker.length);
-  const firstQuote = afterMarker.indexOf('"');
-  if (firstQuote === -1) return '';
-
-  // Try each closing delimiter pattern, pick the earliest match.
-  // This handles questions with inner quotes like: "Will Trump say "Crypto"?"
-  let closingIndex: i32 = -1;
-  for (let i = 0; i < QUESTION_CLOSING_DELIMITERS.length; i++) {
-    const idx = afterMarker.indexOf(QUESTION_CLOSING_DELIMITERS[i], firstQuote + 1);
-    if (idx !== -1 && (closingIndex === -1 || idx < closingIndex)) {
-      closingIndex = idx;
-    }
-  }
-  if (closingIndex === -1) return '';
-
-  return afterMarker.slice(firstQuote + 1, closingIndex);
-}
-
-class DeliveryPayload {
-  content: string;
-  model: string;
-  response: string;
-
-  constructor(content: string, model: string, response: string) {
-    this.content = content;
-    this.model = model;
-    this.response = response;
-  }
-}
+// RequestPayload/DeliveryPayload, UNHANDLED_TYPE, the extract/parse helpers now live in the
+// chain-free ./request-metadata and ./delivery-metadata modules so the offchain
+// file-data-source handlers share the exact same parsing as the sync path kept for tests.
 
 export function getGlobal(): Global {
   let global = Global.load('');
@@ -145,7 +106,9 @@ export function getGlobal(): Global {
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
 
-    // Prediction-specific counters
+    // Prediction-specific counters. NOTE: no longer live-incremented — request metadata is
+    // parsed by an offchain file data source whose causality region cannot write Global, so
+    // this stays 0. Derive predict requests from ParsedRequest.questionTitle (count non-empty).
     global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global;
@@ -164,7 +127,9 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalOffChainRequests = BigInt.fromI32(0);
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
-    // Prediction-specific counters
+    // Prediction-specific counters. NOTE: frozen at 0 — see getGlobal (metadata parsing moved
+    // to an offchain file data source that can't write Sender). Derive per-sender predict
+    // requests from ParsedRequest.questionTitle joined via Request.sender.
     sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender;
@@ -719,36 +684,9 @@ function loadRequestPayload(baseHash: string): RequestPayload | null {
     return null;
   }
 
-  let payload = new RequestPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE,
-    ''
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let promptValue = obj.get('prompt');
-  if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
-    payload.prompt = promptValue.toString();
-    payload.questionTitle = extractQuestionTitle(payload.prompt);
-  }
-
-  let toolValue = obj.get('tool');
-  if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
-    payload.tool = toolValue.toString();
-  }
-
-  return payload;
+  // Shared with the offchain file-data-source handler (see request-metadata.ts) so the sync
+  // path exercised by tests and the async production path can never diverge.
+  return parseRequestPayload(data);
 }
 
 function saveParsedRequestEntity(
@@ -810,38 +748,9 @@ function loadDeliverPayload(
     return null;
   }
 
-  let payload = new DeliveryPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let metadataValue = obj.get('metadata');
-  if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
-    let metadataObj = metadataValue.toObject();
-    let modelValue = metadataObj.get('model');
-    if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
-      payload.model = modelValue.toString();
-    }
-  }
-
-  let responseValue = obj.get('result');
-  if (responseValue !== null && responseValue.kind === JSONValueKind.STRING) {
-    payload.response = responseValue.toString();
-  }
-
-  return payload;
+  // Shared with the offchain delivery handler (see delivery-metadata.ts) so the sync path
+  // exercised by tests and the async production path can never diverge.
+  return parseDeliveryPayload(data);
 }
 
 function saveParsedDeliveryEntity(
@@ -893,6 +802,20 @@ export function parseDeliverIpfs(
   deliverEntity.model = payload.model;
   deliverEntity.toolResponse = payload.response;
   deliverEntity.save();
+}
+
+// Spawn the offchain delivery file data source (handleParsedDelivery) to fetch + parse the
+// delivery metadata OFF the indexing critical path — same rationale as the request path: an
+// unreachable delivery hash can no longer stall the chain head. NOTE: unlike the sync
+// parseDeliverIpfs above, this cannot write back Deliver.model/toolResponse (a file-data-source
+// handler can't update the chain-owned Deliver entity). Those fields were a redundant copy of
+// ParsedDelivery.model/response and are left null in the async path — read ParsedDelivery.
+function spawnParsedDeliveryFile(deliverId: Bytes, requestId: Bytes, baseHash: string): void {
+  let ctx = new DataSourceContext();
+  ctx.setString(CTX_DELIVER_ID, deliverId.toHexString());
+  ctx.setString(CTX_DELIVER_REQUEST, requestId.toHexString());
+  ctx.setString(CTX_BASE_HASH, baseHash);
+  ParsedDeliveryFile.createWithContext(baseHash + '/' + requestIdToDecimal(requestId), ctx);
 }
 
 function attachRequestIpfs(
@@ -1070,13 +993,25 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
     request.save();
   }
 
-  // IPFS parsing runs for both marketplace and direct requests
+  // Request metadata is fetched + parsed OFF the indexing critical path by an offchain
+  // file data source (handleParsedRequest in parsed-request-file.ts). Spawning is cheap and
+  // non-blocking, so unreachable/abusive IPFS hashes (staking-reward farming) can no longer
+  // stall the chain head — they just fail in the background and the request stays unenriched.
+  // (Replaces the former synchronous `parseRequestIpfs` → ipfs.cat, which blocked per hash.)
   let requestBaseHash = attachRequestIpfs(args.requestId, args.payload, request);
   if (requestBaseHash === null) {
     return;
   }
 
-  parseRequestIpfs(request.id, requestBaseHash);
+  let ctx = new DataSourceContext();
+  ctx.setString(CTX_REQUEST_ID, request.id);
+  ctx.setString(CTX_BASE_HASH, requestBaseHash);
+  // Spawn on both the directory layout (<hash>/metadata.json) and the bare hash so legacy
+  // raw-file uploads are still enriched. For any given CID only one resolves to file content
+  // (a directory errors on a bare cat; a raw file has no metadata.json subpath); the other is
+  // a no-op via the idempotency guard in handleParsedRequest.
+  ParsedRequestFile.createWithContext(requestBaseHash + '/metadata.json', ctx);
+  ParsedRequestFile.createWithContext(requestBaseHash, ctx);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
@@ -1207,8 +1142,8 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   if (baseHash === null) {
     return;
   }
-  
-  parseDeliverIpfs(deliverId, args.requestId, baseHash);
+
+  spawnParsedDeliveryFile(deliverId, args.requestId, baseHash);
 }
 
 function requireServiceId(mech: Bytes, context: string): string {
@@ -1448,8 +1383,8 @@ export function persistSignedDeliver(args: SignedDeliverArgs): void {
   if (baseHash === null) {
     return;
   }
-  
-  parseDeliverIpfs(deliver.id, args.requestId, baseHash);
+
+  spawnParsedDeliveryFile(deliver.id, args.requestId, baseHash);
 }
 
 export function handleTemplateDeliver(
