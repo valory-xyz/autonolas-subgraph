@@ -22,6 +22,7 @@ import {
   MechNvmSubscriptionNative,
   MechNvmSubscriptionTokenUSDC,
   ParsedRequestFile,
+  ParsedDeliveryFile,
 } from '../../generated/templates';
 import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
@@ -63,28 +64,21 @@ import {
   CTX_BASE_HASH,
   CTX_REQUEST_ID,
   RequestPayload,
-  UNHANDLED_TYPE,
   parseRequestPayload,
 } from './request-metadata';
+import {
+  CTX_DELIVER_ID,
+  CTX_DELIVER_REQUEST,
+  DeliveryPayload,
+  parseDeliveryPayload,
+} from './delivery-metadata';
 
 // Re-export fee conversion functions for backward compatibility with tests
 export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
 
-// RequestPayload / UNHANDLED_TYPE / extractQuestionTitle / parseRequestPayload now live in
-// ./request-metadata (chain-free) so the offchain file-data-source handler shares the exact
-// same parsing. UNHANDLED_TYPE is still used by the delivery parsing that runs inline below.
-
-class DeliveryPayload {
-  content: string;
-  model: string;
-  response: string;
-
-  constructor(content: string, model: string, response: string) {
-    this.content = content;
-    this.model = model;
-    this.response = response;
-  }
-}
+// RequestPayload/DeliveryPayload, UNHANDLED_TYPE, the extract/parse helpers now live in the
+// chain-free ./request-metadata and ./delivery-metadata modules so the offchain
+// file-data-source handlers share the exact same parsing as the sync path kept for tests.
 
 export function getGlobal(): Global {
   let global = Global.load('');
@@ -754,38 +748,9 @@ function loadDeliverPayload(
     return null;
   }
 
-  let payload = new DeliveryPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let metadataValue = obj.get('metadata');
-  if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
-    let metadataObj = metadataValue.toObject();
-    let modelValue = metadataObj.get('model');
-    if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
-      payload.model = modelValue.toString();
-    }
-  }
-
-  let responseValue = obj.get('result');
-  if (responseValue !== null && responseValue.kind === JSONValueKind.STRING) {
-    payload.response = responseValue.toString();
-  }
-
-  return payload;
+  // Shared with the offchain delivery handler (see delivery-metadata.ts) so the sync path
+  // exercised by tests and the async production path can never diverge.
+  return parseDeliveryPayload(data);
 }
 
 function saveParsedDeliveryEntity(
@@ -837,6 +802,20 @@ export function parseDeliverIpfs(
   deliverEntity.model = payload.model;
   deliverEntity.toolResponse = payload.response;
   deliverEntity.save();
+}
+
+// Spawn the offchain delivery file data source (handleParsedDelivery) to fetch + parse the
+// delivery metadata OFF the indexing critical path — same rationale as the request path: an
+// unreachable delivery hash can no longer stall the chain head. NOTE: unlike the sync
+// parseDeliverIpfs above, this cannot write back Deliver.model/toolResponse (a file-data-source
+// handler can't update the chain-owned Deliver entity). Those fields were a redundant copy of
+// ParsedDelivery.model/response and are left null in the async path — read ParsedDelivery.
+function spawnParsedDeliveryFile(deliverId: Bytes, requestId: Bytes, baseHash: string): void {
+  let ctx = new DataSourceContext();
+  ctx.setString(CTX_DELIVER_ID, deliverId.toHexString());
+  ctx.setString(CTX_DELIVER_REQUEST, requestId.toHexString());
+  ctx.setString(CTX_BASE_HASH, baseHash);
+  ParsedDeliveryFile.createWithContext(baseHash + '/' + requestIdToDecimal(requestId), ctx);
 }
 
 function attachRequestIpfs(
@@ -1163,8 +1142,8 @@ function persistMarketplaceDeliver(args: OnChainDeliverArgs, deliverId: Bytes): 
   if (baseHash === null) {
     return;
   }
-  
-  parseDeliverIpfs(deliverId, args.requestId, baseHash);
+
+  spawnParsedDeliveryFile(deliverId, args.requestId, baseHash);
 }
 
 function requireServiceId(mech: Bytes, context: string): string {
@@ -1404,8 +1383,8 @@ export function persistSignedDeliver(args: SignedDeliverArgs): void {
   if (baseHash === null) {
     return;
   }
-  
-  parseDeliverIpfs(deliver.id, args.requestId, baseHash);
+
+  spawnParsedDeliveryFile(deliver.id, args.requestId, baseHash);
 }
 
 export function handleTemplateDeliver(

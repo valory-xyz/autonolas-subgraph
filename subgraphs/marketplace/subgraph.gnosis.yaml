@@ -536,6 +536,21 @@ templates:
         - name: AgentMech
           file: ../../abis/AgentMech.json
 
+  ### Offchain delivery metadata (IPFS) — fetched async, OFF the indexing critical path.
+  ### Same rationale as ParsedRequestFile; an unreachable delivery hash can't stall the head.
+  - name: ParsedDeliveryFile
+    kind: file/ipfs
+    mapping:
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/marketplace/parsed-delivery-file.ts
+      handler: handleParsedDelivery
+      entities:
+        - ParsedDelivery
+      abis:
+        - name: AgentMech
+          file: ../../abis/AgentMech.json
+
 features:
   - grafting
   - fullTextSearch
