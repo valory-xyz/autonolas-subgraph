@@ -13,10 +13,11 @@ import { CTX_BASE_HASH, CTX_REQUEST_ID, parseRequestPayload } from './request-me
  * trigger this handler and the request is left unenriched.
  *
  * Runs in its own causality region: it may only write entities declared for this template
- * (ParsedRequest) and cannot touch chain entities (Global/Sender/Request). The former
- * `totalPredictRequests` counter therefore no longer lives here — it is derivable from
- * `ParsedRequest.questionTitle` (count of non-empty). Parsing is shared with the chain path
- * via request-metadata.ts. `content` is the fetched file bytes.
+ * (ParsedRequest) and cannot touch chain entities (Global/Sender/Request). The old
+ * IPFS-derived predict-request counters (Global/Sender.totalPredictRequests) were removed for
+ * this reason — predict requests are derivable from `ParsedRequest.questionTitle` (count of
+ * non-empty). Parsing is shared with the chain path via request-metadata.ts. `content` is the
+ * fetched file bytes.
  */
 export function handleParsedRequest(content: Bytes): void {
   let ctx = dataSource.context();

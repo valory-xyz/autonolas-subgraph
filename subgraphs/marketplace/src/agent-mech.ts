@@ -157,22 +157,6 @@ function saveParsedRequestEntity(
   parsedRequest.tool = payload.tool;
   parsedRequest.questionTitle = payload.questionTitle;
   parsedRequest.save();
-
-  // Increment prediction counters when questionTitle is non-empty
-  if (payload.questionTitle.length > 0) {
-    let global = getGlobal();
-    global.totalPredictRequests = global.totalPredictRequests.plus(BigInt.fromI32(1));
-    global.save();
-
-    let request = Request.load(requestId);
-    if (request !== null) {
-      let sender = Sender.load(request.sender);
-      if (sender !== null) {
-        sender.totalPredictRequests = sender.totalPredictRequests.plus(BigInt.fromI32(1));
-        sender.save();
-      }
-    }
-  }
 }
 
 function loadDeliveryPayload(

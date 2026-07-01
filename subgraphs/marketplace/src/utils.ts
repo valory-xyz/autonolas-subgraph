@@ -35,9 +35,6 @@ export function getGlobal(): Global {
 
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
-
-    // Prediction-specific counters
-    global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global as Global;
 }
@@ -115,9 +112,6 @@ export function getOrCreateSender(address: Bytes): Sender {
 
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
-
-    // Prediction-specific counters
-    sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender as Sender;
 }

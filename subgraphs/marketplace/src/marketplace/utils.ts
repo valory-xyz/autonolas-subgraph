@@ -106,10 +106,6 @@ export function getGlobal(): Global {
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
 
-    // Prediction-specific counters. NOTE: no longer live-incremented — request metadata is
-    // parsed by an offchain file data source whose causality region cannot write Global, so
-    // this stays 0. Derive predict requests from ParsedRequest.questionTitle (count non-empty).
-    global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global;
 }
@@ -127,10 +123,6 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalOffChainRequests = BigInt.fromI32(0);
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
-    // Prediction-specific counters. NOTE: frozen at 0 — see getGlobal (metadata parsing moved
-    // to an offchain file data source that can't write Sender). Derive per-sender predict
-    // requests from ParsedRequest.questionTitle joined via Request.sender.
-    sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender;
 }
@@ -706,22 +698,6 @@ function saveParsedRequestEntity(
   parsedRequest.tool = payload.tool;
   parsedRequest.questionTitle = payload.questionTitle;
   parsedRequest.save();
-
-  // Increment prediction counters when questionTitle is non-empty
-  if (payload.questionTitle.length > 0) {
-    let global = getGlobal();
-    global.totalPredictRequests = global.totalPredictRequests.plus(BigInt.fromI32(1));
-    global.save();
-
-    let request = Request.load(requestId);
-    if (request !== null) {
-      let sender = Sender.load(request.sender);
-      if (sender !== null) {
-        sender.totalPredictRequests = sender.totalPredictRequests.plus(BigInt.fromI32(1));
-        sender.save();
-      }
-    }
-  }
 }
 
 function requestIdToDecimal(requestId: Bytes): string {
