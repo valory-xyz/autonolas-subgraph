@@ -59,54 +59,20 @@ import {
   CELO_MECH_MARKETPLACE_ADDRESS,
 } from './constants';
 import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
+import {
+  CTX_BASE_HASH,
+  CTX_REQUEST_ID,
+  RequestPayload,
+  UNHANDLED_TYPE,
+  parseRequestPayload,
+} from './request-metadata';
 
 // Re-export fee conversion functions for backward compatibility with tests
 export { calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd };
 
-const UNHANDLED_TYPE = '[unhandled type]';
-
-class RequestPayload {
-  content: string;
-  prompt: string;
-  tool: string;
-  questionTitle: string;
-
-  constructor(content: string, prompt: string, tool: string, questionTitle: string) {
-    this.content = content;
-    this.prompt = prompt;
-    this.tool = tool;
-    this.questionTitle = questionTitle;
-  }
-}
-
-// Known closing delimiters that follow the question's closing quote in prompt templates.
-// Add new entries here when the prompt template changes.
-const QUESTION_CLOSING_DELIMITERS: string[] = [
-  '" and the',  // 'With the given question "..." and the `yes` option...'
-];
-
-function extractQuestionTitle(prompt: string): string {
-  const marker = 'With the given question';
-  const markerIndex = prompt.indexOf(marker);
-  if (markerIndex === -1) return '';
-
-  const afterMarker = prompt.slice(markerIndex + marker.length);
-  const firstQuote = afterMarker.indexOf('"');
-  if (firstQuote === -1) return '';
-
-  // Try each closing delimiter pattern, pick the earliest match.
-  // This handles questions with inner quotes like: "Will Trump say "Crypto"?"
-  let closingIndex: i32 = -1;
-  for (let i = 0; i < QUESTION_CLOSING_DELIMITERS.length; i++) {
-    const idx = afterMarker.indexOf(QUESTION_CLOSING_DELIMITERS[i], firstQuote + 1);
-    if (idx !== -1 && (closingIndex === -1 || idx < closingIndex)) {
-      closingIndex = idx;
-    }
-  }
-  if (closingIndex === -1) return '';
-
-  return afterMarker.slice(firstQuote + 1, closingIndex);
-}
+// RequestPayload / UNHANDLED_TYPE / extractQuestionTitle / parseRequestPayload now live in
+// ./request-metadata (chain-free) so the offchain file-data-source handler shares the exact
+// same parsing. UNHANDLED_TYPE is still used by the delivery parsing that runs inline below.
 
 class DeliveryPayload {
   content: string;
@@ -146,7 +112,9 @@ export function getGlobal(): Global {
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
 
-    // Prediction-specific counters
+    // Prediction-specific counters. NOTE: no longer live-incremented — request metadata is
+    // parsed by an offchain file data source whose causality region cannot write Global, so
+    // this stays 0. Derive predict requests from ParsedRequest.questionTitle (count non-empty).
     global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global;
@@ -165,7 +133,9 @@ export function getOrCreateSender(address: Bytes): Sender {
     sender.totalOffChainRequests = BigInt.fromI32(0);
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
-    // Prediction-specific counters
+    // Prediction-specific counters. NOTE: frozen at 0 — see getGlobal (metadata parsing moved
+    // to an offchain file data source that can't write Sender). Derive per-sender predict
+    // requests from ParsedRequest.questionTitle joined via Request.sender.
     sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender;
@@ -720,36 +690,9 @@ function loadRequestPayload(baseHash: string): RequestPayload | null {
     return null;
   }
 
-  let payload = new RequestPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE,
-    ''
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let promptValue = obj.get('prompt');
-  if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
-    payload.prompt = promptValue.toString();
-    payload.questionTitle = extractQuestionTitle(payload.prompt);
-  }
-
-  let toolValue = obj.get('tool');
-  if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
-    payload.tool = toolValue.toString();
-  }
-
-  return payload;
+  // Shared with the offchain file-data-source handler (see request-metadata.ts) so the sync
+  // path exercised by tests and the async production path can never diverge.
+  return parseRequestPayload(data);
 }
 
 function saveParsedRequestEntity(
@@ -1082,9 +1025,14 @@ export function processOnChainRequest(args: OnChainRequestArgs): void {
   }
 
   let ctx = new DataSourceContext();
-  ctx.setString('requestId', request.id);
-  ctx.setString('baseHash', requestBaseHash);
+  ctx.setString(CTX_REQUEST_ID, request.id);
+  ctx.setString(CTX_BASE_HASH, requestBaseHash);
+  // Spawn on both the directory layout (<hash>/metadata.json) and the bare hash so legacy
+  // raw-file uploads are still enriched. For any given CID only one resolves to file content
+  // (a directory errors on a bare cat; a raw file has no metadata.json subpath); the other is
+  // a no-op via the idempotency guard in handleParsedRequest.
   ParsedRequestFile.createWithContext(requestBaseHash + '/metadata.json', ctx);
+  ParsedRequestFile.createWithContext(requestBaseHash, ctx);
 }
 
 export function logRevokeRequest(mechAddress: Bytes, requestId: Bytes): void {
