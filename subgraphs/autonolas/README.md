@@ -62,9 +62,10 @@ yarn test           # Run tests (note: existing tests are placeholder boilerplat
 yarn create-local   # Create subgraph on local Graph node
 yarn deploy-local   # Deploy to local Graph node
 yarn deploy-staging # Deploy to staging
-yarn deploy-base    # Deploy to Base via Subgraph Studio
 yarn remove-local   # Remove from local Graph node
 ```
+
+Note: `package.json` also defines a `deploy-base` script, but it is defunct — it references a removed `profiles/l2/subgraph.base.yaml` manifest. Base registry indexing lives in the separate [`subgraphs/autonolas-base`](../autonolas-base) subgraph.
 
 ### Project Structure
 * `src/registry.ts` — All event handlers for Component, Agent, and Service registries
@@ -72,8 +73,23 @@ yarn remove-local   # Remove from local Graph node
 * `abis/` — ComponentRegistry, AgentRegistry, ServiceRegistry ABIs
 
 ### Entity ID Formats
-- **Unit IDs** are prefixed: `cm` (component), `ag` (agent), or `sr` (service) + tokenId bytes
+- **Unit IDs** are prefixed: `cm` (component), `ag` (agent), or `sr` (service) + tokenId bytes. Note: the prefix strings are passed through `Bytes.fromHexString`, so the stored prefix bytes are `0x0c` / `0x0a` / `0x00` respectively — IDs used in queries must be built the same way
 - **Service IDs** are raw `BigInt` bytes (no prefix) — different from the Unit `sr`-prefixed ID for the same service
+
+The tokenId bytes come from graph-ts `Bytes.fromBigInt`, which reinterprets the BigInt's internal representation: **little-endian, two's-complement signed** bytes of minimal length. To build an id by hand:
+
+1. Write the tokenId in hex with the bytes reversed (little-endian): 1 → `01`, 256 → `0001`, 300 → `2c01`
+2. If the most significant byte has its high bit set, append a `00` sign byte: 128 → `8000`, 255 → `ff00`
+3. Prepend the prefix byte for Unit IDs (`0x0c`/`0x0a`/`0x00`); Service entity IDs get no prefix
+
+| tokenId | Component Unit id | Agent Unit id | Service Unit id | Service entity id |
+|---------|-------------------|---------------|-----------------|-------------------|
+| 1 | `0x0c01` | `0x0a01` | `0x0001` | `0x01` |
+| 128 | `0x0c8000` | `0x0a8000` | `0x008000` | `0x8000` |
+| 256 | `0x0c0001` | `0x0a0001` | `0x000001` | `0x0001` |
+| 300 | `0x0c2c01` | `0x0a2c01` | `0x002c01` | `0x2c01` |
+
+When possible, filter on the numeric fields instead of constructing ids: `units(where: { tokenId: "300" })`, `services(where: { serviceId: "300" })`.
 
 ### Key Contracts
 

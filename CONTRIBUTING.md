@@ -42,8 +42,8 @@ This is a monorepo of [The Graph](https://thegraph.com/) subgraphs for the Auton
 subgraphs/
 ├── marketplace/         # Mech marketplace (Gnosis, Base, Polygon, Optimism, Ethereum, Arbitrum, Celo)
 ├── mech/                # Legacy mech subgraph (Gnosis)
-├── mech-marketplace/    # Older marketplace implementation
-├── autonolas/           # Component/Agent registry (Gnosis)
+├── pearl-transactions/  # Pearl agent Safe transaction ledger (Gnosis)
+├── autonolas/           # Component/Agent/Service registry (Ethereum mainnet)
 ├── autonolas-base/      # Component/Agent registry (Base)
 ├── predict-omen/        # Omen prediction market tracking
 ├── predict-polymarket/  # Polymarket prediction tracking

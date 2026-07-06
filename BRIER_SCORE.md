@@ -66,7 +66,7 @@ Bet-iteration uses the existing `participant.bets` array (stored, not derived) s
 3. **Invalid resolutions use `actual = 0.5` (5e17).** Mirrors the on-chain `[1, 1]` payout split. Sells still excluded.
 4. **1e18 fixed-point everywhere.** Consistent with the codebase rule "All financial fields are BigInt — no BigDecimal anywhere." `impliedProbability` is in `[0, 1e18]`; per-bet Brier contribution is computed as `(p − actual)² / 1e18`, also `[0, 1e18]`, so the daily sum stays in the same scale and is naturally summable across days.
 5. **`brierSumApplied` on `MarketParticipant`.** Mirrors how `expectedPayout` enables `dailyProfit` reversal on re-answer. Stores exactly what was credited so the in-between-bets case (bet placed between answer A and re-answer B) reverses correctly without double-counting.
-6. **Buys with zero outcome tokens.** `impliedProbability` stays `null` (defensive — should not happen for valid FPMM trades). Brier aggregation skips these.
+6. **Buys with zero outcome tokens.** `impliedProbability` is stored as `0` (the zero sentinel — the field is required; defensive, should not happen for valid FPMM trades). Brier aggregation skips zero-probability bets.
 
 ### How a consumer computes a windowed Brier
 
@@ -99,13 +99,14 @@ This re-index is shared with the market-categories work in [MARKET_CATEGORIES.md
 
 ### Tests
 
-`tests/brier-score.test.ts` — 7 cases:
+`tests/brier-score.test.ts` — 8 cases:
 - Buy / Sell record `impliedProbability` correctly
 - Zero-token degenerate trade stores `impliedProbability = 0` and is skipped at Brier aggregation
 - Winning + losing bets sum into `brierSum` with correct count
 - Sells excluded from Brier
 - Invalid answer uses 0.5 actual for both outcomes
 - Re-answer reverses old contribution, applies new on the new settlement day
+- Chained re-answer (A→B→A): reversal walks back to the original Brier on the latest day
 
 ## predict-polymarket — planning (not yet implemented)
 
@@ -113,33 +114,37 @@ Polymarket's accounting differs enough that this is its own design problem, not 
 
 ### Where the implied probability lives on Polymarket
 
-Polymarket uses a **CTF Exchange order book + NegRiskAdapter**, not an FPMM. Tracked event is `OrderFilled` (`subgraphs/predict-polymarket/src/uma-mapping.ts`). The agent is always the **maker**; trade direction is inferred from asset flow:
+Polymarket uses a **CTF Exchange order book + NegRiskAdapter**, not an FPMM. Tracked event is `OrderFilled`, handled twice:
+
+- **v1** (`handleOrderFilled`, `subgraphs/predict-polymarket/src/ctf-exchange.ts`): the agent is the **maker**; trade direction is inferred from asset flow:
 
 ```
 maker gives USDC → agent BUYs outcome tokens   → impliedProb = USDC out / tokens in
 maker gives tokens → agent SELLs outcome tokens → impliedProb = USDC in  / tokens out
 ```
 
+- **v2** (`handleOrderFilledV2`, `subgraphs/predict-polymarket/src/ctf-exchange-v2.ts`): the maker may be a Polymarket **DepositWallet**, resolved back to its `TraderAgent` via the stored DepositWallet link, and direction comes from the explicit `side` param (0 = BUY) — the v2 event carries `side` + `tokenId` instead of `makerAssetId`/`takerAssetId`. Both handlers must set `bet.impliedProbability`.
+
 Both sides have the price implied by the fill ratio. USDC is 6 decimals; outcome tokens are 6 decimals (confirm with current code). Scale to 1e18 for storage to match Omen.
 
 ### Resolution outcome
 
-Polymarket resolution fires via UMA `OptimisticOracleV3` (see `handleAssertionResolved` or whichever Polymarket settlement handler exists). For each settled `MarketParticipant`:
+Polymarket resolution fires via `handleOOQuestionResolved` / `handleUmaQuestionResolved` (`src/uma-mapping.ts`) and `handleOutcomeReported` (`src/neg-risk-mapping.ts`), all funneling into `processMarketResolution` (`src/utils.ts`). For each settled `MarketParticipant`:
 
 - Winning outcome index → `actual = 1e18` for bets on that index, `0` otherwise.
-- No "invalid" case to handle (per `predict-polymarket` CLAUDE.md: "**No re-answer logic** — Polymarket resolutions are final.").
+- Invalid resolutions exist on Polymarket too — `winningIndex = -1` when payouts don't pick a winner, settled with a `[1, 1]`-style half split in `processMarketResolution`. Mirror Omen: use `actual = 5e17` for invalid. (Separately, there is no re-answer path — resolutions are final.)
 
 ### Schema additions (proposed — mirror Omen)
 
 ```graphql
 # subgraphs/predict-polymarket/schema.graphql
 
-type Bet @entity(immutable: true) {  # NB: immutable on Polymarket
+type Bet @entity(immutable: false) {
   ...
   impliedProbability: BigInt  # 1e18-scaled, nullable
 }
 
-type DailyAgentPerformance @entity(immutable: false) {  # or equivalent
+type DailyProfitStatistic @entity(immutable: false) {
   ...
   brierSum: BigInt!
   brierCount: Int!
@@ -152,12 +157,12 @@ type DailyAgentPerformance @entity(immutable: false) {  # or equivalent
 
 | File | Change |
 |---|---|
-| `src/ctf-exchange-mapping.ts` (or wherever `OrderFilled` lands) | After deriving buy/sell + maker amounts, set `bet.impliedProbability = (USDC * 1e18) / outcomeTokenAmount` |
+| `src/ctf-exchange.ts` (`handleOrderFilled`) and `src/ctf-exchange-v2.ts` (`handleOrderFilledV2`) | After deriving buy/sell + maker amounts, set `bet.impliedProbability = (USDC * 1e18) / outcomeTokenAmount` |
 | Whichever handler fires at UMA resolution (the equivalent of `handleLogNewAnswer`) | For each settled `MarketParticipant`, sum buy-side Brier across `participant.bets` and credit settlement-day's daily stat |
 
 ### Differences worth flagging
 
-- **Bets are immutable** on Polymarket — can't add `countedInProfit`/etc. flags retroactively. Brier is purely additive on settlement day.
+- **Bets are mutable** on Polymarket too — `Bet` is `@entity(immutable: false)` and already carries `countedInTotal`/`countedInProfit` flags flipped at settlement in `processMarketResolution`, so the Omen settlement-time marking loop carries over directly.
 - **No re-answer** — drop the `brierSumApplied`/`brierCountApplied` participant fields, keep schema lean.
 - **Agent gating** — only agent ID 86 is tracked (see polymarket CLAUDE.md). Same gate applies to Brier — the iteration is over already-gated `MarketParticipant`s, so no extra work.
 - **NegRisk markets** — multi-outcome (n > 2). Brier generalises: `actual = 1e18` for the winning outcome index, `0` for all others. Each bet still contributes one term. If NegRisk markets are in scope, double-check that `bet.outcomeIndex` covers the full outcome set and not just the binary-collapsed view.

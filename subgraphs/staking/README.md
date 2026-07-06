@@ -45,7 +45,7 @@ The subgraph monitors staking contracts across multiple networks:
 
 #### `StakingContract`
 Represents a staking proxy instance with full configuration:
-- **id**: Contract instance address
+- **id**: Transaction hash + log index of the `InstanceCreated` event (the proxy address is in `instance`)
 - **sender**: Creator address
 - **instance/implementation**: Contract addresses
 - **metadataHash**: Contract metadata identifier
@@ -62,6 +62,11 @@ Represents a staking proxy instance with full configuration:
 - **configHash/proxyHash**: Configuration identifiers
 - **serviceRegistry/activityChecker**: Related contract addresses
 
+Caveats:
+- The entity is immutable — a creation-time snapshot populated via 15 `eth_call`s to the new proxy. Later `InstanceRemoved`/`InstanceStatusChanged` events never update it; join those event entities to determine whether an instance is still enabled.
+- The creation calls are unchecked (no `try_` variants): if the factory ever creates an instance whose implementation lacks any of these view functions, `handleInstanceCreated` reverts and indexing halts deterministically.
+- Every `InstanceCreated` also spawns a `StakingProxy` dynamic data-source template for the new instance.
+
 #### Factory Events
 - `InstanceCreated`: New staking proxy creation
 - `InstanceRemoved`: Staking proxy removal
@@ -71,12 +76,24 @@ Represents a staking proxy instance with full configuration:
 
 ### Staking Activity Entities
 
+#### How staked amounts are computed
+
+`ServiceStaked`, `ServiceUnstaked`, and `ServiceForceUnstaked` events do not carry the staked amount. Handlers derive it at event time via two `eth_call`s to the emitting proxy (`getOlasForStaking` in `src/utils.ts`): `stake = minStakingDeposit * (numAgentInstances + 1)` — one bond per agent instance plus the service owner's security deposit. Consequences:
+- `Service.currentOlasStaked` and the `Global` stake totals reflect the **minimum required** stake, not actual token transfers — a service that bonded above the minimum is undercounted.
+- Stake and unstake use the same formula against the proxy's immutable parameters, so per-contract accounting stays symmetric.
+- Amounts are raw OLAS wei (18 decimals), undivided.
+- The two calls (`numAgentInstances`, `minStakingDeposit`) are unchecked (no `try_` variants); a reverting call halts indexing deterministically.
+
 #### `Service`
 Represents a staked service with performance metrics:
-- **id**: Service identifier
-- **currentOlasStaked**: Currently staked OLAS amount
-- **olasRewardsEarned**: Total rewards earned
-- **blockNumber/blockTimestamp**: Last update details
+- **id**: ServiceRegistry service id (decimal string), aggregated across **all** staking contracts on the network — a service that migrates between staking programs keeps one entity, and there is no field for the contract it is currently staked in (the `ServiceStaked`/`ServiceUnstaked` event entities do not record the emitting proxy either; the closest on-graph signal is the latest `Checkpoint`, which has `contractAddress`, whose `serviceIds` includes the service)
+- **currentOlasStaked**: Currently staked OLAS amount (derived; see above)
+- **olasRewardsEarned**: Total rewards earned (accrued at `Checkpoint` time, not at claim time)
+- **blockNumber/blockTimestamp**: Block details of the service's first staking event (never updated afterwards)
+
+Caveats:
+- `ServicesEvicted` is record-only: evicted services still count in `currentOlasStaked` until the later `ServiceUnstaked`/`ServiceForceUnstaked` actually fires.
+- If an unstake arrives for a service id with no `Service` entity (possible when indexing starts mid-history or after a graft), the per-service update is silently skipped but `Global.currentOlasStaked` is still decremented — `Global` totals and the sum over `Service` entities can diverge in such deployments.
 
 #### `ServiceStaked`
 Service staking events:
@@ -122,11 +139,13 @@ Individual reward claim events:
 - **blockNumber/blockTimestamp**: Event details
 
 #### `RewardUpdate`
-Reward update tracking:
+Append-only ledger of reward flows:
 - **id**: Update identifier
-- **type**: "Claimable" or "Claimed"
+- **type**: `"Claimable"` — written once per `Checkpoint`, amount = sum of that epoch's per-service rewards (that epoch's distribution, not a running total); `"Claimed"` — written at `RewardClaimed` and at `ServiceUnstaked` (unstaking auto-pays accrued rewards)
 - **amount**: Reward amount
 - **blockNumber/blockTimestamp**: Update details
+
+Caveat: `ServiceForceUnstaked` also pays out a reward (the event carries `reward`) but does **not** create a `Claimed` update, so `sum(Claimed)` systematically understates actual payouts. Reconcile by adding `ServiceForceUnstaked.reward` values.
 
 ### Deposit Management Entities
 
@@ -179,11 +198,20 @@ Bulk service evictions:
 ### Global Analytics
 
 #### `Global`
-Aggregate staking statistics:
-- **id**: Global identifier
-- **cumulativeOlasStaked**: Total OLAS ever staked
-- **cumulativeOlasUnstaked**: Total OLAS ever unstaked
-- **currentOlasStaked**: Currently staked OLAS
+Aggregate staking statistics (singleton, `id = ""`):
+- **cumulativeOlasStaked**: Total OLAS ever staked (derived; see "How staked amounts are computed")
+- **cumulativeOlasUnstaked**: Total OLAS ever unstaked (derived)
+- **currentOlasStaked**: Currently staked OLAS (derived)
+- **totalRewards**: Cumulative sum of all `Checkpoint` reward distributions across every staking contract on this network
+- **lastActiveDayTimestamp**: Internal cursor pointing at the most recent day with a checkpoint, used to forward-fill `CumulativeDailyStakingGlobal` — not an analytics field
+- **services**: Derived list of every `Service` ever staked (entities are never deleted)
+
+#### `CumulativeDailyStakingGlobal`
+Daily snapshot, one row per UTC day (`id` = day timestamp string as UTF-8 bytes, day = `timestamp / 86400 * 86400`). A row is written **only on days with at least one `Checkpoint` event on any staking proxy** — days with no checkpoint have no row, so forward-fill gaps client-side when charting.
+- **totalRewards**: Running `Global.totalRewards` as of the last checkpoint that day (cumulative, all contracts)
+- **numServices** / **medianCumulativeRewards**: Computed over **all `Service` entities ever created** on this network — `Service` entities are never deleted, so long-unstaked services are included forever. The median is of cumulative `olasRewardsEarned`, not current-period rewards
+- Forward-fill seeding: the first checkpoint of a new day copies `numServices`/`medianCumulativeRewards` from the snapshot at `Global.lastActiveDayTimestamp` before recomputing, keeping rows continuous
+- Indexing cost note: every `Checkpoint` loads and sorts all `Service` entities to compute the median, so checkpoint handling slows as the total service count grows
 
 ## Key Features
 
@@ -212,14 +240,10 @@ Aggregate staking statistics:
 
 ## Usage Examples
 
-### Query Staking Contracts by Network
+### Query Staking Contracts
 ```graphql
 {
-  stakingContracts(
-    orderBy: blockTimestamp
-    orderDirection: desc
-    first: 10
-  ) {
+  stakingContracts(first: 10) {
     id
     sender
     instance
@@ -320,7 +344,9 @@ Aggregate staking statistics:
 ### Building and Deploying
 1. Generate types: `yarn codegen`
 2. Build the subgraph: `yarn build`
-3. Deploy: `graph deploy --studio [SUBGRAPH_NAME]`
+3. Deploy: production deploys go through the GitHub Actions "deploy-subgraph" workflow (slug e.g. `staking-mode-mainnet-vX_Y_Z`); for a manual deploy use `graph deploy --node <GRAPH_NODE_URL> --version-label <version> <slug> subgraph.mode-mainnet.yaml`.
+
+Note: this subgraph has no Matchstick tests (`yarn test` is defined but there is no `tests/` directory); validate changes with `yarn codegen subgraph.mode-mainnet.yaml && yarn build subgraph.mode-mainnet.yaml` (there is no default `subgraph.yaml`, so the manifest must be passed explicitly).
 
 ### Multi-Network Deployment
 The subgraph supports deployment across multiple networks:

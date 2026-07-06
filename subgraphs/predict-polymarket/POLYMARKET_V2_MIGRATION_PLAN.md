@@ -1,6 +1,6 @@
 # Polymarket v2 Migration
 
-Status: **Re-indexing from scratch** (graft attempt failed; see "History")
+Status: **Grafted deployment** — grafting was reinstated for the DepositWallet / Path A deployment, onto the re-indexed v1_1_1 base (see "History")
 v2 cutover: 2026-04-28 ~11:00 UTC
 
 ## What changed at cutover
@@ -69,6 +69,29 @@ dropped grafting and committed to indexing from scratch.
 Drop `features: grafting` and the `graft:` block. Re-index from scratch. The
 `*Old` adapter dataSources backfill the historical `[86219367, 86263778]` window
 that the original graft-only deploy silently dropped.
+
+### Grafting reinstated (DepositWallet / Path A deployment)
+
+The from-scratch re-index completed and became the v1_1_1 production deployment
+(`QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE`), later paused. The current
+manifest grafts onto that base again (`features: [grafting]` + `graft:` block)
+at block `86236542` — the EXACT paused head of the base. Grafting below the head
+fails because prod's shared chain block cache has evicted the older block hashes
+around the graft point, reproducing the "Unexpected null for non-null column"
+abort; the head's hash is still recorded, so grafting at the head resolves. Two
+constraints to keep in mind:
+
+- The `pUSD` dataSource `startBlock` (86236542) MUST equal the graft block
+  (forward-only DepositWallet indexing). Any future re-graft must also stay at
+  or below the earliest safe → DW top-up (first DW trade in prod: block
+  88031656) — DW links recorded before a later graft point would be lost,
+  silently dropping those wallets' trades.
+- The new `DepositWallet` entity is declared `immutable: false` deliberately:
+  adding an `immutable: true` entity makes graph-node's graft copy fail with the
+  same null-column error (the immutable `block$` storage path).
+- `indexerHints: prune: 300` — the deployment retains only ~300 blocks of
+  history, so time-travel (block-pinned) queries older than that are
+  unsupported; the validation scripts must compare current state only.
 
 ## Open
 

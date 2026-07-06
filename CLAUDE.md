@@ -14,10 +14,11 @@ subgraphs/
 ├── mech/                # Legacy mech subgraph (Gnosis only)
 ├── autonolas/           # Component/Agent/Service registry (Ethereum mainnet)
 ├── autonolas-base/      # Component/Agent registry (Base)
-├── service-registry/    # Service registry analytics (Ethereum + 7 L2s, template-generated manifests)
+├── service-registry/    # Service registry analytics (Gnosis, Mode; template-generated manifests)
 ├── staking/             # Staking contracts (Mode)
 ├── tokenomics/          # OLAS ERC-20 tracking (Mode)
 ├── babydegen-mode/      # BabyDegen agent portfolio tracking (Mode)
+├── pearl-transactions/  # Pearl wallet transaction-history (Gnosis)
 ├── predict-omen/        # Omen prediction market trading (Gnosis)
 └── predict-polymarket/  # Polymarket prediction market trading (Polygon)
 ```
@@ -52,14 +53,14 @@ yarn deploy-local   # Deploy to local Graph node
 
 For multi-network subgraphs, per-network codegen/build scripts are defined in each subgraph's `package.json`:
 ```bash
-# Examples (marketplace)
-yarn codegen:gnosis && yarn build:gnosis
-yarn codegen:base && yarn build:base
+# Examples (marketplace) — suffixed scripts exist for :polygon, :optimism,
+# :mainnet, :arbitrum, :celo; bare `yarn build` targets subgraph.gnosis.yaml
 yarn codegen:polygon && yarn build:polygon
 yarn codegen:optimism && yarn build:optimism
 yarn codegen:mainnet && yarn build:mainnet
-# Or call graph-cli directly with the manifest:
-graph build subgraph.gnosis.yaml
+# For gnosis and base, call graph-cli directly with the manifest:
+graph codegen subgraph.gnosis.yaml && graph build subgraph.gnosis.yaml
+graph codegen subgraph.base.yaml && graph build subgraph.base.yaml
 ```
 
 For `service-registry`, manifests are generated from a template + `networks.json` via `scripts/generate-manifests.ts`.
@@ -107,7 +108,7 @@ The `marketplace` subgraph is the most complex, handling:
 
 ### Service-Registry Subgraph
 
-- **Template-generated manifests**: `subgraph.template.yaml` + `networks.json` rendered via `scripts/generate-manifests.ts` (Mustache) into per-network manifests (mainnet, gnosis, base, matic, optimism, arbitrum-one, celo).
+- **Template-generated manifests**: `subgraph.template.yaml` + `networks.json` rendered via `scripts/generate-manifests.ts` (Mustache) into per-network manifests (gnosis, mode-mainnet).
 - **Dynamic GnosisSafe template**: Instantiated per multisig at `CreateMultisigWithAgents`, which then indexes `ExecutionSuccess` and `ExecutionFromModuleSuccess` for tx-count metrics.
 - **Most-recent-agent selection**: To avoid double-counting in daily aggregates, only the most recently registered agent (via `AgentRegistration.timestamp`) is bound to a `Multisig` at creation.
 - **Daily aggregation with join entities**: `DailyServiceActivity`, `DailyUniqueAgents`, `DailyAgentPerformance`, `DailyActiveMultisigs` — each paired with a join entity (`DailyUniqueAgent`, `DailyAgentMultisig`, `DailyActiveMultisig`) using load-or-create to dedupe per-day counts.
@@ -133,11 +134,11 @@ Both follow the same shape — `TraderAgent` -> `Bet` -> settlement -> `DailyPro
 - UMA ancillary data is parsed into `MarketMetadata` (title, outcomes).
 - **No re-answer logic** — Polymarket resolutions are final.
 - USDC denominated (6 decimals).
-- **Grafted** at block 85952819 onto a v1 deployment to preserve historical trader data.
+- **Grafted** at block 86236542 onto the paused v1_1_1 base deployment to preserve historical trader data.
 
 ### BabyDegen-Mode Subgraph
 
-Most complex DeFi-integration subgraph. Tracks agent portfolios across Balancer V2, Velocity Finance V2 + concentrated-liquidity, Sturdy, and LiFi swap routing on Mode. Key entities: `AgentPortfolio`/`AgentPortfolioSnapshot`, `ProtocolPosition`, `TokenBalance`, `SwapTransaction`, `PriceUpdate`. Price discovery happens off DEX pool reserves via `priceDiscovery.ts`/`priceAdapters.ts`.
+Most complex DeFi-integration subgraph. Tracks agent portfolios across Balancer V2, Velodrome V2 + Velodrome CL (concentrated liquidity), Sturdy, and LiFi swap routing on Mode. Key entities: `AgentPortfolio`/`AgentPortfolioSnapshot`, `ProtocolPosition`, `TokenBalance`, `SwapTransaction`, `PriceUpdate`. Price discovery happens off DEX pool reserves via `priceDiscovery.ts`/`priceAdapters.ts`.
 
 ### Entity Patterns
 
@@ -186,7 +187,7 @@ Naming convention: `{subgraph}-{network}-{version}` with dots replaced by unders
 
 Deployed subgraphs are served at `https://subgraph.autonolas.tech/subgraphs/name/{SUBGRAPH_NAME}`.
 
-For local development, `docker-compose.yaml` at the repo root spins up Graph Node + Postgres + IPFS pointed at the Autonolas RPC gateway and `registry.autonolas.tech` for IPFS.
+For local development, `docker-compose.yaml` at the repo root spins up Graph Node + Postgres, with graph-node pointed at the Autonolas RPC gateway and using `registry.autonolas.tech` (override via `IPFS_URL`) as its IPFS endpoint.
 
 ## ABIs
 
@@ -198,7 +199,7 @@ When adding external contract calls (e.g., Chainlink, Balancer), add the ABI and
 
 ## Tooling Versions
 
-All versions are pinned exactly (no carets). 8 of 10 subgraphs are converged on graph-cli `0.98.1`; `autonolas` and `autonolas-base` remain on the legacy `0.64.0` line pending Tier 3 Wave 3 (a separate multi-week migration that crosses AssemblyScript runtime + manifest specVersion boundaries).
+All versions are pinned exactly (no carets). 9 of 11 subgraphs are converged on graph-cli `0.98.1`; `autonolas` and `autonolas-base` remain on the legacy `0.64.0` line pending Tier 3 Wave 3 (a separate multi-week migration that crosses AssemblyScript runtime + manifest specVersion boundaries).
 
 | Subgraph | graph-cli | graph-ts |
 |---|---|---|
@@ -210,6 +211,7 @@ All versions are pinned exactly (no carets). 8 of 10 subgraphs are converged on 
 | `service-registry` | 0.98.1 | 0.38.2 |
 | `tokenomics` | 0.98.1 | 0.38.2 |
 | `mech` | 0.98.1 | 0.38.2 |
+| `pearl-transactions` | 0.98.1 | 0.38.2 |
 | `autonolas` | 0.64.0 | 0.29.1 |
 | `autonolas-base` | 0.64.0 | 0.29.1 |
 
@@ -219,10 +221,11 @@ All versions are pinned exactly (no carets). 8 of 10 subgraphs are converged on 
 
 ## Supply chain & security
 
-PR-time CI gates are concentrated in three workflows:
+PR-time CI gates are concentrated in four workflows:
 
-- [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every (subgraph, manifest) pair (17 jobs).
-- [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod` matrix across the 11 paths, install-hook audit at root, lockfile-lint matrix, with an `All checks passed` aggregator job.
+- [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every deployable (subgraph, manifest) pair (18 jobs).
+- [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) — per-(subgraph, manifest) codegen/build/test matrix (18 entries); the only workflow that runs Matchstick tests. Tests are opt-in per matrix entry and currently run only for `marketplace` (`subgraph.gnosis.yaml`), `pearl-transactions`, `predict-omen`, and `predict-polymarket` — every other entry is build-only (`test: false`). For `autonolas`/`autonolas-base` this is because graph-cli 0.64.0's bundled matchstick downloader crashes on Linux x64 + Node 24; for the rest, tests just haven't been enabled yet.
+- [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod`, install-hook audit, and lockfile-lint matrices — each across the same 12 paths (root + 11 subgraphs) — with an `All checks passed` aggregator job.
 - [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — gitleaks scan, SHA-pinned binary download.
 
 Local commands:

@@ -64,7 +64,7 @@ The quarterly rotation cadence is the primary mitigation. The longer-term fix is
 
 ## 4. Dependabot
 
-This repo intentionally does **not** ship a `.github/dependabot.yml`. Routine version-update PRs across 11 npm scopes + `github-actions` would generate ~10–15 PRs/week — high noise relative to the team's review bandwidth, especially while heterogeneous `@graphprotocol/graph-cli` versions persist (0.64.0 → 0.98.x; Tier 3 convergence is a separate PR). Without convergence, Dependabot would open the same advisory PR against 6+ different graph-cli version lines.
+This repo intentionally does **not** ship a `.github/dependabot.yml`. Routine version-update PRs across 12 npm scopes + `github-actions` would generate ~10–15 PRs/week — high noise relative to the team's review bandwidth, especially while heterogeneous `@graphprotocol/graph-cli` versions persist (0.64.0 → 0.98.x; Tier 3 convergence is a separate PR). Without convergence, Dependabot would open the same advisory PR against 6+ different graph-cli version lines.
 
 Vulnerability surfacing is still active via the **Security tab**, configured in repo Settings → Code security and analysis:
 
@@ -80,7 +80,7 @@ Revisit the policy after Tier 3 (graph-cli convergence) lands: with a single gra
 
 ## 5. Audit gate (`yarn audit:prod`)
 
-Yarn 1.x `yarn audit` exits with a *severity bitmask*, not a threshold, and has no suppression mechanism — a single unfixable transitive advisory blocks every PR. To work around this, [`scripts/audit.mjs`](scripts/audit.mjs) wraps `yarn audit --json` and:
+Yarn 1.x `yarn audit` exits with a *severity bitmask*, not a threshold, and has no suppression mechanism — a single unfixable transitive advisory blocks every PR. To work around this, [`scripts/audit.mjs`](scripts/audit.mjs) wraps `yarn audit --groups dependencies --json` (production dependency group only — dev-dependency advisories still surface via Dependabot alerts but are not gated) and:
 
 1. Fails on any **high** or **critical** advisory not listed in [`.supply-chain/audit-allowlist.json`](.supply-chain/audit-allowlist.json). **Moderate and low advisories are not gated** — they print but do not block. Revisit if the noise ratio shifts.
 2. Surfaces allowlist entries whose `review` date has passed as a **CI warning** (does not fail; review and renew or remove).
@@ -88,13 +88,13 @@ Yarn 1.x `yarn audit` exits with a *severity bitmask*, not a threshold, and has 
 
 **Critical naming detail**: the script is exposed as `yarn audit:prod`, NOT `yarn audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts in `package.json`, so naming the script `audit` would silently invoke the built-in instead.
 
-The audit gate runs as a **matrix across the root + 10 subgraphs** in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml). Per-path matrix is necessary because heterogeneous graph-cli versions mean root audit alone wouldn't surface advisories present only in older trees (`autonolas` and `autonolas-base` on graph-cli 0.64.0). The script self-locates its allowlist via `import.meta.url`, so a single allowlist at the repo root governs every matrix entry.
+The audit gate runs as a **matrix across the root + 11 subgraphs** in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml). Per-path matrix is necessary because heterogeneous graph-cli versions mean root audit alone wouldn't surface advisories present only in older trees (`autonolas` and `autonolas-base` on graph-cli 0.64.0). The script self-locates its allowlist via `import.meta.url`, so a single allowlist at the repo root governs every matrix entry.
 
 Allowlist policy: every entry needs `id`, `reason`, `added`, `review` (all required), plus optional `ghsa`, `package`, `severity` for human readability. An expired entry prints a warning but does not block CI — the team is expected to refresh or remove on review.
 
 ## 6. Lockfile lint
 
-[`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) runs `lockfile-lint` on every `yarn.lock` (root + 10 subgraphs):
+[`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) runs `lockfile-lint` on every `yarn.lock` (root + 11 subgraphs):
 
 ```
 npx --yes lockfile-lint --path yarn.lock --type yarn --validate-https \
@@ -113,13 +113,13 @@ A new package with an install hook NOT in the allowlist requires an explicit dec
 
 The Graph CLI's transitive tree includes `node-gyp-build` and similar legitimate native-binding bootstrappers; those are expected and allowlisted. Anything else is suspicious.
 
-The install-hook audit runs as a **matrix across all 11 paths** in CI (root + 10 subgraphs), each after `yarn install --frozen-lockfile --ignore-scripts` in that tree. Per-path coverage is necessary because lockfile-lint (§6) validates source URLs and integrity hashes only — it doesn't inspect install-script contents, so a malicious script in a legitimately-sourced dep would slip past lockfile-lint at the subgraph level. The matrix closes that gap.
+The install-hook audit runs as a **matrix across all 12 paths** in CI (root + 11 subgraphs), each after `yarn install --frozen-lockfile --ignore-scripts` in that tree. Per-path coverage is necessary because lockfile-lint (§6) validates source URLs and integrity hashes only — it doesn't inspect install-script contents, so a malicious script in a legitimately-sourced dep would slip past lockfile-lint at the subgraph level. The matrix closes that gap.
 
-`--update` is run at root after `yarn install` in every affected tree; it aggregates hook-bearing packages across all populated `node_modules` trees and writes the union to the allowlist. Stale-entry detection (allowlist entry no longer in some tree) is intentionally not enforced per-CI-run, since some hook-bearing packages legitimately surface in only some trees (e.g. `keccak` / `secp256k1` / `protobufjs` appear in the legacy-graph-cli trees of `autonolas` / `autonolas-base` / `mech` but not the 0.98.x trees).
+`--update` is run at root after `yarn install` in every affected tree; it aggregates hook-bearing packages across all populated `node_modules` trees and writes the union to the allowlist. Stale-entry detection (allowlist entry no longer in some tree) is intentionally not enforced per-CI-run, since some hook-bearing packages legitimately surface in only some trees (e.g. `keccak` / `secp256k1` / `protobufjs` appear in the legacy-graph-cli trees of `autonolas` / `autonolas-base` (graph-cli 0.64.0) but not the 0.98.x trees).
 
 ## 8. Secret scanning (gitleaks)
 
-[`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) runs gitleaks on every push + PR. Configuration notes:
+[`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) runs gitleaks on every PR + every push to `main`. Configuration notes:
 
 - The gitleaks binary is downloaded with a **pinned version + checksum-verified** SHA-256 (otherwise an unverified `curl` in the gate that's checking for compromise is itself a hole).
 - PR runs scan only the diff against the base branch (fast).
@@ -130,21 +130,22 @@ When bumping `GITLEAKS_VERSION`, fetch the upstream `gitleaks_${VERSION}_checksu
 
 ## 9. Build smoke-test
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) runs `yarn graph codegen` + `yarn graph build` against every (subgraph, manifest) pair on every PR. This catches breakage from dep bumps, schema changes, manifest edits, or handler regressions before they reach a deploy. It is the protection gate that PR 3 (graph-cli convergence) depends on.
+[`.github/workflows/build.yml`](.github/workflows/build.yml) runs `yarn graph codegen` + `yarn graph build` against all 18 (subgraph, manifest) pairs on every PR — every deployable manifest, including `pearl-transactions` (which is additionally built and tested by [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). This catches breakage from dep bumps, schema changes, manifest edits, or handler regressions before they reach a deploy. It is the protection gate that PR 3 (graph-cli convergence) depends on.
 
-Not yet covered: matchstick test execution (`yarn test`). Tests are heterogeneous in coverage across subgraphs (some have functional suites, others have placeholder boilerplate per `tests/component-registry.test.ts` etc.) and adding a green-bar gate would either give false confidence or block merges on placeholder-test bugs unrelated to the PR. Enabling test-execution per-subgraph as the test suites mature is a Tier 4 follow-up.
+Matchstick test execution (`yarn test`) is covered by [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml), which runs codegen + build across its own matrix and additionally runs `yarn test` for the subgraphs with functional suites (`marketplace` on the gnosis manifest, `pearl-transactions`, `predict-omen`, `predict-polymarket`), gated by a per-entry `test` flag and enforced by its aggregator job. The remaining subgraphs stay `test: false` pending graph-cli convergence (the legacy graph-cli lines' matchstick downloader fails on Linux x64 + Node 24) or test-suite maturity.
 
 ## 10. CI control summary
 
 | Workflow | Triggers | Required (branch protection)? | Failure mode |
 |---|---|---|---|
-| [`build.yml`](.github/workflows/build.yml) | PR + push to main | **Recommended once stable** | Blocks merge if any of the 17 (subgraph, manifest) builds fails |
+| [`build.yml`](.github/workflows/build.yml) | PR + push to main | **Recommended once stable** | Blocks merge if any of the 18 (subgraph, manifest) builds fails |
+| [`ci.yaml`](.github/workflows/ci.yaml) | PR + push to main | **Recommended once stable** | Blocks merge if any matrix build fails or any enabled matchstick test suite fails |
 | [`supply-chain.yml`](.github/workflows/supply-chain.yml) | PR + push to main | **Advisory at first; promote when team is ready** | Currently does not block merge |
-| [`gitleaks.yml`](.github/workflows/gitleaks.yml) | PR + push | **Advisory at first; promote when team is ready** | Currently does not block merge |
+| [`gitleaks.yml`](.github/workflows/gitleaks.yml) | PR + push to main | **Advisory at first; promote when team is ready** | Currently does not block merge |
 | [`deploy-subgraph.yaml`](.github/workflows/deploy-subgraph.yaml) | `workflow_dispatch` only, production gated to main | n/a (manual) | Validates inputs, then deploys |
 | [`deploy-subgraph-no-version-label.yaml`](.github/workflows/deploy-subgraph-no-version-label.yaml) | Same as primary; used for `autonolas` (no version-slug) | n/a (manual) | Same |
 
-To promote `supply-chain.yml` and `gitleaks.yml` to required: Settings → Branches → main → Branch protection rules → Require status checks → add `All checks passed` (the supply-chain.yml aggregator), `All builds passed` (the build.yml aggregator), **and** `Gitleaks / scan` (cross-workflow `needs:` is not supported — all three must be listed separately).
+To promote `supply-chain.yml` and `gitleaks.yml` to required: Settings → Branches → main → Branch protection rules → Require status checks → add `Supply Chain / All checks passed` (the supply-chain.yml aggregator), `Build smoke-test / All builds passed` (the build.yml aggregator), **and** `Gitleaks / scan` (cross-workflow `needs:` is not supported — all must be listed separately). `ci.yaml`'s aggregator is named `All CI checks passed` (renamed from `All checks passed` to avoid colliding with the supply-chain aggregator in the status-check picker); if branch protection ever required it under the old name, update the rule.
 
 ## 11. Response playbook
 
@@ -156,7 +157,7 @@ If a critical advisory is reported against a published subgraph, OR `GRAPH_NODE_
 4. **Open an incident issue** referencing this playbook, with timeline + scope.
 5. **Notify downstream consumers** — Olas dashboards, frontends, and analytics teams should know to re-validate their cached data.
 
-The metric for response readiness: could the team re-deploy all 10 subgraphs to known-good versions in **under an hour**? If not, drill the playbook quarterly. (Drill cadence: Tier 4.4 follow-up.)
+The metric for response readiness: could the team re-deploy all 11 subgraphs to known-good versions in **under an hour**? If not, drill the playbook quarterly. (Drill cadence: Tier 4.4 follow-up.)
 
 ## 12. Repo-specific watches
 
@@ -166,7 +167,7 @@ These dependencies and patterns deserve special attention because of the repo's 
 - **`GRAPH_NODE_*` deploy credentials** — the only secrets with org-wide blast radius. The basic-auth-in-URL residual exposure is tracked in §3.
 - **AssemblyScript runtime version** carried by `@graphprotocol/graph-ts` — a runtime change can produce subtly-different WASM output. Bumps require a staging deploy + cross-query against prod.
 - **Service-registry template/manifest setup** — currently brittle (running `yarn generate-manifests` for `service-registry` overwrites checked-in manifests with broken or lossy template output). Out of scope for a supply-chain PR but tracked here as it intersects with deploy correctness.
-- **ABI provenance** — the 37 ABIs in [`abis/`](abis/) are not currently audited for source provenance. If any was sourced from an unverified contract, that's a supply-chain concern. Tracked as a follow-up that needs a dedicated auditor.
+- **ABI provenance** — the ABIs in [`abis/`](abis/) (39 at time of writing) are not currently audited for source provenance. If any was sourced from an unverified contract, that's a supply-chain concern. Tracked as a follow-up that needs a dedicated auditor.
 - **`scripts/deploy.ts`** — the interactive deploy helper uses `@clack/prompts` and constructs a `gh workflow run` command via shell interpolation. Has not been reviewed for command-injection safety. Tracked as a follow-up.
 
 ## Contact

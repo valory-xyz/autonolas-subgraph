@@ -28,14 +28,11 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
    - `CreateMultisigWithAgents` - Maps multisig address → serviceId
    - `RegisterInstance` - Tracks agent instances
    - `TerminateService` - Clears agent set
-   - `ActivateRegistration` - Registration activation
-   - `DeployService` - Service deployment
-   - `Deposit` - Deposit tracking
    - `UpdateService` - Service configuration changes
    - `Transfer` - Service ownership transfer
-   - `OwnerUpdated` - Owner change
+   - Note: handlers for `ActivateRegistration`, `DeployService`, `Deposit`, and `OwnerUpdated` exist in `service-registry-l-2.ts` but are not wired in any manifest
 
-3. **MechFactory** - Factory contracts that emit `CreateMech` with `maxDeliveryRate`
+3. **MechFactory** - Factory contracts that emit type-specific `CreateMech*` events (e.g. `CreateMechFixedPriceNative`) with `maxDeliveryRate`, all handled by `handleMechFactoryCreate`
    - `MechFactoryFixedPriceNative` - Native token payment factory
    - `MechFactoryFixedPriceToken` - ERC20 token payment factory
    - `MechFactoryFixedPriceTokenUSDC` - USDC payment factory
@@ -53,7 +50,7 @@ The marketplace subgraph indexes mech marketplace activity on **Gnosis**, **Base
    - `MechKarmaChanged` - Updates cumulative karma on Mech entity
 
 6. **ComplementaryServiceMetadata** - Service metadata updates
-   - `MetadataUpdated` - Updates complementary metadata for services
+   - `ComplementaryMetadataUpdated` - Updates complementary metadata for services (handler `handleComplementaryMetadataUpdated`)
 
 ### Key Entity Relationships
 
@@ -70,10 +67,11 @@ Request (id: requestId bytes as hex)
     ├── ParsedRequest (IPFS-parsed prompt/tool)
     └── Sender (requester address)
 
-Deliver (id: txHash + logIndex)
-    ├── DeliverForMarketplace (marketplace-specific fields)
-    ├── ParsedDelivery (IPFS-parsed response/model/tool/toolHash; derived, shares the Deliver's id)
-    └── Request (links via deliver.request)
+Deliver (id: txHash + logIndex on-chain; txHash + requestId for signed deliveries)
+    ├── marketplaceDelivery: DeliverForMarketplace (marketplace-specific fields)
+    ├── mechDelivery: DeliverForMech (mech-specific fields)
+    ├── parsedDelivery: ParsedDelivery (IPFS-parsed response/model/tool/toolHash; derived, shares the Deliver's id)
+    └── request: Request
 
 CreateMech (id: mech address)
     └── Maps mech address → serviceId
@@ -87,9 +85,9 @@ PendingMechData (id: mech address as hex) [temporary]
 
 ### Cross-Handler State Transfer
 
-MechFactory and MechMarketplace contracts emit `CreateMech` events in the same transaction:
-- **MechFactory** fires first (log index N) with `maxDeliveryRate` param
-- **MechMarketplace** fires second (log index N+1) without `maxDeliveryRate`
+MechFactory and MechMarketplace contracts emit mech-creation events in the same transaction:
+- **MechFactory** fires first (log index N) with a type-specific `CreateMech*` event (e.g. `CreateMechFixedPriceNative`) carrying the `maxDeliveryRate` param
+- **MechMarketplace** fires second (log index N+1) with the plain `CreateMech` event, without `maxDeliveryRate`
 
 To avoid RPC calls (which can fail with "Block gas limit exceeded" on some nodes), we use a temporary `PendingMechData` entity:
 
@@ -97,6 +95,16 @@ To avoid RPC calls (which can fail with "Block gas limit exceeded" on some nodes
 2. `handleCreateMech` loads `PendingMechData`, copies `maxDeliveryRate` to `Mech`, then deletes it via `store.remove()`
 
 The `paymentType` is derived from the factory address using a static mapping in `constants.ts` (`getPaymentTypeFromFactory`).
+
+### Adding a New MechFactory (Checklist)
+
+Factory addresses are hardcoded in three independent places, each with a different failure mode. When a new factory contract is deployed on-chain, update the subgraph BEFORE the first mech is created from it:
+
+1. `src/marketplace/constants.ts` — add the address constant and register it in the `factoryMap` inside `getPaymentTypeFromFactory` (key format `<network>:<lowercase address>`; note Polygon's network name is `matic`). **If skipped:** `handleCreateMech` throws `Unknown factory address` on the marketplace `CreateMech` event → fatal indexing halt for the whole network.
+2. `src/marketplace/utils.ts` — add a branch in the per-network `create<Network>MechFromFactory` function mapping the factory to the right mech template. **If skipped:** the Mech entity is created but no dynamic data source is instantiated, so the mech's `Request`/`Deliver` events are silently never indexed (only a `log.warning`).
+3. `src/marketplace/fee-utils.ts` — add the factory to `getFeeUnitFromMechFactory`. **If skipped:** the fee unit silently falls back to `NATIVE` → wrong USD conversion for every fee from that mech.
+4. Add a MechFactory data source block to each affected `subgraph.<network>.yaml` (needed for the `PendingMechData`/`maxDeliveryRate` capture described above).
+5. Update the Contract Addresses tables in this file and in README.md.
 
 ## Fee Conversion and USD Tracking
 
@@ -191,6 +199,16 @@ Off-chain request/delivery pair
 | `getServiceIdFromMech(address)` | Mech address | `CreateMech` | Find service from mech address |
 | `isServiceMultisig(address)` | Multisig address | `CreateMultisigWithAgents` | Check if address is a service multisig |
 
+### 4. In-Transaction Ordering and Double-Count Guards
+
+For a marketplace request/delivery, TWO handlers fire for the same logical action in one transaction (marketplace-level + mech-template). Three interlocking mechanisms prevent double counting:
+
+- **Classification**: `isMarketplaceTransaction()` (utils.ts) compares `event.transaction.to` against the network's hardcoded marketplace address. Marketplace txs are counted by the marketplace handlers; the mech-template handlers then skip field assignment and counter increments. Known limitation: the check is on the outermost tx `to`, so a marketplace call routed through another contract (e.g. a Safe `execTransaction`) classifies as "direct" — the guards below are what keep counters from double-incrementing in that case.
+- **Ordering**: within a marketplace tx, `MarketplaceDelivery` fires BEFORE the mech's `Deliver` event. `handleMarketplaceDelivery` sets `isDelivered = true` but cannot set fees (the event has no `deliveryRate`); the later template `Deliver` carries the rate. The fee write-once guard is therefore `request.finalFeeUSD === null`, NOT `!request.isDelivered` — never simplify one guard into the other.
+- **Same-block immutable overwrite**: `DeliverForMarketplace` is `@entity(immutable: true)` yet is written by both `handleMarketplaceDelivery` and `persistMarketplaceDeliver`. This is only legal because both writes happen in the same block — never write it from a handler that can run in a later block.
+
+Also note: `Mech.receivedRequests` and `Service.totalRequests` are incremented only on the marketplace path (`handleMarketplaceRequest`). Direct-to-mech template requests populate the Request entity but increment no Service/Sender/Global request counters (direct deliveries, by contrast, do increment `Service.totalDeliveries` and ATA counters).
+
 ## Important: Service.totalRequests Semantics
 
 `Service.totalRequests` counts requests made **BY** the service's multisig (demand-side), NOT requests **TO** the service's mech (supply-side).
@@ -208,6 +226,26 @@ service(id: "175") {
   totalRequests  # This only counts requests BY the service
 }
 ```
+
+## Mech Identity and Missing-Mapping Policy
+
+- `Mech.id` = serviceId (string), NOT the mech address. `CreateMech` (id = mech address) is the address→serviceId lookup table. If a service creates a new mech, the Mech entity for that serviceId is overwritten in place (address/factory/paymentType change; counters continue).
+- When the `CreateMech` mapping is missing for a mech address, the failure policy is deliberately split:
+  - Template `Request`/`Deliver` (`requireServiceId`) and `MaxDeliveryRateUpdated` (`updateMaxDeliveryRate`) **throw** `CreateMech mapping missing` → fatal, network-wide indexing halt. This error signals a manifest bug: a missing factory data source or a too-late `startBlock`.
+  - Karma updates (`karma.ts`), `refreshMechDeliveryRate`, and the priority-mech delivery counters (`updateMechCountersOnDelivery`) **skip with a log** instead — Karma events can legitimately reference legacy mechs unknown to this subgraph.
+  - Follow the same policy when adding handlers: throw only for events that cannot legitimately precede `CreateMech`.
+- `Mech.karma` is the cumulative sum of `MechKarmaChanged` deltas and can go negative.
+- `Mech.maxDeliveryRate` is null when `PendingMechData` was missing at `CreateMech` time (factory event unindexed); it self-heals via `refreshMechDeliveryRate` from the next observed `Deliver`'s `deliveryRate`.
+
+## ATA Counting Rules
+
+`AtaTransaction` (id = tx hash) is a global dedup table shared by ALL request, delivery, legacy, and marketplace handlers: each tx hash increments `Global.totalAtaTransactions` at most once, no matter how many qualifying events it contains (the off-chain path below is the one exception, adding 2 in a single increment).
+
+- **Requests** count as ATA only if the requester has a `CreateMultisigWithAgents` entity (i.e. is a known service multisig).
+- **On-chain deliveries** count unconditionally — the code assumes the delivering mech is always operated by a service multisig and performs no lookup.
+- **Off-chain signed batches** add +1 (delivery side) plus +1 more if the requester is also a service multisig — the only path where one tx can add 2 to `totalAtaTransactions`.
+- For a same-tx request+delivery, attribution goes to whichever handler processes the earlier log. The sender-level `totalLegacyAtaTransactions` bump happens only in the handlers that check the requester (the request handlers and the off-chain signed path) — on-chain delivery handlers never bump it, so a delivery-side dedup win skips the sender-level count.
+- `totalAtaTransactions` counts transactions, not requests: a batch of 10 requests in one tx adds 1.
 
 ## File Structure
 
@@ -309,6 +347,17 @@ yarn codegen:celo
 | Ethereum | 0.0.7       |
 | Arbitrum | 0.0.7       |
 | Celo     | 0.0.7       |
+
+## Pruning and Grafting
+
+All 7 manifests set `indexerHints: prune: 300` — graph-node retains only ~300 blocks of entity history. Time-travel queries (`block: {number: N}`) older than that fail; do not build tooling that relies on historical block state.
+
+Recovery grafts have been used to redeploy without a full resync (e.g. shipping the offchain-IPFS file-data-source parsing past a stalled IPFS region on Gnosis — see commit `7e63591`). No manifest currently carries a graft. When adding a `graft:` block:
+
+- `graft.block` must be within the prune window (~300 blocks) of the base deployment's head at deploy time, or graph-node cannot copy the base's entity history.
+- The base deployment must be schema-compatible with the current schema — a base predating a schema field fails graph-node's compatibility check.
+- Add `grafting` to the manifest's `features:` list or the build fails.
+- Grafts are temporary: drop the `graft:` block (and the `grafting` feature) on the next clean redeploy once the recovery purpose is served.
 
 ## Entity Mutability
 
