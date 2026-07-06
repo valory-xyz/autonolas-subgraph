@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 11 paths: root + 10 subgraphs. Per-path matrix because of
+        # 12 paths: root + 11 subgraphs. Per-path matrix because of
         # heterogeneous graph-cli versions across subgraphs (0.64.0 →
         # 0.98.x); root audit alone wouldn't surface advisories that
         # only exist in the older trees.
@@ -63,12 +63,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Same 11 paths as the audit and lockfile-lint matrices. lockfile-lint
+        # Same 12 paths as the audit and lockfile-lint matrices. lockfile-lint
         # only validates package sources and integrity hashes — it does NOT
         # inspect install-script contents. A malicious dep with a legitimate
         # npm-registry URL and matching integrity hash would slip past
         # lockfile-lint while running arbitrary code in postinstall. Per-path
-        # install-hook coverage closes that gap across all 11 trees.
+        # install-hook coverage closes that gap across all 12 trees.
         path:
           - "."
           - "subgraphs/autonolas"
@@ -110,7 +110,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Same 11 paths as the audit matrix. Catches non-registry
+        # Same 12 paths as the audit matrix. Catches non-registry
         # sources (e.g. codeload.github.com) and missing integrity
         # hashes on every yarn.lock.
         path:

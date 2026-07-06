@@ -82,7 +82,7 @@ jobs:
         run: yarn test
 
   all-checks-passed:
-    name: All checks passed
+    name: All CI checks passed
     needs: [check]
     if: always()
     runs-on: ubuntu-latest
@@ -94,4 +94,4 @@ jobs:
             echo "::error::One or more required jobs failed or were cancelled"
             exit 1
           fi
-          echo "All checks passed"
+          echo "All CI checks passed"

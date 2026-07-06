@@ -9,7 +9,7 @@
  * Use `--update` to regenerate the allowlist from the current tree.
  * `--update` aggregates across the root tree + every `subgraphs/*` tree
  * that has a populated `node_modules`, so a single allowlist at the repo
- * root captures the union of hooks across all 11 trees. Run after any
+ * root captures the union of hooks across all 12 trees. Run after any
  * dependency change:
  *   yarn install            (at root + any affected subgraph)
  *   node scripts/audit-install-hooks.mjs --update

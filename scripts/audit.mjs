@@ -9,11 +9,11 @@
  * (e.g. an abandoned upstream package with no patch, or one whose only
  * fix requires a major framework migration) blocks every PR.
  *
- * This repo audits per-package-json (root + 10 subgraphs) because of
+ * This repo audits per-package-json (root + 11 subgraphs) because of
  * heterogeneous graph-cli versions (0.64.0 → 0.98.x). The script is
  * invoked from each tree's directory; `yarn audit` runs in cwd, but the
  * allowlist is always resolved relative to the script's own location so
- * a single allowlist at the repo root governs all 11 paths.
+ * a single allowlist at the repo root governs all 12 paths.
  *
  * See SUPPLY-CHAIN-SECURITY.md §5.
  */
