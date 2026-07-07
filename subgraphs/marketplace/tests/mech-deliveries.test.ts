@@ -63,9 +63,8 @@ describe("Describe mech deliveries processing", () => {
         assert.fieldEquals("ParsedDelivery", deliverIdHex, "request", requestIdHex);
         assert.fieldEquals("ParsedDelivery", deliverIdHex, "model", "gpt-4.1-2025-04-14");
         assert.fieldEquals("ParsedDelivery", deliverIdHex, "response", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
-
-        assert.fieldEquals("Deliver", deliverIdHex, "model", "gpt-4.1-2025-04-14");
-        assert.fieldEquals("Deliver", deliverIdHex, "toolResponse", "{\"p_yes\": 0.99, \"p_no\": 0.01, \"info_utility\": 1.0, \"confidence\": 0.99}");
+        assert.fieldEquals("ParsedDelivery", deliverIdHex, "tool", "prediction-request-reasoning");
+        assert.fieldEquals("ParsedDelivery", deliverIdHex, "toolHash", "bafybeiepzi7sen65r6csqgimko7tk6axeckstkrjdwxgmrcsts4kpzinrm");
     });
 
     test("parse delivery metadata with unexpected structure", () => {
@@ -88,7 +87,7 @@ describe("Describe mech deliveries processing", () => {
         assert.entityCount("ParsedDelivery", 1);
         assert.fieldEquals("ParsedDelivery", deliverIdHex, "model", UNHANDLED_TYPE);
         assert.fieldEquals("ParsedDelivery", deliverIdHex, "response", UNHANDLED_TYPE);
-        assert.fieldEquals("Deliver", deliverIdHex, "model", UNHANDLED_TYPE);
-        assert.fieldEquals("Deliver", deliverIdHex, "toolResponse", UNHANDLED_TYPE);
+        assert.fieldEquals("ParsedDelivery", deliverIdHex, "tool", UNHANDLED_TYPE);
+        assert.fieldEquals("ParsedDelivery", deliverIdHex, "toolHash", UNHANDLED_TYPE);
     });
 });

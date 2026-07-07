@@ -103,7 +103,7 @@ The `marketplace` subgraph is the most complex, handling:
 
 6. **ATA (Autonomous Transaction Agent) Tracking**: Counts transactions made by service multisigs. Uses `AtaTransaction` entity to deduplicate per tx hash. A sender is an ATA if `CreateMultisigWithAgents` entity exists for their address.
 
-7. **IPFS Metadata Parsing**: Request/delivery data stored on IPFS. Parsed into `ParsedRequest` (prompt, tool) and `ParsedDelivery` (model, response) entities.
+7. **IPFS Metadata Parsing**: Request/delivery data stored on IPFS. Parsed into `ParsedRequest` (prompt, tool) and `ParsedDelivery` (model, response, tool, toolHash) entities.
 
 ### Service-Registry Subgraph
 

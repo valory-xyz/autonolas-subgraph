@@ -6,6 +6,7 @@
     "metadata": {
         "model": "gpt-4.1-2025-04-14",
         "tool": "prediction-request-reasoning",
+        "tool_hash": "bafybeiepzi7sen65r6csqgimko7tk6axeckstkrjdwxgmrcsts4kpzinrm",
         "params": {
             "default_model": "gpt-4.1-2025-04-14"
         }

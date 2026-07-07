@@ -384,12 +384,13 @@ type Deliver @entity(immutable: false) {
   transactionHash: Bytes!
   service: Service
 
-  model: String
-  toolResponse: String
+  # IPFS-parsed delivery content (response, model, tool, toolHash) lives on ParsedDelivery,
+  # read via the `parsedDelivery` relationship below.
 
   # Relationships to specialized entities
   mechDelivery: DeliverForMech @derivedFrom(field: "deliver")
   marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
+  parsedDelivery: ParsedDelivery @derivedFrom(field: "deliver")
 }
 
 type ParsedDelivery @entity(immutable: true) {
@@ -399,6 +400,8 @@ type ParsedDelivery @entity(immutable: true) {
   request: Request!
   response: String!
   model: String!
+  tool: String! # metadata.tool (tool name); UNHANDLED_TYPE when absent
+  toolHash: String! # metadata.tool_hash (IPFS CID of the tool); UNHANDLED_TYPE when absent
   hash: String!
 }
 

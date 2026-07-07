@@ -51,11 +51,21 @@ class DeliveryPayload {
   content: string;
   model: string;
   response: string;
+  tool: string;
+  toolHash: string;
 
-  constructor(content: string, model: string, response: string) {
+  constructor(
+    content: string,
+    model: string,
+    response: string,
+    tool: string,
+    toolHash: string
+  ) {
     this.content = content;
     this.model = model;
     this.response = response;
+    this.tool = tool;
+    this.toolHash = toolHash;
   }
 }
 
@@ -189,6 +199,8 @@ function loadDeliveryPayload(
   let payload = new DeliveryPayload(
     data.toString(),
     UNHANDLED_TYPE,
+    UNHANDLED_TYPE,
+    UNHANDLED_TYPE,
     UNHANDLED_TYPE
   );
 
@@ -209,6 +221,14 @@ function loadDeliveryPayload(
     let modelValue = metadataObj.get('model');
     if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
       payload.model = modelValue.toString();
+    }
+    let toolValue = metadataObj.get('tool');
+    if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
+      payload.tool = toolValue.toString();
+    }
+    let toolHashValue = metadataObj.get('tool_hash');
+    if (toolHashValue !== null && toolHashValue.kind === JSONValueKind.STRING) {
+      payload.toolHash = toolHashValue.toString();
     }
   }
 
@@ -237,6 +257,8 @@ function saveParsedDeliveryEntity(
   parsedDelivery.content = payload.content;
   parsedDelivery.model = payload.model;
   parsedDelivery.response = payload.response;
+  parsedDelivery.tool = payload.tool;
+  parsedDelivery.toolHash = payload.toolHash;
   parsedDelivery.save();
 }
 
@@ -356,11 +378,6 @@ export function handleDeliver(event: DeliverEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-
-  if (deliveryPayload !== null) {
-    entity.toolResponse = deliveryPayload.response;
-    entity.model = deliveryPayload.model;
-  }
 
   // Connecting delivery with request
   let existingRequest = Request.load(event.params.requestId.toHexString());

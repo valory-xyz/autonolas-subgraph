@@ -52,6 +52,13 @@ describe("Offchain ParsedDelivery file data source", () => {
       "response",
       '{"p_yes": 0.99, "p_no": 0.01, "info_utility": 1.0, "confidence": 0.99}'
     );
+    assert.fieldEquals("ParsedDelivery", deliverId, "tool", "prediction-request-reasoning");
+    assert.fieldEquals(
+      "ParsedDelivery",
+      deliverId,
+      "toolHash",
+      "bafybeiepzi7sen65r6csqgimko7tk6axeckstkrjdwxgmrcsts4kpzinrm"
+    );
   });
 
   test("unexpected structure falls back to UNHANDLED_TYPE and still saves", () => {
@@ -65,6 +72,8 @@ describe("Offchain ParsedDelivery file data source", () => {
     assert.entityCount("ParsedDelivery", 1);
     assert.fieldEquals("ParsedDelivery", deliverId, "model", UNHANDLED_TYPE);
     assert.fieldEquals("ParsedDelivery", deliverId, "response", UNHANDLED_TYPE);
+    assert.fieldEquals("ParsedDelivery", deliverId, "tool", UNHANDLED_TYPE);
+    assert.fieldEquals("ParsedDelivery", deliverId, "toolHash", UNHANDLED_TYPE);
   });
 
   test("idempotent: second call for the same deliverId does not duplicate", () => {

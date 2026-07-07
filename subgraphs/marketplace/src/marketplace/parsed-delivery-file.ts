@@ -12,10 +12,8 @@ import { CTX_DELIVER_ID, CTX_DELIVER_REQUEST, parseDeliveryPayload } from './del
  * fetches the file in the BACKGROUND, off the block-indexing critical path — so an unreachable
  * delivery hash can no longer stall the chain head; it just never triggers this handler.
  *
- * Runs in its own causality region: it may only write ParsedDelivery. Unlike the old
- * synchronous `parseDeliverIpfs`, it does NOT write back `Deliver.model`/`Deliver.toolResponse`
- * (those are chain-owned). Those fields were a redundant copy of `ParsedDelivery.model`/
- * `.response` and are now left null — read ParsedDelivery instead. `content` is the file bytes.
+ * Runs in its own causality region: it may only write ParsedDelivery, not the chain-owned
+ * Deliver entity. `content` is the file bytes.
  */
 export function handleParsedDelivery(content: Bytes): void {
   let ctx = dataSource.context();
@@ -37,5 +35,7 @@ export function handleParsedDelivery(content: Bytes): void {
   parsedDelivery.content = payload.content;
   parsedDelivery.model = payload.model;
   parsedDelivery.response = payload.response;
+  parsedDelivery.tool = payload.tool;
+  parsedDelivery.toolHash = payload.toolHash;
   parsedDelivery.save();
 }
