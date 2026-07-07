@@ -7,7 +7,7 @@ import {
 } from "matchstick-as/assembly/index"
 import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { handleDeliver, handleRequest } from "../src/agent-mech"
-import { createMechDeliveryEvent, createMechRequestEvent } from "./agent-mech-utilts"
+import { createMechDeliveryEvent, createMechRequestEvent } from "./agent-mech-utils"
 import { mockIpfsFile } from "matchstick-as"
 
 
