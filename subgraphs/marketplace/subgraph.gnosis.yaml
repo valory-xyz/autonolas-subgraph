@@ -3,13 +3,6 @@ indexerHints:
   prune: 300
 schema:
   file: ./schema.graphql
-# Recovery graft: deploy the offchain-IPFS (file data source) request parsing without a full
-# resync. Copies the existing deployment's data up to the base block, then re-indexes forward
-# with the non-blocking parsing so the IPFS-stall region clears. Base block is within the
-# prune:300 window (base head 46,902,091 − 250). Drop this once it has synced past the stall.
-graft:
-  base: QmS6nd5CWtHsN7oyrnKzVe2BzEFmLiNhkcJ83CvPuGtuPy
-  block: 46901841
 dataSources:
   - kind: ethereum
     name: AgentFactory
@@ -552,6 +545,5 @@ templates:
           file: ../../abis/AgentMech.json
 
 features:
-  - grafting
   - fullTextSearch
   - ipfsOnEthereumContracts
