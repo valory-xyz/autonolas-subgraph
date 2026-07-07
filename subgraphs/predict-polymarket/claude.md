@@ -133,7 +133,7 @@ type DepositWallet @entity(immutable: false) {
 }
 ```
 
-**Pattern**: Written exactly once per DW from the pUSD top-up (Safe → DW) that precedes each bet; logically immutable. **Must stay `immutable: false`**: adding an `immutable: true` entity on top of a graft base makes graph-node's graft copy fail with "Unexpected null for non-null column" (the immutable `block$` storage path) — see the schema comment and [POLYMARKET_V2_MIGRATION_PLAN.md](POLYMARKET_V2_MIGRATION_PLAN.md).
+**Pattern**: Written exactly once per DW from the pUSD top-up (Safe → DW) that precedes each bet; logically immutable. **Must stay `immutable: false`**: adding an `immutable: true` entity on top of a graft base makes graph-node's graft copy fail with "Unexpected null for non-null column" (the immutable `block$` storage path) — see the schema comment and [DEPOSIT_WALLET_DEPLOYMENT.md](DEPOSIT_WALLET_DEPLOYMENT.md).
 
 ---
 
