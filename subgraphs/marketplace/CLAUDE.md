@@ -72,7 +72,7 @@ Request (id: requestId bytes as hex)
 
 Deliver (id: txHash + logIndex)
     ├── DeliverForMarketplace (marketplace-specific fields)
-    ├── ParsedDelivery (IPFS-parsed response/model)
+    ├── ParsedDelivery (IPFS-parsed response/model/tool/toolHash; derived, shares the Deliver's id)
     └── Request (links via deliver.request)
 
 CreateMech (id: mech address)

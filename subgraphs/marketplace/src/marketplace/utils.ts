@@ -770,6 +770,8 @@ function saveParsedDeliveryEntity(
   parsedDelivery.content = payload.content;
   parsedDelivery.model = payload.model;
   parsedDelivery.response = payload.response;
+  parsedDelivery.tool = payload.tool;
+  parsedDelivery.toolHash = payload.toolHash;
   parsedDelivery.save();
 }
 
@@ -792,24 +794,14 @@ export function parseDeliverIpfs(
     return;
   }
 
+  // Writes the ParsedDelivery entity (IPFS-parsed response/model/tool/toolHash).
   saveParsedDeliveryEntity(deliverId, requestId, baseHash, payload);
-
-  let deliverEntity = Deliver.load(deliverId);
-  if (deliverEntity === null) {
-    return;
-  }
-
-  deliverEntity.model = payload.model;
-  deliverEntity.toolResponse = payload.response;
-  deliverEntity.save();
 }
 
 // Spawn the offchain delivery file data source (handleParsedDelivery) to fetch + parse the
-// delivery metadata OFF the indexing critical path — same rationale as the request path: an
-// unreachable delivery hash can no longer stall the chain head. NOTE: unlike the sync
-// parseDeliverIpfs above, this cannot write back Deliver.model/toolResponse (a file-data-source
-// handler can't update the chain-owned Deliver entity). Those fields were a redundant copy of
-// ParsedDelivery.model/response and are left null in the async path — read ParsedDelivery.
+// delivery metadata off the indexing critical path, so an unreachable delivery hash does not
+// stall the chain head. The handler writes only ParsedDelivery; a file-data-source region
+// cannot write the chain-owned Deliver entity.
 function spawnParsedDeliveryFile(deliverId: Bytes, requestId: Bytes, baseHash: string): void {
   let ctx = new DataSourceContext();
   ctx.setString(CTX_DELIVER_ID, deliverId.toHexString());

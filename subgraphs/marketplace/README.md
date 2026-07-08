@@ -96,7 +96,7 @@ yarn deploy-local
 | `Global` | Aggregate counters (marketplace + legacy requests, deliveries, fees) | Mutable (aggregated state) |
 | `Sender` | Address that has made requests | Mutable (aggregated state) |
 | `ParsedRequest` | IPFS-parsed request content (prompt, tool) | Immutable (event log) |
-| `ParsedDelivery` | IPFS-parsed delivery content (response, model) | Immutable (event log) |
+| `ParsedDelivery` | IPFS-parsed delivery content (response, model, tool, toolHash) | Immutable (event log) |
 | `MarketplaceRequest` | On-chain marketplace request event | Immutable (event log) |
 | `MarketplaceDelivery` | On-chain marketplace delivery event | Immutable (event log) |
 | `AtaTransaction` | Deduplicated ATA transaction record | Immutable (event log) |
@@ -178,15 +178,37 @@ https://subgraph.autonolas.tech/subgraphs/name/marketplace-{network}-{version}
       prompt
       tool
     }
-    delivery {
-      parsedDelivery {
+    deliveries {
+      id
+      parsedDelivery {   # IPFS-parsed response/model/tool/toolHash
         response
         model
+        tool
+        toolHash
       }
     }
   }
 }
 ```
+
+Or query parsed delivery content directly:
+```graphql
+{
+  parsedDeliveries(first: 10) {
+    response
+    model
+    tool
+    toolHash
+    request { id }
+  }
+}
+```
+
+> The IPFS-parsed `response`/`model`/`tool`/`toolHash` live on `ParsedDelivery`, read via
+> `deliver.parsedDelivery`. Delivery IPFS metadata is parsed in a file-data-source causality
+> region that writes only `ParsedDelivery`, not the chain-owned `Deliver`. `tool`
+> (`metadata.tool`) and `toolHash` (`metadata.tool_hash`, an IPFS CID) are `[unhandled type]`
+> when the payload omits the keys.
 
 ### Query Semantics
 

@@ -585,6 +585,15 @@
       "reason": "Surfaced 2026-06-20 — newly published advisory. Transitive of @graphprotocol/graph-cli (graph-cli > undici) on the 0.98.1 line; same class as the existing undici baseline entries (1114591 / 1114637 / 1114639). No fix until graph-cli upstream bumps undici to >=7.28.0 / Tier 3 Wave 3. Re-evaluate then.",
       "added": "2026-06-20",
       "review": "2026-09-18"
+    },
+    {
+      "id": 1122670,
+      "ghsa": "GHSA-mp2f-45pm-3cg9",
+      "package": "decompress",
+      "severity": "critical",
+      "reason": "Surfaced 2026-07 — newly published advisory (Zip Slip: archive extraction can create files/links outside the target directory). Transitive of @graphprotocol/graph-cli (graph-cli > decompress); decompress <=4.2.1 has no patched version (fix in <0.0.0). graph-cli uses decompress only at build/codegen time to unpack downloaded release archives — not on the subgraph runtime path. Fixed only when graph-cli upstream drops/replaces decompress / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-07",
+      "review": "2026-10-05"
     }
   ]
 }
