@@ -60,7 +60,7 @@ Extended state for service-type units (beyond what Unit tracks).
 | id | `Bytes!` | `Bytes.fromBigInt(serviceId)` — no prefix (unlike Unit which uses `sr`) |
 | serviceId | `BigInt!` | Unique service identifier |
 | publicId | `String!` | Package ID |
-| state | `BigInt!` | Service state (0=PreRegistration, 1=Active, 2=Finished, 3=Deployed, 4=Terminated) |
+| state | `BigInt!` | Service state (0=NonExistent, 1=PreRegistration, 2=ActiveRegistration, 3=FinishedRegistration, 4=Deployed, 5=TerminatedBonded) |
 | agentIds | `[BigInt!]` | List of agent IDs in the service |
 | threshold | `BigInt!` | Agent consensus threshold |
 | securityDeposit | `BigInt!` | Security deposit amount |

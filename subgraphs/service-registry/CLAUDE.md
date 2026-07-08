@@ -334,13 +334,10 @@ yarn generate-manifests             # Regenerate manifests from template — clo
 yarn test                           # Matchstick runner (declared, but no tests/ directory exists yet)
 ```
 
-Deploy per-network:
-```bash
-yarn deploy-gnosis
-yarn deploy-mode
-```
-
-Production deployments go through the GitHub Actions workflow (see the root CLAUDE.md).
+Deployments for both networks (Gnosis and Mode) go through the GitHub Actions
+workflow — see the root CLAUDE.md. There are no local `yarn deploy-*` scripts:
+graph-cli 0.98.1 has no `--studio` flag, and this subgraph deploys to the
+self-hosted graph node, not Subgraph Studio.
 
 ---
 

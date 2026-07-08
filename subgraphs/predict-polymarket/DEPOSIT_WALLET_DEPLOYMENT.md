@@ -9,11 +9,12 @@ just-in-time pUSD top-up (Safe → DW) that precedes each bet. See `CLAUDE.md` �
 ## Grafting
 
 The manifest grafts onto the paused v1_1_1 base deployment
-(`QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE`) at block `86236542` — the exact paused
-head of the base (`features: [grafting]` + a `graft:` block). Grafting must be at the head:
-below it, prod's shared chain block cache has evicted the older block hashes around the graft
-point, which aborts start with `store error: Unexpected null for non-null column`. The head's
-hash is still recorded, so grafting at the head resolves.
+(`QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE`), which paused at head block `86236792`,
+at block `86236542` (`features: [grafting]` + a `graft:` block). The graft block is
+head − 250: the graft point must sit within graph-node's 250-block graft-distance limit of
+the base head and within the base's pruning window (`prune: 300`), and head − 250 satisfies
+both. It is well below the first DW trade (block `88031656`), so grafting here loses zero DW
+trades.
 
 ## Constraints
 

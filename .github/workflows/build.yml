@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 17 (subgraph, manifest) pairs covering every deployable manifest
+        # 18 (subgraph, manifest) pairs covering every deployable manifest
         # under subgraphs/. Each entry runs `graph codegen` + `graph build`
         # to catch regressions from dep bumps, schema changes, or handler
         # edits before they reach a deploy. Service-registry generates

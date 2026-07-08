@@ -18,7 +18,7 @@
  * The allowlist path is anchored to the script's own location so a
  * single allowlist at the repo root governs every node_modules tree
  * (root + per-subgraph). The script audits whatever node_modules
- * exists in the current working directory; CI runs it across all 11
+ * exists in the current working directory; CI runs it across all 12
  * paths in a matrix after `yarn install --frozen-lockfile
  * --ignore-scripts` per tree.
  *

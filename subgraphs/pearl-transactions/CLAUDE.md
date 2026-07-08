@@ -154,7 +154,7 @@ in the canonical `autonolas-tokenomics-subgraph` first per the sync policy above
 `StakingFactory.InstanceCreated` only spawns the `StakingProxy` template when
 `event.params.implementation` is on the hardcoded per-network allowlist in
 `src/constants.ts` (`isAllowedImplementation`; Gnosis currently a single
-address, `0xEa00…7AB1`, copied from `subgraphs/staking/src/utils.ts`).
+address, `0xEa00…7AB1`, copied from the canonical `autonolas-tokenomics-subgraph` staking subgraph).
 Unknown implementations are skipped **silently** (they may have incompatible
 event ABIs). When Olas ships a new staking implementation, this subgraph
 loses, with no error: `StakingContract` entities, all
@@ -166,4 +166,6 @@ requires a code change + full-history re-sync (already-emitted
 land in the canonical repo first. Also permanent: a proxy whose
 `minStakingDeposit` / `numAgentInstances` eth_calls revert at creation is
 skipped for good (warning log in `src/staking-factory.ts`). Keep the list in
-lockstep with `subgraphs/staking`.
+lockstep with the canonical `autonolas-tokenomics-subgraph` staking subgraph
+(this repo's `subgraphs/staking` has no allowlist — it templates
+unconditionally and is Mode-only).
