@@ -10,12 +10,12 @@
 
 | Cited concern | Verdict |
 |---|---|
-| marketplace: "blocking IPFS fetched inline, retried 1000×" (`agent-mech.ts`, `marketplace/utils.ts`) | **Half stale.** The marketplace path moved to file data sources (commits `4589b46`/`fa54999`) — fetches are async and off the critical path. Still true for the **legacy AgentMech path** (`src/agent-mech.ts:106,111`, up to 2 blocking `ipfs.cat` per Request/Deliver) — which is the bulk of Gnosis history and dominates any re-index. The `utils.ts` sync path is test-only dead code. |
-| marketplace: "token-price lookup re-fetched on every delivery" (`fee-utils.ts`) | **Nuanced.** On Gnosis, native-xDAI conversion (the dominant payment type) is pure math — zero eth_calls. Real for OLAS-paid mechs (2 Balancer calls/conversion) and for native fees on the other 6 networks (1 Chainlink call/conversion). Not the main Gnosis-slowness explanation. |
-| pearl-transactions: "repeated eth_calls" (`src/utils.ts`) | **Stale.** No per-event eth_calls exist on the Transfer hot path — the discard cost is **6 store point-lookups per firehose event**. (Kernel of truth: an unguarded `getOwners()` probe repeats forever on registry/staking events — warm path, not hot.) Also: this repo's pearl-transactions is the **Gnosis-only port** (4 chain-wide streams: WXDAI, USDC, USDC.e, OLAS ≈ **106k events/day** measured); the Polygon/pUSD multi-network variant lives in the canonical repo — fixes must land there per the sync policy. |
-| predict-omen: "mitigation = settled-guard early-exits" | **Wrong mitigation.** No settled-guard exists in `handleBuy`/`handleSell` — and adding one would make things *worse*: settled markets emit no Buy/Sell events, so the guard would burn an extra store read per live trade to skip ~nothing. The real cost of the ~15k-template watch-list is the growing `eth_getLogs` address filter, which no handler code can reduce. Re-platform is the only complete fix (confirmed: no graph-node version can retire a dynamic data source — open issues #1921/#3504). |
+| marketplace: blocking inline IPFS fetches (`agent-mech.ts`, `marketplace/utils.ts`) | **Half stale.** The marketplace path moved to file data sources (commits `4589b46`/`fa54999`) — fetches are async and off the critical path. Still true for the **legacy AgentMech path** (`src/agent-mech.ts:106,111`, up to 2 blocking `ipfs.cat` per Request/Deliver) — which is the bulk of Gnosis history and dominates any re-index. The `utils.ts` sync path is test-only dead code. |
+| marketplace: token-price lookups re-fetched per delivery (`fee-utils.ts`) | **Nuanced.** On Gnosis, native-xDAI conversion (the dominant payment type) is pure math — zero eth_calls. Real for OLAS-paid mechs (2 Balancer calls/conversion) and for native fees on the other 6 networks (1 Chainlink call/conversion). Not the main Gnosis-slowness explanation. |
+| pearl-transactions: repeated eth_calls on the Transfer path (`src/utils.ts`) | **Stale.** No per-event eth_calls exist on the Transfer hot path — the discard cost is **6 store point-lookups per firehose event**. (Kernel of truth: an unguarded `getOwners()` probe repeats forever on registry/staking events — warm path, not hot.) Also: this repo's pearl-transactions is the **Gnosis-only port** (4 chain-wide streams: WXDAI, USDC, USDC.e, OLAS ≈ **106k events/day** measured); the Polygon/pUSD multi-network variant lives in the canonical repo — fixes must land there per the sync policy. |
+| predict-omen: settled-guard early-exits as the mitigation | **Wrong mitigation.** No settled-guard exists in `handleBuy`/`handleSell` — and adding one would make things *worse*: settled markets emit no Buy/Sell events, so the guard would burn an extra store read per live trade to skip ~nothing. The real cost of the ~15k-template watch-list is the growing `eth_getLogs` address filter, which no handler code can reduce. Re-platform is the only complete fix (confirmed: no graph-node version can retire a dynamic data source — open issues #1921/#3504). |
 | predict-polymarket: chain-wide pUSD + exchange-wide OrderFilled | **Confirmed, handler code already optimal.** >99.9% discard on both streams; the drag is structural event delivery. This is the quantified argument for the planned Envio re-platform. |
-| "graph-node has no way to stop tracking a contract" (Omen) | **Confirmed** with precision: `endBlock` exists for *static* dataSources (specVersion ≥0.0.9 — polymarket already uses it to retire v1 exchanges) but there is **no retirement mechanism for dynamic templates** in any graph-node version. |
+| graph-node has no way to stop tracking a contract (Omen) | **Confirmed** with precision: `endBlock` exists for *static* dataSources (specVersion ≥0.0.9 — polymarket already uses it to retire v1 exchanges) but there is **no retirement mechanism for dynamic templates** in any graph-node version. |
 
 **Where the actual time goes, per slow subgraph:**
 
@@ -99,7 +99,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** (a)+(b): hours-to-1-day incl. tests; (c): days and easy to get wrong · **Risk:** (a): must confirm the full set of Polymarket oracle addresses (UmaCtfAdapter versions + NegRiskAdapter) or agent-traded markets lose TokenRegistry rows and handleOrderFilledV2 drops their trades via the :48 warning path. (b): manifest-only, graft-safe. (c): a wrong hash silently orphans all future trades — needs differential testing against on-chain values.
 
-**Cross-check:** nuanced — 'repeated eth_calls' is technically per-event, but the event is market creation, not trading, so it is NOT hot in the OrderFilled sense. It is still material on re-index because the stream is chain-wide and unconditional.
+**Cross-check:** nuanced — the repeated-eth_calls concern is technically per-event, but the event is market creation, not trading, so it is NOT hot in the OrderFilled sense. It is still material on re-index because the stream is chain-wide and unconditional.
 
 > **Verifier note:** Fix (b) — declared eth_calls — is NOT feasible for these calls and should be dropped. Verified against graph-node v0.40.1 source (graph/src/data_source/common.rs): CallArg accepts only 40-char hex ADDRESS literals, event.address, event.params.<name>, and entity.<param>. getCollectionId(ZERO_BYTES32, conditionId, indexSet) needs a bytes32 literal and a uint literal (neither expressible), and getPositionId(collateral, collectionId) needs the RESULT of getCollectionId, which declared calls cannot chain. So neither of the 4 calls can be declared; the interim recommendation reduces to (a) alone. For (a), the allowlist must include BOTH tracked UmaCtfAdapter generations — 0x157Ce2d6... (the 'UmaCtfAdapter' dataSource) and 0x65070BE9... (UMA CTF Adapter V4, mislabeled 'OO V3' in the manifest — see finding 4) — plus NegRiskAdapter 0xd91E80cF..., or all current Polymarket markets lose their TokenRegistry rows and handleOrderFilledV2 drops agent trades.
 
@@ -179,7 +179,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** hours (a) / days (b, product sign-off) / weeks (c) · **Risk:** (a) graft-safe, manifest-only, loses no data if startBlock <= first Pearl safe; (b) product decision — loses in-graph stablecoin rows and TokenBalance for those tokens, graft-safe as a manifest+handler removal but consumers must migrate; (c) full re-index on a new stack. Any fix must land in the canonical autonolas-tokenomics-subgraph first per the repo sync policy.
 
-**Cross-check:** confirmed in substance, stale in citation: the cited concern points at subgraph.template.yaml and Polygon, but this repo's port is Gnosis-only with a single concrete subgraph.yaml (no template/networks.json — those live in the canonical autonolas-tokenomics-subgraph repo). Tokens subscribed HERE: OLAS, WXDAI, USDC, USDC.e. pUSD is Polygon-only and intentionally absent (subgraph.yaml:142-145). The Polygon deployment (from the canonical repo) runs the same code with 5 streams (OLAS, WPOL, USDC, USDC.e, pUSD — constants.ts:126-186) on a chain with far higher transfer volume, so 'Polygon is slow' is consistent but not fixable in this repo.
+**Cross-check:** confirmed in substance, stale in citation: the cited concern points at subgraph.template.yaml and Polygon, but this repo's port is Gnosis-only with a single concrete subgraph.yaml (no template/networks.json — those live in the canonical autonolas-tokenomics-subgraph repo). Tokens subscribed HERE: OLAS, WXDAI, USDC, USDC.e. pUSD is Polygon-only and intentionally absent (subgraph.yaml:142-145). The Polygon deployment (from the canonical repo) runs the same code with 5 streams (OLAS, WPOL, USDC, USDC.e, pUSD — constants.ts:126-186) on a chain with far higher transfer volume, so the Polygon-is-slow observation is consistent but not fixable in this repo.
 
 > **Verifier note:** Minor reinforcement: topic filters are doubly unavailable — besides the dynamic-set problem, the manifest is specVersion 1.0.0, below the 1.2.0 floor for topic filters, so they could not be declared at all without a spec bump (graph-cli 0.98.1 / graph-node 0.40.1 would support the bump, but the dynamic-set problem makes it moot).
 
@@ -195,7 +195,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** hours to a day (mapping + schema + Matchstick updates in tests/phase-2a.test.ts) · **Risk:** Change (1) is NOT graft-safe as a clean cut: TrackedAddress rows for safes discovered pre-graft would not exist, silently untracking them — requires re-index (or an unattractive dual-read fallback that makes the discard path worse). Changes (2)+(3) are pure mapping changes, graft-safe. Classification regressions are the correctness risk; the existing test suite covers classifyTransfer.
 
-**Cross-check:** the 'repeated eth_calls citing src/utils.ts' concern is STALE as stated — there are no per-event eth_calls on the Transfer path; the hot-path cost is store reads, not RPC. Static topic filters confirmed unusable (dynamic tracked set).
+**Cross-check:** the repeated-eth_calls concern (citing src/utils.ts) is STALE as stated — there are no per-event eth_calls on the Transfer path; the hot-path cost is store reads, not RPC. Static topic filters confirmed unusable (dynamic tracked set).
 
 > **Verifier note:** Fix component (2) is ineffective as stated: graph-node instantiates a fresh WASM instance per handler invocation, so AssemblyScript module-level globals do NOT persist across events — a 'lazily-initialized global' re-initializes every invocation, which is exactly the current cost. The achievable version is only a function-local hoist: compute currentNetwork() once per classifyTransfer call instead of twice (lines 733 and 736 each call it). The real per-event constant-resolution floor cannot be eliminated in the mapping layer. Fixes (1) and (3) stand.
 
@@ -251,7 +251,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** hours · **Risk:** Graft-safe (additive entity). Edge case: a CREATE2-deployed Safe appearing later at a previously-probed address would stay blacklisted — acceptable (Pearl safes are probed only after deployment).
 
-**Cross-check:** this is the kernel of truth in the 'repeated eth_calls / src/utils.ts' concern — real but on a warm path (registry/staking events), not the Transfer hot path; other eth_calls (staking-factory.ts:30-32 minStakingDeposit/numAgentInstances) run once per allowed staking proxy and are fine.
+**Cross-check:** this is the kernel of truth in the repeated-eth_calls / src/utils.ts concern — real but on a warm path (registry/staking events), not the Transfer hot path; other eth_calls (staking-factory.ts:30-32 minStakingDeposit/numAgentInstances) run once per allowed staking proxy and are fine.
 
 > **Verifier note:** Prefer the negative-cache entity over the declared-call alternative for a second reason beyond simplicity: declared eth_calls (would require bumping specVersion 1.0.0 -> 1.2.0, which graph-cli 0.98.1 and graph-node 0.40.1 do support) execute on EVERY ServiceStaked event, including the common case where the MasterSafe entity already exists and the current code takes the cheap MasterSafe.load early-return without any eth_call — declaring the call would add RPC work to the warm path while parallelizing the cold one.
 
@@ -321,7 +321,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** days (1-2): mapping changes + manifest template reuse + test updates; parsing code already extracted · **Risk:** Graft-safe for the deployed Gnosis instance (mapping-only change, schema unchanged) — but grafting means the already-indexed legacy region keeps its data and the speedup is only realized on a future re-index from genesis (which is exactly when it matters: legacy region is the slow part). Behavior change: legacy predict counters freeze (same as marketplace path); document like the existing NOTE in src/marketplace/utils.ts:109-112.
 
-**Cross-check:** the 'blocking IPFS fetched inline, retried up to 1000x' concern (citing src/agent-mech.ts and src/marketplace/utils.ts): NUANCED. STALE for src/marketplace/utils.ts — the production marketplace path was moved to file data sources (processOnChainRequest src/marketplace/utils.ts:996-1014, persistMarketplaceDeliver:1133-1147); the remaining sync ipfs.cat at utils.ts:671-678 is only reachable via parseRequestIpfs/parseDeliverIpfs which have zero production callers (test-only: tests/mech-requests.test.ts, mech-deliveries.test.ts, question-title.test.ts). CONFIRMED for src/agent-mech.ts (legacy Gnosis path). The '1000x retry' framing is imprecise: sync ipfs.cat blocks up to the node IPFS timeout then returns null (handled); the max-attempts retry semantics apply to file data sources, which retry in the background off the critical path.
+**Cross-check:** the blocking-inline-IPFS concern (citing src/agent-mech.ts and src/marketplace/utils.ts): NUANCED. STALE for src/marketplace/utils.ts — the production marketplace path was moved to file data sources (processOnChainRequest src/marketplace/utils.ts:996-1014, persistMarketplaceDeliver:1133-1147); the remaining sync ipfs.cat at utils.ts:671-678 is only reachable via parseRequestIpfs/parseDeliverIpfs which have zero production callers (test-only: tests/mech-requests.test.ts, mech-deliveries.test.ts, question-title.test.ts). CONFIRMED for src/agent-mech.ts (legacy Gnosis path). The 1000x-retry framing is imprecise: sync ipfs.cat blocks up to the node IPFS timeout then returns null (handled); the max-attempts retry semantics apply to file data sources, which retry in the background off the critical path.
 
 > **Verifier note:** Minor: the totalPredictRequests increment lives in saveParsedRequestEntity (agent-mech.ts:153-186, increment at 174), called from handleRequest at line 349, not literally inline in handleRequest. Also note the port removes an awkward dual-causality-region situation: today ParsedRequest/ParsedDelivery are written both by the legacy chain handlers and by the marketplace FDS handlers; after the port all writes come from the offchain region.
 
@@ -337,7 +337,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** hours for (a); ~1 day for (b) incl. tests · **Risk:** Low. (a) is a mapping-only change, graft-safe. (b) adds a new entity type — graft-safe (additive schema). USD figures become up-to-N-blocks stale; acceptable for analytics counters. Requires passing block number into convertFeeToUsd (signature change, touch all callers).
 
-**Cross-check:** the 'token-price lookup re-fetched on every delivery' concern (citing fee-utils.ts): NUANCED. CONFIRMED for TOKEN(OLAS) fees (all networks) and NATIVE fees on the 6 non-Gnosis networks. STALE as a Gnosis-slowness explanation: Gnosis xDAI-native fees (the dominant Gnosis payment type) are a pure 10^18 division with zero eth_calls (fee-utils.ts:174-177), and Gnosis NVM CREDITS use hardcoded ratios (constants.ts:245-250), not contract reads. The Gnosis slow-list pain is far more likely the legacy IPFS path (see finding 1) — the manifest's own graft comment (subgraph.gnosis.yaml:6-12) attributes the recent stall to IPFS, not eth_calls.
+**Cross-check:** the token-price-re-fetched-per-delivery concern (citing fee-utils.ts): NUANCED. CONFIRMED for TOKEN(OLAS) fees (all networks) and NATIVE fees on the 6 non-Gnosis networks. STALE as a Gnosis-slowness explanation: Gnosis xDAI-native fees (the dominant Gnosis payment type) are a pure 10^18 division with zero eth_calls (fee-utils.ts:174-177), and Gnosis NVM CREDITS use hardcoded ratios (constants.ts:245-250), not contract reads. The Gnosis slow-list pain is far more likely the legacy IPFS path (see finding 1) — the manifest's own graft comment (subgraph.gnosis.yaml:6-12) attributes the recent stall to IPFS, not eth_calls.
 
 > **Verifier note:** Small nit: declared eth_calls can in fact use constant/literal addresses, so 'not derivable from event params' is not the blocking issue — the real reason to reject them (they prefetch but still execute per event) is stated correctly and stands.
 
@@ -463,7 +463,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** High for full re-syncs: trigger-filter matching and template re-scan overhead scales with market count; this is the dominant structural cost unique to this subgraph. Handler-level fixes cannot recover it. · **Effort:** days (re-platform) / zero (accept) · **Risk:** Re-platform = full rewrite + re-index; accepting = none. Adding a settled-guard to handlers would ADD a store read per trade for near-zero benefit — recommend NOT doing it.
 
-**Cross-check:** STALE/nuanced: the assumption that 'mitigation = settled-guard early-exits in handlers' is wrong — NO settled-market guard exists in handleBuy/handleSell (FixedProductMarketMakerMapping.ts:14-17,65-68 only check FPMM + TraderAgent existence). More importantly, a settled-guard would not help: settled markets emit essentially zero FPMMBuy/FPMMSell events, and the growth cost lives in trigger matching, which handler guards cannot reach. The 'watch-list only grows / no way to retire' point is CONFIRMED.
+**Cross-check:** STALE/nuanced: the assumed mitigation (settled-guard early-exits in handlers) is wrong — NO settled-market guard exists in handleBuy/handleSell (FixedProductMarketMakerMapping.ts:14-17,65-68 only check FPMM + TraderAgent existence). More importantly, a settled-guard would not help: settled markets emit essentially zero FPMMBuy/FPMMSell events, and the growth cost lives in trigger matching, which handler guards cannot reach. The watch-list-only-grows / no-way-to-retire point is CONFIRMED.
 
 > **Verifier note:** Minor framing: the per-block matching cost at ~15k addresses is real but graph-node batches dynamic sources of the same template into one log filter; the dominant costs are the growing eth_getLogs address set and the current-block re-scan per market creation, not per-address linear matching in the node itself.
 
@@ -495,7 +495,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Medium: removes 1 of 5 writes per bet and shrinks per-block transactions; real but not the dominant cost given prune:300 is already active. · **Effort:** hours (accept) / days (timeseries redesign + re-index) · **Risk:** Timeseries redesign requires specVersion/apiVersion upgrade (currently 1.0.0/0.0.7) and full re-index; aggregation semantics for reversal-heavy profit accounting need careful test parity with the 33 existing Matchstick tests.
 
-**Cross-check:** CONFIRMED with nuance: 'a single running-total record rewritten on most events' is accurate for the bet/payout paths. But 'serialises writes' overstates the mechanism — graph-node executes handlers for one subgraph serially anyway; the actual cost is version-row churn and larger per-block DB transactions, and prune:300 already bounds the historical churn. The settlement handler is already delta-batched, contra that framing.
+**Cross-check:** CONFIRMED with nuance: the single-running-total-record concern is accurate for the bet/payout paths. But the serialises-writes framing overstates the mechanism — graph-node executes handlers for one subgraph serially anyway; the actual cost is version-row churn and larger per-block DB transactions, and prune:300 already bounds the historical churn. The settlement handler is already delta-batched, contra that framing.
 
 > **Verifier note:** For option (b), note Global.totalBets/totalTraded lifetime values need either cumulative aggregations (@aggregate cumulative: true, supported at specVersion 1.1.0+) or client-side summing of interval buckets; per-day buckets alone don't directly replace the lifetime singleton fields.
 
@@ -583,7 +583,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** n/a (already applied) · **Effort:** n/a · **Risk:** Time-travel queries are unavailable beyond 300 blocks — presumed acceptable.
 
-**Cross-check:** CONFIRMED: 'manifest has prune: 300 already' is accurate (note the local CLAUDE.md for this subgraph stale-says 'prune: auto').
+**Cross-check:** CONFIRMED: the manifest-already-has-prune:300 point is accurate (note the local CLAUDE.md for this subgraph stale-says 'prune: auto').
 
 ### 4.10 ⚪ LOW · dead-weight — Stale manifest metadata and deprecated duplicate field
 
@@ -729,7 +729,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Minor steady-state savings; main value is code hygiene and preventing the daily block-handler stall from growing linearly with service count. · **Effort:** hours · **Risk:** None; graft-safe.
 
-**Cross-check:** nuanced — a '1800-block portfolio-revaluation poll with eth_call price discovery' is the expected concern. Confirmed the 1800-block poll (~1h at Mode 2s blocks), but the heavy revaluation (refreshAllPositionAmounts + refreshAllUSDValues, helpers.ts:118-123) only runs when a service crosses UTC midnight — i.e. once per service per day, not every poll. 23 of 24 polls are load-check-noop. The daily fan-out itself is real: ~15 token prices x up-to-6 calls each + per-position refreshes (ownerOf/positions/slot0/getPool/balanceOf/totalSupply/getReserves/getPoolTokens) per service, executed serially in one block handler.
+**Cross-check:** nuanced — an 1800-block portfolio-revaluation poll with eth_call price discovery is the expected concern. Confirmed the 1800-block poll (~1h at Mode 2s blocks), but the heavy revaluation (refreshAllPositionAmounts + refreshAllUSDValues, helpers.ts:118-123) only runs when a service crosses UTC midnight — i.e. once per service per day, not every poll. 23 of 24 polls are load-check-noop. The daily fan-out itself is real: ~15 token prices x up-to-6 calls each + per-position refreshes (ownerOf/positions/slot0/getPool/balanceOf/totalSupply/getReserves/getPoolTokens) per service, executed serially in one block handler.
 
 > **Verifier note:** One design note on the singleton lastSnapshotDay guard: isSnapshotDue currently returns true immediately for a brand-new portfolio (lastSnapshotTimestamp == 0), so a pure day-level singleton would delay a new service's first snapshot until the next UTC-midnight crossing; set the pending flag in registerServiceForSnapshots (or check a needsFirstSnapshot flag) to preserve that behavior.
 
@@ -783,7 +783,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Large reduction in store size and write-side index maintenance; The Graph cites pruning as one of the biggest wins for subgraphs with high-churn mutable entities. Given Global alone has one version per safe tx (likely millions on Gnosis), the versions table shrinks by orders of magnitude. · **Effort:** hours · **Risk:** prune: auto disables time-travel queries and constrains future graft points to unpruned blocks. Deploy is graft-safe (schema unchanged); coordinate with any consumers doing block-height queries. predict-* subgraphs already re-index from genesis, so re-index fallback is acceptable.
 
-**Cross-check:** confirmed — 'too complex for the graph' is really 'ancient manifest + write amplification'; the manifest predates every optimization lever The Graph has shipped since 2023.
+**Cross-check:** confirmed — the perceived over-complexity is really ancient manifest + write amplification; the manifest predates every optimization lever The Graph has shipped since 2023.
 
 > **Verifier note:** Fix must also edit subgraph.template.yaml (mode-mainnet/gnosis manifests are template-generated). Note the specVersion bump is not literally deploy-in-place: it creates a new deployment hash requiring re-index or graft. Also '~6-8 version rows per event' slightly overstates steady state: graph-node collapses multiple saves of the same entity within one block to one version row, so it is ~4-5 changed rows per event-bearing block (DailyServiceActivity, DailyAgentPerformance, AgentPerformance, Global, plus join-entity/counter rows on first-of-day).
 
@@ -813,7 +813,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Cuts per-event store ops from ~10-12 to ~4-6 (timeseries insert + dedup joins), and moves sums into DB-side aggregation. Roughly halves write work on the dominant event stream. · **Effort:** days · **Risk:** Schema restructuring → re-index (or additive graft: add timeseries/aggregation entities alongside old ones, migrate queries, then drop old in a later re-index). Unique-count semantics must be preserved via join entities — pure @aggregation cannot replicate them; getting this wrong silently changes dashboard numbers.
 
-**Cross-check:** confirmed — 'daily aggregation entities maintained by hand (timeseries candidates)' is accurate for the sum-type metrics; nuanced for the dedup counts, which have no @aggregate equivalent (no count-distinct).
+**Cross-check:** confirmed — the daily-aggregation-entities-maintained-by-hand (timeseries-candidate) concern is accurate for the sum-type metrics; nuanced for the dedup counts, which have no @aggregate equivalent (no count-distinct).
 
 > **Verifier note:** Minor: replacing AgentPerformance.txCount with a cumulative aggregation changes consumer queries (running total lives in the latest interval bucket rather than a directly-loadable entity); if the existing AgentPerformance query surface must be preserved verbatim, keep that one load-modify-save and only move Daily/Global txCounts to timeseries.
 
@@ -857,7 +857,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Proportional to the fraction of safe txs coming from terminated/re-deployed services — unquantified from code, but every long-lived subgraph of this shape accretes retired sources; also fixes a metrics-correctness wart (terminated services still counted active). · **Effort:** hours · **Risk:** Graft-safe if done via nullable field + mapping change, but CHANGES METRICS SEMANTICS (terminated services stop counting) — confirm with data consumers first; behavior differs before/after graft point.
 
-**Cross-check:** confirmed — 'growth pattern like Omen but per-service' is accurate; no retirement mechanism exists.
+**Cross-check:** confirmed — the growth-pattern-like-Omen-but-per-service point is accurate; no retirement mechanism exists.
 
 > **Verifier note:** The service.multisig != multisig.id variant works because terminate sets it null and redeploy points it at the new safe, but note it also silently excludes the fallback path where multisig.serviceId was never a valid service; behavior change for terminated safes' analytics is a product decision that should be flagged to consumers, since Global.txCount would stop counting those txs going forward.
 
@@ -901,7 +901,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Removes 1-2 blocking IPFS round-trips (each up to the node ipfsMaxAttempts/timeout budget) from every Request; on re-sync with unpinned CIDs this is typically the single largest wall-clock component. Likely order-of-magnitude sync-time reduction for the Request-heavy block ranges. · **Effort:** days (1-2) · **Risk:** Graft-safe if additive: new entity + new file template; file-data-source entities are isolated so prompt/tool must live on the new entity (existing Request fields are already nullable in schema.graphql:41-43). Data becomes eventually-consistent (metadata fills in asynchronously) — consumers querying prompt immediately after the request block may see it later.
 
-**Cross-check:** confirmed — 'check sync ipfs.cat on request/deliver paths' is real on both paths
+**Cross-check:** confirmed — the sync-ipfs.cat-on-request/deliver-paths concern is real on both paths
 
 > **Verifier note:** One mechanism gap: a single file/ipfs template cannot reproduce the try-metadata.json-then-bare-hash fallback, because an unresolvable path never fires the handler (graph-node just retries in the background forever) — there is no 'miss' signal. Either spawn two templates per request (RequestMetadata.create(cid + '/metadata.json') and RequestMetadata.create(cid)) with an idempotent handler keyed so whichever resolves first wins, or accept covering only the primary path. Also note the CID here is the base16 string 'f01701220' + hex, which file/ipfs data sources accept, including /path suffixes.
 
@@ -993,7 +993,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Removes essentially all IPFS latency from the block-processing path; sync time for the affected blocks should drop from IPFS-bound (seconds-to-minutes per event) to eth_call-bound (tens of ms). Likely order-of-magnitude reduction in full-sync time. · **Effort:** days · **Risk:** Needs re-index or careful graft: the schema change is additive (new UnitMetadata entity + link field = graft-safe), but historical Unit rows keep old inline values while new rows use the link, so consumers must query both, or a re-index restores consistency. FDS entities are immutable — UpdateUnitHash must link a NEW metadata entity rather than overwrite.
 
-**Cross-check:** confirmed with one nuance: 'ipfs.cat on EVERY registry event' — Transfer handlers (registry.ts:334-390) do NOT touch IPFS; it is every create/update/service-lifecycle event. The 'up to 4 extra probes' claim is confirmed exactly (registry.ts:100-110).
+**Cross-check:** confirmed with one nuance: the ipfs.cat-on-every-registry-event concern — Transfer handlers (registry.ts:334-390) do NOT touch IPFS; it is every create/update/service-lifecycle event. The up-to-4-extra-probes claim is confirmed exactly (registry.ts:100-110).
 
 > **Verifier note:** Minor: the 4-probe yaml pattern under FDS means the never-found candidates retry in the background indefinitely (wasted node work, though off the critical path); the finding's alternative — deriving type from metadata content and dropping probing — is the cleaner variant. Also note each FDS handler can only write its own entities, so per-yaml probe results must land in per-FDS entities (or one FDS per unit whose handler spawns the winner), which is clunkier than the one-line description suggests. Schema change means re-index or graft.
 
@@ -1025,7 +1025,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** One RPC round-trip (~50-200ms) saved per create/update event; secondary to the IPFS findings but nearly free to take alongside them. Also removes a crash-on-revert failure mode. · **Effort:** hours · **Risk:** Low-medium: relies on Transfer-before-CreateUnit log ordering (holds for the GenericRegistry _safeMint-then-emit implementation — verify against the contract source); graft-safe if the pending entity is added additively to the schema.
 
-**Cross-check:** confirmed ('unguarded eth_calls ownerOf per event'); additionally these are non-try_ calls, so 'unguarded' is true in the crash sense too, except try_ownerOf at :413 which is guarded.
+**Cross-check:** confirmed — unguarded eth_calls (ownerOf per event); additionally these are non-try_ calls, so unguarded is true in the crash sense too, except try_ownerOf at :413 which is guarded.
 
 > **Verifier note:** The stash entity is a small schema addition (re-index or graft needed). A belt-and-braces variant: fall back to try_ownerOf if the stash is missing, so historical edge cases can't crash or mis-attribute.
 
@@ -1041,7 +1041,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Eliminates 3-4 eth_calls and 1 IPFS fetch per lifecycle event (the IPFS part overlaps with finding 1). Meaningful only after findings 1-2 land; listed for completeness. · **Effort:** days · **Risk:** Medium: state-machine drift vs. contract edge cases (slashing, forced termination) would silently corrupt Service.state, whereas getService is always ground truth. Validate by diffing derived state against getService on a staging deploy. Graft-safe (no schema change).
 
-**Cross-check:** confirmed ('getService per event'); nuance: the expensive part on 5 of 7 events is the bundled tokenURI+ipfs.cat, not getService itself.
+**Cross-check:** confirmed — getService per event; nuance: the expensive part on 5 of 7 events is the bundled tokenURI+ipfs.cat, not getService itself.
 
 > **Verifier note:** Two gaps in the pure-state-machine version: (1) multisig is set at deploy time and DeployService carries only serviceId — you'd need to also handle the ServiceRegistry's CreateMultisigWithAgents(serviceId, multisig) event (a manifest eventHandler addition, allowed at specVersion 0.0.5) or keep getService on DeployService only; (2) OperatorUnbond removes that operator's instances but the event doesn't list them — requires an operator->instances join entity built from RegisterInstance params. The pragmatic first step (skip metadata + tokenURI on the 5 lifecycle events, keep getService/getAgentInstances) is zero-risk and already removes the IPFS fetch and 1 eth_call per event.
 
@@ -1132,7 +1132,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Cuts per-event RPC round-trips from 4-6 to 0-1 on the hottest events. Secondary to the IPFS fix in wall-clock terms (eth_calls are ms-scale vs IPFS timeout seconds-scale) but significant against a rate-limited RPC gateway. · **Effort:** hours (dedupe) / 2-3 days (event-derived state) · **Risk:** Event-derived state must exactly mirror contract state machine (e.g. update() resets instances; slash/unbond edge cases) — needs careful mapping of ServiceRegistryL2 semantics and a re-index to validate. Dedupe-only change is graft-safe/behavior-identical.
 
-**Cross-check:** confirmed — matches the 'unguarded eth_calls per event' class flagged for autonolas
+**Cross-check:** confirmed — matches the unguarded-eth_calls-per-event class flagged for autonolas
 
 > **Verifier note:** Three details: (a) updateServiceState runs on 8 of 9 events, not all 9 — handleServiceTransfer (211-231) does store-only updates; (b) the event->state map is off: ActivateRegistration transitions to state 2 (ActiveRegistration), not 1, and TerminateService/OperatorUnbond outcomes depend on bonded operators (terminate -> 5 only if bonds exist, else 1; unbond -> 1 only when the last operator unbonds), so pure event->constant derivation is wrong for those two — either keep one try_getService on terminate/unbond or track per-operator instance counts from RegisterInstance's operator param; (c) the tokenURI call at line 261 is already redundant today independent of any refactor, since metadataHash is derived from getService().configHash at line 238 and the IPFS hash can be built from it (Base16HashPrefix pattern).
 
@@ -1236,7 +1236,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Eliminates ~2 RPC round-trips per stake/unstake event; on the order of minutes-to-tens-of-minutes off a full re-sync depending on event count, and removes the single biggest per-event latency source. Modest in absolute terms due to Mode volume. · **Effort:** hours · **Risk:** Low. Additive schema change -> graft-safe; the eth_call fallback preserves correctness for pre-graft instances. Values are contract-immutable so caching cannot go stale.
 
-**Cross-check:** confirmed with nuance — a 'stake/unstake handlers call proxy live per event (hot?)' concern is accurate (2 calls per event, 3 handlers), but on Mode these events are low-volume, so this is the top ROI item rather than a crisis.
+**Cross-check:** confirmed with nuance — the stake/unstake-handlers-call-proxy-live-per-event concern is accurate (2 calls per event, 3 handlers), but on Mode these events are low-volume, so this is the top ROI item rather than a crisis.
 
 > **Verifier note:** Minor: the fix must be made in subgraph.template.yaml as well (subgraph.mode-mainnet.yaml is generated from the template via networks.json), and the schema addition requires a redeploy/graft — the proposal's graft fallback already anticipates this. Call sites use event.params._event.address, which is equivalent to event.address.
 
@@ -1252,7 +1252,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Expected gain:** Negligible indexing-speed gain (once per instance). Main gain is removing a subgraph-halting failure mode. · **Effort:** hours · **Risk:** Low. Mapping-only change, no schema impact, graft-safe. try_ defaults must be chosen carefully so StakingContract fields are not silently wrong.
 
-**Cross-check:** confirmed — the '~15 unchecked eth_calls once per instance — cheap?' concern: yes, exactly 15, and yes, cheap for performance; the 'unchecked' part is a correctness/availability risk, not a speed one.
+**Cross-check:** confirmed — the ~15-unchecked-eth_calls-once-per-instance concern: yes, exactly 15, and yes, cheap for performance; the unchecked part is a correctness/availability risk, not a speed one.
 
 ### 10.3 ⚪ LOW · write-serialization — Checkpoint handler loads ALL Service entities twice and re-loads Global three times per checkpoint
 
@@ -1280,7 +1280,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Effort:** hours (guard) / n/a today · **Risk:** None — recommendation is to do nothing.
 
-**Cross-check:** confirmed — 'StakingProxy templates per instance' is accurate; volume-wise it's moot on Mode.
+**Cross-check:** confirmed — the StakingProxy-templates-per-instance point is accurate; volume-wise it's moot on Mode.
 
 
 ## 11. `tokenomics` — 1 finding (1 refuted)
