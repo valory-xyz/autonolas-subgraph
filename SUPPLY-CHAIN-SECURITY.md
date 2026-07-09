@@ -64,7 +64,7 @@ The quarterly rotation cadence is the primary mitigation. The longer-term fix is
 
 ## 4. Dependabot
 
-This repo intentionally does **not** ship a `.github/dependabot.yml`. Routine version-update PRs across 12 npm scopes + `github-actions` would generate ~10–15 PRs/week — high noise relative to the team's review bandwidth, especially while heterogeneous `@graphprotocol/graph-cli` versions persist (0.64.0 → 0.98.x; Tier 3 convergence is a separate PR). Without convergence, Dependabot would open the same advisory PR against 6+ different graph-cli version lines.
+This repo intentionally does **not** ship a `.github/dependabot.yml`. Routine version-update PRs across all npm scopes + `github-actions` would generate ~10–15 PRs/week — high noise relative to the team's review bandwidth, especially while heterogeneous `@graphprotocol/graph-cli` versions persist (0.64.0 → 0.98.x; Tier 3 convergence is a separate PR). Without convergence, Dependabot would open the same advisory PR against 6+ different graph-cli version lines.
 
 Vulnerability surfacing is still active via the **Security tab**, configured in repo Settings → Code security and analysis:
 
@@ -88,13 +88,13 @@ Yarn 1.x `yarn audit` exits with a *severity bitmask*, not a threshold, and has 
 
 **Critical naming detail**: the script is exposed as `yarn audit:prod`, NOT `yarn audit`. Yarn 1.x's built-in `yarn audit` shadows same-named scripts in `package.json`, so naming the script `audit` would silently invoke the built-in instead.
 
-The audit gate runs as a **matrix across the root + 11 subgraphs** in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml). Per-path matrix is necessary because heterogeneous graph-cli versions mean root audit alone wouldn't surface advisories present only in older trees (`autonolas` and `autonolas-base` on graph-cli 0.64.0). The script self-locates its allowlist via `import.meta.url`, so a single allowlist at the repo root governs every matrix entry.
+The audit gate runs as a **matrix across the root + every subgraph** in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml). Per-path matrix is necessary because heterogeneous graph-cli versions mean root audit alone wouldn't surface advisories present only in older trees (`autonolas` and `autonolas-base` on graph-cli 0.64.0). The script self-locates its allowlist via `import.meta.url`, so a single allowlist at the repo root governs every matrix entry.
 
 Allowlist policy: every entry needs `id`, `reason`, `added`, `review` (all required), plus optional `ghsa`, `package`, `severity` for human readability. An expired entry prints a warning but does not block CI — the team is expected to refresh or remove on review.
 
 ## 6. Lockfile lint
 
-[`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) runs `lockfile-lint` on every `yarn.lock` (root + 11 subgraphs):
+[`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) runs `lockfile-lint` on every `yarn.lock` (root + every subgraph):
 
 ```
 npx --yes lockfile-lint --path yarn.lock --type yarn --validate-https \
@@ -113,7 +113,7 @@ A new package with an install hook NOT in the allowlist requires an explicit dec
 
 The Graph CLI's transitive tree includes `node-gyp-build` and similar legitimate native-binding bootstrappers; those are expected and allowlisted. Anything else is suspicious.
 
-The install-hook audit runs as a **matrix across all 12 paths** in CI (root + 11 subgraphs), each after `yarn install --frozen-lockfile --ignore-scripts` in that tree. Per-path coverage is necessary because lockfile-lint (§6) validates source URLs and integrity hashes only — it doesn't inspect install-script contents, so a malicious script in a legitimately-sourced dep would slip past lockfile-lint at the subgraph level. The matrix closes that gap.
+The install-hook audit runs as a **matrix across every path** in CI (root + every subgraph), each after `yarn install --frozen-lockfile --ignore-scripts` in that tree. Per-path coverage is necessary because lockfile-lint (§6) validates source URLs and integrity hashes only — it doesn't inspect install-script contents, so a malicious script in a legitimately-sourced dep would slip past lockfile-lint at the subgraph level. The matrix closes that gap.
 
 `--update` is run at root after `yarn install` in every affected tree; it aggregates hook-bearing packages across all populated `node_modules` trees and writes the union to the allowlist. Stale-entry detection (allowlist entry no longer in some tree) is intentionally not enforced per-CI-run, since some hook-bearing packages legitimately surface in only some trees (e.g. `keccak` / `secp256k1` / `protobufjs` appear in the legacy-graph-cli trees of `autonolas` / `autonolas-base` (graph-cli 0.64.0) but not the 0.98.x trees).
 
@@ -157,7 +157,7 @@ If a critical advisory is reported against a published subgraph, OR `GRAPH_NODE_
 4. **Open an incident issue** referencing this playbook, with timeline + scope.
 5. **Notify downstream consumers** — Olas dashboards, frontends, and analytics teams should know to re-validate their cached data.
 
-The metric for response readiness: could the team re-deploy all 11 subgraphs to known-good versions in **under an hour**? If not, drill the playbook quarterly. (Drill cadence: Tier 4.4 follow-up.)
+The metric for response readiness: could the team re-deploy all subgraphs to known-good versions in **under an hour**? If not, drill the playbook quarterly. (Drill cadence: Tier 4.4 follow-up.)
 
 ## 12. Repo-specific watches
 

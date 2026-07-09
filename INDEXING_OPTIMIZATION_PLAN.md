@@ -1,6 +1,6 @@
 # Indexing Speed & Optimization Plan
 
-**Generated:** 2026-07-06 · **Method:** 24-agent workflow — per-subgraph performance audits (deep on the four slow ones: predict-polymarket, pearl-transactions, marketplace, predict-omen), every finding adversarially re-verified for both existence *and fix feasibility* against graph-node v0.40.1, plus a mechanical manifest/schema survey of all 11 packages and a web-research pass on graph-node capabilities. **77 confirmed findings** (3 refuted).
+**Generated:** 2026-07-06 · **Method:** 24-agent workflow — per-subgraph performance audits (deep on the four slow ones: predict-polymarket, pearl-transactions, marketplace, predict-omen), every finding adversarially re-verified for both existence *and fix feasibility* against graph-node v0.40.1, plus a mechanical manifest/schema survey of all packages and a web-research pass on graph-node capabilities. **77 confirmed findings** (3 refuted).
 
 ## Executive summary
 
@@ -1313,7 +1313,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 ---
 
-# Part 2 — Manifest & schema survey (all 11 packages)
+# Part 2 — Manifest & schema survey (all packages)
 
 | Subgraph | specVersion | prune | Immutable | Bytes IDs | eth_calls | IPFS | High-volume sources | Templates | Graft |
 |---|---|---|---|---|---|---|---|---|---|
@@ -1329,7 +1329,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 | **staking** | 1.0.0 / apiVersion 0.0.7 | indexerHints prune: auto | 16/19 immutable — best ratio in repo; mutable only Service, Global, CumulativeDailyStakingGlobal (aggregates, appropriate) | 16 Bytes vs 3 ID/String (Global/daily aggregates String) | 2 bind() sites (src/staking-factory.ts:44, src/utils.ts:25); no declared eth_calls | none | StakingFactory (Mode) + per-instance StakingProxy templates; volume bounded by staking contract count. No block handlers | StakingProxy (dynamic per InstanceCreated) | none |
 | **tokenomics** | 0.0.5 / apiVersion 0.0.7 | absent (no indexerHints) | 1/3 immutable (Transfer); Token, TokenHolder mutable (aggregates) | 3 Bytes vs 0 String — fully Bytes-typed | 0 bind() sites; no declared eth_calls | none | Single OLAS ERC-20 full Transfer stream on Mode (token-scoped, every OLAS transfer). No block handlers | none | none |
 
-**Survey notes:** Survey of all 11 packages under /Users/atatakai/Documents/Projects/Subgraphs/autonolas-subgraph/subgraphs/. Declared eth_calls ('calls:' under eventHandlers) are used NOWHERE in the repo despite marketplace being on specVersion 1.2.0 (which supports them) — every eth_call is a plain synchronous .bind() call site. Grafts exist only on marketplace (gnosis manifest) and predict-polymarket. Pruning gaps: autonolas, autonolas-base, babydegen-mode, service-registry, tokenomics have no indexerHints at all. service-registry is the biggest optimization outlier: specVersion 0.0.5/apiVersion 0.0.6 and 0/16 entities immutable (all daily-join/dedupe entities explicitly mutable). Marketplace is the only package using file/ipfs data sources (ParsedRequestFile/ParsedDeliveryFile, apiVersion 0.0.9) but retains residual sync ipfs.cat in legacy paths (src/agent-mech.ts, src/marketplace/utils.ts:673-677 metadata). Highest-volume streams: predict-polymarket's global pUSD ERC20 Transfer stream on Polygon, pearl-transactions' 4 full ERC20 Transfer streams on Gnosis, and babydegen-mode's 14 token Transfer streams plus a polling block handler (every: 1800) on Mode.
+**Survey notes:** Survey of all packages under `subgraphs/`. Declared eth_calls ('calls:' under eventHandlers) are used NOWHERE in the repo despite marketplace being on specVersion 1.2.0 (which supports them) — every eth_call is a plain synchronous .bind() call site. Grafts exist only on marketplace (gnosis manifest) and predict-polymarket. Pruning gaps: autonolas, autonolas-base, babydegen-mode, service-registry, tokenomics have no indexerHints at all. service-registry is the biggest optimization outlier: specVersion 0.0.5/apiVersion 0.0.6 and 0/16 entities immutable (all daily-join/dedupe entities explicitly mutable). Marketplace is the only package using file/ipfs data sources (ParsedRequestFile/ParsedDeliveryFile, apiVersion 0.0.9) but retains residual sync ipfs.cat in legacy paths (src/agent-mech.ts, src/marketplace/utils.ts:673-677 metadata). Highest-volume streams: predict-polymarket's global pUSD ERC20 Transfer stream on Polygon, pearl-transactions' 4 full ERC20 Transfer streams on Gnosis, and babydegen-mode's 14 token Transfer streams plus a polling block handler (every: 1800) on Mode.
 
 
 ---

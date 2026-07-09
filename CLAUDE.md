@@ -199,7 +199,7 @@ When adding external contract calls (e.g., Chainlink, Balancer), add the ABI and
 
 ## Tooling Versions
 
-All versions are pinned exactly (no carets). 9 of 11 subgraphs are converged on graph-cli `0.98.1`; `autonolas` and `autonolas-base` remain on the legacy `0.64.0` line pending Tier 3 Wave 3 (a separate multi-week migration that crosses AssemblyScript runtime + manifest specVersion boundaries).
+All versions are pinned exactly (no carets). Most subgraphs are converged on graph-cli `0.98.1`; `autonolas` and `autonolas-base` remain on the legacy `0.64.0` line pending Tier 3 Wave 3 (a separate multi-week migration that crosses AssemblyScript runtime + manifest specVersion boundaries).
 
 | Subgraph | graph-cli | graph-ts |
 |---|---|---|
@@ -223,9 +223,9 @@ All versions are pinned exactly (no carets). 9 of 11 subgraphs are converged on 
 
 PR-time CI gates are concentrated in four workflows:
 
-- [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every deployable (subgraph, manifest) pair (18 jobs).
-- [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) — per-(subgraph, manifest) codegen/build/test matrix (18 entries); the only workflow that runs Matchstick tests. Tests are opt-in per matrix entry and currently run only for `marketplace` (`subgraph.gnosis.yaml`), `pearl-transactions`, `predict-omen`, and `predict-polymarket` — every other entry is build-only (`test: false`). For `autonolas`/`autonolas-base` this is because graph-cli 0.64.0's bundled matchstick downloader crashes on Linux x64 + Node 24; for the rest, tests just haven't been enabled yet.
-- [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod`, install-hook audit, and lockfile-lint matrices — each across the same 12 paths (root + 11 subgraphs) — with an `All checks passed` aggregator job.
+- [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every deployable (subgraph, manifest) pair.
+- [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) — per-(subgraph, manifest) codegen/build/test matrix; the only workflow that runs Matchstick tests. Tests are opt-in per matrix entry and currently run only for `marketplace` (`subgraph.gnosis.yaml`), `pearl-transactions`, `predict-omen`, and `predict-polymarket` — every other entry is build-only (`test: false`). For `autonolas`/`autonolas-base` this is because graph-cli 0.64.0's bundled matchstick downloader crashes on Linux x64 + Node 24; for the rest, tests just haven't been enabled yet.
+- [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod`, install-hook audit, and lockfile-lint matrices — each across the same paths (root + every subgraph) — with an `All checks passed` aggregator job.
 - [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — gitleaks scan, SHA-pinned binary download.
 
 Local commands:
