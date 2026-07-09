@@ -594,6 +594,15 @@
       "reason": "Surfaced 2026-07 — newly published advisory (Zip Slip: archive extraction can create files/links outside the target directory). Transitive of @graphprotocol/graph-cli (graph-cli > decompress); decompress <=4.2.1 has no patched version (fix in <0.0.0). graph-cli uses decompress only at build/codegen time to unpack downloaded release archives — not on the subgraph runtime path. Fixed only when graph-cli upstream drops/replaces decompress / Tier 3 Wave 3. Re-evaluate then.",
       "added": "2026-07-07",
       "review": "2026-10-05"
+    },
+    {
+      "id": 1122789,
+      "ghsa": "GHSA-96hv-2xvq-fx4p",
+      "package": "ws",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (Memory exhaustion DoS from tiny fragments and data chunks). Transitive of @graphprotocol/graph-cli; same class as the existing ws entry 1098393. Patched in ws >=7.5.11, but the version is pinned by the graph-cli line — no fix until graph-cli upstream bumps ws / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-09",
+      "review": "2026-10-07"
     }
   ]
 }
