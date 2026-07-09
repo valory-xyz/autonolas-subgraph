@@ -9,7 +9,7 @@
  * Use `--update` to regenerate the allowlist from the current tree.
  * `--update` aggregates across the root tree + every `subgraphs/*` tree
  * that has a populated `node_modules`, so a single allowlist at the repo
- * root captures the union of hooks across all 11 trees. Run after any
+ * root captures the union of hooks across all 12 trees. Run after any
  * dependency change:
  *   yarn install            (at root + any affected subgraph)
  *   node scripts/audit-install-hooks.mjs --update
@@ -18,8 +18,8 @@
  * The allowlist path is anchored to the script's own location so a
  * single allowlist at the repo root governs every node_modules tree
  * (root + per-subgraph). The script audits whatever node_modules
- * exists in the current working directory; CI runs it across all 11
- * paths in a matrix after `yarn install --frozen-lockfile
+ * exists in the current working directory; CI runs it across every
+ * node_modules tree in a matrix after `yarn install --frozen-lockfile
  * --ignore-scripts` per tree.
  *
  * Stale-entry detection (allowlist entry not present in current tree)

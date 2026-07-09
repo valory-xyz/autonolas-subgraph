@@ -6,6 +6,7 @@
 - [Architecture Overview](#architecture-overview)
 - [Core Data Model](#core-data-model)
 - [Event Handlers & Data Flow](#event-handlers--data-flow)
+- [Known Limitations & Silent Failure Modes](#known-limitations--silent-failure-modes)
 - [Common Queries](#common-queries)
 - [Development Workflow](#development-workflow)
 
@@ -18,7 +19,7 @@ A GraphQL API for tracking Autonolas agent activity on Polymarket prediction mar
 
 ### Directory Structure
 ```
-subgraphs/predict/predict-polymarket/
+subgraphs/predict-polymarket/
 ├── schema.graphql                   # GraphQL schema definitions
 ├── subgraph.yaml                    # Subgraph configuration & event mappings
 ├── src/
@@ -29,6 +30,7 @@ subgraphs/predict/predict-polymarket/
 │   ├── uma-mapping.ts               # Market metadata extraction from UMA events
 │   ├── neg-risk-mapping.ts          # NegRisk market handling
 │   ├── collateral-adapter.ts        # Post-cutover payout handling (CtfCollateralAdapter / NegRiskCtfCollateralAdapter)
+│   ├── deposit-wallet.ts            # pUSD Transfer indexing: DepositWallet → TraderAgent link (CLOB v2)
 │   ├── constants.ts                 # Constants
 │   └── utils.ts                     # Utility functions (settlement, payout, trade activity)
 ├── tests/                           # Test files
@@ -117,6 +119,24 @@ type TraderAgent @entity {
 
 ---
 
+#### DepositWallet
+Maps a per-user Polymarket DepositWallet (DW) back to the service Safe that funds it (CLOB v2 trade attribution — see [DepositWallet Attribution](#5b-depositwallet-attribution-clob-v2--deposit-walletts-ctf-exchange-v2ts)).
+
+**Key Fields:**
+```graphql
+type DepositWallet @entity(immutable: false) {
+  id: Bytes!                    # DW address
+  traderAgent: TraderAgent!     # the funding service Safe
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+```
+
+**Pattern**: Written exactly once per DW from the pUSD top-up (Safe → DW) that precedes each bet; logically immutable. **Must stay `immutable: false`**: adding an `immutable: true` entity on top of a graft base makes graph-node's graft copy fail with "Unexpected null for non-null column" (the immutable `block$` storage path) — see the schema comment and [DEPOSIT_WALLET_DEPLOYMENT.md](DEPOSIT_WALLET_DEPLOYMENT.md).
+
+---
+
 #### QuestionIdToConditionId
 Bridge entity linking UMA question IDs to ConditionalTokens condition IDs.
 
@@ -190,12 +210,14 @@ type Bet @entity(immutable: false) {
   countedInProfit: Boolean!     # PnL impact processed
   question: Question            # Market this bet is for
   dailyStatistic: DailyProfitStatistic # Day when bet was placed
+  builder: Bytes                # v2-only: builder-program attribution from OrderFilled
+  metadata: Bytes               # v2-only: 32-byte metadata slot from OrderFilled
   blockTimestamp: BigInt!
   transactionHash: Bytes!
 }
 ```
 
-**Pattern**: Created during OrderFilled when an agent (as maker) trades outcome tokens. Sell bets have negative `amount` and `shares`.
+**Pattern**: Created during OrderFilled when an agent (as maker) trades outcome tokens. Sell bets have negative `amount` and `shares`. `builder`/`metadata` are only emitted by the v2 `OrderFilled` event and are null for all v1 bets — null vs non-null also distinguishes v1/v2 trades.
 
 ---
 
@@ -214,6 +236,9 @@ type DailyProfitStatistic @entity(immutable: false) {
   totalTraded: BigInt!          # Volume placed today (regardless of settlement)
   totalPayout: BigInt!          # Payouts received today
 
+  # Settlement on this day
+  dailyTradedSettled: BigInt!   # Cost basis of bets that SETTLED today (written by processMarketResolution)
+
   # Profit realized on this day
   dailyProfit: BigInt!          # Net profit/loss (adjusted on settlement/payout days)
   profitParticipants: [Question!]! # Markets affecting PnL on this day
@@ -221,6 +246,8 @@ type DailyProfitStatistic @entity(immutable: false) {
 ```
 
 **Pattern**: Automatically created/updated when bets are placed, markets settle, or payouts are redeemed.
+
+**Windowed ROI**: compute as `dailyProfit / dailyTradedSettled`. Do NOT derive cost as `totalPayout − dailyProfit` — the three money fields land on different days (`totalTraded` on bet day, `dailyProfit` on resolution day, `totalPayout` on redemption day).
 
 ---
 
@@ -232,7 +259,7 @@ Tracks an agent's participation in a specific market.
 type MarketParticipant @entity(immutable: false) {
   id: ID!                       # agentAddress_conditionId
   traderAgent: TraderAgent!
-  question: Question!
+  question: Question
   totalBets: Int!
   totalTraded: BigInt!          # All volume in this market
   totalTradedSettled: BigInt!   # Settled volume only (updated at resolution)
@@ -267,7 +294,7 @@ type TokenRegistry @entity(immutable: true) {
 }
 ```
 
-**Pattern**: Created during TokenRegistered events from CTF Exchange. Essential for identifying which outcome an agent is betting on.
+**Pattern**: Created during v1 `TokenRegistered` events, or derived via `getCollectionId`/`getPositionId` eth_calls at `ConditionPreparation` for v2 markets (the v2 exchanges no longer emit `TokenRegistered`). Essential for identifying which outcome an agent is betting on.
 
 ---
 
@@ -292,11 +319,8 @@ type QuestionResolution @entity(immutable: true) {
 
 ---
 
-#### ConditionPreparation (Deprecated)
-Immutable record of condition setup from ConditionalTokens.
-
-**Note**: This entity is no longer used in the current implementation. The bridge is established via QuestionIdToConditionId instead.
-
+#### ConditionPreparation (Removed)
+**Note**: This entity has been removed from the schema entirely. The bridge between UMA question IDs and condition IDs is established via QuestionIdToConditionId instead.
 
 ---
 
@@ -308,8 +332,8 @@ Aggregate statistics across all agents.
 type Global @entity {
   id: ID!                       # Singleton: "" (empty string)
 
-  totalTraderAgents: Int!
-  totalActiveTraderAgents: Int!
+  totalTraderAgents: Int!       # Registered agent-86 multisigs
+  totalActiveTraderAgents: Int!  # Subset that has placed >= 1 bet
   totalBets: Int!               # All bets including open markets
 
   # Financial metrics
@@ -321,7 +345,7 @@ type Global @entity {
 }
 ```
 
-**Important**: `totalTradedSettled` is updated at resolution for ALL bets (winning and losing). `totalExpectedPayout` tracks the theoretical total agents are entitled to.
+**Important**: `totalTradedSettled` is updated at resolution for ALL bets (winning and losing). `totalExpectedPayout` tracks the theoretical total agents are entitled to. `totalTraderAgents` counts registered agent-86 multisigs; `totalActiveTraderAgents` is the subset with at least one bet — incremented in `processTradeActivity` when an agent's `firstParticipation` is first set.
 
 ---
 
@@ -360,7 +384,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
   // Only create TraderService if it has agent ID 86
   if (agentId !== PREDICT_AGENT_ID) return;
 
-  let serviceId = event.params.serviceId.toString();
+  let serviceId = event.params.serviceId.toHexString();
   let traderService = TraderService.load(serviceId);
   if (traderService !== null) return;
 
@@ -369,7 +393,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
 }
 ```
 
-**Pattern**: Creates TraderService marker entity only for services with agent ID 86, enabling selective tracking in the next handler.
+**Pattern**: Creates TraderService marker entity only for services with agent ID 86, enabling selective tracking in the next handler. Note that TraderService ids are hex-encoded serviceIds (e.g. `"0x64"`, not `"100"`).
 
 ---
 
@@ -380,7 +404,7 @@ export function handleRegisterInstance(event: RegisterInstanceEvent): void {
 ```typescript
 export function handleCreateMultisigWithAgents(event: CreateMultisigWithAgentsEvent): void {
   // Skip non-trader services
-  let traderService = TraderService.load(event.params.serviceId.toString())
+  let traderService = TraderService.load(event.params.serviceId.toHexString())
   if (traderService === null) return;
 
   let traderAgent = TraderAgent.load(event.params.multisig);
@@ -391,6 +415,7 @@ export function handleCreateMultisigWithAgents(event: CreateMultisigWithAgentsEv
     traderAgent.totalPayout = BigInt.zero();
     traderAgent.totalTraded = BigInt.zero();
     traderAgent.totalTradedSettled = BigInt.zero();
+    traderAgent.totalExpectedPayout = BigInt.zero();
     traderAgent.blockNumber = event.block.number;
     traderAgent.blockTimestamp = event.block.timestamp;
     traderAgent.transactionHash = event.transaction.hash;
@@ -420,47 +445,77 @@ export function handleConditionPreparation(event: ConditionPreparationEvent): vo
     return;
   }
 
-  let entity = new ConditionPreparation(event.params.conditionId.toHexString());
+  // Repeated questionId → keep the first bridge, warn and skip
+  let bridge = QuestionIdToConditionId.load(event.params.questionId);
+  if (bridge !== null) {
+    log.warning("REPETITIVE_QUESTION_ID detected: ...", [...]);
+    return;
+  }
+
+  let entity = new QuestionIdToConditionId(event.params.questionId);
   entity.conditionId = event.params.conditionId;
   entity.oracle = event.params.oracle;
-  entity.questionId = event.params.questionId;
-  entity.outcomeSlotCount = event.params.outcomeSlotCount;
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
   entity.save();
 
-  let question = new Question(event.params.questionId)
-  question.conditionId = event.params.conditionId;
-  question.isNeqRisk = false;
-  question.metadata = null; // Will be populated by UMA event
-  question.blockNumber = event.block.number;
-  question.blockTimestamp = event.block.timestamp;
-  question.transactionHash = event.transaction.hash;
-  question.save();
+  // v2 exchanges do not emit TokenRegistered — derive both outcome tokenIds
+  // via eth_call so MarketParticipant lookups work for post-cutover markets.
+  // Collateral branches on the oracle: NegRiskAdapter markets use the adapter
+  // address as collateral, others USDC.e.
+  let isNegRisk = event.params.oracle.equals(NEG_RISK_ADAPTER_ADDRESS);
+  let collateral = isNegRisk ? NEG_RISK_ADAPTER_ADDRESS : USDC_E_ADDRESS;
+
+  let ctf = ConditionalTokens.bind(event.address);
+  // registerOutcomeToken: getCollectionId + getPositionId eth_calls,
+  // then writes a TokenRegistry row (skipped if one already exists — v1 path)
+  registerOutcomeToken(ctf, event.params.conditionId, collateral, 1, 0, event.transaction.hash);
+  registerOutcomeToken(ctf, event.params.conditionId, collateral, 2, 1, event.transaction.hash);
 }
 ```
 
-**Pattern**: Only binary markets tracked. Question entity created with null metadata, waiting for UMA event.
+**Pattern**: Only binary markets tracked. Creates the `QuestionIdToConditionId` bridge (first conditionId wins on questionId reuse — later repeats log a `REPETITIVE_QUESTION_ID` warning and are skipped, which silently drops v2-exclusive repeat markets: see [Known Limitations](#known-limitations--silent-failure-modes) #3) and derives `TokenRegistry` rows for both outcome tokens via `getCollectionId`/`getPositionId` eth_calls (idempotent with the v1 `handleTokenRegistered` path). No Question entity is created here — Question is created later at `QuestionInitialized` (uma-mapping.ts) / `QuestionPrepared` (neg-risk-mapping.ts), keyed by conditionId.
 
 ---
 
 ### 3. Market Metadata Extraction (uma-mapping.ts)
 
-**Event**: `QuestionInitialized(questionID, timestamp, requester, ancillaryData, rewardToken, reward, proposalBond)`
+**Event**: `QuestionInitialized(questionID, timestamp, requester, ancillaryData, rewardToken, reward, proposalBond)` — emitted by both the **OptimisticOracleV3** and **UmaCtfAdapter** dataSources.
 
-**Handler**: `handleQuestionInitialized`
+**Handlers**: `handleOOQuestionInitialized` (OptimisticOracleV3) and `handleUmaQuestionInitialized` (UmaCtfAdapter), both thin wrappers delegating to `handleQuestionInitialization`:
 
 ```typescript
-export function handleQuestionInitialized(event: QuestionInitialized): void {
-  let metadata = new MarketMetadata(event.params.questionID)
-
+export function handleQuestionInitialization(
+  questionID: Bytes,
+  ancillaryData: Bytes,
+  event: ethereum.Event,
+): void {
   // ancillaryData format: "q: title: Will BTC hit 100k?, res_data: p1: 0, p2: 1, outcomes: [Yes, No]"
-  let rawData = event.params.ancillaryData.toString()
+  let rawData = ancillaryData.toString();
+  let outcomes = extractBinaryOutcomes(rawData);
 
-  metadata.title = extractTitle(rawData)
-  metadata.outcomes = extractBinaryOutcomes(rawData)
-  metadata.save()
+  // 1. Only binary (2-outcome) markets
+  if (outcomes.length == 0) return;
+
+  // 2. Find the ConditionID using our bridge
+  let bridge = QuestionIdToConditionId.load(questionID);
+  if (bridge == null) return;
+
+  // 3. Create the MarketMetadata
+  let metadata = new MarketMetadata(questionID);
+  metadata.title = extractTitle(rawData);
+  metadata.outcomes = outcomes;
+  metadata.rawAncillaryData = rawData;
+  metadata.save();
+
+  // 4. Create the Question, keyed by conditionId (NOT questionId)
+  let question = new Question(bridge.conditionId);
+  question.questionId = questionID;
+  question.metadata = metadata.id;
+  question.isNegRisk = false;
+  question.blockNumber = event.block.number;
+  question.blockTimestamp = event.block.timestamp;
+  question.transactionHash = event.transaction.hash;
+  question.save();
 }
 ```
 
@@ -482,6 +537,14 @@ export function handleQuestionInitialized(event: QuestionInitialized): void {
 export function handleTokenRegistered(event: TokenRegisteredEvent): void {
   // Register Outcome 0 (Usually "No")
   let token0Id = Bytes.fromByteArray(Bytes.fromBigInt(event.params.token0));
+
+  // Polymarket's exchange uses a "bidirectional" registry and emits two
+  // TokenRegistered events with swapped tokenIds — store only the first pair
+  let existing = TokenRegistry.load(token0Id);
+  if (existing != null) {
+    return;
+  }
+
   let registry0 = new TokenRegistry(token0Id);
   registry0.tokenId = event.params.token0;
   registry0.conditionId = event.params.conditionId;
@@ -500,13 +563,13 @@ export function handleTokenRegistered(event: TokenRegisteredEvent): void {
 }
 ```
 
-**Pattern**: Creates TokenRegistry entries for both outcome tokens, mapping each token ID to its outcome index (0 or 1). Essential for identifying which outcome an agent is betting on when processing OrderFilled events.
+**Pattern**: Creates TokenRegistry entries for both outcome tokens, mapping each token ID to its outcome index (0 or 1). Essential for identifying which outcome an agent is betting on when processing OrderFilled events. v1-only: `TokenRegistered` exists only on the retired v1 exchanges (endBlock 86750000); for v2 markets TokenRegistry rows are derived via eth_call in `handleConditionPreparation`.
 
 ---
 
 ### 5. Bet Placement (ctf-exchange.ts)
 
-**Event**: `OrderFilled(orderHash, maker, taker, makerAssetId, takerAssetId, makerAmountFilled, takerAmountFilled)`
+**Event**: `OrderFilled(orderHash, maker, taker, makerAssetId, takerAssetId, makerAmountFilled, takerAmountFilled, fee)`
 
 **Handler**: `handleOrderFilled`
 
@@ -567,40 +630,62 @@ export function handleOrderFilled(event: OrderFilledEvent): void {
 
 ---
 
+### 5b. DepositWallet Attribution (CLOB v2) — deposit-wallet.ts, ctf-exchange-v2.ts
+
+Post-cutover bets go through `handleOrderFilledV2` (v2 `OrderFilled` signature). Accounting is identical to the v1 handler (negative sells, TokenRegistry lookup, `processTradeActivity`), except direction comes from the explicit `side` param (0 = BUY, 1 = SELL), the outcome token from `tokenId`, and `builder`/`metadata` are stored on the Bet.
+
+**The attribution problem**: under Polymarket CLOB v2, `OrderFilled.maker` for new trades is a per-user Polymarket **DepositWallet (DW)**, not the Olas service Safe. The only on-chain tie between a DW and a Safe is the just-in-time pUSD top-up (Safe → DW) that precedes each buy. (Note: this is unrelated to the "Path A/Path B" redemption labels in the Payout Handling section below — root CLAUDE.md calls this attribution subsystem "Path A".)
+
+**How it works**:
+- `handleCollateralTransfer` (deposit-wallet.ts) indexes the **global** pUSD `Transfer` stream (0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB, startBlock = graft block 86236542) and records a **write-once** `DepositWallet → TraderAgent` link for every outflow from a tracked Safe to an address that is (a) not itself a TraderAgent and (b) not already mapped.
+- `handleOrderFilledV2` resolves an unknown maker via `DepositWallet.load(maker)` before giving up.
+- Store-reads only: no eth_calls, no templates.
+
+**Caveats a maintainer/consumer must know**:
+1. **The link is a heuristic**: ANY pUSD outflow from a Safe to a fresh address creates a permanent DW link — a Safe paying an arbitrary recipient in pUSD would mis-attribute that recipient's future v2 maker trades to the agent.
+2. **First-funder-wins, forever**: there is no re-link or delete path.
+3. **Forward-only from the graft block** (86236542): DWs funded before it can never be resolved. This is harmless in prod — the first DW trade is at block 88,031,656, well after the graft point (see `tests/path-a-real-tx.test.ts` for the real top-up → bet tx pair).
+4. **`DepositWallet` MUST stay `immutable: false`** — see the [DepositWallet entity](#depositwallet) note; declaring it immutable bricks the next graft deploy.
+
+---
+
 ### 6. Market Resolution (uma-mapping.ts)
 
-**Event**: `QuestionResolved(questionID, settledPrice, payouts)`
+**Event**: `QuestionResolved(questionID, settledPrice, payouts)` — emitted by both the **OptimisticOracleV3** and **UmaCtfAdapter** dataSources.
 
-**Handler**: `handleQuestionResolved`
+**Handlers**: `handleOOQuestionResolved` (OptimisticOracleV3) and `handleUmaQuestionResolved` (UmaCtfAdapter), both thin wrappers delegating to `handleQuestionResolution`:
 
 ```typescript
-export function handleQuestionResolved(event: QuestionResolvedEvent): void {
-  let bridge = QuestionIdToConditionId.load(event.params.questionID);
+export function handleQuestionResolution(
+  questionID: Bytes,
+  settledPrice: BigInt,
+  payouts: BigInt[],
+  event: ethereum.Event,
+): void {
+  let bridge = QuestionIdToConditionId.load(questionID);
   if (bridge == null) return;
 
-  // 1. Create Resolution entity
-  let resolution = new QuestionResolution(bridge.conditionId);
-  resolution.question = bridge.conditionId;
-  resolution.settledPrice = event.params.settledPrice;
-  resolution.payouts = event.params.payouts;
-
-  // 2. Determine winner
+  // 1. Determine winner
   let winningOutcome = BigInt.fromI32(-1); // Default for Invalid
-  if (event.params.payouts.length >= 2) {
-    let p0 = event.params.payouts[0];
-    let p1 = event.params.payouts[1];
+  if (payouts.length >= 2) {
+    let p0 = payouts[0];
+    let p1 = payouts[1];
     if (p1 > p0) winningOutcome = BigInt.fromI32(1); // YES won
     else if (p0 > p1) winningOutcome = BigInt.fromI32(0); // NO won
   }
-  resolution.winningIndex = winningOutcome;
-  resolution.save();
 
-  // 3. Process ALL participants (using caching for performance)
+  // 2. Create the resolution + process ALL participants (with caching)
   processMarketResolution(bridge.conditionId, winningOutcome, settledPrice, payouts, event);
 }
 ```
 
-**`processMarketResolution`** (in utils.ts) iterates all participants in the market:
+NegRisk markets have an additional resolution path: `handleOutcomeReported` (neg-risk-mapping.ts) maps the reported boolean to a winner and synthetic `[1,0]`/`[0,1]` payouts, then calls the same `processMarketResolution`. Whichever resolution event arrives first for a conditionId wins — the `QuestionResolution`-exists guard dedupes across all three sources (OO, UmaCtfAdapter, NegRisk).
+
+**NegRisk outcome-index convention (inverted vs UMA)**: `OutcomeReported(outcome=true)` means YES and maps to `winningIndex 0` with payouts `[1,0]`; `metadata.outcomes` is hardcoded `["Yes","No"]` at `QuestionPrepared`, so for NegRisk markets **index 0 = Yes / index 1 = No** — the opposite of the usual UMA binary layout, where token0 is usually "No" and `p1 > p0` resolves to index 1 = YES (see the snippet above). Consumers rendering "agent bet on \<label\>" must join `outcomeIndex → metadata.outcomes[index]` per market, never assume a global Yes/No index. `settledPrice` for NegRisk is also synthesized (`1` or `0`), not a UMA price.
+
+**`processMarketResolution`** (in utils.ts):
+- Returns early if a `QuestionResolution` already exists for the conditionId (idempotency), otherwise creates the `QuestionResolution` entity (winningIndex, settledPrice, payouts)
+- Then iterates all participants in the market:
 - Skips already settled participants (idempotency via `settled` flag)
 - **Calculates expectedPayout** from outcome share balances:
   - Outcome 0 wins: `expectedPayout = max(0, outcomeShares0)`
@@ -608,6 +693,7 @@ export function handleQuestionResolved(event: QuestionResolvedEvent): void {
   - Invalid (-1): `expectedPayout = max(0, shares0)/2 + max(0, shares1)/2`
 - **Profit**: `expectedPayout - (totalTraded - totalTradedSettled)` — attributed to resolution day
 - Sets `participant.settled = true`, `totalTradedSettled = totalTraded`
+- Adds the settled cost basis to `dailyStat.dailyTradedSettled` (basis for windowed ROI — see [DailyProfitStatistic](#dailyprofitstatistic))
 - Uses Map caches for TraderAgent and DailyProfitStatistic, delta accumulation for Global
 - Marks all bets as `countedInProfit = true`, `countedInTotal = true`
 
@@ -636,12 +722,26 @@ Two redemption paths exist post-v2-cutover:
   - `NegRiskCtfCollateralAdapter` (old): `0xAdA200001000ef00D07553cEE7006808F895c6F1`
 
 `processRedemption` (utils.ts), shared by both paths:
-- Validates agent, question, and participant exist
+- Validates agent, question, and participant exist — strictly against `TraderAgent`, with no `DepositWallet` fallback (see [Known Limitations](#known-limitations--silent-failure-modes) #4)
 - Creates immutable `PayoutRedemption` entity (audit trail)
 - Updates payout totals only: `agent.totalPayout`, `participant.totalPayout`, `global.totalPayout`
 - Updates daily stat: `dailyStat.totalPayout` (no `dailyProfit` change — profit was already calculated at resolution)
 
 **Key point**: No profit calculation at payout time. All profit/loss is attributed at resolution.
+
+---
+
+## Known Limitations & Silent Failure Modes
+
+Accepted behaviors that produce no errors — at most a `log.warning`. Consumers reconciling agent activity against Polymarket's own data should know all four:
+
+1. **Unparseable markets never settle.** If `extractBinaryOutcomes` returns `[]` (e.g. an `outcomes:` tag that isn't a 2-item list), no `Question` entity is created — but `TokenRegistry` rows DO exist (from `ConditionPreparation`), so agent bets on that condition are still fully counted: the `Bet` is saved with `question = null` and `totalTraded` is incremented. At resolution, `processMarketResolution` stores the `QuestionResolution` and then early-returns at `Question.load == null`, so those participants never settle — their volume permanently inflates the unsettled gap (`totalTraded − totalTradedSettled`) and never enters `dailyProfit`/`expectedPayout`. Query hint: `bets(where: {question: null})` finds affected trades.
+
+2. **Bets placed after resolution never settle.** Resolution idempotency is condition-level and permanent: the `QuestionResolution`-exists guard makes any later resolution event a no-op, so a `MarketParticipant` created after the market resolved is never processed.
+
+3. **questionId reuse drops v2-exclusive repeat markets.** The `QuestionIdToConditionId` bridge is first-writer-wins: a repeated questionId with a new conditionId logs `REPETITIVE_QUESTION_ID` and is skipped — which also skips deriving the NEW condition's outcome tokenIds. For v1-era repeats this was harmless (`TokenRegistered` still registered the tokens); for v2-exclusive markets there is no `TokenRegistered` event, so ALL agent trades on the second condition are silently dropped in `handleOrderFilledV2` ("TokenRegistry missing" warning). The same drop occurs if the `getCollectionId`/`getPositionId` eth_calls revert at `ConditionPreparation` time. Monitoring: grep graph-node logs for `REPETITIVE_QUESTION_ID` and `TokenRegistry missing` — each hit in v2-era blocks means uncounted bets. Fix direction if this ever bites: re-derive tokens keyed by conditionId instead of gating on the questionId bridge.
+
+4. **DW-initiated redemptions are not tracked.** `processRedemption` validates the redeemer/initiator strictly against `TraderAgent` and has NO `DepositWallet` fallback (unlike the trade path in `handleOrderFilledV2`). Positions bought via a DepositWallet are custodied by the DW, so a redemption initiated by the DW instead of the Safe falls through the `TraderAgent.load == null` guard silently: no `PayoutRedemption` entity, no `totalPayout` increment. Consequence: `totalPayout` and the `totalExpectedPayout` vs `totalPayout` claim-rate comparison only capture redemptions routed through the Safe. Profit metrics (`dailyProfit`, `expectedPayout`, `totalTradedSettled`) are unaffected — they come from OrderFilled share balances at resolution, never from payouts. If DW-initiated redemptions become the norm, extend `processRedemption` with the same `DepositWallet.load` fallback used in `handleOrderFilledV2` (and key the `MarketParticipant` lookup on the resolved agent, not the raw redeemer).
 
 ---
 
@@ -676,11 +776,13 @@ Query market metadata and conditions.
 ```graphql
 {
   question(id: "0x...") {
-    conditionId
+    id          # conditionId (the entity id IS the conditionId)
+    questionId
+    isNegRisk
     metadata {
       title
       outcomes
-      description
+      rawAncillaryData
     }
   }
 }
@@ -756,11 +858,12 @@ npm run build     # Compile AssemblyScript to WASM
 ```
 
 ### Deploy
+Deployments go to the self-hosted graph node via the GitHub Actions deploy workflow (Actions tab → "Run workflow"), not Subgraph Studio. From the repo root, the interactive helper generates the `gh workflow run` command:
 ```bash
-graph deploy --studio autonolas-predict-polymarket
+node scripts/deploy.ts
 ```
 
-**Note**: Check the [root README](../../../README.md) for detailed build and deployment instructions.
+**Note**: Check the [root README](../../README.md) for detailed build and deployment instructions.
 
 ---
 
@@ -768,23 +871,51 @@ graph deploy --studio autonolas-predict-polymarket
 
 ### Data Sources
 
+The manifest defines **14 dataSources**, all on Polygon (matic):
+
 1. **ServiceRegistryL2** (0xE3607b00E75f6405248323A9417ff6b39B244b50)
-   - Network: Polygon (matic)
    - Start block: 80360433
    - Events: `RegisterInstance`, `CreateMultisigWithAgents`
    - Handler: [src/service-registry-l-2.ts](src/service-registry-l-2.ts)
 
 2. **ConditionalTokens** (0x4D97DCd97eC945f40cF65F87097ACe5EA0476045)
-   - Network: Polygon (matic)
-   - Start block: 80360433
+   - Start block: 78425180
    - Events: `ConditionPreparation`, `PayoutRedemption`
    - Handler: [src/conditional-tokens.ts](src/conditional-tokens.ts)
 
 3. **OptimisticOracleV3** (0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7)
-   - Network: Polygon (matic)
-   - Start block: 80360433
-   - Events: `QuestionInitialized`
+   - Start block: 78425180
+   - Events: `QuestionInitialized` (`handleOOQuestionInitialized`), `QuestionResolved` (`handleOOQuestionResolved`)
    - Handler: [src/uma-mapping.ts](src/uma-mapping.ts)
+
+4. **UmaCtfAdapter** (0x157Ce2d672854c848c9b79C49a8Cc6cc89176a49)
+   - Start block: 78425180
+   - Events: `QuestionInitialized` (`handleUmaQuestionInitialized`), `QuestionResolved` (`handleUmaQuestionResolved`)
+   - Handler: [src/uma-mapping.ts](src/uma-mapping.ts)
+
+5. **NegRiskAdapter** (0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296)
+   - Start block: 78425180
+   - Events: `QuestionPrepared`, `OutcomeReported`, `PayoutRedemption`
+   - Handler: [src/neg-risk-mapping.ts](src/neg-risk-mapping.ts)
+
+6. **CTFExchange** / **NegRiskCTFExchange** (v1, retired)
+   - Blocks: 78425180 → endBlock 86750000
+   - Events: `OrderFilled`, `TokenRegistered`
+   - Handler: [src/ctf-exchange.ts](src/ctf-exchange.ts)
+
+7. **CTFExchangeV2** / **NegRiskCTFExchangeV2** (post-cutover)
+   - Start block: 85952819
+   - Events: `OrderFilled` (v2 signature: `side` + `tokenId` + `builder`/`metadata`)
+   - Handler: [src/ctf-exchange-v2.ts](src/ctf-exchange-v2.ts)
+
+8. **CtfCollateralAdapter** / **NegRiskCtfCollateralAdapter** (current pair, start block 86263778) and **CtfCollateralAdapterOld** / **NegRiskCtfCollateralAdapterOld** (pinned to [86219367, 86263778])
+   - Events: `PositionsRedeemed`
+   - Handler: [src/collateral-adapter.ts](src/collateral-adapter.ts)
+
+9. **pUSD** (0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB)
+   - Start block: 86236542 (MUST equal the graft block)
+   - Events: `Transfer` (`handleCollateralTransfer` — DepositWallet → TraderAgent linking)
+   - Handler: [src/deposit-wallet.ts](src/deposit-wallet.ts)
 
 ---
 
@@ -860,8 +991,8 @@ agent.save();
 4. Rebuild and redeploy:
 ```bash
 npm run build
-graph deploy --studio autonolas-predict-polymarket
 ```
+Then deploy via the GitHub Actions workflow (see [Deploy](#deploy)).
 
 ---
 
@@ -882,14 +1013,21 @@ graph deploy --studio autonolas-predict-polymarket
 
 ## Dependencies
 
-**Runtime** (package.json):
-- `@graphprotocol/graph-cli`: ^0.97.0
-- `@graphprotocol/graph-ts`: ^0.38.0
+**Runtime** (package.json — versions pinned exactly, no carets, per repo policy):
+- `@graphprotocol/graph-cli`: 0.98.1
+- `@graphprotocol/graph-ts`: 0.38.2
+- `matchstick-as`: 0.6.0 (devDependency)
 
-**ABIs Used**:
+**ABIs Used** (9 files referenced in subgraph.yaml, from the root `abis/` directory):
 - ServiceRegistryL2.json
 - ConditionalTokens.json
 - OptimisticOracleV3.json
+- UmaCtfAdapter.json
+- NegRiskAdapter.json
+- CTFExchange.json
+- CTFExchangeV2.json
+- CtfCollateralAdapter.json
+- ERC20Detailed.json
 
 ---
 
@@ -907,7 +1045,7 @@ graph deploy --studio autonolas-predict-polymarket
 
 1. **Agent ID 86 Only**: Two-step filtering via TraderService + TraderAgent entities
 2. **Binary Markets Only**: Only tracks markets with 2 outcomes via ConditionalTokens
-3. **Agents as Makers**: Our agents are MAKERS (not takers) in CTF Exchange - identify via `event.params.maker`
+3. **Agents as Makers**: Our agents are MAKERS (not takers) in CTF Exchange - identify via `event.params.maker`. Under CLOB v2 the maker may be a per-user DepositWallet rather than the Safe — `handleOrderFilledV2` resolves it via the write-once `DepositWallet → TraderAgent` link recorded from pUSD top-ups (see section 5b)
 4. **Two-Tier Accounting**:
    - `totalTraded` = all bets volume (updated immediately when bets are placed)
    - `totalTradedSettled` = settled markets only (updated at resolution for ALL bets — both winning and losing)

@@ -38,9 +38,9 @@ jobs:
           - { subgraph: marketplace,        manifest: subgraph.mainnet.yaml,      test: false }
           - { subgraph: marketplace,        manifest: subgraph.optimism.yaml,     test: false }
           - { subgraph: marketplace,        manifest: subgraph.polygon.yaml,      test: false }
-          # mech is on graph-cli 0.86.0 with the same Node 24 matchstick
-          # incompatibility. Flip back to `test: true` once mech is bumped to
-          # graph-cli 0.98.x (planned in a follow-up PR).
+          # mech is on graph-cli 0.98.1 (matchstick-capable on Linux x64 +
+          # Node 24), but its Matchstick tests aren't wired into CI yet.
+          # Build-only for now; flip to `test: true` when tests are enabled.
           - { subgraph: mech,               manifest: subgraph.yaml,              test: false }
           # pearl-transactions is on graph-cli 0.98.1 (same as marketplace),
           # whose matchstick downloader supports Linux x64 + Node 24, so tests

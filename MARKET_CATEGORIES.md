@@ -6,28 +6,28 @@ Driver: Predict page redesign §7 — "Volume / Trades by market category" per e
 
 ## Why this doc exists
 
-The new Polystrat / Omenstrat predict page wants per-category breakdowns of trader-agent volume and trade count. Today neither predict subgraph indexes a category field — `MarketMetadata.title` (Polymarket) and `FixedProductMarketMakerCreation.question` (Omen) are free-text strings only.
+The new Polystrat / Omenstrat predict page wants per-category breakdowns of trader-agent volume and trade count. At audit time neither predict subgraph indexed a category field — `MarketMetadata.title` (Polymarket) and `FixedProductMarketMakerCreation.question` (Omen) were free-text strings only. The Omen side has since shipped (see "Implementation notes" below).
 
 The two subgraphs land in very different places after a code audit (see "Verified findings" below):
 
-- **predict-omen**: category is already present in the on-chain payload — the existing parser splits to 4 fields and currently throws away fields[2] (category) and fields[3] (language). Adding `category` is a one-line change.
+- **predict-omen**: category is already present in the on-chain payload — at audit time the parser split to 4 fields but threw away fields[2] (category) and fields[3] (language). The B1 fix (now shipped) stores them as `category`/`language` on `FixedProductMarketMakerCreation`.
 - **predict-polymarket**: category is **not** present in the on-chain payload. The UMA `ancillaryData` parser supports a fixed set of fields and `category:` is not among them. There is no realistic path to derive a true category from chain data alone.
 
 This doc describes both paths and recommends a different strategy for each.
 
-## Verified findings (from current code)
+## Verified findings (from code at audit time)
 
 ### predict-omen — `␟`-separated template, category at field 2
 
-`src/realitio.ts:handleLogNewQuestion` saves the raw `event.params.question` text. `src/FPMMDeterministicFactoryMapping.ts:41` already does:
+`src/realitio.ts:handleLogNewQuestion` saves the raw `event.params.question` text. `src/FPMMDeterministicFactoryMapping.ts:41` already did:
 
 ```ts
 let fields = question.question.split("␟", 4);
 ```
 
-…but only consumes `fields[0]` (title) and `fields[1]` (outcomes). Fields[2] (category) and fields[3] (language) are computed and discarded. The `␟` separator is also defined in `src/constants.ts:12` as `QUESTION_SEPARATOR`.
+…but at audit time only consumed `fields[0]` (title) and `fields[1]` (outcomes) — fields[2] (category) and fields[3] (language) were computed and discarded. The B1 fix (now shipped — see "Implementation notes") stores both. The `␟` separator is also defined in `src/constants.ts:15` as `QUESTION_SEPARATOR`.
 
-Realitio v2/v3 question templates encode markets as `title␞outcomes␞category␞language[␞...]`, so for Omen markets created via the standard template, **the category is already in memory at index time**. Confirmed by the `split("␟", 4)` call — the developer who wrote that line knew there were 4 fields, even though only two are stored.
+Realitio v2/v3 question templates encode markets as `title␟outcomes␟category␟language[␟...]`, so for Omen markets created via the standard template, **the category is already in memory at index time**. Confirmed by the `split("␟", 4)` call — the developer who wrote that line knew there were 4 fields, even though only two were stored at the time.
 
 ### predict-polymarket — no category in `ancillaryData`
 

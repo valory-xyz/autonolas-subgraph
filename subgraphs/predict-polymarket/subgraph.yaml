@@ -3,13 +3,11 @@ features:
   - grafting
 graft:
   # Base = predict-polymarket-v1_1_1 (deployment QmNUEbu...), PAUSED at its head
-  # block 86236491 (confirmed 2026-06-20), which is <= the first DW trade (88031656),
-  # so grafting here loses zero DW trades. block is set to the EXACT base head:
-  # prod's shared chain block cache has evicted the older blocks around the graft
-  # point (they're ~2.5M blocks behind the live head), so a head-250 graft can't
-  # resolve the graft block's hash -> graft-copy aborts with "Unexpected null for
-  # non-null column". The exact head's hash is recorded in subgraphs.head, so
-  # grafting at the head should resolve. The PUSD startBlock below MUST equal this.
+  # block 86236792. The graft block below (86236542) is head - 250: the graft
+  # point must sit within graph-node's 250-block graft-distance limit of the
+  # base head AND within the base's pruning window (prune: 300), and head - 250
+  # satisfies both. It is well below the first DW trade (88031656), so grafting
+  # here loses zero DW trades. The PUSD startBlock below MUST equal the graft block.
   base: QmNUEbuDnozskYSzHQLHah2RUjKzvoj5Y4nS7nBEDxB1kE
   block: 86236542
 indexerHints:

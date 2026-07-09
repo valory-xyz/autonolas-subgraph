@@ -42,6 +42,7 @@ node scripts/validate-agent.js <subgraph-url> <agent-address>
 9. Three-way profit match: `Sum(dailyProfit)` vs agent expected profit vs participant expected profit
 10. All settled markets appear in some day's `profitParticipants`
 11. Answer change anomalies (payout received but expectedPayout is 0 or lower)
+12. Daily payout sum (`Sum(dailyStat.totalPayout)`) matches agent `totalPayout`
 
 ## Example
 
@@ -57,4 +58,4 @@ Both scripts exit with code **0** if no issues found, **1** otherwise — useful
 
 ## Legacy Scripts
 
-The `validate-profit.js` and `validate-daily-profit.js` scripts are older paste-and-run versions that require manually copying query results into the file. The two scripts above replace them.
+The remaining `validate-*.js` scripts (`validate-profit.js`, `validate-daily-profit.js`, `validate-agent-vs-participants.js`, `validate-answer-change-profit.js`, `validate-bet-consistency.js`, `validate-daily-stats-vs-bets.js`, `validate-global-vs-agents.js`) are older paste-and-run versions that require manually copying query results into the file. The two scripts above replace them.

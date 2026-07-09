@@ -22,9 +22,9 @@ A GraphQL API for tracking prediction markets and Autonolas agent performance on
 
 ### Directory Structure
 ```
-subgraphs/predict/predict-omen/
+subgraphs/predict-omen/
 ├── schema.graphql
-├── subgraph.yaml                        # prune: auto enabled
+├── subgraph.yaml                        # prune: 300 (indexerHints)
 ├── src/
 │   ├── service-registry-l-2.ts          # Agent registration
 │   ├── FPMMDeterministicFactoryMapping.ts # Market creation
@@ -37,6 +37,9 @@ subgraphs/predict/predict-omen/
 │   ├── profit.test.ts                   # 19 profit/settlement tests
 │   ├── service-registry-l-2.test.ts     # 11 agent filtering tests
 │   ├── conditional-tokens.test.ts       # 3 condition preparation tests
+│   ├── brier-score.test.ts              # 8 Brier score tests
+│   ├── category-parsing.test.ts         # 5 category/language parsing tests
+│   ├── finalization.test.ts             # 7 answer finalization tests
 │   └── profit.ts                        # Test helpers
 └── package.json                         # graph-cli 0.98.1, graph-ts 0.38.2
 ```
@@ -109,6 +112,7 @@ Individual trade (Buy or Sell). No `type` field — sells are distinguished by *
 | amount | `BigInt!` | Positive for Buy, **negative** for Sell |
 | feeAmount | `BigInt!` | |
 | outcomeTokenAmount | `BigInt!` | Tokens bought (positive) or sold (negative) |
+| impliedProbability | `BigInt!` | Per-token trade price, 1e18-scaled. Buy: implied probability of `outcomeIndex` (the prediction). Sell: closing price, NOT a prediction. See [Brier Score](#brier-score-prediction-accuracy) |
 | countedInProfit | `Boolean!` | Set true at settlement for all bets |
 | countedInTotal | `Boolean` | **Nullable.** Set true at settlement for all bets |
 | fixedProductMarketMaker | `FixedProductMarketMakerCreation` | Link to market |
@@ -129,6 +133,8 @@ A prediction market.
 | conditionIds | `[Bytes!]!` | |
 | question | `String` | **Nullable.** Parsed from raw question text |
 | outcomes | `[String!]` | **Nullable.** Parsed from comma-separated field |
+| category | `String` | **Nullable.** Realitio template field 2, trim-only (null for shorter templates) |
+| language | `String` | **Nullable.** Realitio template field 3, trim-only (null for shorter templates) |
 | fee | `BigInt!` | |
 | currentAnswer | `Bytes` | Oracle answer (set at settlement) |
 | currentAnswerTimestamp | `BigInt` | |
@@ -157,6 +163,8 @@ Agent's activity within a specific market.
 | outcomeTokenBalance0 | `BigInt!` | Net token position for outcome 0 |
 | outcomeTokenBalance1 | `BigInt!` | Net token position for outcome 1 |
 | expectedPayout | `BigInt!` | Calculated at settlement from token balance |
+| brierSumApplied | `BigInt!` | Brier sum last credited to a daily stat — subtracted exactly on re-answer reversal |
+| brierCountApplied | `Int!` | Bet count behind `brierSumApplied` |
 | settled | `Boolean!` | Idempotency flag — prevents re-processing on same-answer resubmission. Triggers reversal + re-settlement on different-answer re-answer. |
 | createdAt | `BigInt!` | |
 | blockNumber | `BigInt!` | |
@@ -176,8 +184,12 @@ Day-to-day agent performance tracker.
 | totalTraded | `BigInt!` | Volume placed today (immediate) |
 | totalFees | `BigInt!` | Fees today (immediate) |
 | totalPayout | `BigInt!` | Payouts received today |
+| dailyTradedSettled | `BigInt!` | Cost basis of bets that became settled today (see [Accounting Rules](#windowed-roi-dailytradedsettled--dailyfeessettled)) |
+| dailyFeesSettled | `BigInt!` | Fees of bets that became settled today |
 | dailyProfit | `BigInt!` | PnL realized today (all at settlement time) |
 | profitParticipants | `[FixedProductMarketMakerCreation!]!` | Markets contributing to PnL today (deduplicated) |
+| brierSum | `BigInt!` | Brier accumulator for buys settled today, 1e18-scaled (see [Brier Score](#brier-score-prediction-accuracy)) |
+| brierCount | `Int!` | Number of buys contributing to `brierSum` |
 
 ### Global
 Singleton aggregate statistics (id: `""`).
@@ -202,7 +214,7 @@ Singleton aggregate statistics (id: `""`).
 | CreatorAgent | No | Tracks whitelisted market creators. Fields: `totalQuestions`, block metadata |
 | ConditionPreparation | Immutable | Links `conditionId` to `questionId`. Only saved for known questions (event ordering guarantees `LogNewQuestion` fires first) |
 | Question | No | Raw question text, `timeout` (from `LogNewQuestion`) + link to FPMM. `currentAnswer`/`currentAnswerTimestamp` updated at settlement |
-| PayoutRedemption | Immutable | Debug log for every `PayoutRedemption` event. Fields: redeemer, conditionId, payoutAmount, FPMM, block metadata |
+| PayoutRedemption | Immutable | Debug log for every `PayoutRedemption` event on tracked markets (created even if no participant/agent exists). Fields: redeemer, conditionId, payoutAmount, FPMM, block metadata |
 
 ---
 
@@ -238,8 +250,8 @@ Singleton aggregate statistics (id: `""`).
 - **Question linking**:
   - Loads `ConditionPreparation` from first `conditionId`
   - Loads `Question` from condition's `questionId`
-  - Parses question text: splits by `\u241f` separator, extracts title (field 0) and outcomes (field 1, comma-separated)
-  - Outcomes are cleaned: removes quotes (`"`) and slashes (`/`), trims whitespace
+  - Parses question text: splits by `\u241f` separator with a **limit of 4** — `[0]=title, [1]=comma-separated outcomes, [2]=category, [3]=language` (standard Realitio single-select template layout). Each field is set only if present, so `category`/`language` are null for shorter templates. Content after a 4th separator is silently dropped (NOT appended to `language`)
+  - Outcomes are cleaned: removes quotes (`"`) and slashes (`/`), trims whitespace. `category`/`language` are trim-only
   - Sets `question.fixedProductMarketMaker = marketAddress` (links question to market)
 - **CreatorAgent**: Load-or-create pattern, increments `totalQuestions`
 - Creates dynamic `FixedProductMarketMaker` template for the new market
@@ -264,6 +276,7 @@ Singleton aggregate statistics (id: `""`).
   - `MarketParticipant`: creates if needed, adds bet ID to `bets` array, updates totals, tracks `outcomeTokenBalance0`/`outcomeTokenBalance1`
   - `Global.totalActiveTraderAgents` incremented on agent's first-ever bet
 - Creates `Bet` entity with `countedInTotal = false`, `countedInProfit = false`, `outcomeTokenAmount`
+- Sets `Bet.impliedProbability` via `computeImpliedProbability()`: buy = `investmentAmount * 1e18 / outcomeTokensBought`, sell = `returnAmount * 1e18 / outcomeTokensSold` (positive price even for sells; sells are excluded from Brier aggregation at settlement). Returns 0 for zero-token trades — no clamp, FPMM invariants guarantee price ≤ 1e18
 - Links bet to `fixedProductMarketMaker` and `dailyStatistic`
 
 ### 6. handleLogNewAnswer (Settlement — CRITICAL)
@@ -285,19 +298,22 @@ This is the most complex handler. Processes ALL participants in a market when th
       - Invalid answer: `expectedPayout = max(0, balance0)/2 + max(0, balance1)/2` (integer division, matches on-chain [1,1] payout split)
     - **Settlement**: `amountToSettle = totalTraded - totalTradedSettled`, `feesToSettle = totalFees - totalFeesSettled`
     - **Profit**: `expectedPayout - amountToSettle - feesToSettle` (added to `dailyProfit` on settlement day)
+    - **Cost basis**: `amountToSettle`/`feesToSettle` also added to the settlement day's `dailyTradedSettled`/`dailyFeesSettled`
     - Sets `participant.settled = true`, `totalTradedSettled = totalTraded`, `totalFeesSettled = totalFees`
   - **Re-answer** (participant already settled AND `isReAnswer`):
     - **Reconstruct old profit**: `oldProfit = participant.expectedPayout - participant.totalTradedSettled - participant.totalFeesSettled`
     - **New expected payout**: Same formula as fresh settlement using current token balances + new answer
     - **New profit using full market cost**: `newProfit = newExpectedPayout - participant.totalTraded - participant.totalFees` (NOT incremental — ensures correct reconstruction on subsequent re-answers)
-    - **Reverse old daily stat** (via `previousAnswerTimestamp`): `dailyProfit -= oldProfit`, remove market from `profitParticipants`
-    - **Apply new daily stat**: `dailyProfit += newProfit`, add market to `profitParticipants`
+    - **Reverse old daily stat** (via `previousAnswerTimestamp`): `dailyProfit -= oldProfit`, `dailyTradedSettled`/`dailyFeesSettled` debited by the participant's previously-settled totals, `brierSum`/`brierCount` debited by `brierSumApplied`/`brierCountApplied`, remove market from `profitParticipants`
+    - **Apply new daily stat**: `dailyProfit += newProfit`, `dailyTradedSettled`/`dailyFeesSettled` credited with the FULL `participant.totalTraded`/`totalFees` (mirrors the full-cost `newProfit`), add market to `profitParticipants`
+    - **Brier re-score**: ALL buy bets re-scored against the new answer, credited to the new day's `brierSum`/`brierCount`; `brierSumApplied`/`brierCountApplied` overwritten with the new values
     - **Agent**: `totalExpectedPayout += (new - old)`, incremental `totalTradedSettled`/`totalFeesSettled` for bets between answers
     - **Participant**: `expectedPayout = newExpectedPayout`, `totalTradedSettled = totalTraded`, `totalFeesSettled = totalFees`, `settled` stays true
   - **Same-answer resubmission** (participant settled AND NOT `isReAnswer`): skipped (no-op)
   - Updates agent `totalTradedSettled`, `totalFeesSettled`, `totalExpectedPayout` (via cache)
-  - Updates daily stats `dailyProfit` and `profitParticipants` (via cache)
+  - Updates daily stats `dailyProfit`, `dailyTradedSettled`/`dailyFeesSettled`, and `profitParticipants` (via cache)
   - Marks individual bets via `participant.bets` stored array: sets `countedInProfit = true` and `countedInTotal = true`
+  - **Brier accumulation** (same bet loop): buys (`amount > 0`) with `impliedProbability > 0` contribute `((impliedProbability - actual)^2) / 1e18` to the settlement day's `brierSum`/`brierCount`; the participant's contribution is stored in `brierSumApplied`/`brierCountApplied` for exact re-answer reversal
 - **Batch saves** all cached entities via `saveMapValues()`
 - Updates `Global` settled totals and `totalExpectedPayout` with accumulated deltas (save condition uses `!equals(BigInt.zero())` to handle negative deltas from re-answers)
 
@@ -306,8 +322,10 @@ This is the most complex handler. Processes ALL participants in a market when th
 
 Tracks actual xDAI claimed by agents. No profit calculation — that's done at settlement.
 
-- **Guard**: Requires ConditionPreparation, Question with FPMM link, MarketParticipant, and TraderAgent to exist
+- **Guard 1 (entity creation)**: ConditionPreparation + Question with FPMM link must exist — then the immutable PayoutRedemption debug entity is created
 - **Creates `PayoutRedemption`** (immutable entity): records redeemer, conditionId, payoutAmount, FPMM, block metadata for debugging
+- **Guard 2 (totals)**: MarketParticipant and TraderAgent must exist for the totalPayout updates (the debug entity is saved even if they don't)
+- **Consumer consequence**: `PayoutRedemption` entities include redemptions by non-tracked addresses (LPs, market creators) on tracked markets, so `SUM(payoutAmount)` ≥ `Global.totalPayout` by design — filter by `redeemer` against known TraderAgent ids when reconciling
 - **Payout totals**: Adds `payoutAmount` to agent, participant, and global `totalPayout`
 - **Daily stats**: Updates `dailyStat.totalPayout` (actual redemption tracking only, no profit changes)
 
@@ -325,9 +343,14 @@ All in `src/utils.ts`:
 | `getDayTimestamp` | `(timestamp: BigInt): BigInt` | Normalizes to UTC midnight: `timestamp / 86400 * 86400` |
 | `bytesToBigInt` | `(bytes: Bytes): BigInt` | Converts oracle answer bytes to BigInt (reverses byte order) |
 | `getDailyProfitStatistic` | `(agentAddress: Bytes, timestamp: BigInt): DailyProfitStatistic` | Get-or-create daily stat for agent on specific day |
+| `computeImpliedProbability` | `(amount: BigInt, outcomeTokenAmount: BigInt): BigInt` | `amount * 1e18 / outcomeTokenAmount`; returns 0 for zero-token denominators. No clamp — FPMM invariants guarantee ≤ 1e18, violations should surface |
+| `brierContribution` | `(impliedProbability: BigInt, actual: BigInt): BigInt` | `((p - actual)^2) / 1e18`, in `[0, 1e18]` |
+| `actualForOutcome` | `(betOutcomeIndex: BigInt, winningOutcome: BigInt, isInvalid: boolean): BigInt` | 1e18 if the bet's outcome won, 0 if it lost, 5e17 for invalid resolutions |
 | `addProfitParticipant` | `(statistic: DailyProfitStatistic, marketId: Bytes): void` | Adds market to `profitParticipants` (deduplicates — checks `indexOf` before pushing) |
 | `removeProfitParticipant` | `(statistic: DailyProfitStatistic, marketId: Bytes): void` | Removes market from `profitParticipants` (used during re-answer reversal to clean old daily stat) |
 | `processTradeActivity` | `(agent, market, betId, amount, fees, timestamp, blockNumber, txHash, outcomeIndex, outcomeTokenAmount): void` | **Main consolidated update function.** Atomically updates Global (totalBets, totalTraded, totalFees), TraderAgent (totalBets, totalTraded, totalFees, firstParticipation, lastActive), and MarketParticipant (creates if needed, adds bet to bets array, updates outcomeTokenBalance0/1). Increments `Global.totalActiveTraderAgents` on agent's first bet. |
+
+Fixed-point scales also live in `src/utils.ts` (not `constants.ts`): `PROBABILITY_SCALE = 1e18`, `HALF_PROBABILITY_SCALE = 5e17`.
 
 ---
 
@@ -387,15 +410,33 @@ newProfit = newExpectedPayout - participant.totalTraded - participant.totalFees 
 ```
 Full market cost is used (not incremental) so that `oldProfit` reconstruction always works: after each settlement, `totalTradedSettled = totalTraded`, so the formula `expectedPayout - totalTradedSettled - totalFeesSettled` consistently reproduces what was stored.
 
+### Windowed ROI (dailyTradedSettled / dailyFeesSettled)
+
+`DailyProfitStatistic.dailyTradedSettled`/`dailyFeesSettled` record the cost basis of bets that **became settled** on this day; written only by `handleLogNewAnswer`.
+
+- **Windowed ROI** = `sum(dailyProfit) / sum(dailyTradedSettled)` over the window. Do NOT derive cost as `payout - profit` — the three amounts land on three different days (bet day / resolution day / redemption day).
+- **Fresh settlement**: adds the incremental `totalTraded - totalTradedSettled` (usually the full market cost).
+- **Re-answer**: the old day is debited by the participant's previously-settled totals (invariant: after every settlement `totalTradedSettled` equals the cost basis attributed to a daily stat, so the debit exactly reverses the prior credit regardless of chain length A→B→C); the new day is credited with the FULL `participant.totalTraded`/`totalFees`, mirroring the full-cost `newProfit` formula.
+- **Consumer consequence**: a disputed market's cost basis (and profit) relocates wholesale to the re-answer day — per-day values are not append-only, and a day that previously showed settled volume can drop to zero after a dispute. Only the all-time sums reconcile: `sum(dailyTradedSettled)` across all days equals `agent.totalTradedSettled`.
+
+### Brier Score (Prediction Accuracy)
+
+Accuracy scoring built from `Bet.impliedProbability` and per-day accumulators:
+
+- **`Bet.impliedProbability`**: per-token trade price, 1e18-scaled. Buy: `investmentAmount * 1e18 / outcomeTokensBought` — the market's implied probability of `outcomeIndex`, i.e. the agent's prediction. Sell: `returnAmount * 1e18 / outcomeTokensSold` — a closing price, stored for completeness but NOT a prediction. Zero is the sentinel for degenerate zero-token trades and pre-Brier entities; no clamp is applied (FPMM invariants guarantee price ≤ 1e18, and a violation should surface, not be masked).
+- **Aggregation** (`handleLogNewAnswer`): only BUY bets (`amount > 0`) with `impliedProbability > 0` contribute. Per-bet contribution: `((impliedProbability - actual)^2) / 1e18`, where `actual` = 1e18 if the bet's outcome won, 0 if it lost, 5e17 for invalid resolutions ([1,1] split). Added to the settlement day's `DailyProfitStatistic.brierSum`/`brierCount`.
+- **Mean Brier over a window**: `sum(brierSum) / sum(brierCount)` (1e18-scaled; 0 = perfect, 1e18 = worst). Never average per-day means.
+- **Re-answer contract**: `MarketParticipant.brierSumApplied`/`brierCountApplied` store exactly what was last credited to a daily stat. On a different-answer re-answer the old day is debited by these stored values (handles bets placed between answers), then ALL buy bets are re-scored against the new answer, credited to the new day, and the `*Applied` fields are overwritten. Pre-Brier participants default to zero, so the reversal is a no-op.
+
 ---
 
 ## Performance Patterns
 
-- **Map Caching** (`handleLogNewAnswer`): Uses `Map<string, Entity>` caches for TraderAgent, MarketParticipant, and DailyProfitStatistic. Each entity loaded once, modified in memory, saved once at end. Reduces I/O ~90% for large markets.
+- **Map Caching** (`handleLogNewAnswer`): Uses `Map<string, Entity>` caches for TraderAgent and DailyProfitStatistic; MarketParticipant entities come from `fpmm.participants.load()` and are saved individually. Each cached entity loaded once, modified in memory, saved once at end. Reduces I/O ~90% for large markets.
 - **Batch Saves**: `saveMapValues()` iterates cached Map and calls `.save()` on each entity.
 - **Selective Indexing**: Early returns for non-whitelisted creators/agents. Keeps database lean.
 - **Delta Accumulation**: Global settled totals accumulated as deltas during loop, applied once at end.
-- **Minimal Saves**: Bets only saved if actually modified (tracked via `betModified` boolean).
+- **Minimal Saves**: Bets are only re-saved when their counted flags flip (guarded by `if (!bet.countedInProfit)`); each bet is still loaded once per settlement to accumulate Brier contributions.
 
 ---
 
@@ -436,7 +477,7 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 |----------|--------|--------------|
 | FixedProductMarketMaker | `FPMMBuy`, `FPMMSell` | `FixedProductMarketMakerMapping.ts` |
 
-**Spec**: v1.0.0 | **API**: 0.0.7 | **Network**: gnosis | **Pruning**: auto
+**Spec**: v1.0.0 | **API**: 0.0.7 | **Network**: gnosis | **Pruning**: 300 blocks (~25 min of Gnosis history — time-travel `block: { number: N }` queries are effectively unavailable; historical analysis must use the daily entities and cumulative counters)
 
 **Note**: Realitio registers 4 events: `LogNewQuestion`, `LogNewAnswer` (settlement), plus `LogFinalize` and `LogNotifyOfArbitrationRequest` (finalization tracking only — they never touch profit/settlement state).
 
@@ -444,14 +485,14 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 
 ## Testing
 
-**Framework**: Matchstick-as v0.6.0 | **Files**: `tests/profit.test.ts`, `tests/service-registry-l-2.test.ts`, `tests/conditional-tokens.test.ts`, `tests/profit.ts`
+**Framework**: Matchstick-as v0.6.0 | **Files**: `tests/profit.test.ts`, `tests/service-registry-l-2.test.ts`, `tests/conditional-tokens.test.ts`, `tests/brier-score.test.ts`, `tests/category-parsing.test.ts`, `tests/finalization.test.ts`, `tests/profit.ts`
 
 ### Test Helpers (`tests/profit.ts`)
 - `createBuyEvent(buyer, investment, fee, outcomeIndex, fpmm, timestamp, logIndex?, outcomeTokensBought?)`
 - `createNewAnswerEvent(questionId, answer, timestamp)`
 - `createPayoutRedemptionEvent(redeemer, payout, conditionId, timestamp)`
 
-### Test Coverage (33 tests)
+### Test Coverage (53 tests)
 
 | Test | Validates |
 |------|-----------|
@@ -476,6 +517,9 @@ ONE_DAY = BigInt.fromI32(86400) // seconds
 | Invalid answer: expectedPayout = balance0/2 + balance1/2 | Correct payout for invalid markets with [1,1] split |
 | **Agent ID filtering (11 tests)** | RegisterInstance creates TraderService for correct agent ID, rejects wrong ID, duplicate prevention, CreateMultisigWithAgents requires TraderService, Global tracking |
 | **ConditionPreparation (3 tests)** | Skips unknown questions, saves with known Question, block metadata |
+| **Brier score (8 tests)** | impliedProbability recorded on buy/sell, zero-token skip, win/loss Brier formulas, sells excluded, invalid-answer 0.5 baseline, re-answer reversal + chained re-answers |
+| **Category parsing (5 tests)** | 4-field/3-field/legacy 2-field question templates, whitespace trimming, special characters in outcomes |
+| **Finalization (7 tests)** | Question timeout stored, answerFinalizedTimestamp set/pushed out on (re-)answers, null without timeout, LogFinalize sets block ts, arbitration clears it, unknown-question no-op |
 
 ---
 
@@ -494,13 +538,14 @@ yarn build
 # Run unit tests
 yarn test
 
-# Deploy
-graph deploy --studio autonolas-predict
+# Deploy: via the GitHub Actions "Deploy subgraph" workflow (see root CLAUDE.md/README),
+# or directly against the self-hosted graph node:
+# graph deploy <slug> subgraph.yaml --node <graph-node-url> --version-label vX.Y.Z
 ```
 
 ### Adding a New Whitelisted Creator
 1. Add address to `CREATOR_ADDRESSES` in `src/constants.ts`
-2. `yarn build && graph deploy`
+2. `yarn build`, then deploy via the GitHub Actions deploy workflow (see root CLAUDE.md)
 
 ### Adding a New Entity Field
 1. Add field to `schema.graphql`
@@ -598,3 +643,5 @@ graph deploy --studio autonolas-predict
 10. **4 Realitio events are registered**: `LogNewQuestion` and `LogNewAnswer` drive settlement; `LogFinalize` / `LogNotifyOfArbitrationRequest` only maintain `answerFinalizedTimestamp` (settlement for arbitrated answers still runs via the `LogNewAnswer` emitted in the same tx).
 11. **Re-answer profit uses full market cost**: `newProfit = newExpectedPayout - totalTraded - totalFees` (not incremental). This is critical for correct `oldProfit` reconstruction on subsequent re-answers, since `totalTradedSettled = totalTraded` after each settlement.
 12. **`totalExpectedPayout` vs `totalPayout`**: Compare these on TraderAgent/Global to measure claim rate (how much agents actually redeem vs what they're entitled to).
+13. **Windowed ROI uses `dailyTradedSettled`**: `sum(dailyProfit) / sum(dailyTradedSettled)` — never `payout - profit`, since bet cost, profit, and payout land on three different days. Re-answers relocate a market's cost basis wholesale to the new answer day.
+14. **Brier score**: buys record `impliedProbability` (1e18-scaled price = prediction); settlement adds `((p - actual)^2)/1e18` to the day's `brierSum`/`brierCount` (sells and zero-probability bets excluded). Mean = `sum(brierSum)/sum(brierCount)` over a window. `brierSumApplied`/`brierCountApplied` on the participant make re-answer reversal exact.

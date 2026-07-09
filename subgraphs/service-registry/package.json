@@ -4,8 +4,6 @@
     "codegen": "graph codegen subgraph.gnosis.yaml",
     "build": "graph build subgraph.gnosis.yaml",
     "generate-manifests": "node ../../scripts/generate-manifests.ts",
-    "deploy-gnosis": "graph deploy --network gnosis --studio olas-gnosis-registry subgraph.gnosis.yaml",
-    "deploy-mode": "graph deploy --network mode-mainnet --studio olas-mode-service-registry subgraph.mode-mainnet.yaml",
     "test": "graph test"
   },
   "dependencies": {

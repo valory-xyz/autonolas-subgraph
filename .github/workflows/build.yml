@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 17 (subgraph, manifest) pairs covering every deployable manifest
+        # (subgraph, manifest) pairs covering every deployable manifest
         # under subgraphs/. Each entry runs `graph codegen` + `graph build`
         # to catch regressions from dep bumps, schema changes, or handler
         # edits before they reach a deploy. Service-registry generates
@@ -37,6 +37,7 @@ jobs:
           - { subgraph: marketplace,         manifest: subgraph.arbitrum.yaml }
           - { subgraph: marketplace,         manifest: subgraph.celo.yaml }
           - { subgraph: mech,                manifest: subgraph.yaml }
+          - { subgraph: pearl-transactions,  manifest: subgraph.yaml }
           - { subgraph: predict-omen,        manifest: subgraph.yaml }
           - { subgraph: predict-polymarket,  manifest: subgraph.yaml }
           - { subgraph: service-registry,    manifest: subgraph.gnosis.yaml }

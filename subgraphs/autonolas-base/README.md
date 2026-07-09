@@ -75,8 +75,9 @@ yarn install        # Install dependencies
 yarn codegen        # Generate TypeScript from schema + ABIs
 yarn build          # Compile to WebAssembly
 yarn test           # Run tests
-yarn deploy-base    # Deploy to Studio
 ```
+
+> **Note**: The `yarn deploy-base` script is broken — it references a nonexistent `profiles/l2/subgraph.base.yaml` manifest. Deployments go through the GitHub Actions workflow (see [Setup & Deployment](#setup--deployment) below).
 
 ### Project Structure
 * `src/registryL2.ts` — Service registry event handlers + IPFS metadata resolution

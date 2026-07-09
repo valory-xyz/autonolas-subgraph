@@ -104,7 +104,7 @@ node compare-global-metrics.js --network polygon --v1 v5_2_0 --v2 v6_0_0
 ### Output
 
 - Sync status for both versions (block height, indexing errors)
-- Side-by-side comparison of all 13 Global entity fields
+- Side-by-side comparison of 13 Global entity fields (`totalPredictRequests` is not compared)
 - Match/diff status for each field
 - Summary with total matches and differences
 

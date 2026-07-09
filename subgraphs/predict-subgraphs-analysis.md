@@ -48,11 +48,13 @@ Previously, `handleCreateMultisigWithAgents` created a `TraderAgent` for **every
 
 Also removed unused imports (`LogAnswerRevealEvent`, `LogNotifyOfArbitrationRequestEvent`, `LogFinalizeEvent`, `QuestionFinalized`, `LogNotifyOfArbitrationRequest`).
 
+**Note**: `handleLogFinalize` and `handleLogNotifyOfArbitrationRequest` (and their event imports) were later re-introduced with new load-first finalization-tracking logic — see #8. Only `handleLogAnswerReveal` and the unused entity types remain removed.
+
 ---
 
 ### 4. `handleLogFinalize` Overwrites Without Loading (Low Priority) — FIXED
 
-Resolved as part of fix #3 — the handler was removed entirely along with the other orphaned handlers.
+Resolved as part of fix #3 — the handler was removed entirely along with the other orphaned handlers. It was later re-introduced for finalization tracking (see #8); the re-introduced version loads and null-guards before writing, so the original overwrite complaint stays resolved.
 
 ---
 
@@ -146,8 +148,8 @@ Reality.eth answers can flip during the dispute window; without a finalization f
 |---|----------|----------|-------|--------|
 | 1 | **High** | predict-omen | No agent ID filtering — tracked all services | FIXED + 11 tests |
 | 2 | **Medium** | predict-omen | Event ordering race — ConditionPreparation dropped | NOT AN ISSUE (ordering guaranteed) + 3 tests |
-| 3 | **Low** | predict-omen | Dead code — orphaned handlers and unused entities | FIXED |
-| 4 | **Low** | predict-omen | `handleLogFinalize` overwrites without loading | FIXED (removed) |
+| 3 | **Low** | predict-omen | Dead code — orphaned handlers and unused entities | FIXED (two handlers later re-introduced — see #8) |
+| 4 | **Low** | predict-omen | `handleLogFinalize` overwrites without loading | FIXED (removed; re-introduced load-first in #8) |
 | 5 | **Low** | predict-polymarket | `Bet.question` null if traded before init | FIXED (warning log) |
 | 6 | **Low** | predict-polymarket | `QuestionResolution` duplicate risk | FIXED + 1 test |
 | 7 | **Low** | predict-polymarket | `global.save()` called unnecessarily | FIXED + 1 test |
@@ -155,5 +157,7 @@ Reality.eth answers can flip during the dispute window; without a finalization f
 | 9 | **High** | predict-polymarket | Head-to-head markets dropped (studio#128) | FIXED + tests flipped/added |
 
 ### Test Results After Fixes
-- **predict-omen**: 33 tests pass (19 existing + 14 new)
-- **predict-polymarket**: 98 tests pass (96 existing + 2 new)
+- **predict-omen**: 53 tests pass
+- **predict-polymarket**: 118 tests pass
+
+(Counts are current and include the later Brier-score, category-parsing, finalization, and CTF Exchange v2 suites, not just the fixes above.)

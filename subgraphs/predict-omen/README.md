@@ -49,7 +49,7 @@ A streamlined GraphQL API for tracking prediction markets and Autonolas agent pe
 yarn install    # Install dependencies
 yarn codegen    # Generate TypeScript from schema + ABIs
 yarn build      # Compile to WebAssembly
-yarn test       # Run unit tests (19 tests)
+yarn test       # Run unit tests (53 tests)
 ```
 
 ### Project Structure
