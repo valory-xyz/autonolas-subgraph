@@ -145,7 +145,7 @@ Matchstick test execution (`yarn test`) is covered by [`.github/workflows/ci.yam
 | [`deploy-subgraph.yaml`](.github/workflows/deploy-subgraph.yaml) | `workflow_dispatch` only, production gated to main | n/a (manual) | Validates inputs, then deploys |
 | [`deploy-subgraph-no-version-label.yaml`](.github/workflows/deploy-subgraph-no-version-label.yaml) | Same as primary; used for `autonolas` (no version-slug) | n/a (manual) | Same |
 
-To promote `supply-chain.yml` and `gitleaks.yml` to required: Settings → Branches → main → Branch protection rules → Require status checks → add `Supply Chain / All checks passed` (the supply-chain.yml aggregator), `Build smoke-test / All builds passed` (the build.yml aggregator), **and** `Gitleaks / scan` (cross-workflow `needs:` is not supported — all must be listed separately). `ci.yaml`'s aggregator is named `All CI checks passed` (renamed from `All checks passed` to avoid colliding with the supply-chain aggregator in the status-check picker); if branch protection ever required it under the old name, update the rule.
+To promote `supply-chain.yml` and `gitleaks.yml` to required: Settings → Branches → main → Branch protection rules → Require status checks → add `Supply Chain / All checks passed` (the supply-chain.yml aggregator), `Build smoke-test / All builds passed` (the build.yml aggregator), **and** `Gitleaks / scan` (cross-workflow `needs:` is not supported — all must be listed separately). `ci.yaml`'s aggregator is named `All checks passed` (workflow `CI`, so its required-check context is `CI / All checks passed` — distinct from the supply-chain aggregator despite the shared short name).
 
 ## 11. Response playbook
 

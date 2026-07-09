@@ -95,7 +95,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Evidence:** src/conditional-tokens.ts:105 (ConditionalTokens.bind — the only .bind site in the subgraph), :26-30 (try_getCollectionId), :39-42 (try_getPositionId), called twice via registerOutcomeToken at :106-121; guard at :68 (outcomeSlotCount==2) and :72-91 (bridge dedupe) run first
 
-**Fix:** Three compounding options: (a) gate the calls by oracle address — only run registerOutcomeToken when event.params.oracle is UmaCtfAdapter or NegRiskAdapter (Polymarket's oracles), skipping non-Polymarket CTF users (cheap, hours); (b) with the specVersion 1.2.0 bump from the pUSD finding, convert to declared eth_calls (`calls:` on the ConditionPreparation eventHandler) so the calls run in parallel ahead of the handler and are cached — roughly halves the latency per event; (c) maximal: compute positionId locally in AssemblyScript (getPositionId is keccak256(collateral,collectionId); getCollectionId with zero parent is a deterministic alt_bn128 hash-to-curve) — eliminates the calls entirely but requires porting EC math to AS. Recommend (a)+(b) as interim; (c) only if a genesis re-index is planned before Envio.
+**Fix:** Three compounding options: (a) gate the calls by oracle address — only run registerOutcomeToken when event.params.oracle is UmaCtfAdapter or NegRiskAdapter (Polymarket's oracles), skipping non-Polymarket CTF users (cheap, hours); (b) with the specVersion 1.2.0 bump from the pUSD finding, convert to declared eth_calls (`calls:` on the ConditionPreparation eventHandler) so the calls run in parallel ahead of the handler and are cached — roughly halves the latency per event; (c) maximal: compute positionId locally in AssemblyScript (getPositionId is keccak256(collateral,collectionId); getCollectionId with zero parent is a deterministic alt_bn128 hash-to-curve) — eliminates the calls entirely but requires porting EC math to AS. Recommend (a) only as the interim fix — option (b) is not feasible here (declared eth_calls cannot express these args or chain getCollectionId→getPositionId; see verifier note); (c) only if a genesis re-index is planned before Envio.
 
 **Effort:** (a)+(b): hours-to-1-day incl. tests; (c): days and easy to get wrong · **Risk:** (a): must confirm the full set of Polymarket oracle addresses (UmaCtfAdapter versions + NegRiskAdapter) or agent-traded markets lose TokenRegistry rows and handleOrderFilledV2 drops their trades via the :48 warning path. (b): manifest-only, graft-safe. (c): a wrong hash silently orphans all future trades — needs differential testing against on-chain values.
 
@@ -277,11 +277,9 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 
 **Evidence:** src/utils.ts:177 (SafeTemplate.create per MasterSafe), src/utils.ts:238 (per AgentSafe), src/staking-factory.ts:54 (StakingProxyTemplate.create, allowlist-gated at staking-factory.ts:22)
 
-**Fix:** No in-protocol retirement exists; mitigate by (a) landing finding 3 (removes 2 of the 6 subscribed events, the highest-frequency ones), and (b) early-exit guards in the remaining Safe handlers are already cheap (MasterSafe.load-first in safe.ts:127,143,163). Accept and monitor; a design-level fix belongs to the same re-platform conversation as finding 1.
+**Fix:** No in-protocol retirement exists; mitigate by (a) landing finding 2.3 (removes 2 of the 6 subscribed events, the highest-frequency ones), and (b) early-exit guards in the remaining Safe handlers are already cheap (MasterSafe.load-first in safe.ts:127,142,164). Accept and monitor; a design-level fix belongs to the same re-platform conversation as finding 1.
 
-**Effort:** covered by finding 3; otherwise n/a · **Risk:** n/a — observational
-
-> **Verifier note:** Cosmetic only: the prose cross-references use 1-based numbering ('finding 3' = the ExecutionSuccess dead-weight, which is index 2 in this list). Cited early-exit lines are off by one in two cases (loads are at safe.ts:127, 142, 164).
+**Effort:** covered by finding 2.3; otherwise n/a · **Risk:** n/a — observational
 
 ### 2.9 ⚪ LOW · timeseries — DailyServiceFunds is a hand-rolled daily aggregate (load-modify-save) — @aggregation candidate, but volume is low
 
@@ -307,7 +305,7 @@ Ordered slowest-first. Every finding was adversarially verified for existence an
 - **data_sources**: Gnosis: 13 static (AgentFactory v1-v4, AgentRegistry, ServiceRegistryL2, 3x MechFactory, MechMarketplaceV1 [endBlock 41490893] + V2, ComplementaryServiceMetadata, Karma) + 5 ethereum templates + 2 file/ipfs templates. High-volume: MechMarketplace MarketplaceRequest/MarketplaceDelivery/Deliver-with-sigs, per-mech template Request/Deliver, and (historically dominant on Gnosis) legacy AgentMech template Request/Deliver.
 - **eth_call_sites**: 14 .bind( sites: 12 in src/marketplace/fee-utils.ts (6 Chainlink native converters L181/204/227/250/273/296; UniswapV2 pair L404; Chainlink-in-OLAS L443/507; Balancer pool getPoolId L470/585; Balancer vault getPoolTokens L354 via helper) + 2 DEAD in src/marketplace/utils.ts (L621 getMaxDeliveryRate, L641 getPaymentType — zero callers). On Gnosis the only live per-event eth_calls are the 2 Balancer calls for TOKEN(OLAS)-paid mechs; NATIVE xDAI and NVM CREDITS conversions are pure math (constants.ts:245-261).
 - **ipfs_sites**: Production sync ipfs.cat: 2 sites in src/agent-mech.ts:106/111 (legacy Gnosis path — STILL BLOCKING, up to 2 cats per Request and per Deliver). Marketplace path fully async since commits 4589b46/fa54999: file data sources ParsedRequestFile (spawned 2x per request, utils.ts:1013-1014) and ParsedDeliveryFile (1x per delivery, utils.ts:813-819/1146). Sync ipfs.cat in marketplace/utils.ts:673/677 is test-only (parseRequestIpfs/parseDeliverIpfs have no production callers).
-- **immutable_entities**: 23 of 39 entity types immutable. Notable mutable-but-write-once candidates: Deliver (highest-cardinality mutable entity; async path no longer updates it), RequestToMech, CreateMech. Request/Mech/Service/Global/Sender legitimately mutable.
+- **immutable_entities**: 23 of 40 entity types immutable. Notable mutable-but-write-once candidates: Deliver (highest-cardinality mutable entity; async path no longer updates it), RequestToMech, CreateMech. Request/Mech/Service/Global/Sender legitimately mutable.
 - **prune**: prune: 300 on all 7 manifests (already optimized; in use, and the Gnosis manifest grafts within the prune window — subgraph.gnosis.yaml:2-12)
 - **templates**: AgentMech (legacy, Gnosis only, created per mech by agent-factory.ts:51), MechFixedPriceNative/MechFixedPriceToken/MechNvmSubscriptionNative/MechNvmSubscriptionTokenUSDC (created per marketplace CreateMech via createDataSourceForMechContract, utils.ts:475-508), ParsedRequestFile + ParsedDeliveryFile (file/ipfs, spawned per request/delivery). Mech-count-bounded growth; FDS rows grow ~3x per request+delivery pair.
 
@@ -1428,7 +1426,7 @@ Additional facts worth having: declared eth_calls (specVersion ≥1.2.0, since v
 
 # Part 6 — Code-quality follow-ups from the docs review
 
-Carried over from the docs-vs-code review (workflow `wf_ebc1b3b1-438`) after all doc corrections/additions were applied and the trivial config/comment fixes landed (path counts, `All CI checks passed` rename, pearl-transactions in build.yml, removal of broken `--studio` deploy scripts). These are the items that still need **code changes, tests, or a maintainer decision** — they are correctness/hygiene work, not indexing-speed work, but several share a re-index or refactor window with Part 1 findings.
+Carried over from the docs-vs-code review (workflow `wf_ebc1b3b1-438`) after all doc corrections/additions were applied and the trivial config/comment fixes landed (config/comment cleanups, pearl-transactions in build.yml, removal of broken `--studio` deploy scripts). These are the items that still need **code changes, tests, or a maintainer decision** — they are correctness/hygiene work, not indexing-speed work, but several share a re-index or refactor window with Part 1 findings.
 
 ## Needs a decision + code change + tests
 
