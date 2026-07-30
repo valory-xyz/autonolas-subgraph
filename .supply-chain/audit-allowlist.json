@@ -603,6 +603,141 @@
       "reason": "Surfaced 2026-07 — newly published advisory (Memory exhaustion DoS from tiny fragments and data chunks). Transitive of @graphprotocol/graph-cli; same class as the existing ws entry 1098393. Patched in ws >=7.5.11, but the version is pinned by the graph-cli line — no fix until graph-cli upstream bumps ws / Tier 3 Wave 3. Re-evaluate then.",
       "added": "2026-07-09",
       "review": "2026-10-07"
+    },
+    {
+      "id": 1123260,
+      "ghsa": "GHSA-96hv-2xvq-fx4p",
+      "package": "ws",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — new advisory ID for GHSA-96hv-2xvq-fx4p covering the ws 7.x range (memory exhaustion DoS from tiny fragments and data chunks); same GHSA already allowlisted as 1122789. Transitive of @graphprotocol/graph-cli (graph-cli > jayson > ws); patched in ws >=7.5.11 but the version is pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123488,
+      "ghsa": "GHSA-wcpc-wj8m-hjx6",
+      "package": "protobufjs",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (DoS through unbounded Any expansion during JSON conversion). Transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > ipfs-http-client > ipfs-core-utils > ipfs-unixfs > protobufjs); only the autonolas/autonolas-base trees. Patched in >=7.6.1 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123896,
+      "ghsa": "GHSA-3jxr-9vmj-r5cp",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (DoS via exponential-time expansion of consecutive non-expanding {} groups), 2.x range. Transitive of @graphprotocol/graph-cli (graph-cli > @oclif/* > minimatch > brace-expansion); build-time CLI tooling only. Patched in >=2.1.2 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123897,
+      "ghsa": "GHSA-3jxr-9vmj-r5cp",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — same GHSA as 1123896, 1.x range. Transitive of @graphprotocol/graph-cli (graph-cli > gluegun > fs-jetpack > minimatch > brace-expansion); build-time CLI tooling only. Patched in >=1.1.16 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123898,
+      "ghsa": "GHSA-3jxr-9vmj-r5cp",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — same GHSA as 1123896, 3.x–5.x range. Transitive of @graphprotocol/graph-cli (graph-cli > glob > minimatch > brace-expansion); build-time CLI tooling only. Patched in >=5.0.7 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1124334,
+      "ghsa": "GHSA-mh99-v99m-4gvg",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (DoS via unbounded expansion length causing an out-of-memory crash). Transitive of @graphprotocol/graph-cli (graph-cli > @oclif/* > minimatch > brace-expansion); build-time CLI tooling only. Patched in >=5.0.8 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123911,
+      "ghsa": "GHSA-52cp-r559-cp3m",
+      "package": "js-yaml",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (YAML merge-key chains can force quadratic CPU consumption), 4.x range. Transitive of @graphprotocol/graph-cli (graph-cli > @float-capital/float-subgraph-uncrashable > js-yaml); build-time CLI tooling only. Patched in >=4.3.0 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123912,
+      "ghsa": "GHSA-52cp-r559-cp3m",
+      "package": "js-yaml",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — same GHSA as 1123911, 3.x range. Transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > @oclif/core > js-yaml); only the autonolas/autonolas-base trees. Patched in >=3.15.0 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123940,
+      "ghsa": "GHSA-23hp-3jrh-7fpw",
+      "package": "tar",
+      "severity": "critical",
+      "reason": "Surfaced 2026-07 — newly published advisory (decompression/parse DoS via unlimited input). Transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > binary-install-raw > tar); only the autonolas/autonolas-base trees. tar is used at build time to unpack downloaded release archives — not on the subgraph runtime path. Patched in >=7.5.19 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123941,
+      "ghsa": "GHSA-8x88-c5mf-7j5w",
+      "package": "tar",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (negative tar entry size causes infinite loop in archive replace). Transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > binary-install-raw > tar); only the autonolas/autonolas-base trees. Patched in >=7.5.18 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1123967,
+      "ghsa": "GHSA-gcfj-64vw-6mp9",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (Node HTTP adapter can use an inherited proxy after interceptor config cloning). Transitive of @graphprotocol/graph-cli (graph-cli > gluegun > apisauce > axios); build-time CLI tooling only. Patched in >=1.18.0 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1124007,
+      "ghsa": "GHSA-v56q-mh7h-f735",
+      "package": "immutable",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (Immutable.js List 32-bit trie overflow → unrecoverable DoS), 5.x range. Direct transitive of @graphprotocol/graph-cli (graph-cli > immutable); build-time CLI tooling only. Patched in >=5.1.8 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1124008,
+      "ghsa": "GHSA-v56q-mh7h-f735",
+      "package": "immutable",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — same GHSA as 1124007, 4.x range. Direct transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > immutable); only the autonolas/autonolas-base trees. Patched in >=4.3.9 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1124017,
+      "ghsa": "GHSA-xvcm-6775-5m9r",
+      "package": "immutable",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — newly published advisory (hash-collision algorithmic complexity DoS in Immutable.Map/Set), 5.x range. Direct transitive of @graphprotocol/graph-cli (graph-cli > immutable); build-time CLI tooling only. Patched in >=5.1.8 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
+    },
+    {
+      "id": 1124018,
+      "ghsa": "GHSA-xvcm-6775-5m9r",
+      "package": "immutable",
+      "severity": "high",
+      "reason": "Surfaced 2026-07 — same GHSA as 1124017, 4.x range. Direct transitive of @graphprotocol/graph-cli 0.64.0 (graph-cli > immutable); only the autonolas/autonolas-base trees. Patched in >=4.3.9 but pinned by the legacy graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-07-30",
+      "review": "2026-10-28"
     }
   ]
 }
