@@ -27,6 +27,8 @@ temp/
 
 # Other-package-manager lockfiles (this repo uses yarn 1.x)
 package-lock.json
+# squids are npm packages — their lockfiles are the audited source of truth
+!squids/**/package-lock.json
 pnpm-lock.yaml
 bun.lockb
 
