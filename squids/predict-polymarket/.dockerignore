@@ -1,0 +1,8 @@
+node_modules
+lib
+.env
+.git
+scripts
+tests
+db_data
+*.log

@@ -1,0 +1,26 @@
+manifestVersion: subsquid.io/v0.1
+name: predict-polymarket
+version: 1
+description: >-
+  Olas Predict trader agents on Polymarket (Polygon). SQD port of the
+  predict-polymarket indexer (factory-based DepositWallet linking).
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]
