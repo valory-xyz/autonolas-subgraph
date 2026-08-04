@@ -143,6 +143,34 @@ jobs:
             --allowed-hosts yarn npm \
             --empty-hostname false
 
+  # The squid under squids/ is an npm tree (not yarn), so it gets its own
+  # npm-flavored audit + lockfile lint instead of joining the yarn matrices.
+  squid-audit:
+    name: Squid dependency audit (npm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+
+      # high/critical advisories in production deps fail the build;
+      # `npm audit` reads package-lock.json directly, no install needed.
+      - name: Run npm audit (squids/predict-polymarket)
+        working-directory: squids/predict-polymarket
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint squids/predict-polymarket/package-lock.json
+        working-directory: squids/predict-polymarket
+        run: |
+          npx --yes lockfile-lint \
+            --path package-lock.json \
+            --type npm \
+            --validate-https \
+            --allowed-hosts npm \
+            --empty-hostname false
+
   license-check:
     name: License allowlist gate
     # License allowlist gate (PARANOID): every production dependency's license
@@ -169,7 +197,7 @@ jobs:
   # individually) for a stable interface that survives matrix changes.
   all-checks-passed:
     name: All checks passed
-    needs: [audit, install-hooks, lockfile-lint]
+    needs: [audit, install-hooks, lockfile-lint, squid-audit]
     if: always()
     runs-on: ubuntu-latest
     steps:

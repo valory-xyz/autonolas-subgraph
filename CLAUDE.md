@@ -21,9 +21,38 @@ subgraphs/
 ├── pearl-transactions/  # Pearl wallet transaction-history (Gnosis)
 ├── predict-omen/        # Omen prediction market trading (Gnosis)
 └── predict-polymarket/  # Polymarket prediction market trading (Polygon)
+
+squids/
+└── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
 ```
 
 Each subgraph is an independent package with its own `package.json`, `schema.graphql`, and manifest files (`subgraph.*.yaml`).
+
+## Squids (SQD indexers)
+
+`squids/` holds indexers built on the SQD (Subsquid) Squid SDK — used where
+graph-node cannot keep up with chain-wide event volume. They are npm packages
+(not yarn) and deploy as Docker images (see each squid's `Dockerfile`,
+`deploy/k8s-example.yaml`, and README), not via the subgraph deploy workflows.
+
+`squids/predict-polymarket` supersedes `subgraphs/predict-polymarket`. Key
+design difference: DepositWallet→agent linking is derived from the Polymarket
+wallet factory's `WalletDeployed` event (owner = agent instance EOA →
+`RegisterInstance` → service multisig) instead of the global pUSD `Transfer`
+stream. Common commands, from `squids/predict-polymarket/`:
+
+```bash
+npm ci && npm run build        # compile
+npm run codegen                # TypeORM models from schema.graphql
+npm run typegen                # event decoders from abi/*.json
+npx squid-typeorm-migration apply
+node lib/main.js               # processor (single instance only)
+npx squid-graphql-server       # GraphQL API
+```
+
+CI: `build-squid-image.yaml` builds/pushes the Docker image;
+`supply-chain.yml` has a dedicated npm-flavored `squid-audit` job
+(npm audit + lockfile-lint) since the yarn matrices don't cover npm trees.
 
 ## Common Commands
 

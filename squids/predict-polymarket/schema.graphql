@@ -1,0 +1,175 @@
+# SQD port of the predict-polymarket indexer schema — same entity shapes as
+# the Envio port (which mirrors the original subgraph):
+# - Bytes IDs/fields -> String hex, lowercase.
+# - Parent-side entity arrays -> @derivedFrom reverse lookups
+#   (MarketParticipant.bets) or ID arrays (profitParticipants).
+# - QuestionResolution shares the Question id (conditionId).
+# - AgentInstance + TraderService.multisig support factory-based
+#   DepositWallet linking (WalletDeployed replaces the pUSD stream).
+
+"Created only when a service registers agent ID 86; gates TraderAgent creation."
+type TraderService @entity {
+  id: ID! # serviceId (decimal string)
+  multisig: String # set at CreateMultisigWithAgents; serviceId -> safe lookup
+}
+
+"agent instance EOA -> service, written at RegisterInstance (agent ID 86 only)."
+type AgentInstance @entity {
+  id: ID! # agent instance EOA
+  serviceId: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type TraderAgent @entity {
+  id: ID! # multisig (safe) address
+  serviceId: BigInt!
+  firstParticipation: BigInt
+  lastActive: BigInt
+  totalBets: Int!
+  totalTraded: BigInt!
+  totalTradedSettled: BigInt!
+  totalPayout: BigInt!
+  totalExpectedPayout: BigInt!
+  bets: [Bet!]! @derivedFrom(field: "bettor")
+  dailyProfitStatistics: [DailyProfitStatistic!]! @derivedFrom(field: "traderAgent")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+"Maps a Polymarket CLOB v2 DepositWallet to the Olas service safe that funds it (via WalletDeployed owner EOA)."
+type DepositWallet @entity {
+  id: ID! # DW address
+  traderAgent: TraderAgent!
+  agentInstance: String! # owner EOA from WalletDeployed
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type QuestionIdToConditionId @entity {
+  id: ID! # questionId
+  oracle: String!
+  conditionId: String!
+  transactionHash: String!
+}
+
+type Question @entity {
+  id: ID! # conditionId
+  questionId: String!
+  isNegRisk: Boolean!
+  marketId: String
+  metadata: MarketMetadata!
+  bets: [Bet!]! @derivedFrom(field: "question")
+  participants: [MarketParticipant!]! @derivedFrom(field: "question")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type MarketMetadata @entity {
+  id: ID! # questionId
+  title: String!
+  outcomes: [String!]!
+  rawAncillaryData: String!
+}
+
+type Bet @entity {
+  id: ID! # txHash_logIndex
+  bettor: TraderAgent! @index
+  outcomeIndex: BigInt!
+  amount: BigInt!
+  shares: BigInt!
+  isBuy: Boolean!
+  countedInTotal: Boolean!
+  countedInProfit: Boolean!
+  question: Question
+  marketParticipant: MarketParticipant @index
+  dailyStatistic: DailyProfitStatistic
+  builder: String
+  metadata: String
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type TokenRegistry @entity {
+  id: ID! # tokenId (decimal string)
+  tokenId: BigInt!
+  conditionId: String!
+  outcomeIndex: BigInt!
+  transactionHash: String!
+}
+
+type QuestionResolution @entity {
+  id: ID! # conditionId (same id as Question)
+  question: Question!
+  winningIndex: BigInt!
+  settledPrice: BigInt!
+  payouts: [String!]! # decimal strings — SQD codegen has no BigInt arrays
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type MarketParticipant @entity {
+  id: ID! # agentAddress_conditionId
+  traderAgent: TraderAgent! @index
+  question: Question @index
+  totalBets: Int!
+  totalTraded: BigInt!
+  totalTradedSettled: BigInt!
+  totalPayout: BigInt!
+  outcomeShares0: BigInt!
+  outcomeShares1: BigInt!
+  expectedPayout: BigInt!
+  settled: Boolean!
+  bets: [Bet!]! @derivedFrom(field: "marketParticipant")
+  createdAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type Global @entity {
+  id: ID! # singleton, empty-string id ""
+  totalTraderAgents: Int!
+  totalActiveTraderAgents: Int!
+  totalBets: Int!
+  totalPayout: BigInt!
+  totalTraded: BigInt!
+  totalTradedSettled: BigInt!
+  totalExpectedPayout: BigInt!
+  totalMarketsParticipated: Int!
+}
+
+"Immutable log entity for every PayoutRedemption/PositionsRedeemed event (debugging/auditing)."
+type PayoutRedemptionEntity @entity {
+  id: ID! # txHash_logIndex
+  redeemer: TraderAgent!
+  conditionId: String!
+  question: Question
+  payoutAmount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type DailyProfitStatistic @entity {
+  id: ID! # traderAgent_dayTimestamp
+  traderAgent: TraderAgent! @index
+  date: BigInt! @index
+  bets: [Bet!]! @derivedFrom(field: "dailyStatistic")
+  totalBets: Int!
+  totalTraded: BigInt!
+  totalPayout: BigInt!
+  dailyTradedSettled: BigInt!
+  dailyProfit: BigInt!
+  profitParticipants: [String!]!
+}
+
+"Tracks markets where at least one agent has participated"
+type MarketParticipated @entity {
+  id: ID! # conditionId
+}
