@@ -2,6 +2,10 @@ node_modules
 data/
 build/
 generated/
+# squids commit their generated code (models, ABI decoders) — the
+# Docker/CI builds compile from it and cannot regenerate (shared ABIs
+# live outside the build context)
+!squids/**/generated/
 temp/
 # matchstick `graph test -d` (Docker mode) build artifact
 **/tests/.docker/
