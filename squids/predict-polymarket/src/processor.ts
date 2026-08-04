@@ -90,6 +90,10 @@ export const processor = new EvmBatchProcessor()
     topic0: [collateralAdapter.PositionsRedeemed.topic],
     range: { from: ADAPTERS_START },
   })
+  // Factory floor = Polymarket's CLOB v2 migration cutover: a DepositWallet
+  // is deployed on first deposit into the v2 system, so none can predate it.
+  // Our agents migrated to v2 trading a month+ later (trader PRs #929/#935;
+  // first agent DW trade at block 88,031,656), leaving ~2M blocks of margin.
   .addLog({
     address: [DEPOSIT_WALLET_FACTORY],
     topic0: [factory.WalletDeployed.topic],

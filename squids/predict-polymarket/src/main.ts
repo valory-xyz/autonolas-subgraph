@@ -2,7 +2,7 @@
 // src/handlers.ts (unit-tested); shared aggregation logic in src/logic.ts.
 import "dotenv/config";
 import { TypeormDatabase } from "@subsquid/typeorm-store";
-import { processor, Block, Log } from "./processor";
+import { processor } from "./processor";
 import { EntityCache } from "./entityCache";
 import * as serviceRegistryEvents from "./abi/ServiceRegistryL2/events";
 import * as conditionalTokensEvents from "./abi/ConditionalTokens/events";
@@ -12,7 +12,8 @@ import * as ctfExchangeEvents from "./abi/CTFExchange/events";
 import * as ctfExchangeV2Events from "./abi/CTFExchangeV2/events";
 import * as adapterEvents from "./abi/CtfCollateralAdapter/events";
 import * as factoryEvents from "./abi/DepositWalletFactory/events";
-import { EventMeta, processRedemption } from "./logic";
+import { processRedemption } from "./logic";
+import { eventMeta, inferV1Direction, inferV2Direction } from "./decode";
 import * as handlers from "./handlers";
 import {
   SERVICE_REGISTRY_L2,
@@ -27,17 +28,6 @@ import {
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
 } from "./constants";
-
-// SQD block header timestamps are Unix MILLISECONDS; entity fields keep the
-// subgraph convention of seconds.
-function eventMeta(block: Block, log: Log): EventMeta {
-  return {
-    blockNumber: BigInt(block.height),
-    blockTimestamp: BigInt(Math.floor(block.timestamp / 1000)),
-    transactionHash: log.transactionHash,
-    logIndex: log.logIndex,
-  };
-}
 
 const lc = (s: string) => s.toLowerCase();
 
@@ -140,12 +130,14 @@ processor.run(
         ) {
           if (topic0 === ctfExchangeEvents.OrderFilled.topic) {
             const e = ctfExchangeEvents.OrderFilled.decode(log);
-            // makerAssetId == 0 -> maker gave USDC -> BUY
-            const isBuying = e.makerAssetId === 0n;
+            const { isBuying, outcomeTokenId } = inferV1Direction(
+              e.makerAssetId,
+              e.takerAssetId,
+            );
             await handlers.handleOrderFill(cache, meta(), {
               maker: lc(e.maker),
               isBuying,
-              outcomeTokenId: isBuying ? e.takerAssetId : e.makerAssetId,
+              outcomeTokenId,
               makerAmountFilled: e.makerAmountFilled,
               takerAmountFilled: e.takerAmountFilled,
               builder: null,
@@ -167,7 +159,7 @@ processor.run(
             const e = ctfExchangeV2Events.OrderFilled.decode(log);
             await handlers.handleOrderFill(cache, meta(), {
               maker: lc(e.maker),
-              isBuying: Number(e.side) === 0, // side 0 = BUY, 1 = SELL
+              isBuying: inferV2Direction(e.side),
               outcomeTokenId: e.tokenId,
               makerAmountFilled: e.makerAmountFilled,
               takerAmountFilled: e.takerAmountFilled,

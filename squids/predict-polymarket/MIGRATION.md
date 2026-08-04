@@ -50,6 +50,11 @@ that are missing data on the subgraph side, not squid bugs:
 
 Always compare against the newest deployed version of the subgraph.
 
+One more query hint, valid on both stores: participants whose market metadata
+was rejected can never settle. In the squid, find them with
+`marketParticipants(where: {question_isNull: true})` — their `settled: false`
+is permanent, not "awaiting resolution".
+
 ## Cutover checklist
 
 1. Production backfill complete (processor at chain head).

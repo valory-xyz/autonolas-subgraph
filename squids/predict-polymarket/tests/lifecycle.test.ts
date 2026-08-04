@@ -284,10 +284,16 @@ describe("trade -> resolution -> redemption", () => {
     expect(cache.all(Bet)[0]!.countedInProfit).toBe(true);
     expect(cache.all(Bet)[0]!.countedInTotal).toBe(true);
 
+    // Global settlement deltas
+    const globalAfter = await cache.get(Global, "");
+    expect(globalAfter?.totalTradedSettled).toBe(USDC(100));
+    expect(globalAfter?.totalExpectedPayout).toBe(USDC(200));
+
     // Re-resolution must be a no-op (idempotency)
     await resolve();
     agent = await cache.get(TraderAgent, SAFE);
     expect(agent?.totalExpectedPayout).toBe(USDC(200)); // not 400
+    expect((await cache.get(Global, ""))?.totalTradedSettled).toBe(USDC(100));
 
     // Daily stats: activity on bet day, profit on resolution day
     const betDay = cache
@@ -489,5 +495,132 @@ describe("deposit wallet factory linking + v2 orders", () => {
     });
     expect(cache.all(Bet)).toHaveLength(0);
     expect(cache.warnings.some((w) => w.includes("TokenRegistry missing"))).toBe(true);
+  });
+});
+
+describe("multi-participant resolution", () => {
+  const SAFE2 = "0x4000000000000000000000000000000000000004";
+  const EOA2 = "0x5000000000000000000000000000000000000005";
+
+  it("settles two agents in one resolution: per-agent stats isolated, global = sum", async () => {
+    await registerAgent();
+    await handlers.handleRegisterInstance(cache, meta(1_750_000_000n), {
+      agentInstance: EOA2,
+      serviceId: 300n,
+      agentId: 86n,
+    });
+    await handlers.handleCreateMultisigWithAgents(cache, meta(1_750_000_000n), {
+      serviceId: 300n,
+      multisig: SAFE2,
+    });
+    await setupMarket();
+
+    // agent1 buys 100 -> 200 YES; agent2 buys 40 -> 50 NO
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE,
+      isBuying: true,
+      outcomeTokenId: TOKEN_YES,
+      makerAmountFilled: USDC(100),
+      takerAmountFilled: USDC(200),
+      builder: null,
+      metadata: null,
+    });
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE2,
+      isBuying: true,
+      outcomeTokenId: TOKEN_NO,
+      makerAmountFilled: USDC(40),
+      takerAmountFilled: USDC(50),
+      builder: null,
+      metadata: null,
+    });
+
+    // YES wins: both participants settle in ONE call
+    await handlers.handleQuestionResolution(cache, meta(RESOLUTION_TS), {
+      questionID: QUESTION_ID,
+      settledPrice: 10n ** 18n,
+      payouts: [0n, 1n],
+    });
+
+    const p1 = await cache.get(MarketParticipant, `${SAFE}_${CONDITION_ID}`);
+    const p2 = await cache.get(MarketParticipant, `${SAFE2}_${CONDITION_ID}`);
+    expect(p1?.settled).toBe(true);
+    expect(p2?.settled).toBe(true);
+    expect(p1?.expectedPayout).toBe(USDC(200)); // won
+    expect(p2?.expectedPayout).toBe(0n); // held NO, YES won
+
+    // per-agent daily stats are isolated (ids keyed agent_day)
+    const day1 = cache.all(DailyProfitStatistic).find(
+      (s) => s.id === `${SAFE}_${RESOLUTION_DAY}`,
+    );
+    const day2 = cache.all(DailyProfitStatistic).find(
+      (s) => s.id === `${SAFE2}_${RESOLUTION_DAY}`,
+    );
+    expect(day1?.dailyProfit).toBe(USDC(100)); // 200 - 100
+    expect(day2?.dailyProfit).toBe(-USDC(40)); // 0 - 40
+
+    // global deltas are the sum over both participants
+    const global = await cache.get(Global, "");
+    expect(global?.totalTradedSettled).toBe(USDC(140)); // 100 + 40
+    expect(global?.totalExpectedPayout).toBe(USDC(200)); // 200 + 0
+  });
+});
+
+describe("negrisk question path", () => {
+  it("prepares metadata, resolves with the inverted index convention", async () => {
+    await registerAgent();
+    cache.set(
+      QuestionIdToConditionId,
+      new QuestionIdToConditionId({
+        id: QUESTION_ID,
+        conditionId: CONDITION_ID,
+        oracle: ORACLE,
+        transactionHash: "0x00",
+      }),
+    );
+    await handlers.handleTokenRegistered(cache, meta(1_750_000_100n), {
+      token0: TOKEN_NO,
+      token1: TOKEN_YES,
+      conditionId: CONDITION_ID,
+    });
+    await handlers.handleQuestionPrepared(cache, meta(1_750_000_100n), {
+      questionId: QUESTION_ID,
+      marketId: `0x${"11".repeat(32)}`,
+      data: utf8ToHex("q: NegRisk: will candidate X win?"),
+    });
+
+    const question = await cache.get(Question, CONDITION_ID);
+    expect(question?.isNegRisk).toBe(true);
+    expect(question?.marketId).toBe(`0x${"11".repeat(32)}`);
+    const md = await cache.get(MarketMetadata, QUESTION_ID);
+    expect(md?.outcomes).toEqual(["Yes", "No"]); // hardcoded for NegRisk
+
+    // agent bets on outcome 0 (token0 = index 0 = "Yes" in NegRisk convention)
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE,
+      isBuying: true,
+      outcomeTokenId: TOKEN_NO, // registered as outcomeIndex 0
+      makerAmountFilled: USDC(10),
+      takerAmountFilled: USDC(30),
+      builder: null,
+      metadata: null,
+    });
+
+    // OutcomeReported(true) = YES = winning index 0 (INVERTED vs UMA layout)
+    await handlers.handleOutcomeReported(cache, meta(RESOLUTION_TS), {
+      questionId: QUESTION_ID,
+      outcome: true,
+    });
+
+    const resolution = await cache.get(QuestionResolution, CONDITION_ID);
+    expect(resolution?.winningIndex).toBe(0n);
+    expect(resolution?.payouts).toEqual(["1", "0"]);
+
+    const participant = await cache.get(
+      MarketParticipant,
+      `${SAFE}_${CONDITION_ID}`,
+    );
+    expect(participant?.settled).toBe(true);
+    expect(participant?.expectedPayout).toBe(USDC(30)); // index-0 shares won
   });
 });

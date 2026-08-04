@@ -105,6 +105,7 @@ type TokenRegistry @entity {
 type QuestionResolution @entity {
   id: ID! # conditionId (same id as Question)
   question: Question!
+  "Winning outcome index (0 or 1). -1 means the market resolved invalid/unresolvable — NOT an index into Question.metadata.outcomes."
   winningIndex: BigInt!
   settledPrice: BigInt!
   payouts: [String!]! # decimal strings — SQD codegen has no BigInt arrays
@@ -124,6 +125,7 @@ type MarketParticipant @entity {
   outcomeShares0: BigInt!
   outcomeShares1: BigInt!
   expectedPayout: BigInt!
+  "True once resolution processed this participant. false means either awaiting resolution OR permanently orphaned (question is null — the market's metadata was rejected and it can never settle; filter with question_isNull)."
   settled: Boolean!
   bets: [Bet!]! @derivedFrom(field: "marketParticipant")
   createdAt: BigInt!

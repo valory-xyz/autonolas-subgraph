@@ -3,6 +3,9 @@ import {
   http,
   keccak256,
   encodePacked,
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionExecutionError,
 } from "viem";
 import { CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
 
@@ -36,7 +39,12 @@ const CTF_ABI = [
 
 const memo = new Map<string, string | null>();
 
-/** Outcome tokenId as a decimal string, or null when the CTF call reverts. */
+/**
+ * Outcome tokenId as a decimal string, or null when the CTF call REVERTS
+ * (mirrors the subgraph's try_/reverted path — a revert is a permanent
+ * property of the inputs). Transport errors are rethrown, never cached:
+ * the SQD batch retry re-runs the handler and the call gets another chance.
+ */
 export async function getOutcomeTokenId(
   conditionId: string,
   collateral: string,
@@ -46,9 +54,9 @@ export async function getOutcomeTokenId(
   const cached = memo.get(key);
   if (cached !== undefined) return cached;
 
-  let result: string | null;
+  let collectionId: `0x${string}`;
   try {
-    const collectionId = await client.readContract({
+    collectionId = await client.readContract({
       address: CONDITIONAL_TOKENS as `0x${string}`,
       abi: CTF_ABI,
       functionName: "getCollectionId",
@@ -58,16 +66,31 @@ export async function getOutcomeTokenId(
         BigInt(indexSet),
       ],
     });
-    const positionId = keccak256(
-      encodePacked(
-        ["address", "bytes32"],
-        [collateral as `0x${string}`, collectionId],
-      ),
+  } catch (e) {
+    const isRevert =
+      e instanceof BaseError &&
+      (e.walk((err) => err instanceof ContractFunctionRevertedError) != null ||
+        (e instanceof ContractFunctionExecutionError &&
+          e.message.includes("revert")));
+    if (isRevert) {
+      console.warn(
+        `getCollectionId reverted for condition ${conditionId} indexSet ${indexSet} — market permanently untracked`,
+      );
+      memo.set(key, null);
+      return null;
+    }
+    console.error(
+      `getCollectionId transport error for condition ${conditionId} collateral ${collateral} indexSet ${indexSet}: ${e instanceof Error ? e.message : e}`,
     );
-    result = BigInt(positionId).toString();
-  } catch (_e) {
-    result = null;
+    throw e; // NOT memoized — batch retry will re-attempt
   }
+  const positionId = keccak256(
+    encodePacked(
+      ["address", "bytes32"],
+      [collateral as `0x${string}`, collectionId],
+    ),
+  );
+  const result = BigInt(positionId).toString();
   memo.set(key, result);
   return result;
 }

@@ -14,6 +14,9 @@ export class QuestionResolution {
     @ManyToOne_(() => Question, {nullable: true})
     question!: Relation_<Question>
 
+    /**
+     * Winning outcome index (0 or 1). -1 means the market resolved invalid/unresolvable — NOT an index into Question.metadata.outcomes.
+     */
     @BigIntColumn_({nullable: false})
     winningIndex!: bigint
 

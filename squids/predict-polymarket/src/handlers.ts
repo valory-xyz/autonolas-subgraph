@@ -306,10 +306,19 @@ export async function handleOrderFill(
   let agent = await cache.get(TraderAgent, p.maker);
   if (agent == null) {
     const dw = await cache.getDepositWallet(p.maker);
-    if (dw == null) return; // unknown maker
+    // unknown maker: silent by design — this is ~all of Polymarket's order
+    // flow; a warn here would emit millions of lines
+    if (dw == null) return;
     agent = await cache.get(TraderAgent, dw.traderAgent.id);
+    if (agent == null) {
+      // a KNOWN deposit wallet pointing at a missing agent is a corrupted
+      // link — rare and alarming, unlike the unknown-maker case above
+      cache.log.warn(
+        `DepositWallet ${p.maker} links to missing TraderAgent ${dw.traderAgent.id} in tx ${meta.transactionHash}`,
+      );
+      return;
+    }
   }
-  if (agent == null) return;
 
   // 2. Sells use NEGATIVE amounts/shares (omen convention)
   const usdcAmount = p.isBuying ? p.makerAmountFilled : -p.takerAmountFilled;
@@ -341,9 +350,7 @@ export async function handleOrderFill(
   // 5. Create Bet
   const question = await cache.get(Question, tokenRegistry.conditionId);
   const participantId = `${agent.id}_${tokenRegistry.conditionId}`;
-  cache.set(
-    Bet,
-    new Bet({
+  const bet = new Bet({
       id: `${meta.transactionHash}_${meta.logIndex}`,
       bettor: agent,
       outcomeIndex: tokenRegistry.outcomeIndex,
@@ -358,8 +365,8 @@ export async function handleOrderFill(
       metadata: p.metadata,
       blockTimestamp: meta.blockTimestamp,
       transactionHash: meta.transactionHash,
-    }),
-  );
+    });
+  cache.set(Bet, bet);
 
   // 6. Process Agent, Participant, and Global atomically
   await processTradeActivity(
@@ -374,10 +381,9 @@ export async function handleOrderFill(
   );
 
   // Bet.marketParticipant is set after processTradeActivity guarantees the
-  // participant row exists (FK); re-set with the relation attached.
-  const bet = await cache.get(Bet, `${meta.transactionHash}_${meta.logIndex}`);
+  // participant row exists (FK); attach the relation on the same instance.
   const participant = await cache.get(MarketParticipant, participantId);
-  if (bet != null && participant != null) {
+  if (participant != null) {
     bet.marketParticipant = participant;
     cache.set(Bet, bet);
   }

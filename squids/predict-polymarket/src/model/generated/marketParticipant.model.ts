@@ -41,6 +41,9 @@ export class MarketParticipant {
     @BigIntColumn_({nullable: false})
     expectedPayout!: bigint
 
+    /**
+     * True once resolution processed this participant. false means either awaiting resolution OR permanently orphaned (question is null — the market's metadata was rejected and it can never settle; filter with question_isNull).
+     */
     @BooleanColumn_({nullable: false})
     settled!: boolean
 

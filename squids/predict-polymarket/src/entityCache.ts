@@ -114,7 +114,13 @@ export class EntityCache implements IEntityCache {
    */
   async getDepositWallet(id: string): Promise<DepositWallet | undefined> {
     const bucket = this.bucket(this.cache, DepositWallet);
-    if (bucket.has(id)) return bucket.get(id) as DepositWallet | undefined;
+    if (bucket.has(id)) {
+      const hit = bucket.get(id) as DepositWallet | undefined;
+      // Self-heal: a plain get() elsewhere may have seeded the bucket with a
+      // relation-less row (TypeORM doesn't load relations by default). Only
+      // trust the hit if the relation this method promises is present.
+      if (hit == null || hit.traderAgent != null) return hit;
+    }
     const fromDb = await this.store.findOne(DepositWallet, {
       where: { id },
       relations: { traderAgent: true },
