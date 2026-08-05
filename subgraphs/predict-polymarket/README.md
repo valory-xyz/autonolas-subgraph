@@ -1,5 +1,11 @@
 # Autonolas Predict Polymarket Subgraph
 
+> ⚠️ **Being replaced.** This subgraph is superseded by the SQD indexer at
+> [`squids/predict-polymarket`](../../squids/predict-polymarket), which
+> indexes the same data much faster. New features and fixes go there; this
+> subgraph will be retired after the cutover (see the squid's
+> [MIGRATION.md](../../squids/predict-polymarket/MIGRATION.md)).
+
 A streamlined GraphQL API for tracking Autonolas agent performance on Polymarket prediction markets on Polygon.
 
 > **Technical reference**: See [claude.md](claude.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.

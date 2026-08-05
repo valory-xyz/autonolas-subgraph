@@ -105,6 +105,10 @@ Catches non-registry deps (e.g., `codeload.github.com` URLs from forked-and-patc
 
 **What lockfile-lint does NOT catch:** install-script contents. A malicious dep added to a legitimate-looking npm-registry URL with a matching integrity hash slips past lockfile-lint while still running arbitrary code in `postinstall`. That's the gap §7's per-subgraph matrix closes.
 
+### Squids (npm trees)
+
+`squids/` packages use npm, not yarn, so they cannot join the yarn matrices above. The dedicated `squid-audit` job in the same workflow covers them: `npm audit --omit=dev --audit-level=high` (fails on high/critical advisories in production dependencies) plus `lockfile-lint --type npm` on `package-lock.json` with the same host/https rules. The job is wired into the `All checks passed` aggregator like every other gate.
+
 ## 7. Install-hook gate
 
 [`scripts/audit-install-hooks.mjs`](scripts/audit-install-hooks.mjs) enumerates every package in `node_modules` that declares a non-trivial `preinstall` / `install` / `postinstall` script and diffs the list against [`.supply-chain/install-hooks.allowlist`](.supply-chain/install-hooks.allowlist). New names in the tree but not in the allowlist fail the job.

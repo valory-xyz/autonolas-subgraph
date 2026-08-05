@@ -53,9 +53,9 @@ jobs:
           - { subgraph: staking,            manifest: subgraph.mode-mainnet.yaml, test: false }
           - { subgraph: tokenomics,         manifest: subgraph.mode-mainnet.yaml, test: false }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: "24"
 
@@ -81,9 +81,34 @@ jobs:
         working-directory: subgraphs/${{ matrix.subgraph }}
         run: yarn test
 
+  # The squid is an npm/TypeScript package with its own vitest suite —
+  # separate job because the matrix above is graph-cli/yarn-shaped.
+  # Actions SHA-pinned per SUPPLY-CHAIN-SECURITY.md.
+  squid-tests:
+    name: squids/predict-polymarket (build + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install
+        working-directory: squids/predict-polymarket
+        run: npm ci
+
+      - name: Build
+        working-directory: squids/predict-polymarket
+        run: npm run build
+
+      - name: Test
+        working-directory: squids/predict-polymarket
+        run: npm test
+
   all-checks-passed:
     name: All checks passed
-    needs: [check]
+    needs: [check, squid-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:

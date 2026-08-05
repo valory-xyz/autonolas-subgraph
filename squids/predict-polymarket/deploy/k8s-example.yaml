@@ -1,0 +1,104 @@
+# Example spec for the infra team — adapt to the ArgoCD/Helm conventions of
+# internal-infrastructure. One image (see Dockerfile), three workloads.
+#
+# Required env, split into two Secrets so only the processor sees the
+# vendor credentials:
+#   Secret predict-polymarket-squid-db   (all three workloads):
+#     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
+#   Secret predict-polymarket-squid-data (processor ONLY):
+#     SQD_API_KEY        -> SQD Portal API key
+#     RPC_POLYGON_HTTP   -> Polygon RPC endpoint
+#
+# Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
+# do NOT share the graph-node database server.
+---
+# 1. one-shot schema migration (run once per schema change, before processor)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: predict-polymarket-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: <REGISTRY>/predict-polymarket-squid:<TAG>
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: predict-polymarket-squid-db } }]
+---
+# 2. processor (the indexer). Single replica ALWAYS — concurrent processors
+# on one DB corrupt the cursor. Recreate strategy, not RollingUpdate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predict-polymarket-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: predict-polymarket-squid-processor } }
+  template:
+    metadata:
+      labels: { app: predict-polymarket-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: <REGISTRY>/predict-polymarket-squid:<TAG>
+          envFrom:
+            - { secretRef: { name: predict-polymarket-squid-db } }
+            - { secretRef: { name: predict-polymarket-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports:
+            - { containerPort: 3000, name: metrics }
+          # Liveness: a plain TCP check on the metrics port is safe. Do NOT
+          # use "block height must advance" style probes — long batches would
+          # look dead and get the pod killed mid-backfill.
+          livenessProbe:
+            tcpSocket: { port: 3000 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            # backfill: bump to 2 CPU for the ~2 days, then back down
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+---
+# 3. GraphQL API (consumers query this; scale replicas freely)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predict-polymarket-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: predict-polymarket-squid-api } }
+  template:
+    metadata:
+      labels: { app: predict-polymarket-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: <REGISTRY>/predict-polymarket-squid:<TAG>
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: predict-polymarket-squid-db } }]
+          env:
+            # required: the server's built-in default is a different port
+            - { name: GQL_PORT, value: "4350" }
+          ports:
+            - { containerPort: 4350, name: graphql }
+          readinessProbe:
+            httpGet: { path: /graphql, port: 4350 }
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: predict-polymarket-squid-api
+spec:
+  selector: { app: predict-polymarket-squid-api }
+  ports:
+    - { port: 80, targetPort: 4350 }
+# + Ingress per infra conventions, e.g.
+#   https://subgraph.autonolas.tech/squid/predict-polymarket/graphql

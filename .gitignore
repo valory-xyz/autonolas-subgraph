@@ -2,6 +2,10 @@ node_modules
 data/
 build/
 generated/
+# squids commit their generated code (models, ABI decoders) — the
+# Docker/CI builds compile from it and cannot regenerate (shared ABIs
+# live outside the build context)
+!squids/**/generated/
 temp/
 # matchstick `graph test -d` (Docker mode) build artifact
 **/tests/.docker/
@@ -27,6 +31,8 @@ temp/
 
 # Other-package-manager lockfiles (this repo uses yarn 1.x)
 package-lock.json
+# squids are npm packages — their lockfiles are the audited source of truth
+!squids/**/package-lock.json
 pnpm-lock.yaml
 bun.lockb
 
