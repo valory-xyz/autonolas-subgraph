@@ -18,8 +18,9 @@ jobs:
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
-          # registry + credentials supplied by the infra team as repo secrets
-          registry: ${{ secrets.DOCKER_REGISTRY }}
+          # Docker Hub (login-action default server). DOCKER_REGISTRY below is
+          # the image NAMESPACE (e.g. "valory"), not a server address — do not
+          # pass it to login.
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
