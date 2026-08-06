@@ -1,9 +1,14 @@
 name: build-image
 
+run-name: Build squid image ${{ inputs.version }}
+
 on:
-  release:
-    types: [prereleased, released]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version tag (e.g., v0.1.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,6 +17,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Validate inputs
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ! echo "$INPUT_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Invalid version: '$INPUT_VERSION' (expected e.g. v0.1.0)"
+            exit 1
+          fi
+
+      - name: Validate branch
+        # images are deployed to production, so only build from main (same
+        # gate as production subgraph deploys)
+        run: |
+          CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+          if [ "$CURRENT_BRANCH" != "main" ]; then
+            echo "❌ Image builds must run from main (got: $CURRENT_BRANCH)"
+            exit 1
+          fi
+
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
@@ -24,15 +48,11 @@ jobs:
 
       - name: Compute image tags
         id: tags
-        # :sha always; :latest always; :vX.Y.Z additionally when running from a
-        # release/tag — a manual workflow_dispatch from a branch gets no tag.
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           IMG="${{ secrets.DOCKER_REGISTRY }}/predict-polymarket-squid"
-          TAGS="$IMG:${{ github.sha }},$IMG:latest"
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            TAGS="$TAGS,$IMG:${{ github.ref_name }}"
-          fi
-          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "tags=$IMG:${{ github.sha }},$IMG:latest,$IMG:$INPUT_VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:

@@ -50,7 +50,8 @@ node lib/main.js               # processor (single instance only)
 npx squid-graphql-server       # GraphQL API
 ```
 
-CI: `build-squid-image.yaml` builds/pushes the Docker image;
+CI: `build-squid-image.yaml` builds/pushes the Docker image (manual
+workflow_dispatch with a version input, like the subgraph deploy workflows);
 `supply-chain.yml` has a dedicated npm-flavored `squid-audit` job
 (npm audit + lockfile-lint) since the yarn matrices don't cover npm trees.
 
