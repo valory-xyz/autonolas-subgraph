@@ -1,10 +1,8 @@
 name: build-image
 
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
-    paths: ["squids/predict-polymarket/**", ".github/workflows/build-squid-image.yaml"]
+  release:
+    types: [prereleased, released]
   workflow_dispatch:
 
 permissions:
@@ -26,8 +24,8 @@ jobs:
 
       - name: Compute image tags
         id: tags
-        # :sha always; :latest always; :vX.Y.Z additionally when the build was
-        # triggered by pushing a git tag — so releases produce a matching image.
+        # :sha always; :latest always; :vX.Y.Z additionally when running from a
+        # release/tag — a manual workflow_dispatch from a branch gets no tag.
         run: |
           IMG="${{ secrets.DOCKER_REGISTRY }}/predict-polymarket-squid"
           TAGS="$IMG:${{ github.sha }},$IMG:latest"
