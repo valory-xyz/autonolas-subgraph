@@ -1,4 +1,4 @@
-name: build-image
+name: Build Squid Image
 
 run-name: Build squid image ${{ inputs.version }}
 
