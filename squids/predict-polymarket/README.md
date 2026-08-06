@@ -11,7 +11,7 @@ API.
 Three processes, one codebase:
 
 1. **Processor** (`node lib/main.js`) — downloads blockchain events from
-   the SQD data network, runs the handler code in `src/`, writes results
+   the SQD Portal, runs the handler code in `src/`, writes results
    to PostgreSQL. It saves its position (a "checkpoint") in the database
    after every batch, so it can be stopped and restarted at any time and
    it continues where it stopped.
@@ -39,15 +39,16 @@ Key files:
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `SQD_API_KEY` | SQD data network key (secret). Without it the processor falls back to slow RPC-only mode — for tests only |
-| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. Used for two contract calls per new market and for following the chain head |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal, which needs no key. Production uses the private portal URL |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
+| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. Used only for two contract calls per new market — not for event ingestion |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
 ## Run it locally
 
 ```bash
-cp .env.example .env       # then put your SQD_API_KEY into .env
+cp .env.example .env       # defaults work as-is (public portal, no key)
 docker compose up -d       # starts PostgreSQL on port 23798
 npm ci                     # install dependencies
 npm run build              # compile TypeScript to lib/

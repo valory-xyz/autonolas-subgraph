@@ -6,8 +6,9 @@
 #   Secret predict-polymarket-squid-db   (all three workloads):
 #     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
 #   Secret predict-polymarket-squid-data (processor ONLY):
-#     SQD_API_KEY        -> SQD Portal API key
-#     RPC_POLYGON_HTTP   -> Polygon RPC endpoint
+#     SQD_PORTAL_URL     -> private SQD Portal dataset URL
+#     SQD_PORTAL_API_KEY -> private portal key (x-api-key header)
+#     RPC_POLYGON_HTTP   -> Polygon RPC endpoint (contract calls only)
 #
 # Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
 # do NOT share the graph-node database server.

@@ -3,15 +3,16 @@
 import { EventMeta } from "./logic";
 
 /**
- * SQD block header timestamps are Unix MILLISECONDS; entity fields keep the
- * subgraph convention of seconds.
+ * SQD block header timestamps are Unix MILLISECONDS (evm-stream converts the
+ * portal's seconds to ms); entity fields keep the subgraph convention of
+ * seconds.
  */
 export function eventMeta(
-  block: { height: number; timestamp: number },
+  block: { number: number; timestamp: number },
   log: { transactionHash: string; logIndex: number },
 ): EventMeta {
   return {
-    blockNumber: BigInt(block.height),
+    blockNumber: BigInt(block.number),
     blockTimestamp: BigInt(Math.floor(block.timestamp / 1000)),
     transactionHash: log.transactionHash,
     logIndex: log.logIndex,
