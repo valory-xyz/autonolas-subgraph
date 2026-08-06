@@ -31,7 +31,7 @@ describe("inferV2Direction", () => {
 describe("eventMeta", () => {
   it("converts SQD millisecond timestamps to seconds and casts blocks to bigint", () => {
     const meta = eventMeta(
-      { height: 88_000_000, timestamp: 1_750_010_000_500 }, // ms, mid-second
+      { number: 88_000_000, timestamp: 1_750_010_000_500 }, // ms, mid-second
       { transactionHash: "0xabc", logIndex: 7 },
     );
     expect(meta.blockNumber).toBe(88_000_000n);
@@ -43,7 +43,7 @@ describe("eventMeta", () => {
   it("day-buckets correctly through the seconds conversion", () => {
     // 1_749_945_600s is a UTC midnight; the ms value must land in that day
     const meta = eventMeta(
-      { height: 1, timestamp: 1_749_945_600_000 + 3_600_000 }, // +1h in ms
+      { number: 1, timestamp: 1_749_945_600_000 + 3_600_000 }, // +1h in ms
       { transactionHash: "0x", logIndex: 0 },
     );
     expect((meta.blockTimestamp / 86_400n) * 86_400n).toBe(1_749_945_600n);

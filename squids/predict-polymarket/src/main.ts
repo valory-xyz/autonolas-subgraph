@@ -2,7 +2,10 @@
 // src/handlers.ts (unit-tested); shared aggregation logic in src/logic.ts.
 import "dotenv/config";
 import { TypeormDatabase } from "@subsquid/typeorm-store";
-import { processor } from "./processor";
+import { run } from "@subsquid/batch-processor";
+import { augmentBlock } from "@subsquid/evm-objects";
+import { createLogger } from "@subsquid/logger";
+import { dataSource } from "./processor";
 import { EntityCache } from "./entityCache";
 import * as serviceRegistryEvents from "./abi/ServiceRegistryL2/events";
 import * as conditionalTokensEvents from "./abi/ConditionalTokens/events";
@@ -31,13 +34,17 @@ import {
 
 const lc = (s: string) => s.toLowerCase();
 
-processor.run(
+// run() ctx carries no logger (unlike the old processor.run); create our own.
+const logger = createLogger("sqd:processor:mapping");
+
+run(
+  dataSource,
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx) => {
     const cache = new EntityCache(ctx.store);
-    cache.log = ctx.log;
+    cache.log = logger;
 
-    for (const block of ctx.blocks) {
+    for (const block of ctx.blocks.map(augmentBlock)) {
       for (const log of block.logs) {
         const address = log.address; // SQD normalizes to lowercase
         const topic0 = log.topics[0];

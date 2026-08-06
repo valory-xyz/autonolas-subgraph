@@ -1,9 +1,5 @@
-import {
-  EvmBatchProcessor,
-  EvmBatchProcessorFields,
-  BlockHeader,
-  Log as _Log,
-} from "@subsquid/evm-processor";
+import { DataSourceBuilder, FieldSelection } from "@subsquid/evm-stream";
+import type { PortalClientOptions } from "@subsquid/portal-client";
 import * as serviceRegistry from "./abi/ServiceRegistryL2/events";
 import * as conditionalTokens from "./abi/ConditionalTokens/events";
 import * as oo from "./abi/OptimisticOracleV3/events";
@@ -31,63 +27,96 @@ import {
   ADAPTERS_START,
 } from "./constants";
 
-export const processor = new EvmBatchProcessor()
-  .setRpcEndpoint({
-    url: process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com",
-    rateLimit: 10,
-  })
-  // Polygon finality via Heimdall checkpoints is typically quoted as
-  // ~128-256 blocks; 200 sits inside that band.
-  .setFinalityConfirmation(200)
-  .setFields({
-    log: { transactionHash: true },
-  })
+// SQD Portal endpoint. The public portal needs no key; the paid private
+// portal is selected by overriding both vars (key goes in the x-api-key
+// header). Keep the private URL out of the repo — infra sets it via env.
+const portalUrl =
+  process.env.SQD_PORTAL_URL ??
+  "https://portal.sqd.dev/datasets/polygon-mainnet";
+const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
+  ? {
+      url: portalUrl,
+      http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } },
+    }
+  : portalUrl;
+
+// The modern SDK has no implicit field defaults: every field the handlers
+// read must be listed here, or the property does not exist at runtime.
+const fields = {
+  block: { timestamp: true },
+  log: { address: true, topics: true, data: true, transactionHash: true },
+} satisfies FieldSelection;
+
+export type Fields = typeof fields;
+
+export const dataSource = new DataSourceBuilder()
+  .setPortal(portal)
   .setBlockRange({ from: START_BLOCK })
+  .setFields(fields)
   .addLog({
-    address: [SERVICE_REGISTRY_L2],
-    topic0: [
-      serviceRegistry.RegisterInstance.topic,
-      serviceRegistry.CreateMultisigWithAgents.topic,
-    ],
+    where: {
+      address: [SERVICE_REGISTRY_L2],
+      topic0: [
+        serviceRegistry.RegisterInstance.topic,
+        serviceRegistry.CreateMultisigWithAgents.topic,
+      ],
+    },
     range: { from: SERVICE_REGISTRY_START },
   })
   .addLog({
-    address: [CONDITIONAL_TOKENS],
-    topic0: [
-      conditionalTokens.ConditionPreparation.topic,
-      conditionalTokens.PayoutRedemption.topic,
-    ],
+    where: {
+      address: [CONDITIONAL_TOKENS],
+      topic0: [
+        conditionalTokens.ConditionPreparation.topic,
+        conditionalTokens.PayoutRedemption.topic,
+      ],
+    },
   })
   .addLog({
-    address: [OPTIMISTIC_ORACLE_V3],
-    topic0: [oo.QuestionInitialized.topic, oo.QuestionResolved.topic],
+    where: {
+      address: [OPTIMISTIC_ORACLE_V3],
+      topic0: [oo.QuestionInitialized.topic, oo.QuestionResolved.topic],
+    },
   })
   .addLog({
-    address: [UMA_CTF_ADAPTER],
-    topic0: [uma.QuestionInitialized.topic, uma.QuestionResolved.topic],
+    where: {
+      address: [UMA_CTF_ADAPTER],
+      topic0: [uma.QuestionInitialized.topic, uma.QuestionResolved.topic],
+    },
   })
   .addLog({
-    address: [NEG_RISK_ADAPTER],
-    topic0: [
-      negRisk.QuestionPrepared.topic,
-      negRisk.OutcomeReported.topic,
-      negRisk.PayoutRedemption.topic,
-    ],
+    where: {
+      address: [NEG_RISK_ADAPTER],
+      topic0: [
+        negRisk.QuestionPrepared.topic,
+        negRisk.OutcomeReported.topic,
+        negRisk.PayoutRedemption.topic,
+      ],
+    },
   })
   // v1 exchanges — left open-ended (they go quiet after the v2 cutover),
   // mirroring the Envio port.
   .addLog({
-    address: [CTF_EXCHANGE_V1, NEG_RISK_CTF_EXCHANGE_V1],
-    topic0: [ctfExchange.OrderFilled.topic, ctfExchange.TokenRegistered.topic],
+    where: {
+      address: [CTF_EXCHANGE_V1, NEG_RISK_CTF_EXCHANGE_V1],
+      topic0: [
+        ctfExchange.OrderFilled.topic,
+        ctfExchange.TokenRegistered.topic,
+      ],
+    },
   })
   .addLog({
-    address: [CTF_EXCHANGE_V2, NEG_RISK_CTF_EXCHANGE_V2],
-    topic0: [ctfExchangeV2.OrderFilled.topic],
+    where: {
+      address: [CTF_EXCHANGE_V2, NEG_RISK_CTF_EXCHANGE_V2],
+      topic0: [ctfExchangeV2.OrderFilled.topic],
+    },
     range: { from: V2_CUTOVER_START },
   })
   .addLog({
-    address: CTF_COLLATERAL_ADAPTERS,
-    topic0: [collateralAdapter.PositionsRedeemed.topic],
+    where: {
+      address: CTF_COLLATERAL_ADAPTERS,
+      topic0: [collateralAdapter.PositionsRedeemed.topic],
+    },
     range: { from: ADAPTERS_START },
   })
   // Factory floor = Polymarket's CLOB v2 migration cutover: a DepositWallet
@@ -95,20 +124,10 @@ export const processor = new EvmBatchProcessor()
   // Our agents migrated to v2 trading a month+ later (trader PRs #929/#935;
   // first agent DW trade at block 88,031,656), leaving ~2M blocks of margin.
   .addLog({
-    address: [DEPOSIT_WALLET_FACTORY],
-    topic0: [factory.WalletDeployed.topic],
+    where: {
+      address: [DEPOSIT_WALLET_FACTORY],
+      topic0: [factory.WalletDeployed.topic],
+    },
     range: { from: V2_CUTOVER_START },
-  });
-
-// SQD Network gateway needs an API key since 2026-05-19 (free at
-// https://portal.sqd.dev). Without one, the processor falls back to
-// RPC-only ingestion — works, but orders of magnitude slower; fine for
-// smoke tests only. setGateway returns `this`, so calling it after the
-// fluent chain keeps the narrowed Fields type intact.
-if (process.env.SQD_API_KEY) {
-  processor.setGateway("https://v2.archive.subsquid.io/network/polygon-mainnet");
-}
-
-export type Fields = EvmBatchProcessorFields<typeof processor>;
-export type Block = BlockHeader<Fields>;
-export type Log = _Log<Fields>;
+  })
+  .build();
