@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sqd-docs": {
+      "type": "http",
+      "url": "https://docs.sqd.dev/mcp"
+    }
+  }
+}

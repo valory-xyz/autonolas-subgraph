@@ -55,6 +55,13 @@ workflow_dispatch with a version input, like the subgraph deploy workflows);
 `supply-chain.yml` has a dedicated npm-flavored `squid-audit` job
 (npm audit + lockfile-lint) since the yarn matrices don't cover npm trees.
 
+**SQD's ecosystem moves fast** (the SDK generation changed in May 2026:
+`@subsquid/evm-processor` is legacy, current is `evm-stream` +
+`batch-processor` + `evm-objects`). Before touching squid ingestion or
+`@subsquid/*` deps, check the current docs — via the `sqd-docs` MCP server
+configured in `.mcp.json`, or https://docs.sqd.dev/llms.txt — rather than
+building from prior knowledge of the SDK.
+
 ## Common Commands
 
 All commands are run from within a subgraph directory (e.g., `subgraphs/marketplace/`):
