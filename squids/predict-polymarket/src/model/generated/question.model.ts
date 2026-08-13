@@ -1,7 +1,8 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BooleanColumn as BooleanColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, OneToMany as OneToMany_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BooleanColumn as BooleanColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, OneToMany as OneToMany_, OneToOne as OneToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {MarketMetadata} from "./marketMetadata.model"
 import {Bet} from "./bet.model"
 import {MarketParticipant} from "./marketParticipant.model"
+import {QuestionResolution} from "./questionResolution.model"
 
 @Entity_()
 export class Question {
@@ -30,6 +31,9 @@ export class Question {
 
     @OneToMany_(() => MarketParticipant, e => e.question)
     participants!: Relation_<MarketParticipant[]>
+
+    @OneToOne_(() => QuestionResolution, e => e.question)
+    resolution!: Relation_<QuestionResolution> | undefined | null
 
     @BigIntColumn_({nullable: false})
     blockNumber!: bigint

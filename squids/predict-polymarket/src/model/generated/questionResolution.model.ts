@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, OneToOne as OneToOne_, Index as Index_, JoinColumn as JoinColumn_, Relation as Relation_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 import {Question} from "./question.model"
 
 @Entity_()
@@ -10,8 +10,9 @@ export class QuestionResolution {
     @PrimaryColumn_()
     id!: string
 
-    @Index_("idx_question_resolution_question_03e9c2da")
-    @ManyToOne_(() => Question, {nullable: true})
+    @Index_("idx_question_resolution_question_d098d976", {unique: true})
+    @OneToOne_(() => Question, {nullable: true})
+    @JoinColumn_()
     question!: Relation_<Question>
 
     /**
