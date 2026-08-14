@@ -64,6 +64,7 @@ type Question @entity {
   metadata: MarketMetadata!
   bets: [Bet!]! @derivedFrom(field: "question")
   participants: [MarketParticipant!]! @derivedFrom(field: "question")
+  resolution: QuestionResolution @derivedFrom(field: "question")
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: String!
@@ -104,7 +105,7 @@ type TokenRegistry @entity {
 
 type QuestionResolution @entity {
   id: ID! # conditionId (same id as Question)
-  question: Question!
+  question: Question! @unique
   "Winning outcome index (0 or 1). -1 means the market resolved invalid/unresolvable — NOT an index into Question.metadata.outcomes."
   winningIndex: BigInt!
   settledPrice: BigInt!

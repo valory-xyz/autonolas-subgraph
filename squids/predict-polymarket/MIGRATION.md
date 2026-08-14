@@ -55,6 +55,20 @@ was rejected can never settle. In the squid, find them with
 `marketParticipants(where: {question_isNull: true})` — their `settled: false`
 is permanent, not "awaiting resolution".
 
+## Schema differences vs the subgraph
+
+- `Question.resolution` exists as of squid v0.2.1 (same shape as the
+  subgraph: one-to-one to `QuestionResolution`). Squids before v0.2.1 did
+  not have it — consumers had to look up `questionResolutions` by id
+  (id == conditionId) instead.
+- `DailyProfitStatistic.profitParticipants` is a plain array of conditionId
+  strings, not `Question` objects. Consumers that need market titles must
+  fetch `questions(where: {id_in: [...]})` separately.
+- `QuestionResolution.payouts` is `[String!]!` (decimal strings), not
+  `[BigInt!]!`.
+- Query dialect is OpenReader: `limit`/`offset` instead of `first`/`skip`,
+  filters like `id_eq`/`id_in`, and singular-by-id is `questionById(id:)`.
+
 ## Cutover checklist
 
 1. Production backfill complete (processor at chain head).

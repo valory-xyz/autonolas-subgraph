@@ -801,6 +801,60 @@
       "reason": "Surfaced 2026-08 — same advisory as entry 1130734, 1.x line (<1.1.18), via graph-cli > gluegun > fs-jetpack > minimatch > brace-expansion. Patched in >=1.1.18, pinned by the graph-cli line. Re-evaluate at Tier 3 Wave 3.",
       "added": "2026-08-04",
       "review": "2026-11-02"
+    },
+    {
+      "id": 1138115,
+      "ghsa": "GHSA-5p4m-2wfm-xmqj",
+      "package": "js-yaml",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — CVE-2026-59870 (quadratic CPU in !!omap resolution), 4.x range (graph-cli > @float-capital/float-subgraph-uncrashable > js-yaml). Transitive of @graphprotocol/graph-cli; build-time CLI tooling only. Patched in >=4.3.1 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
+    },
+    {
+      "id": 1138114,
+      "ghsa": "GHSA-5p4m-2wfm-xmqj",
+      "package": "js-yaml",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — same GHSA as 1138115 (CVE-2026-59870), 3.x range. Transitive of the legacy graph-cli 0.64.0 line (autonolas/autonolas-base only); build-time CLI tooling only. Patched in >=3.15.1 but pinned until Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
+    },
+    {
+      "id": 1138810,
+      "ghsa": "GHSA-28wg-ghj8-5hjv",
+      "package": "nanoid",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — non-secure generators can loop indefinitely with negative size, >=4.0.0 range (graph-cli > kubo-rpc-client > nanoid). Transitive of @graphprotocol/graph-cli; build-time CLI tooling only. Patched in >=5.1.16 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
+    },
+    {
+      "id": 1138811,
+      "ghsa": "GHSA-28wg-ghj8-5hjv",
+      "package": "nanoid",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — same GHSA as 1138810, 3.x range. Transitive of the legacy graph-cli 0.64.0 line (autonolas/autonolas-base only); build-time CLI tooling only. Patched in >=3.3.16 but pinned until Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
+    },
+    {
+      "id": 1139427,
+      "ghsa": "GHSA-2v37-7h3g-55p8",
+      "package": "nanoid",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — custom generators can loop indefinitely when size is zero (GHSA-2v37-7h3g-55p8), 3.x range. Transitive of the legacy graph-cli 0.64.0 line (autonolas/autonolas-base only); build-time CLI tooling only. Patched in >=3.3.18 but pinned until Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
+    },
+    {
+      "id": 1139455,
+      "ghsa": "GHSA-2v37-7h3g-55p8",
+      "package": "nanoid",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — same GHSA as 1139427 (custom generators can loop indefinitely when size is zero), >=4.0.0 range (graph-cli > kubo-rpc-client > nanoid). Transitive of @graphprotocol/graph-cli; build-time CLI tooling only. Patched in >=5.1.6 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-13",
+      "review": "2026-11-11"
     }
   ]
 }
