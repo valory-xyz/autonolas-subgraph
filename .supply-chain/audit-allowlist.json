@@ -855,6 +855,15 @@
       "reason": "Surfaced 2026-08 — same GHSA as 1139427 (custom generators can loop indefinitely when size is zero), >=4.0.0 range (graph-cli > kubo-rpc-client > nanoid). Transitive of @graphprotocol/graph-cli; build-time CLI tooling only. Patched in >=5.1.6 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
       "added": "2026-08-13",
       "review": "2026-11-11"
+    },
+    {
+      "id": 1144964,
+      "ghsa": "GHSA-xvcm-6775-5m9r",
+      "package": "immutable",
+      "severity": "high",
+      "reason": "Surfaced 2026-08 — newly published advisory (hash-collision algorithmic complexity DoS in Immutable.Map/Set), 5.x range. Direct transitive of @graphprotocol/graph-cli (graph-cli > immutable); build-time CLI tooling only. Patched in >=5.1.8 but pinned by the graph-cli line — no fix until graph-cli upstream picks up the patched version / Tier 3 Wave 3. Re-evaluate then.",
+      "added": "2026-08-31",
+      "review": "2026-11-29"
     }
   ]
 }
