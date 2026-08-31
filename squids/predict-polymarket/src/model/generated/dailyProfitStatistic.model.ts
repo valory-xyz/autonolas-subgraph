@@ -39,4 +39,10 @@ export class DailyProfitStatistic {
 
     @StringColumn_({array: true, nullable: false})
     profitParticipants!: (string)[]
+
+    @BigIntColumn_({nullable: false})
+    brierSum!: bigint
+
+    @IntColumn_({nullable: false})
+    brierCount!: number
 }

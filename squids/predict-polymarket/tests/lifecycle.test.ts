@@ -198,11 +198,11 @@ describe("trade -> resolution -> redemption", () => {
     await setupMarket();
   });
 
-  async function buy(amountUsd: number, shares: number) {
+  async function buy(amountUsd: number, shares: number, token = TOKEN_YES) {
     await handlers.handleOrderFill(cache, meta(BET_TS), {
       maker: SAFE,
       isBuying: true,
-      outcomeTokenId: TOKEN_YES,
+      outcomeTokenId: token,
       makerAmountFilled: USDC(amountUsd),
       takerAmountFilled: USDC(shares),
       builder: null,
@@ -235,6 +235,7 @@ describe("trade -> resolution -> redemption", () => {
     expect(bets[0]!.amount).toBe(USDC(100));
     expect(bets[0]!.shares).toBe(USDC(200));
     expect(bets[0]!.outcomeIndex).toBe(1n);
+    expect(bets[0]!.impliedProbability).toBe(5n * 10n ** 17n); // 100 / 200
     expect(bets[0]!.question?.id).toBe(CONDITION_ID);
     expect(bets[0]!.marketParticipant?.id).toBe(`${SAFE}_${CONDITION_ID}`);
 
@@ -424,6 +425,107 @@ describe("trade -> resolution -> redemption", () => {
       .all(DailyProfitStatistic)
       .find((s) => s.date === RESOLUTION_DAY);
     expect(resolutionDay?.dailyProfit).toBe(USDC(30));
+  });
+});
+
+describe("brier score", () => {
+  beforeEach(async () => {
+    await registerAgent();
+    await setupMarket();
+  });
+
+  async function buy(amountUsd: number, shares: number, token = TOKEN_YES) {
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE,
+      isBuying: true,
+      outcomeTokenId: token,
+      makerAmountFilled: USDC(amountUsd),
+      takerAmountFilled: USDC(shares),
+      builder: null,
+      metadata: null,
+    });
+  }
+
+  async function sell(shares: number, amountUsd: number, token = TOKEN_YES) {
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE,
+      isBuying: false,
+      outcomeTokenId: token,
+      makerAmountFilled: USDC(shares),
+      takerAmountFilled: USDC(amountUsd),
+      builder: null,
+      metadata: null,
+    });
+  }
+
+  const resolve = (payouts: [bigint, bigint]) =>
+    handlers.handleQuestionResolution(cache, meta(RESOLUTION_TS), {
+      questionID: QUESTION_ID,
+      settledPrice: payouts[0] === payouts[1] ? 5n * 10n ** 17n : 10n ** 18n,
+      payouts,
+    });
+
+  const dayStat = (date: bigint) =>
+    cache.all(DailyProfitStatistic).find((s) => s.date === date);
+
+  // 1e18-scaled value with two decimals of precision, e.g. E2(36) = 0.36
+  const E2 = (hundredths: number) => BigInt(hundredths) * 10n ** 16n;
+
+  it("stores the fill price on sells too (positive, excluded later)", async () => {
+    await buy(40, 100);
+    await sell(100, 60);
+    const [b, s] = cache.all(Bet);
+    expect(b!.impliedProbability).toBe(E2(40));
+    expect(s!.isBuy).toBe(false);
+    expect(s!.amount).toBe(-USDC(60));
+    expect(s!.impliedProbability).toBe(E2(60));
+  });
+
+  it("credits (p-1)^2 for wins and p^2 for losses on the resolution day", async () => {
+    await buy(40, 100, TOKEN_YES); // p=0.4 on index 1
+    await buy(40, 100, TOKEN_NO); // p=0.4 on index 0
+    await resolve([0n, 1n]); // YES wins
+
+    expect(dayStat(BET_DAY)?.brierSum).toBe(0n);
+    expect(dayStat(BET_DAY)?.brierCount).toBe(0);
+    expect(dayStat(RESOLUTION_DAY)?.brierSum).toBe(E2(36) + E2(16));
+    expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(2);
+  });
+
+  it("excludes sells and zero-share fills from the aggregate", async () => {
+    await buy(20, 100); // p=0.2, loses
+    await sell(50, 30); // not a prediction
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: SAFE,
+      isBuying: true,
+      outcomeTokenId: TOKEN_YES,
+      makerAmountFilled: USDC(1),
+      takerAmountFilled: 0n, // degenerate -> impliedProbability 0
+      builder: null,
+      metadata: null,
+    });
+    await resolve([1n, 0n]); // NO wins
+
+    expect(cache.all(Bet)).toHaveLength(3);
+    expect(dayStat(RESOLUTION_DAY)?.brierSum).toBe(E2(4)); // 0.2^2
+    expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(1);
+  });
+
+  it("scores against 0.5 on an invalid resolution", async () => {
+    await buy(40, 100, TOKEN_YES);
+    await buy(60, 100, TOKEN_NO);
+    await resolve([1n, 1n]);
+
+    expect(dayStat(RESOLUTION_DAY)?.brierSum).toBe(E2(1) + E2(1)); // 0.1^2 each
+    expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(2);
+  });
+
+  it("does not re-score on a repeated resolution", async () => {
+    await buy(40, 100);
+    await resolve([0n, 1n]);
+    await resolve([0n, 1n]);
+    expect(dayStat(RESOLUTION_DAY)?.brierSum).toBe(E2(36));
+    expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(1);
   });
 });
 
@@ -622,5 +724,13 @@ describe("negrisk question path", () => {
     );
     expect(participant?.settled).toBe(true);
     expect(participant?.expectedPayout).toBe(USDC(30)); // index-0 shares won
+
+    // Brier: p = 10/30 on the winning index -> (1/3 - 1)^2
+    const p = (USDC(10) * 10n ** 18n) / USDC(30);
+    const day = cache
+      .all(DailyProfitStatistic)
+      .find((s) => s.date === RESOLUTION_DAY);
+    expect(day?.brierSum).toBe(((p - 10n ** 18n) ** 2n) / 10n ** 18n);
+    expect(day?.brierCount).toBe(1);
   });
 });

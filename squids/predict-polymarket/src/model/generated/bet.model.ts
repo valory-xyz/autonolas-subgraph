@@ -29,6 +29,9 @@ export class Bet {
     @BooleanColumn_({nullable: false})
     isBuy!: boolean
 
+    @BigIntColumn_({nullable: false})
+    impliedProbability!: bigint
+
     @BooleanColumn_({nullable: false})
     countedInTotal!: boolean
 

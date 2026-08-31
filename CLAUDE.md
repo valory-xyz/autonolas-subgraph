@@ -39,7 +39,10 @@ graph-node cannot keep up with chain-wide event volume. They are npm packages
 design difference: DepositWallet→agent linking is derived from the Polymarket
 wallet factory's `WalletDeployed` event (owner = agent instance EOA →
 `RegisterInstance` → service multisig) instead of the global pUSD `Transfer`
-stream. Common commands, from `squids/predict-polymarket/`:
+stream. Brier score mirrors predict-omen (`Bet.impliedProbability`,
+`DailyProfitStatistic.brierSum/brierCount`, credited on the resolution day)
+minus the re-answer reversal fields — resolutions are write-once. Common
+commands, from `squids/predict-polymarket/`:
 
 ```bash
 npm ci && npm run build        # compile
