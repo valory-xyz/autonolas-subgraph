@@ -87,7 +87,7 @@ type Bet @entity {
   # Per-token price at fill time, 1e18-scaled (1e18 = 100%): |amount| * 1e18 / |shares|.
   # Buy: market-implied probability of `outcomeIndex` (the prediction).
   # Sell: closing price, not a prediction — excluded from Brier.
-  # Zero = degenerate zero-share fill; Brier skips it.
+  # Zero = degenerate fill (zero shares or zero cost); Brier skips it.
   impliedProbability: BigInt!
   countedInTotal: Boolean!
   countedInProfit: Boolean!
