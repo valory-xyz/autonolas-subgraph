@@ -2,6 +2,10 @@ export const PREDICT_AGENT_ID = 86n;
 
 export const ONE_DAY = 86400n;
 
+// Fixed-point scale for Bet.impliedProbability and Brier sums (1e18 = 100%).
+export const PROBABILITY_SCALE = 10n ** 18n;
+export const HALF_PROBABILITY_SCALE = PROBABILITY_SCALE / 2n;
+
 // All addresses lowercase — SQD log addresses and decoded address params are
 // normalized to lowercase at the dispatch boundary in main.ts.
 export const SERVICE_REGISTRY_L2 = "0xe3607b00e75f6405248323a9417ff6b39b244b50";

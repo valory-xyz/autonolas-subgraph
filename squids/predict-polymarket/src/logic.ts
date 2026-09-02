@@ -14,6 +14,7 @@ import {
 } from "./model";
 import { IEntityCache } from "./entityCache";
 import { ONE_DAY } from "./constants";
+import { actualForOutcome, brierContribution } from "./brier";
 
 export type EventMeta = {
   blockNumber: bigint;
@@ -64,6 +65,8 @@ export async function getDailyProfitStatistic(
       dailyTradedSettled: 0n,
       dailyProfit: 0n,
       profitParticipants: [],
+      brierSum: 0n,
+      brierCount: 0,
     })
   );
 }
@@ -264,13 +267,12 @@ export async function processMarketResolution(
     dailyStat.dailyProfit += profit;
     dailyStat.dailyTradedSettled += amountToSettle;
     addProfitParticipant(dailyStat, conditionId);
-    cache.set(DailyProfitStatistic, dailyStat);
 
     // 4f. Accumulate global deltas
     globalTradedSettledDelta += amountToSettle;
     globalExpectedPayoutDelta += expectedPayout;
 
-    // 4g. Mark individual bets as counted
+    // 4g. Mark individual bets as counted; score buys against the outcome (Brier)
     const bets = await cache.betsByParticipant(participant.id);
     for (const bet of bets) {
       if (!bet.countedInProfit) {
@@ -278,7 +280,15 @@ export async function processMarketResolution(
         bet.countedInTotal = true;
         cache.set(Bet, bet);
       }
+      if (bet.isBuy && bet.impliedProbability > 0n) {
+        dailyStat.brierSum += brierContribution(
+          bet.impliedProbability,
+          actualForOutcome(bet.outcomeIndex, winningOutcome),
+        );
+        dailyStat.brierCount += 1;
+      }
     }
+    cache.set(DailyProfitStatistic, dailyStat);
   }
 
   // 5. Apply global deltas (only save if at least one participant was processed)

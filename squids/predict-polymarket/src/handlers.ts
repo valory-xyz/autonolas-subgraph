@@ -26,6 +26,7 @@ import {
 } from "./logic";
 import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
 import { getOutcomeTokenId } from "./tokenDerivation";
+import { computeImpliedProbability } from "./brier";
 import {
   PREDICT_AGENT_ID,
   NEG_RISK_ADAPTER,
@@ -357,6 +358,7 @@ export async function handleOrderFill(
       amount: usdcAmount,
       shares: sharesAmount,
       isBuy: p.isBuying,
+      impliedProbability: computeImpliedProbability(usdcAmount, sharesAmount),
       countedInTotal: false,
       countedInProfit: false,
       question: question ?? null,

@@ -1,7 +1,7 @@
 # Brier Score — design doc
 
-Status: predict-omen ✅ implemented; predict-polymarket ⏳ planning
-Scope: `subgraphs/predict-omen`, `subgraphs/predict-polymarket`
+Status: predict-omen ✅ implemented; predict-polymarket ✅ implemented (squid)
+Scope: `subgraphs/predict-omen`, `squids/predict-polymarket`
 Driver: Predict economy "Performance" card — replace OLAS Staking APR with **Brier Score**, with `7D / 30D / 90D / Max` windowing alongside ROI and Prediction Accuracy.
 
 ## Why this doc exists
@@ -108,75 +108,26 @@ This re-index is shared with the market-categories work in [MARKET_CATEGORIES.md
 - Re-answer reverses old contribution, applies new on the new settlement day
 - Chained re-answer (A→B→A): reversal walks back to the original Brier on the latest day
 
-## predict-polymarket — planning (not yet implemented)
+## predict-polymarket — shipped (`squids/predict-polymarket`)
 
-Polymarket's accounting differs enough that this is its own design problem, not a copy-paste.
+Implemented in the SQD squid, which supersedes `subgraphs/predict-polymarket` (the subgraph did not get Brier). Same schema shape as Omen so the consumer query above works unchanged:
 
-### Where the implied probability lives on Polymarket
+- `Bet.impliedProbability: BigInt!` — `|amount| * 1e18 / |shares|` from the `OrderFilled` fill ratio (USDC and outcome tokens are both 6 decimals, so the ratio is already dimensionless). Set for buys and sells; sells are excluded at aggregation.
+- `DailyProfitStatistic.brierSum: BigInt!` / `brierCount: Int!` — credited on the resolution day.
 
-Polymarket uses a **CTF Exchange order book + NegRiskAdapter**, not an FPMM. Tracked event is `OrderFilled`, handled twice:
-
-- **v1** (`handleOrderFilled`, `subgraphs/predict-polymarket/src/ctf-exchange.ts`): the agent is the **maker**; trade direction is inferred from asset flow:
-
-```
-maker gives USDC → agent BUYs outcome tokens   → impliedProb = USDC out / tokens in
-maker gives tokens → agent SELLs outcome tokens → impliedProb = USDC in  / tokens out
-```
-
-- **v2** (`handleOrderFilledV2`, `subgraphs/predict-polymarket/src/ctf-exchange-v2.ts`): the maker may be a Polymarket **DepositWallet**, resolved back to its `TraderAgent` via the stored DepositWallet link, and direction comes from the explicit `side` param (0 = BUY) — the v2 event carries `side` + `tokenId` instead of `makerAssetId`/`takerAssetId`. Both handlers must set `bet.impliedProbability`.
-
-Both sides have the price implied by the fill ratio. USDC is 6 decimals; outcome tokens are 6 decimals (confirm with current code). Scale to 1e18 for storage to match Omen.
-
-### Resolution outcome
-
-Polymarket resolution fires via `handleOOQuestionResolved` / `handleUmaQuestionResolved` (`src/uma-mapping.ts`) and `handleOutcomeReported` (`src/neg-risk-mapping.ts`), all funneling into `processMarketResolution` (`src/utils.ts`). For each settled `MarketParticipant`:
-
-- Winning outcome index → `actual = 1e18` for bets on that index, `0` otherwise.
-- Invalid resolutions exist on Polymarket too — `winningIndex = -1` when payouts don't pick a winner, settled with a `[1, 1]`-style half split in `processMarketResolution`. Mirror Omen: use `actual = 5e17` for invalid. (Separately, there is no re-answer path — resolutions are final.)
-
-### Schema additions (proposed — mirror Omen)
-
-```graphql
-# subgraphs/predict-polymarket/schema.graphql
-
-type Bet @entity(immutable: false) {
-  ...
-  impliedProbability: BigInt  # 1e18-scaled, nullable
-}
-
-type DailyProfitStatistic @entity(immutable: false) {
-  ...
-  brierSum: BigInt!
-  brierCount: Int!
-}
-```
-
-`MarketParticipant.brierSumApplied`/`brierCountApplied` are **not needed** on Polymarket because resolutions are final — no reversal path.
-
-### Mapping changes
-
-| File | Change |
+| Step | Where |
 |---|---|
-| `src/ctf-exchange.ts` (`handleOrderFilled`) and `src/ctf-exchange-v2.ts` (`handleOrderFilledV2`) | After deriving buy/sell + maker amounts, set `bet.impliedProbability = (USDC * 1e18) / outcomeTokenAmount` |
-| Whichever handler fires at UMA resolution (the equivalent of `handleLogNewAnswer`) | For each settled `MarketParticipant`, sum buy-side Brier across `participant.bets` and credit settlement-day's daily stat |
+| Fill | `handleOrderFill` ([`src/handlers.ts`](squids/predict-polymarket/src/handlers.ts)) — one handler serves v1 and v2 `OrderFilled` (direction is derived in `src/decode.ts`) |
+| Resolution | `processMarketResolution` ([`src/logic.ts`](squids/predict-polymarket/src/logic.ts)) — the existing per-participant bet loop scores `isBuy && impliedProbability > 0` bets against `winningIndex` (`-1` = invalid → `actual = 5e17`); UMA and NegRisk resolutions both funnel here |
+| Primitives | [`src/brier.ts`](squids/predict-polymarket/src/brier.ts) — `computeImpliedProbability`, `brierContribution`, `actualForOutcome` |
 
-### Differences worth flagging
+Differences from Omen:
 
-- **Bets are mutable** on Polymarket too — `Bet` is `@entity(immutable: false)` and already carries `countedInTotal`/`countedInProfit` flags flipped at settlement in `processMarketResolution`, so the Omen settlement-time marking loop carries over directly.
-- **No re-answer** — drop the `brierSumApplied`/`brierCountApplied` participant fields, keep schema lean.
-- **Agent gating** — only agent ID 86 is tracked (see polymarket CLAUDE.md). Same gate applies to Brier — the iteration is over already-gated `MarketParticipant`s, so no extra work.
-- **NegRisk markets** — multi-outcome (n > 2). Brier generalises: `actual = 1e18` for the winning outcome index, `0` for all others. Each bet still contributes one term. If NegRisk markets are in scope, double-check that `bet.outcomeIndex` covers the full outcome set and not just the binary-collapsed view.
+- **No `brierSumApplied` / `brierCountApplied`** — resolution is write-once (`processMarketResolution` returns early if a `QuestionResolution` exists), so there is nothing to reverse.
+- **Invalid is `winningIndex = -1`** rather than a separate flag; `actualForOutcome` keys off that.
+- **Backfill** is a full blue-green re-index (see the squid README) — `impliedProbability` cannot be filled retroactively.
 
-### Effort estimate
-
-| Step | Effort |
-|---|---|
-| Schema additions + codegen | ~1 hour |
-| Mapping changes (set on fill, accumulate at resolve) | ~3-4 hours |
-| Tests (Matchstick) | ~2-3 hours |
-| Backfill decision (re-index vs accept gap) | TBD |
-
-**Total**: ~1 day implementation. Compare with Omen which took similar time once design was set.
+Tests: `tests/brier.test.ts` (primitives) and the `brier score` block in `tests/lifecycle.test.ts` (win/loss, sells and zero-share fills excluded, invalid → 0.5, repeat resolution no-op, NegRisk path).
 
 ## Open questions for both subgraphs
 

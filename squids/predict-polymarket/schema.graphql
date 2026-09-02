@@ -84,6 +84,11 @@ type Bet @entity {
   amount: BigInt!
   shares: BigInt!
   isBuy: Boolean!
+  # Per-token price at fill time, 1e18-scaled (1e18 = 100%): |amount| * 1e18 / |shares|.
+  # Buy: market-implied probability of `outcomeIndex` (the prediction).
+  # Sell: closing price, not a prediction — excluded from Brier.
+  # Zero = degenerate fill (zero shares or zero cost); Brier skips it.
+  impliedProbability: BigInt!
   countedInTotal: Boolean!
   countedInProfit: Boolean!
   question: Question
@@ -170,6 +175,11 @@ type DailyProfitStatistic @entity {
   dailyTradedSettled: BigInt!
   dailyProfit: BigInt!
   profitParticipants: [String!]!
+  # Brier accumulators for buys settled on this day, 1e18-scaled.
+  # Per bet: (impliedProbability - actual)^2 / 1e18; actual = 1e18 won, 0 lost, 5e17 invalid.
+  # Mean over a window: sum(brierSum) / sum(brierCount).
+  brierSum: BigInt!
+  brierCount: Int!
 }
 
 "Tracks markets where at least one agent has participated"
