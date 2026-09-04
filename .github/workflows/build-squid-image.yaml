@@ -1,10 +1,14 @@
 name: Build Squid Image
 
-run-name: Build squid image ${{ inputs.version }}
+run-name: Build ${{ inputs.squid }} squid image ${{ inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
+      squid:
+        description: "Squid folder under squids/ (e.g., pearl-transactions)"
+        required: true
+        type: string
       version:
         description: "Image version tag (e.g., v0.1.0)"
         required: true
@@ -19,8 +23,15 @@ jobs:
     steps:
       - name: Validate inputs
         env:
+          INPUT_SQUID: ${{ inputs.squid }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
+          # Restrictive by design: the name is interpolated into a build
+          # context path and an image name, so no slashes, dots or uppercase.
+          if ! echo "$INPUT_SQUID" | grep -qE '^[a-z0-9][a-z0-9-]*$'; then
+            echo "❌ Invalid squid: '$INPUT_SQUID' (expected e.g. pearl-transactions)"
+            exit 1
+          fi
           if ! echo "$INPUT_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "❌ Invalid version: '$INPUT_VERSION' (expected e.g. v0.1.0)"
             exit 1
@@ -38,6 +49,16 @@ jobs:
 
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      - name: Validate squid exists
+        env:
+          INPUT_SQUID: ${{ inputs.squid }}
+        run: |
+          if [ ! -f "./squids/$INPUT_SQUID/Dockerfile" ]; then
+            echo "❌ No Dockerfile at squids/$INPUT_SQUID — available squids:"
+            ls -1 ./squids
+            exit 1
+          fi
+
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           # Docker Hub (login-action default server). DOCKER_REGISTRY below is
@@ -49,14 +70,15 @@ jobs:
       - name: Compute image tags
         id: tags
         env:
+          INPUT_SQUID: ${{ inputs.squid }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
-          IMG="${{ secrets.DOCKER_REGISTRY }}/predict-polymarket-squid"
+          IMG="${{ secrets.DOCKER_REGISTRY }}/$INPUT_SQUID-squid"
           echo "tags=$IMG:${{ github.sha }},$IMG:latest,$IMG:$INPUT_VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
-          context: ./squids/predict-polymarket
+          context: ./squids/${{ inputs.squid }}
           push: true
           # our nodes are amd64; keeps a stray arm64 runner (or local buildx
           # defaults) from ever producing an exec-format-error image
