@@ -23,7 +23,8 @@ subgraphs/
 └── predict-polymarket/  # Polymarket prediction market trading (Polygon)
 
 squids/
-└── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
+├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
+└── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
 ```
 
 Each subgraph is an independent package with its own `package.json`, `schema.graphql`, and manifest files (`subgraph.*.yaml`).
@@ -53,8 +54,32 @@ node lib/main.js               # processor (single instance only)
 npx squid-graphql-server       # GraphQL API
 ```
 
+`squids/pearl-transactions` supersedes the **Polygon** manifest of
+`pearl-transactions` in the separate `autonolas-subgraph-studio` repo (NOT the
+older Gnosis-only fork in `subgraphs/pearl-transactions` here — that one is
+schema v1 with no `BondMovement`). Gnosis / Base / Optimism stay on
+graph-node and are live at `transactions-<network>.subgraph.autonolas.tech`;
+only Polygon was unusable (~5 blk/s through the USDC.e-dense range, ~15 days
+behind head). Three things about it differ from predict-polymarket and are
+easy to trip over:
+
+- **`RPC_POLYGON_HTTP` must be archive-capable.** `getOwners()` is read at
+  each Safe's first-sighting block, not `latest` — owner lists change, so
+  replaying `AddedOwner`/`RemovedOwner` on top of today's list would be wrong.
+- **The two graph-node templates became topic-only subscriptions** with no
+  address filter (SQD has no templates). Measured before committing to it:
+  unfiltered Safe logs are 0.12 logs/block against 133 for the ERC-20
+  sources — templates were never the expensive half. Any address-less
+  decode must go through `decodeForeignSafe`, since topic0 does not encode
+  indexed-ness and foreign contracts collide.
+- **The tracked-address table is held fully in memory** (`EntityCache`),
+  shared across batches with a reorg guard. That, not SQD itself, is what
+  takes mapping from ~5 to ~2,000 blocks/sec.
+
 CI: `build-squid-image.yaml` builds/pushes the Docker image (manual
-workflow_dispatch with a version input, like the subgraph deploy workflows);
+workflow_dispatch with `squid` + `version` inputs — `squid` is the folder
+name under `squids/`, validated and checked for a Dockerfile, mirroring
+`deploy-subgraph.yaml`'s `subgraph` input);
 `supply-chain.yml` has a dedicated npm-flavored `squid-audit` job
 (npm audit + lockfile-lint) since the yarn matrices don't cover npm trees.
 
