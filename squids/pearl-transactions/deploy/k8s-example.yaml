@@ -1,0 +1,112 @@
+# Example spec for the infra team — adapt to the ArgoCD/Helm conventions of
+# internal-infrastructure. One image (see Dockerfile), three workloads.
+#
+# Required env, split into two Secrets so only the processor sees the
+# vendor credentials:
+#   Secret pearl-transactions-squid-db   (all three workloads):
+#     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
+#   Secret pearl-transactions-squid-data (processor ONLY):
+#     SQD_PORTAL_URL     -> private SQD Portal dataset URL (polygon-mainnet)
+#     SQD_PORTAL_API_KEY -> private portal key (x-api-key header).
+#       NOT optional here: the public portal answers a sustained backfill
+#       with HTTP 529 "Service is overloaded" + 10s backoffs, which alone
+#       roughly doubles the wall-clock of the ~12.8M-block backfill.
+#     RPC_POLYGON_HTTP   -> Polygon RPC endpoint (contract calls only)
+#
+# Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
+# do NOT share the graph-node database server.
+---
+# 1. one-shot schema migration (run once per schema change, before processor)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pearl-transactions-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: <REGISTRY>/pearl-transactions-squid:<TAG>
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: pearl-transactions-squid-db } }]
+---
+# 2. processor (the indexer). Single replica ALWAYS — concurrent processors
+# on one DB corrupt the cursor. Recreate strategy, not RollingUpdate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pearl-transactions-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: pearl-transactions-squid-processor } }
+  template:
+    metadata:
+      labels: { app: pearl-transactions-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: <REGISTRY>/pearl-transactions-squid:<TAG>
+          envFrom:
+            - { secretRef: { name: pearl-transactions-squid-db } }
+            - { secretRef: { name: pearl-transactions-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports:
+            - { containerPort: 3000, name: metrics }
+          # Liveness: a plain TCP check on the metrics port is safe. Do NOT
+          # use "block height must advance" style probes — long batches would
+          # look dead and get the pod killed mid-backfill.
+          livenessProbe:
+            tcpSocket: { port: 3000 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            # backfill: bump to 2 CPU for the first ~12-24h, then back down
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+---
+# 3. GraphQL API (consumers query this; scale replicas freely)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pearl-transactions-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: pearl-transactions-squid-api } }
+  template:
+    metadata:
+      labels: { app: pearl-transactions-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: <REGISTRY>/pearl-transactions-squid:<TAG>
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: pearl-transactions-squid-db } }]
+          env:
+            # required: the server's built-in default is a different port
+            - { name: GQL_PORT, value: "4350" }
+          ports:
+            - { containerPort: 4350, name: graphql }
+          readinessProbe:
+            httpGet: { path: /graphql, port: 4350 }
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pearl-transactions-squid-api
+spec:
+  selector: { app: pearl-transactions-squid-api }
+  ports:
+    - { port: 80, targetPort: 4350 }
+# + Ingress per infra conventions, e.g.
+#   https://transactions-polygon.subgraph.autonolas.tech/graphql
+#
+# NB: the existing transactions-gnosis / -base / -optimism endpoints front
+# Graph Studio deployments. This one fronts the squid, and speaks OpenReader,
+# not the Graph query dialect - see MIGRATION.md.
