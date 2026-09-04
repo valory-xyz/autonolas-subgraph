@@ -1,0 +1,27 @@
+manifestVersion: subsquid.io/v0.1
+name: pearl-transactions
+version: 1
+description: >-
+  Pearl Master Safe / Agent Safe funds movements on Polygon. SQD port of
+  the pearl-transactions subgraph, which graph-node could not index at a
+  usable rate through the USDC.e-dense range.
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]
