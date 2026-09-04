@@ -32,7 +32,6 @@ import os
 import subprocess
 import sys
 import urllib.request
-from collections import Counter
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 if not args:
@@ -222,7 +221,10 @@ sq = {
 sub = {
     (r["service"]["serviceId"], r["dayTimestamp"], r["olasRewardsClaimed"])
     for r in gql_paginate(
-        "dailyServiceFunds",
+        # The Graph appends _collection when an entity's singular and plural
+        # names collide, as they do for DailyServiceFunds. Verified against
+        # the live Base deployment.
+        "dailyServiceFunds_collection",
         "id service { serviceId } dayTimestamp olasRewardsClaimed",
         f"dayTimestamp_lt: {day_cutoff}",
     )
