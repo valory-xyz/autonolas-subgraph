@@ -70,6 +70,15 @@ const trackedIndexSingleton: {
 } = { index: null, builtThroughBlock: -1 };
 
 /**
+ * Drop the shared index. Only for tests, which run many independent
+ * scenarios in one process and must not inherit each other's addresses.
+ */
+export function resetTrackedIndexForTests(): void {
+  trackedIndexSingleton.index = null;
+  trackedIndexSingleton.builtThroughBlock = -1;
+}
+
+/**
  * Read-through cache over the TypeORM store with deferred, FK-ordered
  * writes. Same get/set shape as predict-polymarket's.
  */
@@ -140,6 +149,40 @@ export class EntityCache {
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
     this.bucket(this.cache, cls).set(entity.id, entity);
     this.bucket(this.dirty, cls).set(entity.id, entity);
+  }
+
+  /**
+   * Service with `masterSafe` and `agentSafe` relations loaded.
+   *
+   * MUST be used instead of `get(Service, id)` anywhere those links are
+   * read. `store.get(cls, id)` is `findOneBy({id})` with no `relations`
+   * (typeorm-store 1.9.1), so a Service created in an earlier batch comes
+   * back with both links `undefined` — not null, undefined. The subgraph
+   * never had this problem because graph-node relations are plain columns.
+   *
+   * Reading an unloaded link silently produces wrong data rather than an
+   * error: reward rows get `masterSafe = NULL` and vanish from the
+   * wallet's `where: { masterSafe }` query, and an Agent Safe created in a
+   * later batch than its mint gets no `TrackedAddress(AGENT)` row at all,
+   * misclassifying that service's transfers for its entire life.
+   *
+   * The cache hit is self-healed: a plain `get()` elsewhere may have
+   * seeded the bucket with a relation-less row, so a hit is only trusted
+   * when the relation is actually present. A loaded-but-unlinked Service
+   * has `masterSafe === null`; only `undefined` means "not loaded".
+   */
+  async getService(id: string): Promise<Service | undefined> {
+    const bucket = this.bucket(this.cache, Service);
+    if (bucket.has(id)) {
+      const hit = bucket.get(id) as Service | undefined;
+      if (hit == null || hit.masterSafe !== undefined) return hit;
+    }
+    const fromDb = await this.store.findOne(Service, {
+      where: { id },
+      relations: { masterSafe: true, agentSafe: true },
+    });
+    bucket.set(id, fromDb);
+    return fromDb;
   }
 
   // --- TrackedAddress index -------------------------------------------
@@ -214,12 +257,15 @@ export class EntityCache {
       agentSafeBucket != null &&
       agentSafeBucket.size > 0;
 
-    // Snapshot the real agentSafe links, then null them for pass 1.
-    const deferredLinks = new Map<string, AgentSafe | null | undefined>();
+    // Snapshot the real agentSafe links, then null them for pass 1. The
+    // entity objects are held directly, NOT looked up again by id: the
+    // Service bucket is cleared during its own pass, well before the
+    // AgentSafe pass that restores the links.
+    const deferred: { service: Service; link: AgentSafe }[] = [];
     if (cycle) {
       for (const svc of serviceBucket!.values() as Iterable<Service>) {
         if (svc.agentSafe != null) {
-          deferredLinks.set(svc.id, svc.agentSafe);
+          deferred.push({ service: svc, link: svc.agentSafe });
           svc.agentSafe = null;
         }
       }
@@ -229,19 +275,13 @@ export class EntityCache {
       const bucket = this.dirty.get(cls.name);
       if (bucket == null || bucket.size === 0) continue;
       await this.store.upsert([...bucket.values()]);
-      if (cls === AgentSafe && deferredLinks.size > 0) {
-        // Pass 2: AgentSafe rows now exist, so the links satisfy the FK.
-        const services: Service[] = [];
-        for (const [id, link] of deferredLinks) {
-          const svc = serviceBucket!.get(id) as Service | undefined;
-          if (svc == null) continue;
-          svc.agentSafe = link ?? null;
-          services.push(svc);
-        }
-        if (services.length > 0) await this.store.upsert(services);
-        deferredLinks.clear();
-      }
       bucket.clear();
+      if (cls === AgentSafe && deferred.length > 0) {
+        // Pass 2: the AgentSafe rows exist now, so the links satisfy the FK.
+        for (const { service, link } of deferred) service.agentSafe = link;
+        await this.store.upsert(deferred.map((d) => d.service));
+        deferred.length = 0;
+      }
     }
     // The in-memory index is now consistent with what the store holds
     // through this batch.

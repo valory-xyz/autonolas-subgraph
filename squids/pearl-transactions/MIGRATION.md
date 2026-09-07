@@ -97,14 +97,20 @@ These are intended. When the compare script flags them, they are not bugs.
 
 ### Behaviour
 
-- **Relations are FK-enforced.** The staking handlers used to fall back to
-  assigning a raw `owner` / `multisig` address to `FundsMovement.masterSafe`
-  / `.agentSafe` when the `Service` had no resolved link. graph-node
-  tolerates that dangling reference (it simply resolves to null at query
-  time); TypeORM rejects it. The relation is left null instead, and the
-  raw addresses are still carried by `from` / `to`, so no information is
-  lost — but a subgraph row with a dangling `masterSafe` and the squid row
-  with a null one are the same fact expressed differently.
+- **Relations are FK-enforced, and that changes filter semantics.** The
+  staking handlers used to fall back to assigning a raw `owner` address to
+  `FundsMovement.masterSafe` when the `Service` had no resolved link.
+  graph-node tolerates that dangling reference; TypeORM rejects it.
+
+  This is not merely "the nested object resolves to null". In graph-node
+  the dangling value is still a **column**, so
+  `fundsMovements(where: { masterSafe: $x })` MATCHES the row. A `NULL` FK
+  does not, and the row disappears from the wallet's query entirely.
+
+  So the squid resolves `owner` to a real `MasterSafe` whenever one exists
+  and uses it, matching the subgraph's practical behaviour. The relation is
+  left null only for genuinely unresolved owners — a non-Safe owner, which
+  is not a Pearl user and which no Pearl query filters on.
 - **`getOwners` is read at the first-sighting block, not `latest`.** The
   subgraph's graph-node binding did this implicitly. Doing it explicitly
   makes an archive RPC a hard requirement; see README.
@@ -114,6 +120,15 @@ These are intended. When the compare script flags them, they are not bugs.
   emit colliding topics with a different topic count. `decodeForeignSafe`
   drops exactly those. The subgraph never saw them because a template only
   ever attached to addresses it had spawned.
+- **A template's same-block backfill is not reproduced.** When graph-node
+  spawns a template in block N it re-scans the whole of block N for the new
+  data source, including logs with a LOWER logIndex than the trigger. The
+  squid processes strictly forward, so a `SafeReceived` that sits earlier in
+  the same block as the mint that discovers the Safe is indexed by the
+  subgraph and dropped here. Rare in Pearl's flow (funding and service
+  creation are separate user actions), but if the compare script ever
+  reports a missing native row in a Safe's discovery block, this is why.
+
 - **`ExecutionSuccess` and `ExecutionFromModuleSuccess` are not indexed at
   all.** Their subgraph handlers were documented no-ops (the events carry
   no amount or recipient, so native-out tracking needs trace handlers), but

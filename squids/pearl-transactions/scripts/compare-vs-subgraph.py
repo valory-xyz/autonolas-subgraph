@@ -1,30 +1,41 @@
 #!/usr/bin/env python3
 """Compare the pearl-transactions squid's Postgres against a deployed subgraph.
 
-The two stores sit at different block heights and use different ID schemes
-(the subgraph concatenates Bytes; the squid joins strings), so nothing is
-compared by row id. Everything is matched on SEMANTIC keys, height-capped
-to the lower of the two heads:
+The two stores use different ID schemes — the subgraph concatenates Bytes,
+the squid joins strings — so NOTHING is compared by row id. Every section
+matches on semantic keys, and those keys include the relation fields
+(masterSafe / service / agentSafe), because a row with the right amount and
+the wrong links is exactly the failure mode the wallet notices: Pearl
+queries `where: { masterSafe }`, so a NULL link silently removes the row
+from a user's history.
 
-  1. FundsMovement  — keyed (txHash, logIndex-free category, token, amount,
-     from, to). This is the ledger; it is what the wallet renders.
-  2. BondMovement   — keyed (txHash, category, token, amount). Bond rows
-     live in their own table from schema v2 onward; a complete ledger is
-     FundsMovement UNION BondMovement.
-  3. MasterSafe     — identity + masterEoa + historyFloorBlock.
-  4. Service        — identity + serviceId + agentIds.
-  5. DailyServiceFunds for days fully elapsed on BOTH sides.
+Both sides are restricted to the SAME block window, ordered, rather than
+"first N rows". Comparing `LIMIT 5000` on one side against the first 5000
+by id on the other reports thousands of spurious differences as soon as
+either table exceeds the limit.
+
+Sections:
+  1. FundsMovement  — (txHash, category, token, amount, from, to,
+                       masterSafe, service, agentSafe)
+  2. BondMovement   — (txHash, category, token, amount, bondType,
+                       service, agentSafe)
+  3. MasterSafe     — (id, masterEoa, historyFloorBlock)
+  4. Service        — (serviceId, agentIds)
+  5. DailyServiceFunds for days fully elapsed on both sides
 
 Usage:
-  python3 scripts/compare-vs-subgraph.py <subgraph-graphql-url> [--limit N]
+  python3 scripts/compare-vs-subgraph.py <subgraph-graphql-url> [--window N]
 
   # Base runs the same v2 schema and is at chain head, so it is the only
   # usable end-to-end baseline today (there is no deployed Polygon
   # endpoint — see MIGRATION.md). Point the squid at Base first:
   python3 scripts/compare-vs-subgraph.py https://transactions-base.subgraph.autonolas.tech
 
-Connects to Postgres via psql using the same DB_* env vars the squid uses,
-so it works against a docker-compose container or any other instance.
+--window is how many blocks back from the comparison height to diff
+(default 500,000). Widen it for more coverage, narrow it if the subgraph
+endpoint is slow.
+
+Connects to Postgres via psql using the same DB_* env vars the squid uses.
 No python dependencies.
 """
 import json
@@ -37,11 +48,13 @@ args = [a for a in sys.argv[1:] if not a.startswith("--")]
 if not args:
     sys.exit(__doc__)
 SUBGRAPH_URL = args[0]
-LIMIT = 5000
-for a in sys.argv[1:]:
-    if a.startswith("--limit"):
-        LIMIT = int(a.split("=", 1)[1]) if "=" in a else LIMIT
 
+WINDOW = 500_000
+for a in sys.argv[1:]:
+    if a.startswith("--window"):
+        WINDOW = int(a.split("=", 1)[1]) if "=" in a else WINDOW
+
+PAGE = 1000
 PSQL = os.environ.get("PSQL_BIN", "psql")
 PG_ENV = {
     **os.environ,
@@ -54,7 +67,6 @@ PG_ENV = {
 
 
 def sql(query):
-    """Run a query, return list of tuples of strings."""
     out = subprocess.run(
         [PSQL, "-t", "-A", "-F", "\x1f", "-c", query],
         capture_output=True, text=True, env=PG_ENV,
@@ -79,18 +91,27 @@ def gql(query):
 
 
 def gql_paginate(entity, fields, where_extra=""):
+    """Page by id — stable, and unbounded so the window is the only filter."""
     rows, last_id = [], ""
-    while len(rows) < LIMIT:
+    while True:
         where = f'id_gt: "{last_id}"' + (", " + where_extra if where_extra else "")
         page = gql(
-            f'{{ {entity}(first: 1000, orderBy: id, where: {{ {where} }}) '
+            f"{{ {entity}(first: {PAGE}, orderBy: id, where: {{ {where} }}) "
             f"{{ {fields} }} }}"
         )[entity]
         rows.extend(page)
-        if len(page) < 1000:
-            break
+        if len(page) < PAGE:
+            return rows
         last_id = page[-1]["id"]
-    return rows
+
+
+def norm(v):
+    """Empty string for every flavour of absent, so the two stores agree."""
+    return "" if v is None else str(v)
+
+
+def rel(obj, key="id"):
+    return "" if obj is None else str(obj[key])
 
 
 # --- heights ----------------------------------------------------------
@@ -101,20 +122,25 @@ if not squid_rows:
 squid_head = int(squid_rows[0][0])
 sub_head = int(gql("{ _meta { block { number } } }")["_meta"]["block"]["number"])
 cutoff = min(squid_head, sub_head)
+floor = max(0, cutoff - WINDOW)
 
 print(f"squid head    : {squid_head:,}")
 print(f"subgraph head : {sub_head:,}")
-print(f"comparing at  : {cutoff:,} (the lower of the two)\n")
+print(f"window        : {floor:,} .. {cutoff:,}  ({WINDOW:,} blocks)\n")
 
 failures = 0
 
 
-def report(name, only_squid, only_sub, matched):
+def compare(name, squid_set, sub_set):
     global failures
-    status = "OK " if not only_squid and not only_sub else "DIFF"
-    if status == "DIFF":
+    only_squid = squid_set - sub_set
+    only_sub = sub_set - squid_set
+    if only_squid or only_sub:
         failures += 1
-    print(f"[{status}] {name}: {matched} matched, "
+        status = "DIFF"
+    else:
+        status = "OK "
+    print(f"[{status}] {name}: {len(squid_set & sub_set)} matched, "
           f"{len(only_squid)} squid-only, {len(only_sub)} subgraph-only")
     for label, rows in (("squid-only", only_squid), ("subgraph-only", only_sub)):
         for r in list(rows)[:5]:
@@ -123,77 +149,92 @@ def report(name, only_squid, only_sub, matched):
             print(f"         ... and {len(rows) - 5} more {label}")
 
 
-def compare(name, squid_set, sub_set):
-    report(name, squid_set - sub_set, sub_set - squid_set,
-           len(squid_set & sub_set))
-
-
 # --- 1. FundsMovement -------------------------------------------------
-# The subgraph's `token` is null for native rows; normalise both sides.
+# Relation fields are part of the key: the wallet filters on masterSafe, so
+# a row whose link is NULL is invisible to it even though its amount is
+# right. Subgraph Service.id is Bytes(serviceId) and the squid's is the
+# decimal string, so `service` is compared via serviceId on both sides.
 
 sq = {
-    (tx, cat, (tok or ""), amt, frm, to)
-    for tx, cat, tok, amt, frm, to in sql(
-        f"""select transaction_hash, category, coalesce(token,''), amount, "from", "to"
-            from funds_movement where block_number <= {cutoff} limit {LIMIT}"""
+    (tx, cat, norm(tok), amt, frm, to, norm(ms), norm(svc), norm(ags))
+    for tx, cat, tok, amt, frm, to, ms, svc, ags in sql(
+        f"""select f.transaction_hash, f.category, coalesce(f.token,''),
+                   f.amount::text, f."from", f."to",
+                   coalesce(f.master_safe_id,''),
+                   coalesce(s.service_id::text,''),
+                   coalesce(f.agent_safe_id,'')
+            from funds_movement f
+            left join service s on s.id = f.service_id
+            where f.block_number between {floor} and {cutoff}
+            order by f.block_number, f.id"""
     )
 }
 sub = {
-    (r["transactionHash"], r["category"], (r["token"] or ""), r["amount"],
-     r["from"], r["to"])
+    (r["transactionHash"], r["category"], norm(r["token"]), r["amount"],
+     r["from"], r["to"], rel(r["masterSafe"]),
+     rel(r["service"], "serviceId"), rel(r["agentSafe"]))
     for r in gql_paginate(
         "fundsMovements",
-        "id transactionHash category token amount from to blockNumber",
-        f"blockNumber_lte: {cutoff}",
+        "id transactionHash category token amount from to blockNumber "
+        "masterSafe { id } service { serviceId } agentSafe { id }",
+        f"blockNumber_gte: {floor}, blockNumber_lte: {cutoff}",
     )
 }
-compare("FundsMovement (tx, category, token, amount, from, to)", sq, sub)
+compare("FundsMovement (+ masterSafe/service/agentSafe)", sq, sub)
 
 # --- 2. BondMovement --------------------------------------------------
 
 sq = {
-    (tx, cat, (tok or ""), amt)
-    for tx, cat, tok, amt in sql(
-        f"""select transaction_hash, category, coalesce(token,''), amount
-            from bond_movement where block_number <= {cutoff} limit {LIMIT}"""
+    (tx, cat, norm(tok), amt, norm(bt), norm(svc), norm(ags))
+    for tx, cat, tok, amt, bt, svc, ags in sql(
+        f"""select b.transaction_hash, b.category, coalesce(b.token,''),
+                   b.amount::text, coalesce(b.bond_type,''),
+                   coalesce(s.service_id::text,''),
+                   coalesce(b.agent_safe_id,'')
+            from bond_movement b
+            left join service s on s.id = b.service_id
+            where b.block_number between {floor} and {cutoff}
+            order by b.block_number, b.id"""
     )
 }
 sub = {
-    (r["transactionHash"], r["category"], (r["token"] or ""), r["amount"])
+    (r["transactionHash"], r["category"], norm(r["token"]), r["amount"],
+     norm(r["bondType"]), rel(r["service"], "serviceId"), rel(r["agentSafe"]))
     for r in gql_paginate(
         "bondMovements",
-        "id transactionHash category token amount blockNumber",
-        f"blockNumber_lte: {cutoff}",
+        "id transactionHash category token amount bondType blockNumber "
+        "service { serviceId } agentSafe { id }",
+        f"blockNumber_gte: {floor}, blockNumber_lte: {cutoff}",
     )
 }
-compare("BondMovement (tx, category, token, amount)", sq, sub)
+compare("BondMovement (+ bondType/service/agentSafe)", sq, sub)
 
 # --- 3. MasterSafe ----------------------------------------------------
 
 sq = {
-    (i, eoa, floor)
-    for i, eoa, floor in sql(
-        f"""select id, master_eoa, history_floor_block from master_safe
-            where history_floor_block <= {cutoff} limit {LIMIT}"""
+    (i, eoa, blk)
+    for i, eoa, blk in sql(
+        f"""select id, master_eoa, history_floor_block::text from master_safe
+            where history_floor_block between {floor} and {cutoff}
+            order by history_floor_block, id"""
     )
 }
 sub = {
     (r["id"], r["masterEoa"], r["historyFloorBlock"])
     for r in gql_paginate(
         "masterSafes", "id masterEoa historyFloorBlock",
-        f"historyFloorBlock_lte: {cutoff}",
+        f"historyFloorBlock_gte: {floor}, historyFloorBlock_lte: {cutoff}",
     )
 }
 compare("MasterSafe (id, masterEoa, historyFloorBlock)", sq, sub)
 
 # --- 4. Service -------------------------------------------------------
-# The subgraph's Service.id is Bytes(serviceId); the squid's is the decimal
-# string. serviceId itself is the stable key.
+# No block column to window on; services are few enough to compare whole.
 
 sq = {
     (sid, agent_ids.strip("{}"))
     for sid, agent_ids in sql(
-        f"""select service_id::text, agent_ids::text from service limit {LIMIT}"""
+        "select service_id::text, agent_ids::text from service order by service_id"
     )
 }
 sub = {
@@ -215,7 +256,8 @@ sq = {
         f"""select s.service_id::text, d.day_timestamp::text,
                    d.olas_rewards_claimed::text
             from daily_service_funds d join service s on s.id = d.service_id
-            where d.day_timestamp < {day_cutoff} limit {LIMIT}"""
+            where d.day_timestamp < {day_cutoff}
+            order by d.day_timestamp, s.service_id"""
     )
 }
 sub = {
@@ -234,6 +276,6 @@ compare("DailyServiceFunds (serviceId, day, olasRewardsClaimed)", sq, sub)
 print()
 if failures:
     print(f"{failures} section(s) differ — see MIGRATION.md "
-          f"'Interpreting known discrepancy classes' before filing a bug.")
+          f"'Deliberate differences from the subgraph' before filing a bug.")
     sys.exit(1)
 print("all sections match")

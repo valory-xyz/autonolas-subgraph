@@ -112,8 +112,58 @@ export async function getSafeConfig(
     else throw err;
   }
 
+  if (cfg == null) {
+    // Memoized, so this decision is permanent for the process. Logged
+    // loudly because the benign reading ("the NFT went to a staking proxy
+    // or an EOA") and the catastrophic one ("the RPC lied and we just
+    // dropped a real user's Master Safe") look identical here.
+    console.warn(
+      `[rpc] ${address} classified NOT-a-Safe at block ${blockNumber} ` +
+        `(getOwners reverted or returned no code). Cached for the process ` +
+        `lifetime. If this address is a real Master Safe, the RPC is wrong ` +
+        `— check it is archive-capable.`
+    );
+  }
   safeMemo.set(memoKey, cfg);
   return cfg;
+}
+
+/**
+ * Fail fast if RPC_POLYGON_HTTP cannot serve historical state.
+ *
+ * Every Safe is probed at its first-sighting block, and a pruned node
+ * answers those with empty code — indistinguishable from "not a Safe", so
+ * the failure mode is silent, permanent data loss rather than an error.
+ * Assert it once at startup instead: the registry is deployed at or before
+ * START_BLOCK by definition, so it must have code there.
+ *
+ * Throws with an actionable message; the processor should not start.
+ */
+export async function assertArchiveRpc(
+  registryAddress: string,
+  startBlock: number
+): Promise<void> {
+  let code: string;
+  try {
+    code = await client.getCode({
+      address: registryAddress as `0x${string}`,
+      blockNumber: BigInt(startBlock),
+    }) ?? "0x";
+  } catch (err) {
+    throw new Error(
+      `RPC_POLYGON_HTTP cannot read state at block ${startBlock}: ` +
+        `${(err as Error).message}. An ARCHIVE endpoint is required — Safe ` +
+        `owners are read at each Safe's first-sighting block.`
+    );
+  }
+  if (code === "0x") {
+    throw new Error(
+      `RPC_POLYGON_HTTP returned no code for the service registry ` +
+        `${registryAddress} at block ${startBlock}, where it is known to be ` +
+        `deployed. The endpoint is not archive-capable; every Safe probe ` +
+        `would be silently misread as "not a Safe".`
+    );
+  }
 }
 
 /**
@@ -155,17 +205,35 @@ export async function getStakingConfig(
 }
 
 /**
- * A revert (or a call to a non-contract) is a property of the target, not a
- * transient failure — the subgraph's `try_*` .reverted branch. Anything
- * else (timeout, 5xx, rate limit) must propagate so the batch retries.
+ * True only when the contract genuinely reverted or has no code — a
+ * permanent property of the target, and the subgraph's `try_*` .reverted
+ * branch. Anything else (timeout, 5xx, rate limit, a non-archive node
+ * refusing historical state) must propagate so the batch retries.
+ *
+ * Checking `err.name` is NOT enough: viem's getContractError wraps EVERY
+ * failure — HTTP errors included — in a ContractFunctionExecutionError
+ * before rethrowing (the final `return new ContractFunctionExecutionError`
+ * is unconditional). Matching that name would classify a rate-limit blip
+ * as "not a Safe", memoize it, and permanently lose that Master Safe: no
+ * MasterSafe row, no SAFE_DEPLOYED, no tracked addresses, and the user's
+ * entire history missing — with a restart unable to repair it, because the
+ * batch has already committed.
+ *
+ * So walk the cause chain and look for the two errors that actually mean
+ * "the call itself failed on-chain".
  */
 function isRevert(err: unknown): boolean {
-  const name = (err as { name?: string })?.name ?? "";
-  const msg = String((err as { message?: string })?.message ?? "");
-  return (
-    name === "ContractFunctionRevertedError" ||
-    name === "ContractFunctionExecutionError" ||
-    msg.includes("reverted") ||
-    msg.includes("returned no data")
-  );
+  let e: unknown = err;
+  // Bounded, in case a cause chain ever loops.
+  for (let depth = 0; e != null && depth < 16; depth++) {
+    const name = (e as { name?: string }).name;
+    if (
+      name === "ContractFunctionRevertedError" ||
+      name === "ContractFunctionZeroDataError"
+    ) {
+      return true;
+    }
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
 }

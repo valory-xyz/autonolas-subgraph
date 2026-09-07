@@ -83,7 +83,10 @@ async function getOrCreateService(
   meta: EventMeta
 ): Promise<Service> {
   const id = serviceEntityId(serviceId);
-  const existing = await ctx.cache.get(Service, id);
+  // getService, not get: callers read service.masterSafe / .agentSafe, and
+  // a plain get() returns those undefined for a Service from an earlier
+  // batch. See EntityCache.getService.
+  const existing = await ctx.cache.getService(id);
   if (existing != null) return existing;
 
   const service = new Service({
@@ -339,7 +342,7 @@ async function attributeBond(
   const movement = await ctx.cache.get(BondMovement, bondMovementId);
   if (movement == null) return;
 
-  const service = await ctx.cache.get(Service, serviceEntityId(serviceId));
+  const service = await ctx.cache.getService(serviceEntityId(serviceId));
   movement.bondType = bondType;
   if (service != null) {
     movement.service = service;
@@ -368,7 +371,7 @@ export async function handleRegisterInstance(
 ): Promise<void> {
   const agentId = Number(e.agentId);
   const id = serviceEntityId(e.serviceId);
-  const existing = await ctx.cache.get(Service, id);
+  const existing = await ctx.cache.getService(id);
 
   if (existing != null) {
     // CreateMultisigWithAgents already fired — record directly.
@@ -686,10 +689,17 @@ export async function handleServiceStaked(
 }
 
 /**
- * The subgraph fell back to the raw `owner` / `multisig` address when the
- * Service had no resolved link. graph-node tolerates that dangling
- * reference; TypeORM's FK does not, so the relation is left null instead.
- * `from`/`to` still carry the raw addresses, so no information is lost.
+ * The subgraph fell back to the raw `owner` address when the Service had no
+ * resolved link. graph-node tolerates that dangling reference; TypeORM's FK
+ * does not.
+ *
+ * This matters more than "the nested object resolves to null": in
+ * graph-node the dangling value is still a COLUMN, so
+ * `fundsMovements(where: {masterSafe: $x})` matches the row. A NULL FK does
+ * not, and the row disappears from the wallet query. So fall back to
+ * `owner` whenever a MasterSafe actually exists for it, and only leave the
+ * relation null for genuinely unresolved owners (a non-Safe owner), which
+ * no Pearl query filters on.
  */
 async function stakingRewardRow(
   ctx: Ctx,
@@ -699,14 +709,19 @@ async function stakingRewardRow(
   amount: bigint,
   epoch: bigint,
   to: string,
-  id: string
+  id: string,
+  owner?: string
 ): Promise<void> {
+  let masterSafe = service.masterSafe ?? null;
+  if (masterSafe == null && owner != null) {
+    masterSafe = (await ctx.cache.get(MasterSafe, owner)) ?? null;
+  }
   ctx.cache.set(
     FundsMovement,
     new FundsMovement({
       id,
       service,
-      masterSafe: service.masterSafe ?? null,
+      masterSafe,
       agentSafe: service.agentSafe ?? null,
       stakingContract: new StakingContract({ id: meta.address }),
       epoch,
@@ -726,7 +741,13 @@ async function stakingRewardRow(
 export async function handleRewardClaimed(
   ctx: Ctx,
   meta: EventMeta,
-  e: { serviceId: bigint; multisig: string; reward: bigint; epoch: bigint }
+  e: {
+    serviceId: bigint;
+    owner: string;
+    multisig: string;
+    reward: bigint;
+    epoch: bigint;
+  }
 ): Promise<void> {
   const service = await getOrCreateService(ctx, e.serviceId, meta);
   await stakingRewardRow(
@@ -737,7 +758,8 @@ export async function handleRewardClaimed(
     e.reward,
     e.epoch,
     e.multisig,
-    eventId(meta.txHash, meta.logIndex)
+    eventId(meta.txHash, meta.logIndex),
+    e.owner
   );
   await addDailyOlasReward(ctx, service, e.reward, meta.blockTimestamp);
   service.updatedTimestamp = meta.blockTimestamp;
@@ -747,7 +769,13 @@ export async function handleRewardClaimed(
 export async function handleAnyUnstake(
   ctx: Ctx,
   meta: EventMeta,
-  e: { serviceId: bigint; multisig: string; reward: bigint; epoch: bigint }
+  e: {
+    serviceId: bigint;
+    owner: string;
+    multisig: string;
+    reward: bigint;
+    epoch: bigint;
+  }
 ): Promise<void> {
   const service = await getOrCreateService(ctx, e.serviceId, meta);
   await stakingRewardRow(
@@ -758,7 +786,8 @@ export async function handleAnyUnstake(
     e.reward,
     e.epoch,
     e.multisig,
-    eventId(meta.txHash, meta.logIndex)
+    eventId(meta.txHash, meta.logIndex),
+    e.owner
   );
   if (e.reward > 0n) {
     await addDailyOlasReward(ctx, service, e.reward, meta.blockTimestamp);
@@ -777,11 +806,17 @@ export async function handleAnyUnstake(
 export async function handleServicesEvicted(
   ctx: Ctx,
   meta: EventMeta,
-  e: { serviceIds: readonly bigint[]; multisigs: readonly string[]; epoch: bigint }
+  e: {
+    serviceIds: readonly bigint[];
+    owners: readonly string[];
+    multisigs: readonly string[];
+    epoch: bigint;
+  }
 ): Promise<void> {
   for (let i = 0; i < e.serviceIds.length; i++) {
     const service = await getOrCreateService(ctx, e.serviceIds[i], meta);
     const multisig = i < e.multisigs.length ? e.multisigs[i] : ZERO_ADDRESS;
+    const owner = i < e.owners.length ? e.owners[i] : undefined;
     await stakingRewardRow(
       ctx,
       meta,
@@ -790,7 +825,8 @@ export async function handleServicesEvicted(
       0n,
       e.epoch,
       multisig,
-      evictionRowId(meta.txHash, meta.logIndex, i)
+      evictionRowId(meta.txHash, meta.logIndex, i),
+      owner
     );
   }
 }

@@ -20,11 +20,14 @@ import * as h from "./handlers";
 import type { EventMeta, Ctx } from "./handlers";
 import {
   ERC20_TOKENS,
+  ROLE_STAKING,
   SERVICE_REGISTRY_L2,
   SRTU,
   STAKING_FACTORY,
+  START_BLOCK,
   isAllowedImplementation,
 } from "./constants";
+import { assertArchiveRpc } from "./rpc";
 
 const lc = (s: string) => s.toLowerCase();
 
@@ -64,10 +67,15 @@ const logger = createLogger("sqd:processor:mapping");
 
 const ERC20_SET = new Set(ERC20_TOKENS);
 
+// A pruned RPC misreads every Safe probe as "not a Safe", silently and
+// permanently. Assert once, before any block is processed.
+const archiveChecked = assertArchiveRpc(SERVICE_REGISTRY_L2, START_BLOCK);
+
 run(
   dataSource,
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx) => {
+    await archiveChecked;
     const cache = new EntityCache(
       ctx.store,
       ctx.blocks.length > 0 ? ctx.blocks[0].header.number : -1,
@@ -213,6 +221,7 @@ run(
           if (e != null && (await isTrackedProxy(hctx, address))) {
             await h.handleRewardClaimed(hctx, meta, {
               serviceId: e.serviceId,
+              owner: lc(e.owner),
               multisig: lc(e.multisig),
               reward: e.reward,
               epoch: e.epoch,
@@ -233,6 +242,7 @@ run(
           if (e != null && (await isTrackedProxy(hctx, address))) {
             await h.handleAnyUnstake(hctx, meta, {
               serviceId: e.serviceId,
+              owner: lc(e.owner),
               multisig: lc(e.multisig),
               reward: e.reward,
               epoch: e.epoch,
@@ -245,6 +255,7 @@ run(
           if (e != null && (await isTrackedProxy(hctx, address))) {
             await h.handleServicesEvicted(hctx, meta, {
               serviceIds: e.serviceIds,
+              owners: e.owners.map(lc),
               multisigs: e.multisigs.map(lc),
               epoch: e.epoch,
             });
@@ -301,5 +312,5 @@ run(
  */
 async function isTrackedProxy(ctx: Ctx, address: string): Promise<boolean> {
   const t = await ctx.cache.tracked(address);
-  return t != null && t.role === "STAKING";
+  return t != null && t.role === ROLE_STAKING;
 }
