@@ -148,6 +148,14 @@ jobs:
   squid-audit:
     name: Squid dependency audit (npm)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per squid: each is its own npm tree with its
+        # own lockfile, so auditing one would not cover the other.
+        squid:
+          - predict-polymarket
+          - pearl-transactions
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -157,12 +165,12 @@ jobs:
 
       # high/critical advisories in production deps fail the build;
       # `npm audit` reads package-lock.json directly, no install needed.
-      - name: Run npm audit (squids/predict-polymarket)
-        working-directory: squids/predict-polymarket
+      - name: Run npm audit (squids/${{ matrix.squid }})
+        working-directory: squids/${{ matrix.squid }}
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Lint squids/predict-polymarket/package-lock.json
-        working-directory: squids/predict-polymarket
+      - name: Lint squids/${{ matrix.squid }}/package-lock.json
+        working-directory: squids/${{ matrix.squid }}
         run: |
           npx --yes lockfile-lint \
             --path package-lock.json \
