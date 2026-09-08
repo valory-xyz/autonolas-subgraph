@@ -35,6 +35,9 @@ const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
 const fields = {
   block: { timestamp: true },
   log: { address: true, topics: true, data: true, transactionHash: true },
+  // `input` is the createStakingInstance calldata; see the StakingFactory
+  // source below.
+  transaction: { input: true },
 } satisfies FieldSelection;
 
 export type Fields = typeof fields;
@@ -68,11 +71,15 @@ export const dataSource = new DataSourceBuilder()
   })
 
   // --- Staking proxy creation -----------------------------------------
+  // `include.transaction` carries the createStakingInstance calldata, whose
+  // initPayload holds minStakingDeposit / numAgentInstances — replacing the
+  // two eth_calls the subgraph made on the new proxy.
   .addLog({
     where: {
       address: [STAKING_FACTORY],
       topic0: [stakingFactory.InstanceCreated.topic],
     },
+    include: { transaction: true },
   })
 
   // --- Staking proxy events (replaces the StakingProxy template) ------

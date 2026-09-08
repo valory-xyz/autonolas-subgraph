@@ -168,5 +168,13 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 /** UTC-midnight day bucket, matching the subgraph's `ts / 86400 * 86400`. */
 export const DAY_SECONDS = 86_400n;
 
+/**
+ * Floor for the per-Safe owner lookback (src/safeConfig.ts). A Pearl Master
+ * Safe is created during onboarding and so cannot predate the registry we
+ * index from; sampled Safes are created a few hundred blocks before first
+ * sighting. A Safe older than this reads as not-a-Safe.
+ */
+export const SAFE_LOOKBACK_FLOOR = CHAIN.startBlock;
+
 /** The IndexerStatus singleton id. */
 export const INDEXER_STATUS_ID = "1";

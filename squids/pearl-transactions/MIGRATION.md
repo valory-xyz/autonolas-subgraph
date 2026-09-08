@@ -111,9 +111,14 @@ These are intended. When the compare script flags them, they are not bugs.
   and uses it, matching the subgraph's practical behaviour. The relation is
   left null only for genuinely unresolved owners — a non-Safe owner, which
   is not a Pearl user and which no Pearl query filters on.
-- **`getOwners` is read at the first-sighting block, not `latest`.** The
-  subgraph's graph-node binding did this implicitly. Doing it explicitly
-  makes an archive RPC a hard requirement; see README.
+- **No RPC at all.** The subgraph eth_call'd `getOwners()` / `getThreshold()`
+  because a graph-node template only starts at the block it is spawned —
+  there was no way to look backwards. A squid has no such limit, so owners
+  are reconstructed by folding the Safe's own `SafeSetup` +
+  `AddedOwner`/`RemovedOwner`/`ChangedThreshold` events up to the sighting
+  block, and the staking config is decoded from the `createStakingInstance`
+  calldata. Same values, no archive endpoint, and no failure mode where a
+  transient RPC error permanently mislabels a real Master Safe.
 - **Address-less subscriptions skip malformed foreign logs.** The Safe and
   StakingProxy templates became topic-only subscriptions with no address
   filter, and topic0 does not encode indexed-ness, so unrelated contracts
@@ -173,7 +178,7 @@ Remember a complete ledger is `fundsMovements` **∪** `bondMovements`.
 
 ## Cutover checklist
 
-1. Private portal URL + key in place; archive RPC in place.
+1. Private portal URL + key in place. (No RPC endpoint is needed.)
 2. Production backfill complete (processor at chain head).
 3. Compare script green against Base (handler logic) and, if a gateway key
    is obtained, against the published Polygon subgraph.

@@ -41,7 +41,8 @@ Key files:
 | `src/handlers.ts` | what each event does to the data (store + RPC) |
 | `src/logic.ts` | the pure half — classification, ID shapes, the bond queue. Unit-tested |
 | `src/entityCache.ts` | read-through cache, FK-ordered writes, tracked-address index |
-| `src/rpc.ts` | the four contract calls, memoized |
+| `src/safeConfig.ts` | Safe owners/threshold from events — one portal query per Safe |
+| `src/stakingConfig.ts` | staking config decoded from createStakingInstance calldata |
 | `db/migrations/` | generated SQL that creates the database tables |
 | `scripts/compare-vs-subgraph.py` | data validation against a deployed subgraph |
 
@@ -52,24 +53,20 @@ Key files:
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
-| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. **Must be archive-capable** — see below |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
-### Two endpoint requirements that are not optional
+### One endpoint requirement that is not optional
 
 **The private portal.** The public portal answers a sustained backfill with
 HTTP 529 (`Service is overloaded`) and 10-second backoffs. The backfill is
 ~12.8M blocks. On the public portal it does not finish in reasonable time.
 
-**An archive RPC.** `src/rpc.ts` reads a Safe's `getOwners()` and
-`getThreshold()` *at the block where the Safe is first seen*, not at
-`latest`. Owner lists change over time — that is exactly why
-`AddedOwner` / `RemovedOwner` / `ChangedThreshold` are indexed — so reading
-at `latest` and then replaying historical owner events on top would produce
-a wrong owner set and, worse, a wrong `masterEoa`, which routes a user's
-whole history to the wrong place. A non-archive node will fail these calls
-on historical blocks.
+There is **no RPC to configure**. The portal is the only endpoint this
+indexer talks to: Safe owners are reconstructed from the Safe's own
+`SafeSetup` / `AddedOwner` / `RemovedOwner` / `ChangedThreshold` events
+(`src/safeConfig.ts`), and staking config is decoded from the
+`createStakingInstance` calldata (`src/stakingConfig.ts`).
 
 ## Run it locally
 

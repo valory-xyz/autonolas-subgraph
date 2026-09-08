@@ -11,7 +11,6 @@
 #       NOT optional here: the public portal answers a sustained backfill
 #       with HTTP 529 "Service is overloaded" + 10s backoffs, which alone
 #       roughly doubles the wall-clock of the ~12.8M-block backfill.
-#     RPC_POLYGON_HTTP   -> Polygon RPC endpoint (contract calls only)
 #
 # Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
 # do NOT share the graph-node database server.

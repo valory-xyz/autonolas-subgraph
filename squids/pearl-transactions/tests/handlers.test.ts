@@ -5,20 +5,16 @@ import * as h from "../src/handlers";
 import { FundsCategory, ServiceBondType } from "../src/model";
 import { OLAS, ROLE_AGENT, ROLE_MASTER, SRTU } from "../src/constants";
 
-// A Safe answers getOwners(); anything else reverts. getOrCreateMasterSafe
-// goes through src/rpc.ts, so these tests stub the module rather than hit a
-// network — the RPC contract itself is exercised in rpc.test.ts.
+// A Safe is one that emitted SafeSetup; anything else resolves to null.
+// getOrCreateMasterSafe goes through src/safeConfig.ts, which queries the
+// portal, so these tests stub that module rather than hit the network.
 const OWNERS = new Map<string, string[]>();
-vi.mock("../src/rpc", () => ({
+vi.mock("../src/safeConfig", () => ({
   getSafeConfig: async (address: string) => {
     const owners = OWNERS.get(address);
     return owners == null ? null : { owners, threshold: 1n };
   },
-  getStakingConfig: async () => ({
-    minStakingDeposit: 10n,
-    numAgentInstances: 1n,
-  }),
-  assertArchiveRpc: async () => {},
+  resetSafeConfigMemoForTests: () => {},
 }));
 
 

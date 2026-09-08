@@ -39,7 +39,7 @@ import {
   serviceEntityId,
   tokenBalanceId,
 } from "./logic";
-import { getSafeConfig, getStakingConfig } from "./rpc";
+import { getSafeConfig } from "./safeConfig";
 import {
   CHAIN,
   OLAS,
@@ -130,11 +130,12 @@ async function getOrCreateMasterSafe(
     return existing;
   }
 
-  // Read owners AT this block — see rpc.ts on why `latest` would be wrong.
+  // Owners as of this block, reconstructed from the Safe's own events —
+  // no RPC. See src/safeConfig.ts.
   const cfg = await getSafeConfig(address, Number(meta.blockNumber));
   if (cfg == null) {
     ctx.log.info(
-      `skipping non-Safe recipient ${address} (getOwners reverted/empty) tx ${meta.txHash}`
+      `skipping non-Safe recipient ${address} (no SafeSetup in range) tx ${meta.txHash}`
     );
     return null;
   }
@@ -624,20 +625,24 @@ export async function handleTokenRefund(
 export async function handleInstanceCreated(
   ctx: Ctx,
   meta: EventMeta,
-  e: { instance: string; implementation: string },
+  e: {
+    instance: string;
+    implementation: string;
+    /** Decoded from the createStakingInstance calldata — see stakingConfig.ts. */
+    config: { minStakingDeposit: bigint; numAgentInstances: bigint } | null;
+  },
   isAllowed: boolean
 ): Promise<void> {
   if (!isAllowed) return;
   if ((await ctx.cache.get(StakingContract, e.instance)) != null) return;
 
-  // Fields are delegated to the implementation, so call on the proxy.
-  const cfg = await getStakingConfig(e.instance);
-  if (cfg == null) {
+  if (e.config == null) {
     ctx.log.warn(
-      `StakingProxy ${e.instance} config call reverted (impl=${e.implementation}, tx=${meta.txHash}); skipping`
+      `StakingProxy ${e.instance} config not decodable from calldata (impl=${e.implementation}, tx=${meta.txHash}); skipping`
     );
     return;
   }
+  const cfg = e.config;
 
   ctx.cache.set(
     StakingContract,
@@ -716,13 +721,19 @@ async function stakingRewardRow(
   if (masterSafe == null && owner != null) {
     masterSafe = (await ctx.cache.get(MasterSafe, owner)) ?? null;
   }
+  // Same guarded fallback for the agent side: the subgraph used
+  // `service.agentSafe ?? multisig`, and `to` is the multisig here.
+  let agentSafe = service.agentSafe ?? null;
+  if (agentSafe == null) {
+    agentSafe = (await ctx.cache.get(AgentSafe, to)) ?? null;
+  }
   ctx.cache.set(
     FundsMovement,
     new FundsMovement({
       id,
       service,
       masterSafe,
-      agentSafe: service.agentSafe ?? null,
+      agentSafe,
       stakingContract: new StakingContract({ id: meta.address }),
       epoch,
       category,
