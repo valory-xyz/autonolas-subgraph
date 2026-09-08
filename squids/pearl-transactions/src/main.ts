@@ -24,9 +24,11 @@ import {
   SERVICE_REGISTRY_L2,
   SRTU,
   STAKING_FACTORY,
+  START_BLOCK,
   isAllowedImplementation,
 } from "./constants";
 import { decodeStakingConfig } from "./stakingConfig";
+import { assertArchiveRpc } from "./rpc";
 
 const lc = (s: string) => s.toLowerCase();
 
@@ -66,10 +68,15 @@ const logger = createLogger("sqd:processor:mapping");
 
 const ERC20_SET = new Set(ERC20_TOKENS);
 
+// A pruned RPC misreads every Safe probe as "not a Safe", silently and
+// permanently. Assert once, before any block is processed.
+const archiveChecked = assertArchiveRpc(SERVICE_REGISTRY_L2, START_BLOCK);
+
 run(
   dataSource,
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx) => {
+    await archiveChecked;
     const cache = new EntityCache(
       ctx.store,
       ctx.blocks.length > 0 ? ctx.blocks[0].header.number : -1,

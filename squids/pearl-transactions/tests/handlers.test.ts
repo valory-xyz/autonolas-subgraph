@@ -3,18 +3,24 @@ import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
 import { resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
 import { FundsCategory, ServiceBondType } from "../src/model";
-import { OLAS, ROLE_AGENT, ROLE_MASTER, SRTU } from "../src/constants";
+import {
+  OLAS,
+  ROLE_AGENT,
+  ROLE_MASTER,
+  ROLE_STAKING,
+  SRTU,
+} from "../src/constants";
 
-// A Safe is one that emitted SafeSetup; anything else resolves to null.
-// getOrCreateMasterSafe goes through src/safeConfig.ts, which queries the
-// portal, so these tests stub that module rather than hit the network.
+// A Safe answers getOwners(); anything else reverts. getOrCreateMasterSafe
+// goes through src/rpc.ts, so these tests stub the module rather than hit a
+// network.
 const OWNERS = new Map<string, string[]>();
-vi.mock("../src/safeConfig", () => ({
+vi.mock("../src/rpc", () => ({
   getSafeConfig: async (address: string) => {
     const owners = OWNERS.get(address);
     return owners == null ? null : { owners, threshold: 1n };
   },
-  resetSafeConfigMemoForTests: () => {},
+  assertArchiveRpc: async () => {},
 }));
 
 
@@ -24,6 +30,7 @@ const AGENT = "0xagentsafe";
 const OPERATOR = "0xoperator";
 const STRANGER = "0xstranger";
 const USDC = "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359";
+const PROXY = "0xstakingproxy";
 
 let store: InMemoryStore;
 
@@ -319,5 +326,63 @@ describe("master safe discovery", () => {
     expect(store.raw("TrackedAddress", MASTER).role).toBe(ROLE_MASTER);
     expect(store.raw("TrackedAddress", MASTER_EOA)).toBeDefined();
     expect(store.raw("MasterSafe", MASTER).historyFloorBlock).toBe(1000n);
+  });
+});
+
+describe("staking contract creation", () => {
+  it("writes the StakingContract and tracks the proxy when config decodes", async () => {
+    const ctx = newBatch(store, 1000, 1000);
+    await h.handleInstanceCreated(
+      ctx,
+      meta({ blockNumber: 1000n, txHash: "0xfactory", address: "0xfactoryaddr" }),
+      {
+        instance: PROXY,
+        implementation: "0ximpl",
+        config: { minStakingDeposit: 10n, numAgentInstances: 2n },
+      },
+      /* isAllowed = */ true
+    );
+    await ctx.cache.flush();
+
+    const sc = store.raw("StakingContract", PROXY);
+    expect(sc).toBeDefined();
+    expect(sc.minStakingDeposit).toBe(10n);
+    expect(sc.numAgentInstances).toBe(2n);
+    // classifyTransfer needs the proxy tracked to route reward sends.
+    expect(store.raw("TrackedAddress", PROXY).role).toBe(ROLE_STAKING);
+  });
+
+  it("skips the proxy when the calldata did not decode", async () => {
+    // Silent for the life of the index otherwise, so it must warn.
+    const warnings: string[] = [];
+    const ctx = newBatch(store, 1000, 1000);
+    ctx.log = { warn: (m: string) => warnings.push(m), info: () => {} };
+    await h.handleInstanceCreated(
+      ctx,
+      meta({ blockNumber: 1000n, txHash: "0xfactory" }),
+      { instance: PROXY, implementation: "0ximpl", config: null },
+      /* isAllowed = */ true
+    );
+    await ctx.cache.flush();
+
+    expect(store.raw("StakingContract", PROXY)).toBeUndefined();
+    expect(store.raw("TrackedAddress", PROXY)).toBeUndefined();
+    expect(warnings.join(" ")).toContain(PROXY);
+  });
+
+  it("ignores implementations that are not on the allow-list", async () => {
+    const ctx = newBatch(store, 1000, 1000);
+    await h.handleInstanceCreated(
+      ctx,
+      meta({ blockNumber: 1000n, txHash: "0xfactory" }),
+      {
+        instance: PROXY,
+        implementation: "0xnotallowed",
+        config: { minStakingDeposit: 10n, numAgentInstances: 2n },
+      },
+      /* isAllowed = */ false
+    );
+    await ctx.cache.flush();
+    expect(store.raw("StakingContract", PROXY)).toBeUndefined();
   });
 });

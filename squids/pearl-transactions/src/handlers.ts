@@ -39,7 +39,7 @@ import {
   serviceEntityId,
   tokenBalanceId,
 } from "./logic";
-import { getSafeConfig } from "./safeConfig";
+import { getSafeConfig } from "./rpc";
 import {
   CHAIN,
   OLAS,
@@ -130,12 +130,11 @@ async function getOrCreateMasterSafe(
     return existing;
   }
 
-  // Owners as of this block, reconstructed from the Safe's own events —
-  // no RPC. See src/safeConfig.ts.
+  // Read owners AT this block — see rpc.ts on why `latest` would be wrong.
   const cfg = await getSafeConfig(address, Number(meta.blockNumber));
   if (cfg == null) {
     ctx.log.info(
-      `skipping non-Safe recipient ${address} (no SafeSetup in range) tx ${meta.txHash}`
+      `skipping non-Safe recipient ${address} (getOwners reverted/empty) tx ${meta.txHash}`
     );
     return null;
   }

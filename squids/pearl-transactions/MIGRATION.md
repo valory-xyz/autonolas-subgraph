@@ -35,6 +35,13 @@ schemes — the subgraph concatenates `Bytes`, the squid joins strings — so
 (`txHash` + category + token + amount, and so on), height-capped to the
 lower of the two heads.
 
+**The `MasterSafe` section is the one that validates the owner derivation.**
+`masterEoa` and `owners` are the only fields that come from the Safe probe
+rather than from event data, so they are where a wrong `getOwners()` — a
+pruned RPC, a mis-pinned block, a transient error read as a revert — shows
+up. Every other section would still match. Treat a `MasterSafe` mismatch as
+a probe bug first, not a ledger bug.
+
 ### There is no deployed Polygon endpoint to compare against
 
 Checked at time of writing:
@@ -111,14 +118,20 @@ These are intended. When the compare script flags them, they are not bugs.
   and uses it, matching the subgraph's practical behaviour. The relation is
   left null only for genuinely unresolved owners — a non-Safe owner, which
   is not a Pearl user and which no Pearl query filters on.
-- **No RPC at all.** The subgraph eth_call'd `getOwners()` / `getThreshold()`
-  because a graph-node template only starts at the block it is spawned —
-  there was no way to look backwards. A squid has no such limit, so owners
-  are reconstructed by folding the Safe's own `SafeSetup` +
-  `AddedOwner`/`RemovedOwner`/`ChangedThreshold` events up to the sighting
-  block, and the staking config is decoded from the `createStakingInstance`
-  calldata. Same values, no archive endpoint, and no failure mode where a
-  transient RPC error permanently mislabels a real Master Safe.
+- **`getOwners` is read at the first-sighting block, not `latest`.** The
+  subgraph's graph-node binding did this implicitly. Doing it explicitly
+  makes an archive RPC a hard requirement; see README. An event-derived
+  owner set was tried and rejected: the portal returns a header per ~50-block
+  chunk (capped at 20 per response), so a per-address scan is ~15k requests
+  and never completes for non-Safe recipients, and `addOwnerWithThreshold`
+  prepends to Safe's owner linked list, so a fold that appends disagrees
+  with `getOwners()` on `owners[0]` — and therefore `masterEoa` — for any
+  Safe that had a backup owner added before first sighting.
+
+- **The staking config does NOT use the RPC.** `minStakingDeposit` and
+  `numAgentInstances` are decoded from the `createStakingInstance` calldata
+  instead of eth_called on the new proxy, so those two calls are gone.
+  Verified 15/15 against the live Polygon proxies.
 - **Address-less subscriptions skip malformed foreign logs.** The Safe and
   StakingProxy templates became topic-only subscriptions with no address
   filter, and topic0 does not encode indexed-ness, so unrelated contracts
@@ -178,7 +191,7 @@ Remember a complete ledger is `fundsMovements` **∪** `bondMovements`.
 
 ## Cutover checklist
 
-1. Private portal URL + key in place. (No RPC endpoint is needed.)
+1. Private portal URL + key in place; archive RPC in place.
 2. Production backfill complete (processor at chain head).
 3. Compare script green against Base (handler logic) and, if a gateway key
    is obtained, against the published Polygon subgraph.
