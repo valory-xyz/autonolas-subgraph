@@ -20,7 +20,9 @@
 # in memory at once (and SQD never splits a block across batches), so the
 # bond-attribution queue lives in a plain per-tx Map in the handler instead
 # of costing three Postgres tables of write amplification. `ServiceIndex`
-# and `PendingRegistration` are NOT dropped: they span transactions.
+# and `PendingRegistration` are NOT dropped: they can span transactions.
+# (`PendingRegistration` is defensive rather than load-bearing on Polygon —
+# see its own comment below.)
 
 # --- Structural -------------------------------------------------------
 
@@ -197,8 +199,8 @@ type ServiceNftCustodyChange @entity {
 
 # --- Internal helpers (not part of the public consumer contract) -----
 #
-# Only the two that span transactions survive the port; the per-tx bond
-# queue is in-memory (see the header note).
+# Only the two that could span transactions survive the port; the per-tx
+# bond queue is in-memory (see the header note).
 
 # Reverse index used to resolve a service's multisig in event-ordering
 # scenarios (CreateMultisigWithAgents → Service.multisig).
@@ -209,7 +211,13 @@ type ServiceIndex @entity {
 
 # Buffer for RegisterInstance data that arrives before
 # CreateMultisigWithAgents creates the Service entity. Drained when the
-# Service is created. Spans transactions — must be persisted.
+# Service is created.
+#
+# Defensive, not load-bearing: on Polygon the NFT mint always creates the
+# Service before any RegisterInstance fires, so this buffer is never
+# actually used — same as in the subgraph. Kept because it is a faithful
+# port and costs nothing when the branch is not taken, but do not read it
+# as evidence that the ordering happens.
 type PendingRegistration @entity {
   id: ID! # serviceId (decimal string)
   agentIds: [Int!]!
