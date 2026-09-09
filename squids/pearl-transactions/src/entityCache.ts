@@ -1,0 +1,317 @@
+import { Store } from "@subsquid/typeorm-store";
+import {
+  AgentFundingEvent,
+  AgentSafe,
+  BondMovement,
+  DailyServiceFunds,
+  FundsMovement,
+  IndexerStatus,
+  MasterSafe,
+  PendingRegistration,
+  Service,
+  ServiceIndex,
+  ServiceNftCustodyChange,
+  StakingContract,
+  Token,
+  TokenBalance,
+  TrackedAddress,
+} from "./model";
+import { TrackedInfo } from "./logic";
+import { Role } from "./constants";
+import * as models from "./model";
+
+export type EntityClass<T> = { new (...args: any[]): T; name: string };
+export type Entity = { id: string };
+export type CacheLogger = { warn(msg: string): void; info(msg: string): void };
+
+/**
+ * FK-safe write order: referenced entities before referencing ones.
+ * TypeORM enforces real foreign keys, unlike the graph-node store.
+ *
+ * Service and AgentSafe reference EACH OTHER (service.agent_safe_id and
+ * agent_safe.service_id), and the generated FKs are immediate, not
+ * DEFERRABLE — so no single ordering satisfies both. The cycle is broken in
+ * flush(): Service is written first with agentSafe forced to null, then
+ * AgentSafe, then Service again with the real link. Upserts are idempotent,
+ * so the double write is safe; it costs one extra statement per batch that
+ * touches a Service.
+ */
+const FLUSH_ORDER: EntityClass<any>[] = [
+  MasterSafe,
+  Token,
+  StakingContract,
+  Service, // pass 1 — agentSafe nulled (see flush)
+  AgentSafe,
+  // Service pass 2 is injected here by flush()
+  TrackedAddress,
+  ServiceIndex,
+  PendingRegistration,
+  AgentFundingEvent,
+  FundsMovement,
+  BondMovement,
+  DailyServiceFunds,
+  ServiceNftCustodyChange,
+  TokenBalance,
+  IndexerStatus,
+];
+
+// flush() only visits what is listed, while set() accepts any entity class,
+// so an entity missing from FLUSH_ORDER is cached in memory, never written,
+// and never errors. Assert the list is exhaustive at module load rather than
+// relying on whoever adds the next entity to remember this file.
+{
+  const entityClasses = Object.values(models).filter(
+    (v): v is EntityClass<any> =>
+      typeof v === "function" && typeof (v as any).prototype?.constructor === "function"
+  );
+  if (entityClasses.length !== FLUSH_ORDER.length) {
+    const listed = new Set(FLUSH_ORDER.map((c) => c.name));
+    const missing = entityClasses.map((c) => c.name).filter((n) => !listed.has(n));
+    throw new Error(
+      `FLUSH_ORDER is not exhaustive: ${missing.join(", ") || "count mismatch"}. ` +
+        `An entity absent from FLUSH_ORDER is silently never persisted — add it ` +
+        `after everything it references.`
+    );
+  }
+}
+
+/**
+ * Process-lifetime tracked-address index, shared across batches.
+ *
+ * Rebuilding it per batch would mean a full table scan every batch, which
+ * defeats the point. It is safe to carry across batches because
+ * TrackedAddress is write-once and only ever grows — EXCEPT across a chain
+ * reorg, where SQD rolls the database back but cannot roll back our memory.
+ * `builtThroughBlock` catches that: if a batch starts at or before a block
+ * we have already indexed, the store was rewound, so the index is dropped
+ * and rebuilt from the (rolled-back) table.
+ */
+const trackedIndexSingleton: {
+  index: Map<string, TrackedInfo> | null;
+  builtThroughBlock: number;
+} = { index: null, builtThroughBlock: -1 };
+
+/**
+ * Drop the shared index. Only for tests, which run many independent
+ * scenarios in one process and must not inherit each other's addresses.
+ */
+export function resetTrackedIndexForTests(): void {
+  trackedIndexSingleton.index = null;
+  trackedIndexSingleton.builtThroughBlock = -1;
+}
+
+/**
+ * Read-through cache over the TypeORM store with deferred, FK-ordered
+ * writes. Same get/set shape as predict-polymarket's.
+ */
+export class EntityCache {
+  private cache = new Map<string, Map<string, Entity | undefined>>();
+  private dirty = new Map<string, Map<string, Entity>>();
+  log: CacheLogger = console;
+
+  /**
+   * Full in-memory index of TrackedAddress.
+   *
+   * This is the single most important performance decision in the port.
+   * classifyTransfer runs on EVERY indexed ERC-20 transfer — ~133 per block
+   * on Polygon — and needs the tracked-row for both `from` and `to`. Served
+   * from the store, that is two DB round trips per transfer, ~266 per block,
+   * essentially all of them misses on random addresses. That is the shape of
+   * cost that held the graph-node deployment to ~5 blk/s.
+   *
+   * The tracked set is tiny (Pearl Master/Agent Safes and their EOAs plus
+   * staking proxies — thousands of rows, not millions) and only ever grows,
+   * so it is loaded once at startup and kept in memory. The hot path then
+   * costs two Map lookups and zero I/O.
+   */
+  private trackedIndex: Map<string, TrackedInfo> | null = null;
+
+  /**
+   * @param firstBlock first block of this batch — used to detect a rollback
+   *   and invalidate the shared tracked-address index.
+   * @param lastBlock  last block of this batch.
+   */
+  constructor(
+    private store: Store,
+    private firstBlock = -1,
+    private lastBlock = -1
+  ) {
+    if (
+      trackedIndexSingleton.index != null &&
+      firstBlock >= 0 &&
+      firstBlock <= trackedIndexSingleton.builtThroughBlock
+    ) {
+      // Rewound: drop the index rather than trust rolled-back rows.
+      trackedIndexSingleton.index = null;
+      trackedIndexSingleton.builtThroughBlock = -1;
+    }
+    this.trackedIndex = trackedIndexSingleton.index;
+  }
+
+  private bucket(map: Map<string, Map<string, any>>, cls: EntityClass<any>) {
+    let b = map.get(cls.name);
+    if (b == null) {
+      b = new Map();
+      map.set(cls.name, b);
+    }
+    return b;
+  }
+
+  async get<T extends Entity>(
+    cls: EntityClass<T>,
+    id: string
+  ): Promise<T | undefined> {
+    const bucket = this.bucket(this.cache, cls);
+    if (bucket.has(id)) return bucket.get(id) as T | undefined;
+    const fromDb = await this.store.get(cls, id);
+    bucket.set(id, fromDb);
+    return fromDb;
+  }
+
+  set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
+    this.bucket(this.cache, cls).set(entity.id, entity);
+    this.bucket(this.dirty, cls).set(entity.id, entity);
+  }
+
+  /**
+   * Service with `masterSafe` and `agentSafe` relations loaded.
+   *
+   * MUST be used instead of `get(Service, id)` anywhere those links are
+   * read. `store.get(cls, id)` is `findOneBy({id})` with no `relations`
+   * (typeorm-store 1.9.1), so a Service created in an earlier batch comes
+   * back with both links `undefined` — not null, undefined. The subgraph
+   * never had this problem because graph-node relations are plain columns.
+   *
+   * Reading an unloaded link silently produces wrong data rather than an
+   * error: reward rows get `masterSafe = NULL` and vanish from the
+   * wallet's `where: { masterSafe }` query, and an Agent Safe created in a
+   * later batch than its mint gets no `TrackedAddress(AGENT)` row at all,
+   * misclassifying that service's transfers for its entire life.
+   *
+   * The cache hit is self-healed: a plain `get()` elsewhere may have
+   * seeded the bucket with a relation-less row, so a hit is only trusted
+   * when the relation is actually present. A loaded-but-unlinked Service
+   * has `masterSafe === null`; only `undefined` means "not loaded".
+   */
+  async getService(id: string): Promise<Service | undefined> {
+    const bucket = this.bucket(this.cache, Service);
+    if (bucket.has(id)) {
+      const hit = bucket.get(id) as Service | undefined;
+      if (hit == null || hit.masterSafe !== undefined) return hit;
+    }
+    const fromDb = await this.store.findOne(Service, {
+      where: { id },
+      relations: { masterSafe: true, agentSafe: true },
+    });
+    bucket.set(id, fromDb);
+    return fromDb;
+  }
+
+  // --- TrackedAddress index -------------------------------------------
+
+  /** Load the whole tracked-address table once. Idempotent. */
+  private async ensureTrackedIndex(): Promise<Map<string, TrackedInfo>> {
+    if (this.trackedIndex != null) return this.trackedIndex;
+    if (trackedIndexSingleton.index != null) {
+      this.trackedIndex = trackedIndexSingleton.index;
+      return this.trackedIndex;
+    }
+    const idx = new Map<string, TrackedInfo>();
+    const rows = await this.store.find(TrackedAddress, {
+      relations: { masterSafe: true, service: true },
+    });
+    for (const r of rows) {
+      idx.set(r.id, {
+        id: r.id,
+        // The column is String! (schema.graphql); Role is the code-side
+        // contract. Every row here was written through upsertTracked, which
+        // is now Role-typed, so the narrowing is safe at this seam.
+        role: r.role as Role,
+        masterSafeId: r.masterSafe?.id ?? null,
+        serviceId: r.service?.id ?? null,
+      });
+    }
+    this.log.info(`tracked-address index loaded: ${idx.size} rows`);
+    this.trackedIndex = idx;
+    trackedIndexSingleton.index = idx;
+    return idx;
+  }
+
+  /** Hot path. In-memory after the first call; never hits the store. */
+  async tracked(address: string): Promise<TrackedInfo | null> {
+    const idx = await this.ensureTrackedIndex();
+    return idx.get(address) ?? null;
+  }
+
+  /**
+   * Write-once, mirroring the subgraph's immutable TrackedAddress: an
+   * existing row is never modified. First-write-wins is load-bearing — an
+   * AGENT_EOA shared across services keeps the first service it was seen
+   * with, and writing a Master Safe as AGENT_EOA before its MASTER row
+   * landed would permanently misroute that user's whole history.
+   */
+  async upsertTracked(
+    address: string,
+    role: Role,
+    masterSafeId: string | null,
+    serviceId: string | null,
+    blockNumber: bigint
+  ): Promise<void> {
+    const idx = await this.ensureTrackedIndex();
+    if (idx.has(address)) return;
+
+    const row = new TrackedAddress({
+      id: address,
+      role,
+      masterSafe: masterSafeId ? new MasterSafe({ id: masterSafeId }) : null,
+      service: serviceId ? new Service({ id: serviceId }) : null,
+      firstTrackedBlock: blockNumber,
+    });
+    this.set(TrackedAddress, row);
+    idx.set(address, { id: address, role, masterSafeId, serviceId });
+  }
+
+  // --- Flush -----------------------------------------------------------
+
+  async flush(): Promise<void> {
+    const serviceBucket = this.dirty.get(Service.name);
+    const agentSafeBucket = this.dirty.get(AgentSafe.name);
+    const cycle =
+      serviceBucket != null &&
+      serviceBucket.size > 0 &&
+      agentSafeBucket != null &&
+      agentSafeBucket.size > 0;
+
+    // Snapshot the real agentSafe links, then null them for pass 1. The
+    // entity objects are held directly, NOT looked up again by id: the
+    // Service bucket is cleared during its own pass, well before the
+    // AgentSafe pass that restores the links.
+    const deferred: { service: Service; link: AgentSafe }[] = [];
+    if (cycle) {
+      for (const svc of serviceBucket!.values() as Iterable<Service>) {
+        if (svc.agentSafe != null) {
+          deferred.push({ service: svc, link: svc.agentSafe });
+          svc.agentSafe = null;
+        }
+      }
+    }
+
+    for (const cls of FLUSH_ORDER) {
+      const bucket = this.dirty.get(cls.name);
+      if (bucket == null || bucket.size === 0) continue;
+      await this.store.upsert([...bucket.values()]);
+      bucket.clear();
+      if (cls === AgentSafe && deferred.length > 0) {
+        // Pass 2: the AgentSafe rows exist now, so the links satisfy the FK.
+        for (const { service, link } of deferred) service.agentSafe = link;
+        await this.store.upsert(deferred.map((d) => d.service));
+        deferred.length = 0;
+      }
+    }
+    // The in-memory index is now consistent with what the store holds
+    // through this batch.
+    if (trackedIndexSingleton.index != null && this.lastBlock >= 0) {
+      trackedIndexSingleton.builtThroughBlock = this.lastBlock;
+    }
+  }
+}
