@@ -51,7 +51,7 @@ Checked at time of writing:
 | `transactions-gnosis.subgraph.autonolas.tech` | live, at head |
 | `transactions-base.subgraph.autonolas.tech` | live, at head |
 | `transactions-optimism.subgraph.autonolas.tech` | live, at head |
-| `transactions-polygon.subgraph.autonolas.tech` | **does not exist** |
+| `transactions-polygon.subgraph.autonolas.tech` | **does not exist** — and will not: squids are path-style, so this one is served at `https://subgraph.autonolas.tech/squid/transactions-polygon/graphql` |
 | Studio `pearl-polygon-transactions` v0.0.5 | **404 Not found** |
 | Gateway `FAhPh2M5JXjGysCHG1RzABKXr9efmh92w9bARk5DJ5iV` | needs a Graph API key |
 
@@ -120,13 +120,9 @@ These are intended. When the compare script flags them, they are not bugs.
   is not a Pearl user and which no Pearl query filters on.
 - **`getOwners` is read at the first-sighting block, not `latest`.** The
   subgraph's graph-node binding did this implicitly. Doing it explicitly
-  makes an archive RPC a hard requirement; see README. An event-derived
-  owner set was tried and rejected: the portal returns a header per ~50-block
-  chunk (capped at 20 per response), so a per-address scan is ~15k requests
-  and never completes for non-Safe recipients, and `addOwnerWithThreshold`
-  prepends to Safe's owner linked list, so a fold that appends disagrees
-  with `getOwners()` on `owners[0]` — and therefore `masterEoa` — for any
-  Safe that had a backup owner added before first sighting.
+  makes an archive RPC a hard requirement; see README. (An event-derived
+  owner set was tried and rejected — see the commit history if you are
+  tempted to revisit it.)
 
 - **The staking config does NOT use the RPC.** `minStakingDeposit` and
   `numAgentInstances` are decoded from the `createStakingInstance` calldata

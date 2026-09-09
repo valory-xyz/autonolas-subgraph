@@ -37,17 +37,28 @@ export function decodeStakingConfig(
   txInput: string | undefined
 ): StakingConfig | null {
   if (txInput == null || txInput.length < 10) return null;
-  try {
-    const { initPayload } = factory.createStakingInstance.decode(txInput);
-    if (initPayload == null || initPayload.length < 10) return null;
-    const { _stakingParams } = proxy.initialize.decode(initPayload);
-    return {
-      minStakingDeposit: _stakingParams.minStakingDeposit,
-      numAgentInstances: _stakingParams.numAgentInstances,
-    };
-  } catch {
-    // A selector or shape mismatch means "not the call we model", not a
-    // transient fault — there is no network here to retry.
-    return null;
-  }
+
+  // Check the selectors explicitly rather than inferring "not our call" from
+  // a thrown error. Returning null here is expensive and quiet — the caller
+  // writes no StakingContract, so no TrackedAddress(STAKING), so every later
+  // ServiceStaked / RewardClaimed / ServiceUnstaked / ServicesEvicted for
+  // that proxy is discarded by isTrackedProxy with no logging at all. One
+  // warn line would be the only trace of a whole staking contract's history
+  // going missing. So null must mean exactly "this is a different call",
+  // never "the bindings regressed" — those must surface.
+  if (!hasSelector(txInput, factory.createStakingInstance.sighash)) return null;
+
+  const { initPayload } = factory.createStakingInstance.decode(txInput);
+  if (initPayload == null || initPayload.length < 10) return null;
+  if (!hasSelector(initPayload, proxy.initialize.sighash)) return null;
+
+  const { _stakingParams } = proxy.initialize.decode(initPayload);
+  return {
+    minStakingDeposit: _stakingParams.minStakingDeposit,
+    numAgentInstances: _stakingParams.numAgentInstances,
+  };
+}
+
+function hasSelector(data: string, sighash: string): boolean {
+  return data.slice(0, 10).toLowerCase() === sighash.toLowerCase();
 }

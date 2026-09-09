@@ -101,12 +101,34 @@ export class InMemoryStore {
     );
   }
 
+  /**
+   * Rejects a reference to a row that does not exist yet, the way a
+   * non-deferrable Postgres foreign key does.
+   *
+   * Without this the fake is an unconditional Map.set, and the Service ->
+   * AgentSafe -> Service two-pass write in EntityCache.flush() could be
+   * deleted outright with every test still green — the workaround exists
+   * only to satisfy FKs this fake would otherwise not model, so a
+   * regression in it would surface as a production flush() failure and
+   * never in CI.
+   */
   async upsert(entities: any | any[]): Promise<void> {
     const list = Array.isArray(entities) ? entities : [entities];
     for (const e of list) {
       const name = e.constructor?.name ?? "Unknown";
-      const t = this.table(name);
       const incoming = this.flatten(name, e);
+      for (const [k, v] of Object.entries(incoming)) {
+        if (!k.endsWith("Id") || v == null) continue;
+        const target = FK_TARGETS[`${name}.${k}`];
+        if (target == null) continue;
+        if (!this.table(target).has(v as string)) {
+          throw new Error(
+            `FK violation: ${name}.${k} -> ${target}(${v}) does not exist. ` +
+              `Write ${target} before ${name}.`
+          );
+        }
+      }
+      const t = this.table(name);
       const existing = t.get(e.id);
       // TypeORM's upsert only writes columns present on the entity, so a
       // partial write must not blank out columns it never mentioned.
@@ -127,6 +149,30 @@ export class InMemoryStore {
     return [...this.table(entityName).values()];
   }
 }
+
+/** `<Entity>.<column>` -> referenced table, mirroring the generated FKs. */
+const FK_TARGETS: Record<string, string> = {
+  "Service.masterSafeId": "MasterSafe",
+  "Service.agentSafeId": "AgentSafe",
+  "Service.currentStakingContractId": "StakingContract",
+  "AgentSafe.masterSafeId": "MasterSafe",
+  "AgentSafe.serviceId": "Service",
+  "TrackedAddress.masterSafeId": "MasterSafe",
+  "TrackedAddress.serviceId": "Service",
+  "FundsMovement.serviceId": "Service",
+  "FundsMovement.masterSafeId": "MasterSafe",
+  "FundsMovement.agentSafeId": "AgentSafe",
+  "FundsMovement.stakingContractId": "StakingContract",
+  "FundsMovement.agentFundingEventId": "AgentFundingEvent",
+  "BondMovement.serviceId": "Service",
+  "BondMovement.masterSafeId": "MasterSafe",
+  "BondMovement.agentSafeId": "AgentSafe",
+  "AgentFundingEvent.serviceId": "Service",
+  "AgentFundingEvent.masterSafeId": "MasterSafe",
+  "DailyServiceFunds.serviceId": "Service",
+  "ServiceNftCustodyChange.serviceId": "Service",
+  "TokenBalance.tokenId": "Token",
+};
 
 const silentLog = { warn: () => {}, info: () => {} };
 

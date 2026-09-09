@@ -632,7 +632,17 @@ export async function handleInstanceCreated(
   },
   isAllowed: boolean
 ): Promise<void> {
-  if (!isAllowed) return;
+  if (!isAllowed) {
+    // The subgraph is silent here too, but the allow-list is a single
+    // hardcoded address per chain: if a new StakingProxy implementation
+    // ships and this is not updated in lockstep, every service staking into
+    // it is invisible from day one with no signal at all.
+    ctx.log.info(
+      `StakingProxy ${e.instance} skipped: implementation ${e.implementation} ` +
+        `is not on the allow-list for this chain`
+    );
+    return;
+  }
   if ((await ctx.cache.get(StakingContract, e.instance)) != null) return;
 
   if (e.config == null) {

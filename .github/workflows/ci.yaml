@@ -85,8 +85,17 @@ jobs:
   # separate job because the matrix above is graph-cli/yarn-shaped.
   # Actions SHA-pinned per SUPPLY-CHAIN-SECURITY.md.
   squid-tests:
-    name: squids/predict-polymarket (build + tests)
+    name: squids/${{ matrix.squid }} (build + tests)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per squid. Without this only predict-polymarket is
+        # compiled and tested, so a PR breaking tsc or regressing another
+        # squid merges green.
+        squid:
+          - predict-polymarket
+          - pearl-transactions
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -95,15 +104,15 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Install
-        working-directory: squids/predict-polymarket
+        working-directory: squids/${{ matrix.squid }}
         run: npm ci
 
       - name: Build
-        working-directory: squids/predict-polymarket
+        working-directory: squids/${{ matrix.squid }}
         run: npm run build
 
       - name: Test
-        working-directory: squids/predict-polymarket
+        working-directory: squids/${{ matrix.squid }}
         run: npm test
 
   all-checks-passed:

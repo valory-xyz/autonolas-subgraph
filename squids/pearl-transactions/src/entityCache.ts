@@ -17,6 +17,8 @@ import {
   TrackedAddress,
 } from "./model";
 import { TrackedInfo } from "./logic";
+import { Role } from "./constants";
+import * as models from "./model";
 
 export type EntityClass<T> = { new (...args: any[]): T; name: string };
 export type Entity = { id: string };
@@ -52,6 +54,26 @@ const FLUSH_ORDER: EntityClass<any>[] = [
   TokenBalance,
   IndexerStatus,
 ];
+
+// flush() only visits what is listed, while set() accepts any entity class,
+// so an entity missing from FLUSH_ORDER is cached in memory, never written,
+// and never errors. Assert the list is exhaustive at module load rather than
+// relying on whoever adds the next entity to remember this file.
+{
+  const entityClasses = Object.values(models).filter(
+    (v): v is EntityClass<any> =>
+      typeof v === "function" && typeof (v as any).prototype?.constructor === "function"
+  );
+  if (entityClasses.length !== FLUSH_ORDER.length) {
+    const listed = new Set(FLUSH_ORDER.map((c) => c.name));
+    const missing = entityClasses.map((c) => c.name).filter((n) => !listed.has(n));
+    throw new Error(
+      `FLUSH_ORDER is not exhaustive: ${missing.join(", ") || "count mismatch"}. ` +
+        `An entity absent from FLUSH_ORDER is silently never persisted — add it ` +
+        `after everything it references.`
+    );
+  }
+}
 
 /**
  * Process-lifetime tracked-address index, shared across batches.
@@ -201,7 +223,10 @@ export class EntityCache {
     for (const r of rows) {
       idx.set(r.id, {
         id: r.id,
-        role: r.role,
+        // The column is String! (schema.graphql); Role is the code-side
+        // contract. Every row here was written through upsertTracked, which
+        // is now Role-typed, so the narrowing is safe at this seam.
+        role: r.role as Role,
         masterSafeId: r.masterSafe?.id ?? null,
         serviceId: r.service?.id ?? null,
       });
@@ -227,7 +252,7 @@ export class EntityCache {
    */
   async upsertTracked(
     address: string,
-    role: string,
+    role: Role,
     masterSafeId: string | null,
     serviceId: string | null,
     blockNumber: bigint

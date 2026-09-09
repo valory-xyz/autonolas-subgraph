@@ -108,8 +108,10 @@ spec:
   ports:
     - { port: 80, targetPort: 4350 }
 # + Ingress per infra conventions, e.g.
-#   https://transactions-polygon.subgraph.autonolas.tech/graphql
+#   https://subgraph.autonolas.tech/squid/transactions-polygon/graphql
 #
-# NB: the existing transactions-gnosis / -base / -optimism endpoints front
-# Graph Studio deployments. This one fronts the squid, and speaks OpenReader,
-# not the Graph query dialect - see MIGRATION.md.
+# NB: squids are path-style, like predict-polymarket's
+# https://subgraph.autonolas.tech/squid/predict-polymarket/graphql — not a
+# transactions-<network> hostname. The existing transactions-gnosis / -base /
+# -optimism endpoints front Graph Studio deployments; this one fronts the
+# squid and speaks OpenReader, not the Graph query dialect — see MIGRATION.md.

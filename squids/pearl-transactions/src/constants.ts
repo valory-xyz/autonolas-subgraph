@@ -161,6 +161,19 @@ export const ROLE_MASTER_EOA = "MASTER_EOA";
 export const ROLE_AGENT_EOA = "AGENT_EOA";
 export const ROLE_STAKING = "STAKING";
 
+/**
+ * The comment above is enforced by this type, not left to discipline: a
+ * typo'd literal is written once and is then permanent for that address,
+ * after which every `role === ROLE_*` check falls through to OTHER/false.
+ * `schema.graphql` keeps `role: String!` — this is a compile-time guard only.
+ */
+export type Role =
+  | typeof ROLE_MASTER
+  | typeof ROLE_AGENT
+  | typeof ROLE_MASTER_EOA
+  | typeof ROLE_AGENT_EOA
+  | typeof ROLE_STAKING;
+
 // --- Misc -------------------------------------------------------------
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";

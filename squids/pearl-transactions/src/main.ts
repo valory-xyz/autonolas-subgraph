@@ -9,7 +9,7 @@ import { augmentBlock } from "@subsquid/evm-objects";
 import { createLogger } from "@subsquid/logger";
 import { dataSource } from "./processor";
 import { EntityCache } from "./entityCache";
-import { BondQueue } from "./logic";
+import { BondQueue, isStakingProxy } from "./logic";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as srtu from "./abi/ServiceRegistryTokenUtility/events";
 import * as stakingFactory from "./abi/StakingFactory/events";
@@ -20,7 +20,6 @@ import * as h from "./handlers";
 import type { EventMeta, Ctx } from "./handlers";
 import {
   ERC20_TOKENS,
-  ROLE_STAKING,
   SERVICE_REGISTRY_L2,
   SRTU,
   STAKING_FACTORY,
@@ -28,40 +27,10 @@ import {
   isAllowedImplementation,
 } from "./constants";
 import { decodeStakingConfig } from "./stakingConfig";
+import { decodeForeignSafe } from "./decode";
 import { assertArchiveRpc } from "./rpc";
 
 const lc = (s: string) => s.toLowerCase();
-
-/**
- * Decode a log from an ADDRESS-LESS subscription, returning null when the
- * log is not actually the event we mean.
- *
- * topic0 is keccak of the event signature, and indexed-ness is NOT part of
- * that signature. So an unrelated contract declaring
- * `event AddedOwner(address indexed owner)` produces the exact same topic0
- * as Gnosis Safe's `event AddedOwner(address owner)` but carries two topics
- * instead of one, and the decoder rightly rejects it. Address-filtered
- * sources cannot hit this; our two template replacements (Safe,
- * StakingProxy) can, and do — this fires within the first 1k blocks of the
- * Polygon range.
- *
- * Only shape mismatches are swallowed. Any other failure propagates so a
- * genuine decoding bug still crashes the batch rather than silently
- * dropping data.
- */
-function decodeForeignSafe<T>(
-  event: { decode(log: any): T },
-  log: any
-): T | null {
-  try {
-    // Called as a method: the decoder reads `this.topicCount`, so a bare
-    // function reference would lose its receiver.
-    return event.decode(log);
-  } catch (err) {
-    if ((err as { name?: string })?.name === "DecodingError") return null;
-    throw err;
-  }
-}
 
 // run() ctx carries no logger (unlike the old processor.run); create our own.
 const logger = createLogger("sqd:processor:mapping");
@@ -313,9 +282,9 @@ run(
 /**
  * Staking events are subscribed without an address filter, so discard any
  * emitter that is not a StakingContract we created from an allowed
- * StakingFactory implementation.
+ * StakingFactory implementation. The rule itself is `isStakingProxy` in
+ * logic.ts so it can be tested without a store.
  */
 async function isTrackedProxy(ctx: Ctx, address: string): Promise<boolean> {
-  const t = await ctx.cache.tracked(address);
-  return t != null && t.role === ROLE_STAKING;
+  return isStakingProxy(await ctx.cache.tracked(address));
 }

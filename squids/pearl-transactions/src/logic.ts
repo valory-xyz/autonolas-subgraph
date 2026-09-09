@@ -4,6 +4,7 @@
 
 import { FundsCategory } from "./model";
 import {
+  Role,
   ROLE_AGENT,
   ROLE_AGENT_EOA,
   ROLE_MASTER,
@@ -71,7 +72,7 @@ export function dayTimestamp(timestamp: bigint): bigint {
 /** A row of the tracked-address table, as classify() needs to see it. */
 export interface TrackedInfo {
   id: string;
-  role: string;
+  role: Role;
   masterSafeId: string | null;
   serviceId: string | null;
 }
@@ -236,6 +237,15 @@ export function classifyTransfer(input: ClassifyInput): ClassifyResult | null {
   const masterRef =
     fromTracked?.masterSafeId ?? toTracked?.masterSafeId ?? null;
   return result(FundsCategory.OTHER, null, masterRef, null);
+}
+
+/**
+ * Whether a tracked row is a staking proxy we created from an allow-listed
+ * implementation. The staking topics are subscribed without an address
+ * filter, so this is what keeps foreign emitters out of the ledger.
+ */
+export function isStakingProxy(tracked: TrackedInfo | null): boolean {
+  return tracked != null && tracked.role === ROLE_STAKING;
 }
 
 // --- Dedup helpers ----------------------------------------------------

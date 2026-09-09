@@ -63,7 +63,14 @@ describe("decodeStakingConfig", () => {
     expect(decodeStakingConfig(undefined)).toBeNull();
   });
 
-  it("returns null rather than throwing on truncated calldata", () => {
-    expect(decodeStakingConfig(buildCalldata(1n, 1n).slice(0, 100))).toBeNull();
+  it("throws on calldata that has our selector but malformed body", () => {
+    // Deliberately NOT null. null means "a different call, skip this proxy",
+    // which silently drops the proxy and every staking event for it. Our own
+    // selector with a body we cannot decode means the bindings or ABI have
+    // regressed, and that must surface rather than masquerade as a foreign
+    // call.
+    expect(() =>
+      decodeStakingConfig(buildCalldata(1n, 1n).slice(0, 100))
+    ).toThrow();
   });
 });

@@ -5,9 +5,9 @@
 // src/stakingConfig.ts), so those two calls are gone.
 //
 // Unlike graph-node (where contract calls are the indexer's cost), RPC here
-// is ours to pay for — so every call is memoized for the process lifetime.
-// All four are one-shot per subject: twice per Master Safe at first
-// sighting, twice per staking proxy at creation.
+// is ours to pay for — so SUCCESSFUL results are memoized for the process
+// lifetime. Both are one-shot per subject: twice per Master Safe at first
+// sighting.
 
 import { createPublicClient, http } from "viem";
 
@@ -40,8 +40,29 @@ export interface SafeConfig {
   threshold: bigint;
 }
 
-/** address -> config, or null when the address is not a Safe. */
-const safeMemo = new Map<string, SafeConfig | null>();
+/**
+ * address -> config. ONLY successful probes are cached.
+ *
+ * A negative result is deliberately not memoized. The subgraph re-probes on
+ * every sighting (`try_getOwners` with no negative cache), and caching
+ * "not a Safe" for the process lifetime diverges from that in three ways
+ * that all end in a user's history being wrong or missing:
+ *
+ *  - a hot-block reorg re-invokes the handler in the SAME process, so a
+ *    verdict derived on the discarded fork would be reused for the
+ *    canonical chain (EntityCache guards its own index with
+ *    `builtThroughBlock` for exactly this reason; a Map has no such guard);
+ *  - a counterfactual Safe probed before deployment reverts once and would
+ *    stay "not a Safe" for the rest of the backfill, no reorg needed;
+ *  - a mid-run failover to a pruned peer returns
+ *    ContractFunctionZeroDataError, which is indistinguishable from a real
+ *    revert, and assertArchiveRpc only runs at startup.
+ *
+ * Re-probing costs little: staking proxies are filtered out by the
+ * StakingContract check before this is ever called, so the repeat traffic
+ * is the rare EOA that receives a service NFT.
+ */
+const safeMemo = new Map<string, SafeConfig>();
 
 /**
  * Owners + threshold for a Safe, read AT `blockNumber`.
@@ -57,15 +78,16 @@ const safeMemo = new Map<string, SafeConfig | null>();
  * Returns null when the address is not a Safe: `getOwners` reverts on
  * anything else, which is how the subgraph distinguishes a Master Safe from
  * the other things a service NFT can land on (a staking proxy, an EOA).
- * That is a permanent property of the address, so caching null is safe.
- * Transport errors are rethrown, never cached — SQD retries the batch.
+ * A negative verdict is NOT cached — see safeMemo for why. Transport errors
+ * are rethrown rather than swallowed, so SQD retries the batch.
  */
 export async function getSafeConfig(
   address: string,
   blockNumber: number
 ): Promise<SafeConfig | null> {
   const memoKey = address;
-  if (safeMemo.has(memoKey)) return safeMemo.get(memoKey)!;
+  const hit = safeMemo.get(memoKey);
+  if (hit != null) return hit;
 
   let cfg: SafeConfig | null;
   try {
@@ -96,18 +118,18 @@ export async function getSafeConfig(
   }
 
   if (cfg == null) {
-    // Memoized, so this decision is permanent for the process. Logged
-    // loudly because the benign reading ("the NFT went to a staking proxy
-    // or an EOA") and the catastrophic one ("the RPC lied and we just
-    // dropped a real user's Master Safe") look identical here.
+    // Logged loudly because the benign reading ("the NFT went to an EOA")
+    // and the catastrophic one ("the RPC lied and we just dropped a real
+    // user's Master Safe") look identical here. Not cached, so a later
+    // sighting re-probes.
     console.warn(
       `[rpc] ${address} classified NOT-a-Safe at block ${blockNumber} ` +
-        `(getOwners reverted or returned no code). Cached for the process ` +
-        `lifetime. If this address is a real Master Safe, the RPC is wrong ` +
-        `— check it is archive-capable.`
+        `(getOwners reverted or returned no code). If this address is a ` +
+        `real Master Safe, the RPC is wrong — check it is archive-capable.`
     );
   }
-  safeMemo.set(memoKey, cfg);
+  // Negative results are NOT cached — see safeMemo.
+  if (cfg != null) safeMemo.set(memoKey, cfg);
   return cfg;
 }
 
@@ -167,7 +189,7 @@ export async function assertArchiveRpc(
  * So walk the cause chain and look for the two errors that actually mean
  * "the call itself failed on-chain".
  */
-function isRevert(err: unknown): boolean {
+export function isRevert(err: unknown): boolean {
   let e: unknown = err;
   // Bounded, in case a cause chain ever loops.
   for (let depth = 0; e != null && depth < 16; depth++) {

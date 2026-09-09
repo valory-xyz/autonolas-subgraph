@@ -41,6 +41,22 @@ beforeEach(() => {
   OWNERS.set(MASTER, [MASTER_EOA]);
 });
 
+/** Register a staking proxy, as InstanceCreated does before any reward.
+ *  In production isTrackedProxy gates every staking event on this having
+ *  happened, so a reward for an unregistered proxy cannot occur. */
+async function registerProxy(ctx: any, address = "0xproxy") {
+  await h.handleInstanceCreated(
+    ctx,
+    meta({ blockNumber: 900n, txHash: "0xinstance" }),
+    {
+      instance: address,
+      implementation: "0ximpl",
+      config: { minStakingDeposit: 10n, numAgentInstances: 1n },
+    },
+    /* isAllowed = */ true
+  );
+}
+
 /** Discover a Master Safe by minting the service NFT to it. */
 async function mintTo(ctx: any, serviceId: bigint, to: string, block = 1000n) {
   await h.handleServiceNftTransfer(
@@ -79,6 +95,7 @@ describe("cross-batch relation loading (regression)", () => {
 
   it("stamps masterSafe on a reward row for a service loaded from an earlier batch", async () => {
     const b1 = newBatch(store, 1000, 1000);
+    await registerProxy(b1);
     await mintTo(b1, 7n, MASTER);
     await h.handleCreateMultisigWithAgents(
       b1,
@@ -110,6 +127,7 @@ describe("cross-batch relation loading (regression)", () => {
   it("falls back to the event owner when the service has no resolved link", async () => {
     // A Master Safe exists, but this service was never linked to it.
     const b1 = newBatch(store, 1000, 1000);
+    await registerProxy(b1);
     await mintTo(b1, 1n, MASTER);
     await b1.cache.flush();
 
@@ -384,5 +402,44 @@ describe("staking contract creation", () => {
     );
     await ctx.cache.flush();
     expect(store.raw("StakingContract", PROXY)).toBeUndefined();
+  });
+});
+
+describe("EntityCache write ordering", () => {
+  it("writes Service, then AgentSafe, then Service again to satisfy the FK cycle", async () => {
+    // service.agent_safe_id and agent_safe.service_id reference each other
+    // and the generated FKs are not DEFERRABLE, so no single ordering
+    // works. The fake store rejects forward references, so this test fails
+    // if the two-pass write in flush() is removed.
+    const ctx = newBatch(store, 1000, 1000);
+    await mintTo(ctx, 7n, MASTER);
+    await h.handleCreateMultisigWithAgents(
+      ctx,
+      meta({ blockNumber: 1000n, txHash: "0xms" }),
+      { serviceId: 7n, multisig: AGENT }
+    );
+    await expect(ctx.cache.flush()).resolves.not.toThrow();
+
+    // Both directions of the cycle end up linked.
+    expect(store.raw("Service", "7").agentSafeId).toBe(AGENT);
+    expect(store.raw("AgentSafe", AGENT).serviceId).toBe("7");
+  });
+
+  it("drops the tracked-address index when the store is rewound", async () => {
+    // SQD rolls Postgres back on a reorg but cannot roll back our memory,
+    // so a batch starting at or before an already-indexed block must
+    // rebuild the index rather than trust it.
+    const b1 = newBatch(store, 1000, 1000);
+    await mintTo(b1, 7n, MASTER);
+    await b1.cache.flush();
+    expect(await b1.cache.tracked(MASTER)).not.toBeNull();
+
+    // Simulate the rollback: the row is gone from the store.
+    store.all("TrackedAddress").length; // touch, for clarity
+    (store as any).tables.get("TrackedAddress").delete(MASTER);
+
+    // A batch that starts at an already-seen block means a rewind.
+    const rewound = newBatch(store, 1000, 1000);
+    expect(await rewound.cache.tracked(MASTER)).toBeNull();
   });
 });
