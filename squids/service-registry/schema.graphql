@@ -1,0 +1,117 @@
+# Mirrors subgraphs/service-registry/schema.graphql in autonolas-subgraph-studio,
+# entity for entity. Differences forced by the squid store:
+#   - every id is `ID!` (a string); address-keyed entities use the lowercase
+#     hex address as the id where the subgraph used `Bytes`;
+#   - addresses / hashes are `String` (lowercase hex) rather than `Bytes`;
+#   - the one-to-one Service <-> ERC8004Agent pair needs `@unique` on the
+#     owning side for `@derivedFrom` to resolve.
+
+type Service @entity {
+  id: ID! # service ID
+  multisig: String
+  agentIds: [Int!]!
+  creationTimestamp: BigInt!
+  configHash: String
+  creator: Creator
+  erc8004Agent: ERC8004Agent @unique
+}
+
+type ERC8004Agent @entity {
+  id: ID! # agentId (as string)
+  service: Service @derivedFrom(field: "erc8004Agent")
+  agentWallet: String
+  metadata: [ERC8004Metadata!] @derivedFrom(field: "agent")
+}
+
+# Each ERC-8004 metadata key is a separate row: `${agentId}-${key}`.
+type ERC8004Metadata @entity {
+  id: ID!
+  agent: ERC8004Agent!
+  key: String!
+  value: String
+}
+
+type AgentRegistration @entity {
+  id: ID! # serviceId-agentId
+  serviceId: Int!
+  agentId: Int!
+  registrationTimestamp: BigInt!
+}
+
+type Multisig @entity {
+  id: ID! # multisig address, lowercase
+  serviceId: Int! @index
+  creator: String!
+  creationTimestamp: BigInt!
+  txHash: String!
+  agentIds: [Int!]!
+}
+
+type Creator @entity {
+  id: ID! # creator address, lowercase
+  services: [Service!]! @derivedFrom(field: "creator")
+}
+
+type DailyServiceActivity @entity {
+  id: ID!
+  service: Service!
+  dayTimestamp: BigInt! @index
+  agentIds: [Int!]!
+}
+
+type DailyUniqueAgents @entity {
+  id: ID!
+  dayTimestamp: BigInt! @index
+  count: Int!
+  agents: [DailyUniqueAgent!]! @derivedFrom(field: "dailyUniqueAgents")
+}
+
+type DailyUniqueAgent @entity {
+  id: ID!
+  dailyUniqueAgents: DailyUniqueAgents!
+  agent: AgentPerformance!
+}
+
+type DailyAgentPerformance @entity {
+  id: ID!
+  dayTimestamp: BigInt! @index
+  agentId: Int! @index
+  txCount: Int!
+  multisigs: [DailyAgentMultisig!]! @derivedFrom(field: "dailyAgentPerformance")
+  activeMultisigCount: Int!
+}
+
+type DailyAgentMultisig @entity {
+  id: ID!
+  dailyAgentPerformance: DailyAgentPerformance!
+  multisig: Multisig!
+}
+
+type DailyActiveMultisigs @entity {
+  id: ID!
+  dayTimestamp: BigInt! @index
+  multisigs: [DailyActiveMultisig!]! @derivedFrom(field: "dailyActiveMultisigs")
+  count: Int!
+}
+
+type DailyActiveMultisig @entity {
+  id: ID!
+  dailyActiveMultisigs: DailyActiveMultisigs!
+  multisig: Multisig!
+}
+
+type AgentPerformance @entity {
+  id: ID! # agentId
+  txCount: BigInt!
+}
+
+type Global @entity {
+  id: ID!
+  txCount: BigInt!
+  lastUpdated: BigInt!
+  totalOperators: Int!
+}
+
+type Operator @entity {
+  id: ID! # operator address, lowercase
+}
