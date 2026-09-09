@@ -21,6 +21,7 @@
   "resolutions": {
     "axios": "1.18.0",
     "immutable": "5.1.8",
+    "js-yaml": "4.3.2",
     "nanoid": "5.1.11",
     "tmp": "0.2.7"
   }
