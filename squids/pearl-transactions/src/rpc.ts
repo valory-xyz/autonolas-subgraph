@@ -24,24 +24,60 @@ const client = createPublicClient({
 });
 
 /**
+ * Optional second archive endpoint, tried only when the primary fails with
+ * something that is NOT a revert.
+ *
+ * Exists because BlockPI's archive turned out to have small holes — two
+ * ~400-block gaps around 86.15M where eth_call fails with
+ * "getStateObject … account not found" — and a hole containing any Safe's
+ * first-sighting block stalls the backfill forever. The gaps are rare (0 of
+ * 53 coarse samples across the range, 0 of 401 in a clean window), so the
+ * fallback sees a handful of calls, not the ~700 of a full backfill; a
+ * rate-limited public endpoint is fine here.
+ */
+const fallback = process.env.RPC_POLYGON_HTTP_FALLBACK
+  ? createPublicClient({
+      transport: http(process.env.RPC_POLYGON_HTTP_FALLBACK, { batch: true }),
+    })
+  : null;
+
+/**
  * Every historical read goes through here so `blockNumber` and `account`
  * can never be set on one call site and forgotten on another — the startup
  * check and the Safe probes must send the exact same shape, or the check
  * gives false confidence.
  */
-function historicalRead<const abi extends readonly unknown[], fn extends string>(
+// First line of an error message, for the fallback log. No regex escapes on
+// purpose: they did not survive the tooling that wrote this file.
+const firstLine = (e: unknown): string =>
+  String((e as Error)?.message ?? e).split(String.fromCharCode(10))[0];
+
+async function historicalRead<const abi extends readonly unknown[], fn extends string>(
   address: string,
   abi: abi,
   functionName: fn,
   blockNumber: number
 ) {
-  return client.readContract({
+  const args = {
     address: address as `0x${string}`,
     abi,
     functionName,
     blockNumber: BigInt(blockNumber),
     account: CALL_FROM,
-  } as any);
+  } as any;
+  try {
+    return await client.readContract(args);
+  } catch (err) {
+    // A revert is a fact about the contract, not the node — the fallback
+    // would say the same thing, and the caller must see it as a revert.
+    if (isRevert(err) || fallback == null) throw err;
+    console.warn(
+      `[rpc] primary failed for ${functionName}(${address}) at block ` +
+        `${blockNumber} — ${firstLine(err)} — ` +
+        `retrying on RPC_POLYGON_HTTP_FALLBACK`
+    );
+    return await fallback.readContract(args);
+  }
 }
 
 const SAFE_ABI = [

@@ -100,3 +100,86 @@ describe("historical eth_call wire format", () => {
     expect(callsTo("eth_call")).toHaveLength(2); // not 4
   });
 });
+
+describe("fallback RPC", () => {
+  const PRIMARY = "https://primary.invalid/";
+  const FALLBACK = "https://fallback.invalid/";
+  const STATE_MISSING = {
+    code: -32000,
+    message:
+      "getStateObject (e3607b00e75f6405248323a9417ff6b39b244b50) error: account 0xe3607b00e75f6405248323a9417ff6b39b244b50 is not found",
+  };
+  // Plain revert as a node reports it: data "0x" -> ContractFunctionZeroDataError
+  const REVERT = { code: 3, message: "execution reverted" };
+
+  /** fetch stub that answers per-URL, recording which URL each call hit. */
+  function stubByUrl(primaryErr: object | null, fallbackErr: object | null) {
+    const hits: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: { body: string }) => {
+        hits.push(url);
+        const batch = JSON.parse(init.body);
+        const reqs: Rpc[] = Array.isArray(batch) ? batch : [batch];
+        const err = url.startsWith(PRIMARY) ? primaryErr : fallbackErr;
+        const results = reqs.map((r) => {
+          if (err) return { jsonrpc: "2.0", id: r.id, error: err };
+          const data: string = r.params?.[0]?.data ?? "";
+          const result = data.startsWith("0xa0e67e2b")
+            ? encodeOwners([OWNER])
+            : encodeUint(1n);
+          return { jsonrpc: "2.0", id: r.id, result };
+        });
+        return new Response(JSON.stringify(Array.isArray(batch) ? results : results[0]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      })
+    );
+    return hits;
+  }
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("retries on the fallback when the primary is missing state for the block", async () => {
+    // The production failure: a hole in the primary's archive. The fallback
+    // answers, so the Safe is resolved instead of the batch retrying forever.
+    const hits = stubByUrl(STATE_MISSING, null);
+    const { getSafeConfig } = await import("../src/rpc");
+    const cfg = await getSafeConfig(SAFE, 86_150_361);
+    expect(cfg).toEqual({ owners: [OWNER], threshold: 1n });
+    expect(hits.some((u) => u.startsWith(PRIMARY))).toBe(true);
+    expect(hits.some((u) => u.startsWith(FALLBACK))).toBe(true);
+  });
+
+  it("does NOT fall back on a genuine revert — that is a fact about the contract", async () => {
+    const hits = stubByUrl(REVERT, null);
+    const { getSafeConfig } = await import("../src/rpc");
+    const cfg = await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361);
+    expect(cfg).toBeNull();
+    expect(hits.some((u) => u.startsWith(FALLBACK))).toBe(false);
+  });
+
+  it("rethrows when both endpoints fail, so the batch retries rather than mislabelling", async () => {
+    stubByUrl(STATE_MISSING, STATE_MISSING);
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
+  });
+
+  it("rethrows when the primary fails and no fallback is configured", async () => {
+    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", "");
+    stubByUrl(STATE_MISSING, null);
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
+  });
+});
