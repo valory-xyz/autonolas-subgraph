@@ -10,6 +10,25 @@
 // sighting.
 
 import { createPublicClient, http } from "viem";
+import { SERVICE_REGISTRY_L2 } from "./constants";
+
+/**
+ * Explicit `from` for every historical eth_call.
+ *
+ * Without one, viem sends no `from` and the node defaults it to the zero
+ * address. Erigon-based archive backends (BlockPI's included) then look up
+ * that account's state AT THE PINNED BLOCK and fail with
+ *   getStateObject (0000…0000) error: account 0x0000…0000 is not found
+ * because the zero address has no state object there. The error is a
+ * deterministic -32000, not a revert, so isRevert correctly refuses to
+ * treat it as "not a Safe" — and the batch then retries forever on the
+ * same block. Seen in production at block 86,151,385.
+ *
+ * The registry is deployed before START_BLOCK, so it has state at every
+ * block we will ever pin to. getCode() takes no `from`, which is why the
+ * startup probe never tripped this.
+ */
+const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 
 const client = createPublicClient({
   transport: http(
@@ -97,12 +116,14 @@ export async function getSafeConfig(
         abi: SAFE_ABI,
         functionName: "getOwners",
         blockNumber: BigInt(blockNumber),
+        account: CALL_FROM,
       }),
       client.readContract({
         address: address as `0x${string}`,
         abi: SAFE_ABI,
         functionName: "getThreshold",
         blockNumber: BigInt(blockNumber),
+        account: CALL_FROM,
       }),
     ]);
     cfg =
@@ -167,6 +188,35 @@ export async function assertArchiveRpc(
         `${registryAddress} at block ${startBlock}, where it is known to be ` +
         `deployed. The endpoint is not archive-capable; every Safe probe ` +
         `would be silently misread as "not a Safe".`
+    );
+  }
+
+  // getCode alone is not enough: it sends no `from`, so it cannot surface
+  // node quirks that only affect eth_call — which is exactly what bit
+  // production (see CALL_FROM). Exercise a real historical eth_call with the
+  // same shape the Safe probes use, against a contract we know answers it.
+  try {
+    await client.readContract({
+      address: registryAddress as `0x${string}`,
+      abi: [
+        {
+          type: "function",
+          name: "owner",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ type: "address" }],
+        },
+      ] as const,
+      functionName: "owner",
+      blockNumber: BigInt(startBlock),
+      account: CALL_FROM,
+    });
+  } catch (err) {
+    throw new Error(
+      `RPC_POLYGON_HTTP cannot serve a historical eth_call at block ` +
+        `${startBlock}: ${(err as Error).message}. The Safe owner probes use ` +
+        `this exact call shape, so the backfill would stall on the first ` +
+        `Master Safe.`
     );
   }
 }
