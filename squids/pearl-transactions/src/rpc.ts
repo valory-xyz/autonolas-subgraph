@@ -12,22 +12,8 @@
 import { createPublicClient, http } from "viem";
 import { SERVICE_REGISTRY_L2 } from "./constants";
 
-/**
- * Explicit `from` for every historical eth_call.
- *
- * Without one, viem sends no `from` and the node defaults it to the zero
- * address. Erigon-based archive backends (BlockPI's included) then look up
- * that account's state AT THE PINNED BLOCK and fail with
- *   getStateObject (0000…0000) error: account 0x0000…0000 is not found
- * because the zero address has no state object there. The error is a
- * deterministic -32000, not a revert, so isRevert correctly refuses to
- * treat it as "not a Safe" — and the batch then retries forever on the
- * same block. Seen in production at block 86,151,385.
- *
- * The registry is deployed before START_BLOCK, so it has state at every
- * block we will ever pin to. getCode() takes no `from`, which is why the
- * startup probe never tripped this.
- */
+// Erigon archive nodes reject a historical eth_call whose `from` has no
+// state at that block; the zero-address default has none.
 const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 
 const client = createPublicClient({
@@ -36,6 +22,27 @@ const client = createPublicClient({
     { batch: true }
   ),
 });
+
+/**
+ * Every historical read goes through here so `blockNumber` and `account`
+ * can never be set on one call site and forgotten on another — the startup
+ * check and the Safe probes must send the exact same shape, or the check
+ * gives false confidence.
+ */
+function historicalRead<const abi extends readonly unknown[], fn extends string>(
+  address: string,
+  abi: abi,
+  functionName: fn,
+  blockNumber: number
+) {
+  return client.readContract({
+    address: address as `0x${string}`,
+    abi,
+    functionName,
+    blockNumber: BigInt(blockNumber),
+    account: CALL_FROM,
+  } as any);
+}
 
 const SAFE_ABI = [
   {
@@ -51,6 +58,16 @@ const SAFE_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+const OWNER_ABI = [
+  {
+    type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
   },
 ] as const;
 
@@ -110,22 +127,10 @@ export async function getSafeConfig(
 
   let cfg: SafeConfig | null;
   try {
-    const [owners, threshold] = await Promise.all([
-      client.readContract({
-        address: address as `0x${string}`,
-        abi: SAFE_ABI,
-        functionName: "getOwners",
-        blockNumber: BigInt(blockNumber),
-        account: CALL_FROM,
-      }),
-      client.readContract({
-        address: address as `0x${string}`,
-        abi: SAFE_ABI,
-        functionName: "getThreshold",
-        blockNumber: BigInt(blockNumber),
-        account: CALL_FROM,
-      }),
-    ]);
+    const [owners, threshold] = (await Promise.all([
+      historicalRead(address, SAFE_ABI, "getOwners", blockNumber),
+      historicalRead(address, SAFE_ABI, "getThreshold", blockNumber),
+    ])) as [readonly `0x${string}`[], bigint];
     cfg =
       owners.length === 0
         ? null // empty owners is treated as "not a Safe", as in the subgraph
@@ -191,26 +196,9 @@ export async function assertArchiveRpc(
     );
   }
 
-  // getCode alone is not enough: it sends no `from`, so it cannot surface
-  // node quirks that only affect eth_call — which is exactly what bit
-  // production (see CALL_FROM). Exercise a real historical eth_call with the
-  // same shape the Safe probes use, against a contract we know answers it.
+  // Same call shape as the Safe probes, via the same helper.
   try {
-    await client.readContract({
-      address: registryAddress as `0x${string}`,
-      abi: [
-        {
-          type: "function",
-          name: "owner",
-          stateMutability: "view",
-          inputs: [],
-          outputs: [{ type: "address" }],
-        },
-      ] as const,
-      functionName: "owner",
-      blockNumber: BigInt(startBlock),
-      account: CALL_FROM,
-    });
+    await historicalRead(registryAddress, OWNER_ABI, "owner", startBlock);
   } catch (err) {
     throw new Error(
       `RPC_POLYGON_HTTP cannot serve a historical eth_call at block ` +
