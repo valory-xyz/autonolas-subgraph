@@ -10,6 +10,11 @@
 // sighting.
 
 import { createPublicClient, http } from "viem";
+import { SERVICE_REGISTRY_L2 } from "./constants";
+
+// Erigon archive nodes reject a historical eth_call whose `from` has no
+// state at that block; the zero-address default has none.
+const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 
 const client = createPublicClient({
   transport: http(
@@ -17,6 +22,27 @@ const client = createPublicClient({
     { batch: true }
   ),
 });
+
+/**
+ * Every historical read goes through here so `blockNumber` and `account`
+ * can never be set on one call site and forgotten on another — the startup
+ * check and the Safe probes must send the exact same shape, or the check
+ * gives false confidence.
+ */
+function historicalRead<const abi extends readonly unknown[], fn extends string>(
+  address: string,
+  abi: abi,
+  functionName: fn,
+  blockNumber: number
+) {
+  return client.readContract({
+    address: address as `0x${string}`,
+    abi,
+    functionName,
+    blockNumber: BigInt(blockNumber),
+    account: CALL_FROM,
+  } as any);
+}
 
 const SAFE_ABI = [
   {
@@ -32,6 +58,16 @@ const SAFE_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+const OWNER_ABI = [
+  {
+    type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
   },
 ] as const;
 
@@ -91,20 +127,10 @@ export async function getSafeConfig(
 
   let cfg: SafeConfig | null;
   try {
-    const [owners, threshold] = await Promise.all([
-      client.readContract({
-        address: address as `0x${string}`,
-        abi: SAFE_ABI,
-        functionName: "getOwners",
-        blockNumber: BigInt(blockNumber),
-      }),
-      client.readContract({
-        address: address as `0x${string}`,
-        abi: SAFE_ABI,
-        functionName: "getThreshold",
-        blockNumber: BigInt(blockNumber),
-      }),
-    ]);
+    const [owners, threshold] = (await Promise.all([
+      historicalRead(address, SAFE_ABI, "getOwners", blockNumber),
+      historicalRead(address, SAFE_ABI, "getThreshold", blockNumber),
+    ])) as [readonly `0x${string}`[], bigint];
     cfg =
       owners.length === 0
         ? null // empty owners is treated as "not a Safe", as in the subgraph
@@ -167,6 +193,18 @@ export async function assertArchiveRpc(
         `${registryAddress} at block ${startBlock}, where it is known to be ` +
         `deployed. The endpoint is not archive-capable; every Safe probe ` +
         `would be silently misread as "not a Safe".`
+    );
+  }
+
+  // Same call shape as the Safe probes, via the same helper.
+  try {
+    await historicalRead(registryAddress, OWNER_ABI, "owner", startBlock);
+  } catch (err) {
+    throw new Error(
+      `RPC_POLYGON_HTTP cannot serve a historical eth_call at block ` +
+        `${startBlock}: ${(err as Error).message}. The Safe owner probes use ` +
+        `this exact call shape, so the backfill would stall on the first ` +
+        `Master Safe.`
     );
   }
 }
