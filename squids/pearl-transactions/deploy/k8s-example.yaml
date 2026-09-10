@@ -15,10 +15,9 @@
 #       at each Safe's first-sighting block, which during backfill is millions
 #       of blocks old; a pruned node cannot serve it and the processor refuses
 #       to start against one. Load is tiny (~350 addresses x 2 calls total).
-#     RPC_POLYGON_HTTP_FALLBACK -> optional second archive endpoint. Strongly
-#       recommended: the primary was found to have ~400-block holes, and one
-#       hole on a Safe's first-sighting block stalls the backfill. Only hit
-#       when the primary fails, so a public endpoint is fine.
+#     RPC_POLYGON_HTTP_FALLBACK -> second archive endpoint, used only when the
+#       primary fails with a non-revert error (archive providers can have
+#       holes). Sees a handful of calls, so a public endpoint is fine.
 #
 # Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
 # do NOT share the graph-node database server.

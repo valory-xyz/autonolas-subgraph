@@ -54,7 +54,7 @@ Key files:
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
 | `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. **Must be archive-capable** — see below |
-| `RPC_POLYGON_HTTP_FALLBACK` | optional second archive endpoint, tried only when the primary fails with a non-revert error. Recommended — see below |
+| `RPC_POLYGON_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
@@ -76,18 +76,20 @@ refuses to start against one.
 
 The load is small: two calls per Master Safe, ~350 addresses across the
 whole backfill, then a couple of new Safes a week.
-
-**Set `RPC_POLYGON_HTTP_FALLBACK` too.** Archive providers can have holes:
-BlockPI's Polygon archive was found to be missing state for two ~400-block
-stretches around block 86.15M (fine everywhere else sampled). A hole that
-contains any Safe's first-sighting block stalls the backfill forever,
-because the error is deterministic and not a revert. With a fallback, that
-one call is retried elsewhere and the backfill continues; the fallback
-sees only the calls the primary could not serve, so a rate-limited public
-endpoint (e.g. `https://polygon.drpc.org`) is adequate. A genuine revert is
-never retried — it is a fact about the contract, not the node. Only the *staking*
+Only the *staking*
 config avoids the network — it is decoded from the `createStakingInstance`
 calldata (`src/stakingConfig.ts`).
+
+**Always set `RPC_POLYGON_HTTP_FALLBACK` in production.** Archive providers
+can have holes, and a hole that contains any Safe's first-sighting block
+stalls the backfill forever: the error is deterministic and not a revert,
+so the batch retries the same block indefinitely. With a fallback, that
+call is retried on the second endpoint and the backfill continues. The
+fallback sees only the calls the primary could not serve — a handful, not
+the ~700 of a full backfill — so a rate-limited public endpoint is fine.
+Both endpoints are checked for archive capability at startup; a genuine
+revert is never retried, and a revert from the fallback is only trusted if
+the fallback holds state at that block.
 
 ## Run it locally
 
