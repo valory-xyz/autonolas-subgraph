@@ -6,9 +6,8 @@
 // autonolas-subgraph-studio for the chains that live there; Robinhood is
 // squid-only.
 //
-// EVERY address here is lowercase: SQD normalizes log addresses and decoded
-// address params to lowercase, and the handlers compare with `===`. A
-// mixed-case literal is a silent no-match.
+// Addresses are lowercased on export: SQD normalizes log addresses to
+// lowercase and the dispatcher compares with `===`.
 
 export type ChainName = "robinhood";
 
@@ -39,8 +38,9 @@ const CHAINS: Record<ChainName, ChainConfig> = {
 export const CHAIN: ChainConfig = CHAINS.robinhood;
 
 export const START_BLOCK = CHAIN.startBlock;
-export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2;
-export const IDENTITY_REGISTRY_BRIDGER = CHAIN.identityRegistryBridger;
+export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2.toLowerCase();
+export const IDENTITY_REGISTRY_BRIDGER =
+  CHAIN.identityRegistryBridger.toLowerCase();
 
 export const ONE_DAY = 86400n;
 

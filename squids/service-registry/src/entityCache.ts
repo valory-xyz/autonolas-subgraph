@@ -31,6 +31,8 @@ export interface IEntityCache {
   log: CacheLogger;
   get<T extends Entity>(cls: EntityClass<T>, id: string): Promise<T | undefined>;
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void;
+  /** The Service currently holding this ERC-8004 agent, if any. */
+  findServiceByErc8004Agent(agentId: string): Promise<Service | undefined>;
   flush(): Promise<void>;
   /** Is this (lowercase) address a service multisig we have seen created? */
   isKnownMultisig(address: string): Promise<boolean>;
@@ -62,20 +64,23 @@ const FLUSH_ORDER: EntityClass<any>[] = [
 
 // flush() only visits what is listed, while set() accepts any entity class,
 // so an entity missing from FLUSH_ORDER would be cached in memory, never
-// written, and never error. Assert exhaustiveness at module load.
+// written, and never error. Assert exhaustiveness at module load (a value
+// import in tests/entityCache.test.ts makes this run in CI).
 {
-  const entityClasses = Object.values(models).filter(
-    (v): v is EntityClass<any> =>
-      typeof v === "function" &&
-      typeof (v as any).prototype?.constructor === "function",
-  );
-  if (entityClasses.length !== FLUSH_ORDER.length) {
-    const listed = new Set(FLUSH_ORDER.map((c) => c.name));
-    const missing = entityClasses
-      .map((c) => c.name)
-      .filter((n) => !listed.has(n));
+  const names = Object.values(models)
+    .filter(
+      (v): v is EntityClass<any> =>
+        typeof v === "function" &&
+        typeof (v as any).prototype?.constructor === "function",
+    )
+    .map((c) => c.name);
+  const listed = new Set(FLUSH_ORDER.map((c) => c.name));
+  const missing = names.filter((n) => !listed.has(n));
+  const unknown = [...listed].filter((n) => !names.includes(n));
+  if (missing.length || unknown.length || listed.size !== FLUSH_ORDER.length) {
     throw new Error(
-      `FLUSH_ORDER is not exhaustive: ${missing.join(", ") || "count mismatch"}. ` +
+      `FLUSH_ORDER is not exhaustive: missing [${missing.join(", ")}], ` +
+        `unknown [${unknown.join(", ")}], duplicates ${FLUSH_ORDER.length - listed.size}. ` +
         `An entity absent from FLUSH_ORDER is silently never persisted.`,
     );
   }
@@ -90,6 +95,11 @@ const FLUSH_ORDER: EntityClass<any>[] = [
  * from the Multisig table on first use, then maintained as multisigs are
  * created. The subgraph never deletes a Multisig (termination clears the
  * Service side only), so membership is append-only.
+ *
+ * Hot blocks are on, so a reorg can roll the Multisig row back while the
+ * address stays in this set: it may drift to a superset of the table, never
+ * a subset. That is safe only because handleSafeExecution re-reads the
+ * Multisig row and returns on a miss — never trust this set alone.
  */
 const knownMultisigSingleton: { set: Set<string> | null } = { set: null };
 
@@ -130,8 +140,31 @@ export class EntityCache implements IEntityCache {
   }
 
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
+    // EntityClass<T> is structural, so the token and the instance are not
+    // bound by the type system; a mismatch would land in the wrong
+    // FLUSH_ORDER bucket and break the FK ordering.
+    if (entity.constructor !== cls) {
+      throw new Error(
+        `set(${cls.name}) called with a ${entity.constructor.name} instance`,
+      );
+    }
     this.bucket(this.cache, cls).set(entity.id, entity);
     this.bucket(this.dirty, cls).set(entity.id, entity);
+  }
+
+  async findServiceByErc8004Agent(agentId: string): Promise<Service | undefined> {
+    // In-batch state first: a service relinked this batch is only in memory.
+    const bucket = this.bucket(this.cache, Service);
+    for (const s of bucket.values()) {
+      if ((s as Service | undefined)?.erc8004Agent?.id === agentId) return s as Service;
+    }
+    const fromDb = await this.store.findOneBy(Service, {
+      erc8004Agent: { id: agentId },
+    });
+    // A cached copy that no longer points at the agent wins over the row.
+    if (fromDb == null || bucket.has(fromDb.id)) return undefined;
+    bucket.set(fromDb.id, fromDb);
+    return fromDb;
   }
 
   async flush(): Promise<void> {

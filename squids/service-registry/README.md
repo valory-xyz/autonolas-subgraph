@@ -65,7 +65,18 @@ Entity for entity the same. Forced by the store:
   `Operator`) use the lowercase hex address where the subgraph used `Bytes`;
 - addresses and hashes are lowercase hex strings, not `Bytes`;
 - `Service.erc8004Agent` is `@unique`, which the one-to-one `@derivedFrom`
-  on `ERC8004Agent.service` needs.
+  on `ERC8004Agent.service` needs. The subgraph lets two services share an
+  agent; here a relink releases the previous holder (last write wins, with a
+  warning).
+- `ERC8004Metadata.agent` is a real foreign key, so a `MetadataSet` that
+  lands before its `ServiceAgentLinked` creates the `ERC8004Agent` row here,
+  where the subgraph left a dangling reference and no row.
+
+Not forced, but different: a Safe reused across service redeployments is
+counted once per execution. graph-node spawned a new template per
+`CreateMultisigWithAgents` and counted every later execution once per
+template, so `txCount` metrics for redeployed services are not comparable
+with the Gnosis / Mode subgraphs.
 
 Query syntax is squid GraphQL, not subgraph GraphQL: `limit` / `offset`
 instead of `first` / `skip`, `orderBy: field_ASC` instead of
@@ -78,8 +89,8 @@ Consumers written against the subgraph need those three changes.
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. **Required**: `robinhood-mainnet` is a private dataset, not on the public portal |
-| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required** |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the `robinhood-mainnet` dataset; an override must name the same dataset or the processor refuses to start |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required**: the processor refuses to start without it |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
@@ -88,7 +99,7 @@ No RPC: nothing here reads contract state.
 ## Run it locally
 
 ```bash
-cp .env.example .env       # then fill in SQD_PORTAL_URL / SQD_PORTAL_API_KEY
+cp .env.example .env       # then fill in SQD_PORTAL_API_KEY
 docker compose up -d       # starts PostgreSQL on port 23800
 npm ci                     # install dependencies
 npm run build              # compile TypeScript to lib/

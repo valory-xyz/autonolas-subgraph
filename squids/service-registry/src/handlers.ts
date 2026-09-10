@@ -398,7 +398,14 @@ export async function handleSafeExecution(
   p: { address: string },
 ): Promise<void> {
   const multisig = await cache.get(Multisig, p.address);
-  if (multisig == null) return;
+  if (multisig == null) {
+    // The in-memory filter admitted an address the table does not have:
+    // the only visible symptom of the two drifting (e.g. after a reorg).
+    cache.log.warn(
+      `Multisig ${p.address} passed the known-multisig filter but has no row at block ${meta.blockNumber}`,
+    );
+    return;
+  }
   const service = await cache.get(Service, String(multisig.serviceId));
   if (service == null) {
     cache.log.warn(
@@ -429,6 +436,16 @@ export async function handleServiceAgentLinked(
   }
   const agentId = Number(p.agentId);
   const agent = await getOrCreateERC8004Agent(cache, agentId);
+  // Service.erc8004Agent is unique in the store; relinking an agent to
+  // another service must release the old holder or the batch fails forever.
+  const holder = await cache.findServiceByErc8004Agent(agent.id);
+  if (holder != null && holder.id !== service.id) {
+    cache.log.warn(
+      `ERC-8004 agent ${agent.id} relinked from service ${holder.id} to ${service.id}`,
+    );
+    holder.erc8004Agent = null;
+    cache.set(Service, holder);
+  }
   service.erc8004Agent = agent;
   cache.set(Service, service);
 

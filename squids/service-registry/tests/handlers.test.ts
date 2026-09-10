@@ -284,6 +284,19 @@ describe("ERC-8004 bridger", () => {
     expect(cache.all(ERC8004Metadata)).toHaveLength(2);
   });
 
+  it("relinking an agent to another service releases the previous holder", async () => {
+    await seedService();
+    await h.handleCreateService(cache, meta(DAY1_TS), { serviceId: 2n, configHash: CONFIG_HASH });
+    await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 1n, agentId: 77n });
+    await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 2n, agentId: 77n });
+    expect((await cache.get(Service, "1"))!.erc8004Agent).toBeNull();
+    expect((await cache.get(Service, "2"))!.erc8004Agent?.id).toBe("77");
+    expect(cache.warnings).toHaveLength(1);
+    // Same service, same agent again: nothing to release.
+    await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 2n, agentId: 77n });
+    expect(cache.warnings).toHaveLength(1);
+  });
+
   it("warns and skips a link for an unknown service, but wallet/metadata still create the agent", async () => {
     await h.handleServiceAgentLinked(cache, meta(DAY1_TS), {
       serviceId: 5n,

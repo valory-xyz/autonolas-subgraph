@@ -10,17 +10,25 @@ import {
   START_BLOCK,
 } from "./constants";
 
-// SQD Portal endpoint. robinhood-mainnet is a private dataset, so both vars
-// are required in every real deployment; the fallback only makes a local
-// misconfiguration fail with a clear 404 instead of silently indexing the
-// wrong chain. The key goes in the x-api-key header. Keep it out of the repo.
-const portalUrl = process.env.SQD_PORTAL_URL ?? CHAIN.portalDataset;
-const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
-  ? {
-      url: portalUrl,
-      http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } },
-    }
-  : portalUrl;
+// SQD Portal endpoint. robinhood-mainnet is a private dataset, so the key
+// is required and goes in the x-api-key header. The URL defaults to the
+// chain's dataset; an override must still name the same dataset, or the
+// processor would stream another chain, match nothing, and report healthy.
+const portalUrl = process.env.SQD_PORTAL_URL || CHAIN.portalDataset;
+const apiKey = process.env.SQD_PORTAL_API_KEY;
+const dataset = CHAIN.portalDataset.split("/").pop()!;
+if (!portalUrl.includes(dataset)) {
+  throw new Error(
+    `SQD_PORTAL_URL "${portalUrl}" does not point at the ${dataset} dataset`,
+  );
+}
+if (!apiKey) {
+  throw new Error(`SQD_PORTAL_API_KEY is required for the private ${dataset} dataset`);
+}
+const portal: PortalClientOptions = {
+  url: portalUrl,
+  http: { headers: { "x-api-key": apiKey } },
+};
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here, or the property does not exist at runtime.

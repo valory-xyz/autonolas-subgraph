@@ -16,6 +16,11 @@ import { IDENTITY_REGISTRY_BRIDGER, SERVICE_REGISTRY_L2 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
 
+// The topic lists in processor.ts and the dispatch below are maintained by
+// hand; a topic subscribed but not dispatched must fail loudly, not drop.
+const unhandled = (address: string, topic0: string) =>
+  new Error(`unhandled topic0 ${topic0} from ${address}`);
+
 // run() ctx carries no logger (unlike the old processor.run); create our own.
 const logger = createLogger("sqd:processor:mapping");
 
@@ -85,6 +90,8 @@ run(
             await h.handleTerminateService(cache, meta, {
               serviceId: e.serviceId,
             });
+          } else {
+            throw unhandled(address, topic0);
           }
           continue;
         }
@@ -110,6 +117,8 @@ run(
               metadataKey: e.metadataKey,
               metadataValue: e.metadataValue,
             });
+          } else {
+            throw unhandled(address, topic0);
           }
           continue;
         }
