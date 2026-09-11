@@ -1,0 +1,127 @@
+# Example spec for the infra team — adapt to the ArgoCD/Helm conventions of
+# internal-infrastructure. One image (see Dockerfile), three workloads.
+# Names carry the chain because one image serves any configured chain; a
+# second chain is a second copy of this file with its own database.
+#
+# Required env, split into two Secrets so only the processor sees the
+# vendor credentials:
+#   Secret marketplace-robinhood-squid-db   (all three workloads):
+#     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
+#   Secret marketplace-robinhood-squid-data (processor ONLY):
+#     MARKETPLACE_CHAIN  -> "robinhood" (key into src/constants.ts CHAINS)
+#     INGEST_SOURCE      -> "portal" or "rpc". robinhood-mainnet is a PRIVATE
+#       portal dataset (the public portal answers 404): use "portal" only with
+#       the private portal URL + key below; otherwise "rpc" ingests from
+#       RPC_HTTP (slower backfill, fine at the head of this quiet chain).
+#     SQD_PORTAL_URL     -> private SQD Portal dataset URL for robinhood-mainnet
+#     SQD_PORTAL_API_KEY -> private portal key (x-api-key header)
+#     RPC_HTTP           -> Robinhood Chain JSON-RPC. Always used for the Chainlink
+#       ETH/USD read behind fee->USD conversion (a handful of calls per mech
+#       request); also the ingestion source when INGEST_SOURCE=rpc.
+#       Archive-capable preferred: price reads are pinned to the event's block
+#       and fall back to "latest" (logged) when the node cannot serve it.
+#       https://rpc-gate.autonolas.tech/robinhood-rpc/ is archive-capable; the
+#       official rpc.mainnet.chain.robinhood.com is pruned and rate-limited.
+#     RPC_HTTP_FALLBACK  -> optional second endpoint for the Chainlink read.
+#     RPC_RATE_LIMIT     -> optional requests/second cap for RPC ingestion.
+#
+# Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
+# do NOT share the graph-node database server.
+---
+# 1. one-shot schema migration (run once per schema change, before processor)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: marketplace-robinhood-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: <REGISTRY>/marketplace-squid:<TAG>
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: marketplace-robinhood-squid-db } }]
+---
+# 2. processor (the indexer). Single replica ALWAYS — concurrent processors
+# on one DB corrupt the cursor. Recreate strategy, not RollingUpdate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-robinhood-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: marketplace-robinhood-squid-processor } }
+  template:
+    metadata:
+      labels: { app: marketplace-robinhood-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: <REGISTRY>/marketplace-squid:<TAG>
+          envFrom:
+            - { secretRef: { name: marketplace-robinhood-squid-db } }
+            - { secretRef: { name: marketplace-robinhood-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports:
+            - { containerPort: 3000, name: metrics }
+          # Liveness: a plain TCP check on the metrics port is safe. Do NOT
+          # use "block height must advance" style probes — long batches would
+          # look dead and get the pod killed mid-backfill.
+          livenessProbe:
+            tcpSocket: { port: 3000 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            # the Robinhood history is ~1.5M mostly-empty blocks; the
+            # backfill is minutes, not days — no bump needed
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+---
+# 3. GraphQL API (consumers query this; scale replicas freely)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-robinhood-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: marketplace-robinhood-squid-api } }
+  template:
+    metadata:
+      labels: { app: marketplace-robinhood-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: <REGISTRY>/marketplace-squid:<TAG>
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: marketplace-robinhood-squid-db } }]
+          env:
+            # required: the server's built-in default is a different port
+            - { name: GQL_PORT, value: "4350" }
+          ports:
+            - { containerPort: 4350, name: graphql }
+          readinessProbe:
+            httpGet: { path: /graphql, port: 4350 }
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketplace-robinhood-squid-api
+spec:
+  selector: { app: marketplace-robinhood-squid-api }
+  ports:
+    - { port: 80, targetPort: 4350 }
+# + Ingress per infra conventions, e.g.
+#   https://subgraph.autonolas.tech/squid/marketplace-robinhood/graphql
+#
+# NB: squids are path-style, like predict-polymarket's
+# https://subgraph.autonolas.tech/squid/predict-polymarket/graphql — not a
+# marketplace-<network> hostname. The existing marketplace-<network>
+# endpoints front graph-node deployments; this one fronts the squid and
+# speaks OpenReader, not the Graph query dialect — see MIGRATION.md.

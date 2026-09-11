@@ -25,7 +25,8 @@ subgraphs/
 squids/
 ├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
 ├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
-└── service-registry/    # SQD indexer for the Service Registry on Robinhood Chain (4663)
+├── service-registry/    # SQD indexer for the Service Registry on Robinhood Chain (4663)
+└── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
 ```
 
 Each subgraph is an independent package with its own `package.json`, `schema.graphql`, and manifest files (`subgraph.*.yaml`).
@@ -76,6 +77,39 @@ easy to trip over:
 - **The tracked-address table is held fully in memory** (`EntityCache`),
   shared across batches with a reorg guard. That, not SQD itself, is what
   takes mapping from ~5 to ~2,000 blocks/sec.
+
+`squids/marketplace` is the **marketplace subgraph for chains graph-node
+does not serve** — first Robinhood Chain (4663). Same entity and field
+names as `subgraphs/marketplace`, minus the legacy AgentMech path and minus
+all IPFS fetching (payloads are off-chain now; only the raw 32-byte
+`ipfsHashBytes` is kept). One deployment = one chain, selected by
+`MARKETPLACE_CHAIN` from the `CHAINS` table in `src/constants.ts`; the
+handlers are chain-agnostic. Things that differ from the subgraph and are
+easy to trip over:
+
+- **The four mech templates are one address-less topic subscription.**
+  Handlers return early for emitters without a `CreateMech` row; decode
+  through `decodeForeign`. For a KNOWN mech the missing-entity policy is
+  the subgraph's (throw).
+- **`PendingMechData` is a per-batch Map** (`ctx.pendingMechRates`), as is
+  the request payload parked between the mech's `Request` log and the
+  marketplace's `MarketplaceRequest` in the same tx. Both rely on SQD never
+  splitting a block across batches.
+- **The mech factory table is one entry per factory** (address, emitted
+  event, payment type, fee unit, start block) instead of three files; an
+  unknown factory at `CreateMech` throws, exactly like the subgraph. The
+  Robinhood USDG factory emits `CreateMechFixedPriceToken`, not the
+  `...TokenUSDC` name, and is registered under the `FixedPriceTokenUSDC`
+  payment type — both verified on-chain.
+- **Fee → USD reads Chainlink at the event's block** via `RPC_HTTP` (the
+  only eth_call), with a logged fallback to `latest` on a pruned node
+  rather than $0 or a stall.
+- **Two ingestion sources, one query.** `robinhood-mainnet` is a PRIVATE
+  portal dataset (the public portal answers 404), so `INGEST_SOURCE`
+  selects the SQD Portal (with the private key) or the chain's JSON-RPC via
+  `@subsquid/squid-sdk/evm/rpc` — the only squid here that pulls in the
+  `squid-sdk` umbrella, pinned to the same SDK generation. Details in the
+  squid's README.
 
 CI: `build-squid-image.yaml` builds/pushes the Docker image (manual
 workflow_dispatch with `squid` + `version` inputs — `squid` is the folder

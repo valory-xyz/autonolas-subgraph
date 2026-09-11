@@ -1,0 +1,27 @@
+manifestVersion: subsquid.io/v0.1
+name: marketplace
+version: 1
+description: >-
+  Olas Mech Marketplace indexer for chains graph-node does not serve
+  (first: Robinhood Chain, 4663). SQD port of the marketplace subgraph
+  with the legacy AgentMech and IPFS-parsing paths removed.
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]

@@ -1,0 +1,299 @@
+# SQD port of subgraphs/marketplace/schema.graphql (first target: Robinhood
+# Chain, 4663). Field names match the subgraph's; the dialect deltas, the
+# dropped legacy/IPFS entities and the two renames are listed in MIGRATION.md.
+#
+# Store rule that shaped two names here: a scalar and a relation on the same
+# entity must not map to the same column. `Deliver.requestIdBytes` (not
+# `requestId`, which is the `request` relation's column) and
+# `Metadata.serviceIdRaw` (not `serviceId`, the `service` relation's column).
+# tests/schema.test.ts enforces it.
+
+enum FeeUnit {
+  NATIVE
+  TOKEN
+  USDC
+  CREDITS
+}
+
+enum Source {
+  MECH
+  MARKETPLACE
+}
+
+# --- Aggregates ---------------------------------------------------------
+
+type Global @entity {
+  id: ID! # always ""
+  # Marketplace-specific counters (one per EVENT, i.e. per batch)
+  totalMechs: BigInt!
+  totalMarketplaceRequests: BigInt!
+  totalMarketplaceDeliveries: BigInt!
+  totalMarketplaceDeliveriesWithSignatures: BigInt!
+  # Aggregate counters (one per individual request / delivery)
+  totalRequests: BigInt!
+  totalDeliveries: BigInt!
+  totalTransactions: BigInt!
+  totalAtaTransactions: BigInt!
+  # Fee tracking: accumulates finalFeeUSD only (actual paid), never feeUSD.
+  totalFeesPaidUSD: BigDecimal!
+}
+
+type Service @entity {
+  id: ID! # serviceId as decimal string
+  serviceId: BigInt! @index
+  configHash: String
+  latestMultisig: String @index
+  historicalMultisigs: [String!]!
+  # Counts requests made BY this service's multisig (demand-side), NOT
+  # requests TO this service's mech. For the latter query
+  # requests(where: {service: {id_eq: ...}}).
+  totalRequests: BigInt!
+  # Counts deliveries made BY this service's mech (supply-side).
+  totalDeliveries: BigInt!
+  agentIds: [Int!]!
+  requests: [Request!]! @derivedFrom(field: "service")
+  deliveries: [Deliver!]! @derivedFrom(field: "service")
+  metadata: [Metadata!]! @derivedFrom(field: "service")
+  # The subgraph's `mechs`/`marketplaceMechs` were the legacy entities; the
+  # marketplace `Mech` (id == serviceId) hangs off the service directly here.
+  mech: Mech @derivedFrom(field: "service")
+}
+
+type Mech @entity {
+  id: ID! # serviceId as decimal string — NOT the mech address
+  address: String! @index
+  mechFactory: String!
+  configHash: String
+  owner: String!
+  service: Service @unique
+  totalDeliveriesTransactions: BigInt!
+  receivedRequests: BigInt!
+  selfDeliveredFromReceived: BigInt!
+  deliveredByOthersFromReceived: BigInt!
+  # null when the factory event was missing at CreateMech time; self-heals
+  # from the next observed Deliver's deliveryRate.
+  maxDeliveryRate: BigInt
+  # USD-converted maxDeliveryRate for cross-payment-type comparison.
+  maxDeliveryRateUSD: BigDecimal
+  # Cumulative sum of MechKarmaChanged deltas; can go negative.
+  karma: BigInt!
+  # keccak256 of the payment type name, derived from the factory address.
+  paymentType: String!
+}
+
+type Sender @entity {
+  id: ID! # address
+  requests: [Request!]! @derivedFrom(field: "sender")
+  # Misnomers kept from the subgraph — see MIGRATION.md:
+  # all-time requests by this sender across on-chain and off-chain paths.
+  totalLegacyRequests: BigInt!
+  # all-time request-bearing transactions by this sender (all paths).
+  totalLegacyTransactions: BigInt!
+  totalLegacyAtaTransactions: BigInt!
+  # +1 per on-chain marketplace batch event.
+  totalMarketplaceRequests: BigInt!
+  totalOffChainRequests: BigInt!
+  totalFeesPaidUSD: BigDecimal!
+}
+
+type RequestsPerAgent @entity {
+  id: ID! # agentId as decimal string
+  requestsCount: BigInt!
+}
+
+# --- Requests / deliveries --------------------------------------------
+
+type Request @entity {
+  id: ID! # requestId bytes32 hex
+  sender: Sender! @index
+  mech: String! @index # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String! @index
+  deliveries: [Deliver!]! @derivedFrom(field: "request")
+  service: Service @index
+  marketplaceRequest: RequestToMarketplace @derivedFrom(field: "request")
+  isDelivered: Boolean!
+  priorityMech: String # mech originally requested
+  deliveredByMech: String # mech that delivered
+  # Estimated fee locked at request time (priority mech's maxDeliveryRate
+  # in USD at that block). Upper bound — do not sum for spend analytics.
+  feeUSD: BigDecimal
+  # Actual fee, computed exactly once when the delivery carrying
+  # deliveryRate is indexed.
+  finalFeeUSD: BigDecimal
+  feeRaw: BigInt
+  feeUnit: FeeUnit
+}
+
+type RequestToMarketplace @entity {
+  id: ID! # same as Request.id
+  requestIdBytes: String!
+  ipfsHashBytes: String # raw request payload bytes (32-byte IPFS digest)
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  request: Request! @unique
+}
+
+type Deliver @entity {
+  # txHash-logIndex for on-chain deliveries; txHash-requestId for signed ones
+  id: ID!
+  requestIdBytes: String! @index # raw bytes32 hex; `request` is null for signed deliveries
+  sender: String! # address
+  mech: String! @index # address
+  request: Request @index
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String! @index
+  service: Service @index
+  marketplaceDelivery: DeliverForMarketplace @derivedFrom(field: "deliver")
+}
+
+type DeliverForMarketplace @entity {
+  id: ID! # requestId hex
+  requestId: String!
+  requestIdBytes: String!
+  ipfsHashBytes: String # raw delivery payload bytes
+  mechServiceMultisig: String
+  deliveryRate: BigInt
+  isMarketplace: Boolean
+  isOffChain: Boolean
+  deliver: Deliver @unique
+}
+
+# --- Lookup tables ------------------------------------------------------
+
+# mech address -> serviceId. Written by the marketplace CreateMech event.
+type CreateMech @entity {
+  id: ID! # mech address
+  mech: String!
+  source: Source
+  serviceId: BigInt @index
+  mechFactory: String
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# multisig address -> serviceId. Write-once; a second CreateMultisigWithAgents
+# for the same multisig only updates Service.latestMultisig.
+type CreateMultisigWithAgents @entity {
+  id: ID! # multisig address
+  serviceId: BigInt! @index
+  multisig: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# Global ATA dedup table: each tx hash increments Global.totalAtaTransactions
+# at most once (the off-chain signed path adds 2 in one increment).
+type AtaTransaction @entity {
+  id: ID! # transaction hash
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type Metadata @entity {
+  id: ID! # serviceId as decimal string
+  serviceIdRaw: BigInt! # kept even when the Service row (and so `service`) is absent
+  mech: String # address
+  metadata: String! # bytes32 hash
+  service: Service
+}
+
+# --- Event logs ---------------------------------------------------------
+
+type MarketplaceRequest @entity {
+  id: ID! # txHash-logIndex
+  priorityMech: String!
+  requester: String! @index
+  numRequests: BigInt!
+  requestIds: [String!]!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String!
+}
+
+type MarketplaceDelivery @entity {
+  id: ID!
+  deliveryMech: String! @index
+  numDeliveries: BigInt!
+  requestIds: [String!]!
+  deliveredRequests: [Boolean!]!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String!
+}
+
+type MarketplaceDeliveryWithSignatures @entity {
+  id: ID!
+  deliveryMech: String! @index
+  requester: String! @index
+  numDeliveries: BigInt!
+  requestIds: [String!]!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String!
+}
+
+type CreateService @entity {
+  id: ID!
+  serviceId: BigInt! @index
+  configHash: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type UpdateService @entity {
+  id: ID!
+  serviceId: BigInt! @index
+  configHash: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type RegisterInstance @entity {
+  id: ID!
+  operator: String!
+  serviceId: BigInt! @index
+  agentInstance: String! @index
+  agentId: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type TerminateService @entity {
+  id: ID!
+  serviceId: BigInt! @index
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# ServiceRegistryL2 ERC-721 Transfer (service NFT custody). The subgraph
+# named the token id `internal_id`; OpenReader rejects underscores, so it is
+# `serviceId` here.
+type Transfer @entity {
+  id: ID!
+  from: String!
+  to: String!
+  serviceId: BigInt! @index
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# --- Operational --------------------------------------------------------
+
+# OpenReader exposes `squidStatus { height }` but no timestamp; consumers'
+# stale-data checks want a block TIMESTAMP, so the processor writes this
+# singleton once per batch (same shape as pearl-transactions').
+type IndexerStatus @entity {
+  id: ID! # always "1"
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
