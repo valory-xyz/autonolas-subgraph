@@ -6,43 +6,30 @@
 //
 // Unlike graph-node (where contract calls are the indexer's cost), RPC here
 // is ours to pay for — so SUCCESSFUL results are memoized for the process
-// lifetime. Both are one-shot per subject: twice per Master Safe at first
-// sighting.
+// lifetime. Both are one-shot per Master Safe at first sighting.
 
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, type PublicClient } from "viem";
 import { SERVICE_REGISTRY_L2 } from "./constants";
 
 // Erigon archive nodes reject a historical eth_call whose `from` has no
 // state at that block; the zero-address default has none.
 const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 
-const client = createPublicClient({
-  transport: http(
-    process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com",
-    { batch: true }
-  ),
-});
+const clientFor = (url: string): PublicClient =>
+  createPublicClient({ transport: http(url, { batch: true }) });
+
+const primary = clientFor(
+  process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com"
+);
 
 /**
- * Every historical read goes through here so `blockNumber` and `account`
- * can never be set on one call site and forgotten on another — the startup
- * check and the Safe probes must send the exact same shape, or the check
- * gives false confidence.
+ * Optional second archive endpoint, tried only when the primary fails with
+ * something that is NOT a revert (e.g. a hole in its archive). Sees only
+ * the calls the primary could not serve, so a rate-limited endpoint is fine.
  */
-function historicalRead<const abi extends readonly unknown[], fn extends string>(
-  address: string,
-  abi: abi,
-  functionName: fn,
-  blockNumber: number
-) {
-  return client.readContract({
-    address: address as `0x${string}`,
-    abi,
-    functionName,
-    blockNumber: BigInt(blockNumber),
-    account: CALL_FROM,
-  } as any);
-}
+const fallback: PublicClient | null = process.env.RPC_POLYGON_HTTP_FALLBACK
+  ? clientFor(process.env.RPC_POLYGON_HTTP_FALLBACK)
+  : null;
 
 const SAFE_ABI = [
   {
@@ -99,6 +86,80 @@ export interface SafeConfig {
  * is the rare EOA that receives a service NFT.
  */
 const safeMemo = new Map<string, SafeConfig>();
+
+// First line of an error message, for the fallback log.
+const firstLine = (e: unknown): string =>
+  (e as { shortMessage?: string })?.shortMessage ??
+  String((e as Error)?.message ?? e).split("\n")[0];
+
+/** One historical read against one client; always pinned, always with `from`. */
+function readAt<const abi extends readonly unknown[], fn extends string>(
+  client: PublicClient,
+  address: string,
+  abi: abi,
+  functionName: fn,
+  blockNumber: number
+) {
+  return client.readContract({
+    address: address as `0x${string}`,
+    abi,
+    functionName,
+    blockNumber: BigInt(blockNumber),
+    account: CALL_FROM,
+  } as any);
+}
+
+/** Does `client` hold state for the registry at `blockNumber`? */
+async function hasStateAt(
+  client: PublicClient,
+  blockNumber: number
+): Promise<boolean> {
+  try {
+    const code = await client.getCode({
+      address: SERVICE_REGISTRY_L2 as `0x${string}`,
+      blockNumber: BigInt(blockNumber),
+    });
+    return code != null && code !== "0x";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Every historical read goes through here so `blockNumber` and `account`
+ * can never be set on one call site and forgotten on another — the startup
+ * check and the Safe probes must send the exact same shape, or the check
+ * gives false confidence.
+ *
+ * Primary first; on a non-revert failure, the identical call on the
+ * fallback. A revert from the fallback is only trusted if the fallback
+ * actually holds state at that block — a pruned node answers `0x`, which
+ * viem reports as a revert, and that would silently mislabel a real Safe.
+ * If the fallback is pruned there too, the PRIMARY's error is rethrown so
+ * the batch retries rather than committing a wrong verdict.
+ */
+async function historicalRead<
+  const abi extends readonly unknown[],
+  fn extends string,
+>(address: string, abi: abi, functionName: fn, blockNumber: number) {
+  try {
+    return await readAt(primary, address, abi, functionName, blockNumber);
+  } catch (err) {
+    if (isRevert(err) || fallback == null) throw err;
+    console.warn(
+      `[rpc] primary failed for ${functionName}(${address}) at block ` +
+        `${blockNumber} — ${firstLine(err)} — retrying on RPC_POLYGON_HTTP_FALLBACK`
+    );
+    try {
+      return await readAt(fallback, address, abi, functionName, blockNumber);
+    } catch (fbErr) {
+      if (isRevert(fbErr) && !(await hasStateAt(fallback, blockNumber))) {
+        throw err;
+      }
+      throw fbErr;
+    }
+  }
+}
 
 /**
  * Owners + threshold for a Safe, read AT `blockNumber`.
@@ -160,51 +221,72 @@ export async function getSafeConfig(
 }
 
 /**
- * Fail fast if RPC_POLYGON_HTTP cannot serve historical state.
+ * Fail fast if an endpoint cannot serve historical state.
  *
  * Every Safe is probed at its first-sighting block, and a pruned node
  * answers those with empty code — indistinguishable from "not a Safe", so
  * the failure mode is silent, permanent data loss rather than an error.
  * Assert it once at startup instead: the registry is deployed at or before
- * START_BLOCK by definition, so it must have code there.
+ * START_BLOCK by definition, so it must have code there, and it must answer
+ * a real eth_call of the same shape the Safe probes use (getCode alone
+ * sends no `from` and cannot surface eth_call-only quirks).
  *
- * Throws with an actionable message; the processor should not start.
+ * Checks the primary DIRECTLY, not via historicalRead — otherwise a broken
+ * primary would pass on the strength of the fallback and every probe would
+ * silently shift to the rate-limited endpoint. Then checks the fallback
+ * too, if configured: a pruned fallback is worse than none, because its
+ * `0x` reads as a revert and mislabels a real Safe.
  */
 export async function assertArchiveRpc(
   registryAddress: string,
   startBlock: number
 ): Promise<void> {
+  await assertClientArchive(primary, "RPC_POLYGON_HTTP", registryAddress, startBlock);
+  if (fallback != null) {
+    await assertClientArchive(
+      fallback,
+      "RPC_POLYGON_HTTP_FALLBACK",
+      registryAddress,
+      startBlock
+    );
+  }
+}
+
+async function assertClientArchive(
+  client: PublicClient,
+  envName: string,
+  registryAddress: string,
+  startBlock: number
+): Promise<void> {
   let code: string;
   try {
-    code = await client.getCode({
-      address: registryAddress as `0x${string}`,
-      blockNumber: BigInt(startBlock),
-    }) ?? "0x";
+    code =
+      (await client.getCode({
+        address: registryAddress as `0x${string}`,
+        blockNumber: BigInt(startBlock),
+      })) ?? "0x";
   } catch (err) {
     throw new Error(
-      `RPC_POLYGON_HTTP cannot read state at block ${startBlock}: ` +
-        `${(err as Error).message}. An ARCHIVE endpoint is required — Safe ` +
-        `owners are read at each Safe's first-sighting block.`
+      `${envName} cannot read state at block ${startBlock}: ` +
+        `${firstLine(err)}. An ARCHIVE endpoint is required — Safe owners ` +
+        `are read at each Safe's first-sighting block.`
     );
   }
   if (code === "0x") {
     throw new Error(
-      `RPC_POLYGON_HTTP returned no code for the service registry ` +
+      `${envName} returned no code for the service registry ` +
         `${registryAddress} at block ${startBlock}, where it is known to be ` +
         `deployed. The endpoint is not archive-capable; every Safe probe ` +
         `would be silently misread as "not a Safe".`
     );
   }
-
-  // Same call shape as the Safe probes, via the same helper.
   try {
-    await historicalRead(registryAddress, OWNER_ABI, "owner", startBlock);
+    await readAt(client, registryAddress, OWNER_ABI, "owner", startBlock);
   } catch (err) {
     throw new Error(
-      `RPC_POLYGON_HTTP cannot serve a historical eth_call at block ` +
-        `${startBlock}: ${(err as Error).message}. The Safe owner probes use ` +
-        `this exact call shape, so the backfill would stall on the first ` +
-        `Master Safe.`
+      `${envName} cannot serve a historical eth_call at block ${startBlock}: ` +
+        `${firstLine(err)}. The Safe owner probes use this exact call shape, ` +
+        `so the backfill would stall on the first Master Safe.`
     );
   }
 }

@@ -100,3 +100,139 @@ describe("historical eth_call wire format", () => {
     expect(callsTo("eth_call")).toHaveLength(2); // not 4
   });
 });
+
+describe("fallback RPC", () => {
+  const PRIMARY = "https://primary.invalid/";
+  const FALLBACK = "https://fallback.invalid/";
+  const STATE_MISSING = { code: -32000, message: "getStateObject error: account not found" };
+  // {code:3} with no data -> ContractFunctionRevertedError in viem.
+  const REVERT = { code: 3, message: "execution reverted" };
+
+  type Behaviour = { error?: object; zeroData?: boolean; noCode?: boolean };
+
+  /** fetch stub answering per URL; records every parsed request. */
+  function stub(primary: Behaviour, fb: Behaviour) {
+    const seen: { url: string; req: Rpc }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: { body: string }) => {
+        const batch = JSON.parse(init.body);
+        const reqs: Rpc[] = Array.isArray(batch) ? batch : [batch];
+        const b = url.startsWith(PRIMARY) ? primary : fb;
+        const results = reqs.map((r) => {
+          seen.push({ url, req: r });
+          if (r.method === "eth_getCode") {
+            return { jsonrpc: "2.0", id: r.id, result: b.noCode ? "0x" : "0x6080" };
+          }
+          if (b.error) return { jsonrpc: "2.0", id: r.id, error: b.error };
+          // result "0x" on eth_call -> ContractFunctionZeroDataError: the
+          // pruned-node shape, indistinguishable from a real revert.
+          if (b.zeroData) return { jsonrpc: "2.0", id: r.id, result: "0x" };
+          const data: string = r.params?.[0]?.data ?? "";
+          const result = data.startsWith("0xa0e67e2b")
+            ? encodeOwners([OWNER])
+            : data.startsWith("0x8da5cb5b")
+              ? encodeAddress(OWNER)
+              : encodeUint(1n);
+          return { jsonrpc: "2.0", id: r.id, result };
+        });
+        return new Response(JSON.stringify(Array.isArray(batch) ? results : results[0]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      })
+    );
+    return seen;
+  }
+  const hit = (seen: { url: string; req: Rpc }[], url: string, method = "eth_call") =>
+    seen.filter((s) => s.url.startsWith(url) && s.req.method === method);
+
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("retries on the fallback with the same `from` and block pin, one warn per call", async () => {
+    const seen = stub({ error: STATE_MISSING }, {});
+    const { getSafeConfig } = await import("../src/rpc");
+    expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+
+    const fbCalls = hit(seen, FALLBACK);
+    expect(fbCalls).toHaveLength(2);
+    for (const { req } of fbCalls) {
+      expect(req.params[0].from?.toLowerCase()).toBe(SERVICE_REGISTRY_L2);
+      expect(req.params[1]).toBe(hex(86_150_361));
+    }
+    expect(warn).toHaveBeenCalledTimes(2); // getOwners + getThreshold
+  });
+
+  it("does NOT fall back on a genuine revert from the primary", async () => {
+    const seen = stub({ error: REVERT }, {});
+    const { getSafeConfig } = await import("../src/rpc");
+    expect(await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361)).toBeNull();
+    expect(hit(seen, FALLBACK)).toHaveLength(0);
+  });
+
+  it("trusts a fallback revert only if the fallback holds state at that block", async () => {
+    // Fallback is pruned: eth_call answers "0x" (reads as a revert) AND
+    // getCode answers "0x". That must NOT become "not a Safe" — the primary's
+    // error is rethrown so the batch retries.
+    stub({ error: STATE_MISSING }, { zeroData: true, noCode: true });
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
+  });
+
+  it("accepts a fallback revert when the fallback does hold state at that block", async () => {
+    // Same "0x" from eth_call, but getCode proves the node has the block:
+    // this is a real not-a-Safe, so null is correct.
+    stub({ error: STATE_MISSING }, { zeroData: true });
+    const { getSafeConfig } = await import("../src/rpc");
+    expect(await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361)).toBeNull();
+  });
+
+  it("rethrows when both endpoints fail", async () => {
+    stub({ error: STATE_MISSING }, { error: STATE_MISSING });
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
+  });
+
+  it("rethrows when the primary fails and no fallback is configured", async () => {
+    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", "");
+    stub({ error: STATE_MISSING }, {});
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
+  });
+
+  describe("startup check", () => {
+    it("checks the primary directly, so a broken primary fails even with a working fallback", async () => {
+      // Otherwise startup would pass on the fallback's strength and all ~700
+      // probes would silently shift to the rate-limited endpoint.
+      stub({ error: STATE_MISSING }, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_POLYGON_HTTP /);
+    });
+
+    it("fails when the fallback is pruned, naming the fallback env var", async () => {
+      stub({}, { noCode: true });
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_POLYGON_HTTP_FALLBACK/);
+    });
+
+    it("passes when both endpoints hold state and answer the call", async () => {
+      const seen = stub({}, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).resolves.toBeUndefined();
+      // both were exercised with a real eth_call, not just getCode
+      expect(hit(seen, PRIMARY)).toHaveLength(1);
+      expect(hit(seen, FALLBACK)).toHaveLength(1);
+    });
+  });
+});
