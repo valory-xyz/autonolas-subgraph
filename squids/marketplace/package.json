@@ -1,0 +1,44 @@
+{
+  "name": "marketplace-squid",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf lib && tsc",
+    "codegen": "squid-typeorm-codegen",
+    "typegen": "squid-evm-typegen src/abi ../../abis/ServiceRegistryL2.json ../../abis/ComplementaryServiceMetadata.json ../../abis/Karma.json ../../abis/MechMarketplaceV2.json ../../abis/MechFactoryFixedPriceNative.json ../../abis/MechFactoryFixedPriceToken.json ../../abis/MechFixedPriceNative.json",
+    "migration:generate": "squid-typeorm-migration generate",
+    "migration:apply": "squid-typeorm-migration apply",
+    "process": "node lib/main.js",
+    "serve": "squid-graphql-server",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@subsquid/batch-processor": "1.1.0",
+    "@subsquid/big-decimal": "1.0.0",
+    "@subsquid/evm-abi": "1.0.0",
+    "@subsquid/evm-codec": "1.0.0",
+    "@subsquid/evm-normalization": "0.0.6",
+    "@subsquid/evm-objects": "0.0.3",
+    "@subsquid/evm-rpc": "0.1.0",
+    "@subsquid/evm-stream": "0.1.4",
+    "@subsquid/graphql-server": "4.12.1",
+    "@subsquid/logger": "1.6.0",
+    "@subsquid/squid-sdk": "0.6.1",
+    "@subsquid/typeorm-migration": "1.4.0",
+    "@subsquid/typeorm-store": "1.9.2",
+    "dotenv": "16.4.5",
+    "pg": "8.16.0",
+    "typeorm": "0.3.31",
+    "viem": "2.55.10"
+  },
+  "devDependencies": {
+    "@subsquid/evm-typegen": "5.0.0",
+    "@subsquid/typeorm-codegen": "2.4.0",
+    "@types/node": "24.12.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  },
+  "overrides": {
+    "vitest": "4.1.0"
+  }
+}
