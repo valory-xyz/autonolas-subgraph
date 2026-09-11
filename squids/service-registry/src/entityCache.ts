@@ -31,8 +31,6 @@ export interface IEntityCache {
   log: CacheLogger;
   get<T extends Entity>(cls: EntityClass<T>, id: string): Promise<T | undefined>;
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void;
-  /** The Service currently holding this ERC-8004 agent, if any. */
-  findServiceByErc8004Agent(agentId: string): Promise<Service | undefined>;
   flush(): Promise<void>;
   /** Is this (lowercase) address a service multisig we have seen created? */
   isKnownMultisig(address: string): Promise<boolean>;
@@ -140,9 +138,8 @@ export class EntityCache implements IEntityCache {
   }
 
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
-    // EntityClass<T> is structural, so the token and the instance are not
-    // bound by the type system; a mismatch would land in the wrong
-    // FLUSH_ORDER bucket and break the FK ordering.
+    // EntityClass<T> is structural; a mismatched token would file the row in
+    // the wrong FLUSH_ORDER bucket.
     if (entity.constructor !== cls) {
       throw new Error(
         `set(${cls.name}) called with a ${entity.constructor.name} instance`,
@@ -150,21 +147,6 @@ export class EntityCache implements IEntityCache {
     }
     this.bucket(this.cache, cls).set(entity.id, entity);
     this.bucket(this.dirty, cls).set(entity.id, entity);
-  }
-
-  async findServiceByErc8004Agent(agentId: string): Promise<Service | undefined> {
-    // In-batch state first: a service relinked this batch is only in memory.
-    const bucket = this.bucket(this.cache, Service);
-    for (const s of bucket.values()) {
-      if ((s as Service | undefined)?.erc8004Agent?.id === agentId) return s as Service;
-    }
-    const fromDb = await this.store.findOneBy(Service, {
-      erc8004Agent: { id: agentId },
-    });
-    // A cached copy that no longer points at the agent wins over the row.
-    if (fromDb == null || bucket.has(fromDb.id)) return undefined;
-    bucket.set(fromDb.id, fromDb);
-    return fromDb;
   }
 
   async flush(): Promise<void> {

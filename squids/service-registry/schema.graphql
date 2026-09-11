@@ -3,8 +3,13 @@
 #   - every id is `ID!` (a string); address-keyed entities use the lowercase
 #     hex address as the id where the subgraph used `Bytes`;
 #   - addresses / hashes are `String` (lowercase hex) rather than `Bytes`;
-#   - the one-to-one Service <-> ERC8004Agent pair needs `@unique` on the
-#     owning side for `@derivedFrom` to resolve.
+#   - `ERC8004Agent.service` (a derived one-to-one) is `services`, a derived
+#     list. OpenReader can only derive a one-to-one over a `@unique` column,
+#     and a unique `Service.erc8004Agent` would be an invariant the subgraph
+#     never had: two services sharing an agent is merely odd on graph-node,
+#     but here it would be a unique violation inside the batch upsert and a
+#     permanent stall. No bridger entrypoint relinks an agent today; the
+#     list keeps that true by construction rather than by luck.
 
 type Service @entity {
   id: ID! # service ID
@@ -13,12 +18,12 @@ type Service @entity {
   creationTimestamp: BigInt!
   configHash: String
   creator: Creator
-  erc8004Agent: ERC8004Agent @unique
+  erc8004Agent: ERC8004Agent @index
 }
 
 type ERC8004Agent @entity {
   id: ID! # agentId (as string)
-  service: Service @derivedFrom(field: "erc8004Agent")
+  services: [Service!]! @derivedFrom(field: "erc8004Agent")
   agentWallet: String
   metadata: [ERC8004Metadata!] @derivedFrom(field: "agent")
 }

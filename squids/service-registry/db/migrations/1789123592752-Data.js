@@ -1,14 +1,14 @@
-module.exports = class Data1788976758572 {
-    name = 'Data1788976758572'
+module.exports = class Data1789123592752 {
+    name = 'Data1789123592752'
 
     async up(db) {
         await db.query(`CREATE TABLE "creator" ("id" character varying NOT NULL, CONSTRAINT "PK_43e489c9896f9eb32f7a0b912c2" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "erc8004_metadata" ("id" character varying NOT NULL, "key" text NOT NULL, "value" text, "agent_id" character varying, CONSTRAINT "PK_77c0938f147ba698983fff2f96f" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_erc8004_metadata_agent_bdf75f67" ON "erc8004_metadata" ("agent_id") `)
         await db.query(`CREATE TABLE "erc8004_agent" ("id" character varying NOT NULL, "agent_wallet" text, CONSTRAINT "PK_16ab911d9f6b915040a007268bc" PRIMARY KEY ("id"))`)
-        await db.query(`CREATE TABLE "service" ("id" character varying NOT NULL, "multisig" text, "agent_ids" integer array NOT NULL, "creation_timestamp" numeric NOT NULL, "config_hash" text, "creator_id" character varying, "erc8004_agent_id" character varying, CONSTRAINT "REL_44fbb8a5be7a8c9e92b472076f" UNIQUE ("erc8004_agent_id"), CONSTRAINT "PK_85a21558c006647cd76fdce044b" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "service" ("id" character varying NOT NULL, "multisig" text, "agent_ids" integer array NOT NULL, "creation_timestamp" numeric NOT NULL, "config_hash" text, "creator_id" character varying, "erc8004_agent_id" character varying, CONSTRAINT "PK_85a21558c006647cd76fdce044b" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_service_creator_7465f295" ON "service" ("creator_id") `)
-        await db.query(`CREATE UNIQUE INDEX "idx_service_erc8004_agent_a610e880" ON "service" ("erc8004_agent_id") `)
+        await db.query(`CREATE INDEX "idx_service_erc8004_agent_10abfe9e" ON "service" ("erc8004_agent_id") `)
         await db.query(`CREATE TABLE "agent_registration" ("id" character varying NOT NULL, "service_id" integer NOT NULL, "agent_id" integer NOT NULL, "registration_timestamp" numeric NOT NULL, CONSTRAINT "PK_fe9e53b3d7c9c05099ff0f45110" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "multisig" ("id" character varying NOT NULL, "service_id" integer NOT NULL, "creator" text NOT NULL, "creation_timestamp" numeric NOT NULL, "tx_hash" text NOT NULL, "agent_ids" integer array NOT NULL, CONSTRAINT "PK_ca0822446a16f9665878a4e3cb2" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_multisig_service_id_0afa46ea" ON "multisig" ("service_id") `)
@@ -82,7 +82,7 @@ module.exports = class Data1788976758572 {
         await db.query(`DROP INDEX "public"."idx_multisig_service_id_0afa46ea"`)
         await db.query(`DROP TABLE "multisig"`)
         await db.query(`DROP TABLE "agent_registration"`)
-        await db.query(`DROP INDEX "public"."idx_service_erc8004_agent_a610e880"`)
+        await db.query(`DROP INDEX "public"."idx_service_erc8004_agent_10abfe9e"`)
         await db.query(`DROP INDEX "public"."idx_service_creator_7465f295"`)
         await db.query(`DROP TABLE "service"`)
         await db.query(`DROP TABLE "erc8004_agent"`)

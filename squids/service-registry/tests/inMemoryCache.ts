@@ -7,7 +7,6 @@ import {
   EntityClass,
   IEntityCache,
 } from "../src/entityCache";
-import { Service } from "../src/model";
 
 export class InMemoryCache implements IEntityCache {
   store = new Map<string, Map<string, Entity>>();
@@ -42,10 +41,6 @@ export class InMemoryCache implements IEntityCache {
       );
     }
     this.bucket(cls.name).set(entity.id, entity);
-  }
-
-  async findServiceByErc8004Agent(agentId: string): Promise<Service | undefined> {
-    return this.all(Service).find((s) => s.erc8004Agent?.id === agentId);
   }
 
   async flush(): Promise<void> {}

@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, IntColumn as IntColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, OneToOne as OneToOne_, JoinColumn as JoinColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, IntColumn as IntColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_} from "@subsquid/typeorm-store"
 import {Creator} from "./creator.model"
 import {ERC8004Agent} from "./erc8004Agent.model"
 
@@ -27,8 +27,7 @@ export class Service {
     @ManyToOne_(() => Creator, {nullable: true})
     creator!: Relation_<Creator> | undefined | null
 
-    @Index_("idx_service_erc8004_agent_a610e880", {unique: true})
-    @OneToOne_(() => ERC8004Agent, {nullable: true})
-    @JoinColumn_()
+    @Index_("idx_service_erc8004_agent_10abfe9e")
+    @ManyToOne_(() => ERC8004Agent, {nullable: true})
     erc8004Agent!: Relation_<ERC8004Agent> | undefined | null
 }

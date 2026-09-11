@@ -64,10 +64,12 @@ Entity for entity the same. Forced by the store:
 - every id is a string; address-keyed entities (`Multisig`, `Creator`,
   `Operator`) use the lowercase hex address where the subgraph used `Bytes`;
 - addresses and hashes are lowercase hex strings, not `Bytes`;
-- `Service.erc8004Agent` is `@unique`, which the one-to-one `@derivedFrom`
-  on `ERC8004Agent.service` needs. The subgraph lets two services share an
-  agent; here a relink releases the previous holder (last write wins, with a
-  warning).
+- `ERC8004Agent.service` is `ERC8004Agent.services`, a derived list.
+  OpenReader can only derive a one-to-one over a unique column, and making
+  `Service.erc8004Agent` unique would turn "two services point at one
+  agent" — merely odd on graph-node — into a unique violation that stalls
+  the processor. The link itself is a plain assignment, exactly as in the
+  subgraph.
 - `ERC8004Metadata.agent` is a real foreign key, so a `MetadataSet` that
   lands before its `ServiceAgentLinked` creates the `ERC8004Agent` row here,
   where the subgraph left a dangling reference and no row.

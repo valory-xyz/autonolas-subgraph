@@ -399,8 +399,7 @@ export async function handleSafeExecution(
 ): Promise<void> {
   const multisig = await cache.get(Multisig, p.address);
   if (multisig == null) {
-    // The in-memory filter admitted an address the table does not have:
-    // the only visible symptom of the two drifting (e.g. after a reorg).
+    // Filter and table disagree (possible after a reorg): log, don't drop.
     cache.log.warn(
       `Multisig ${p.address} passed the known-multisig filter but has no row at block ${meta.blockNumber}`,
     );
@@ -436,16 +435,9 @@ export async function handleServiceAgentLinked(
   }
   const agentId = Number(p.agentId);
   const agent = await getOrCreateERC8004Agent(cache, agentId);
-  // Service.erc8004Agent is unique in the store; relinking an agent to
-  // another service must release the old holder or the batch fails forever.
-  const holder = await cache.findServiceByErc8004Agent(agent.id);
-  if (holder != null && holder.id !== service.id) {
-    cache.log.warn(
-      `ERC-8004 agent ${agent.id} relinked from service ${holder.id} to ${service.id}`,
-    );
-    holder.erc8004Agent = null;
-    cache.set(Service, holder);
-  }
+  // Plain assignment, as in the subgraph. Service.erc8004Agent is not
+  // unique (see schema.graphql), so a second service pointing at the same
+  // agent is representable and cannot fail the batch.
   service.erc8004Agent = agent;
   cache.set(Service, service);
 

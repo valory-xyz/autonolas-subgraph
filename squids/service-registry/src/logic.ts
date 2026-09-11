@@ -10,6 +10,15 @@ export type EventMeta = {
   logIndex: number;
 };
 
+/**
+ * SQD block headers carry Unix MILLISECONDS; every entity field and day
+ * bucket is in seconds, as in the subgraph. Floor, never round: a rounded-up
+ * timestamp at 23:59:59.500 would land in the next day's bucket.
+ */
+export function blockTimestampSeconds(headerTimestampMs: number): bigint {
+  return BigInt(Math.floor(headerTimestampMs / 1000));
+}
+
 /** UTC-midnight bucket, same arithmetic as the subgraph's getDayTimestamp. */
 export function dayTimestamp(ts: bigint): bigint {
   return (ts / ONE_DAY) * ONE_DAY;

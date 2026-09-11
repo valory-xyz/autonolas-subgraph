@@ -11,13 +11,12 @@ import * as registry from "./abi/ServiceRegistryL2/events";
 import * as bridger from "./abi/IdentityRegistryBridge/events";
 import * as safe from "./abi/GnosisSafe/events";
 import * as h from "./handlers";
-import type { EventMeta } from "./logic";
+import { blockTimestampSeconds, type EventMeta } from "./logic";
 import { IDENTITY_REGISTRY_BRIDGER, SERVICE_REGISTRY_L2 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
 
-// The topic lists in processor.ts and the dispatch below are maintained by
-// hand; a topic subscribed but not dispatched must fail loudly, not drop.
+// A topic subscribed in processor.ts but not dispatched below fails loudly.
 const unhandled = (address: string, topic0: string) =>
   new Error(`unhandled topic0 ${topic0} from ${address}`);
 
@@ -32,12 +31,8 @@ run(
     cache.log = logger;
 
     for (const block of ctx.blocks.map(augmentBlock)) {
-      // SQD block timestamps are ms; every entity field and day bucket is in
-      // seconds, as in the subgraph.
       const blockNumber = BigInt(block.header.number);
-      const blockTimestamp = BigInt(
-        Math.floor(Number(block.header.timestamp) / 1000),
-      );
+      const blockTimestamp = blockTimestampSeconds(Number(block.header.timestamp));
 
       for (const log of block.logs) {
         const address = log.address; // SQD normalizes to lowercase

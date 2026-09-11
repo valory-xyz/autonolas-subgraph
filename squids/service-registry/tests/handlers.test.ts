@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { InMemoryCache } from "./inMemoryCache";
 import * as h from "../src/handlers";
-import { EventMeta, dayTimestamp, mostRecentAgentId } from "../src/logic";
+import { EventMeta, blockTimestampSeconds, dayTimestamp, mostRecentAgentId } from "../src/logic";
 import {
   AgentPerformance,
   AgentRegistration,
@@ -284,17 +284,19 @@ describe("ERC-8004 bridger", () => {
     expect(cache.all(ERC8004Metadata)).toHaveLength(2);
   });
 
-  it("relinking an agent to another service releases the previous holder", async () => {
+  it("two services pointing at one agent is representable, as in the subgraph", async () => {
     await seedService();
     await h.handleCreateService(cache, meta(DAY1_TS), { serviceId: 2n, configHash: CONFIG_HASH });
     await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 1n, agentId: 77n });
     await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 2n, agentId: 77n });
-    expect((await cache.get(Service, "1"))!.erc8004Agent).toBeNull();
+    // No release, no warning: Service.erc8004Agent is not unique, so the
+    // second link cannot fail the batch and the first is left as it was.
+    expect((await cache.get(Service, "1"))!.erc8004Agent?.id).toBe("77");
     expect((await cache.get(Service, "2"))!.erc8004Agent?.id).toBe("77");
-    expect(cache.warnings).toHaveLength(1);
-    // Same service, same agent again: nothing to release.
-    await h.handleServiceAgentLinked(cache, meta(DAY2_TS), { serviceId: 2n, agentId: 77n });
-    expect(cache.warnings).toHaveLength(1);
+    expect(cache.warnings).toHaveLength(0);
+    expect(cache.all(ERC8004Agent)).toHaveLength(1);
+    // serviceRegistry metadata follows the latest link (subgraph parity).
+    expect((await cache.get(ERC8004Metadata, "77-serviceRegistry"))!.value).toBe("2");
   });
 
   it("warns and skips a link for an unknown service, but wallet/metadata still create the agent", async () => {
@@ -311,6 +313,15 @@ describe("ERC-8004 bridger", () => {
 });
 
 describe("logic", () => {
+  it("blockTimestampSeconds: SQD header ms -> seconds, floored, so day buckets hold", () => {
+    expect(blockTimestampSeconds(1_788_900_000_000)).toBe(1_788_900_000n);
+    // 23:59:59.999 UTC must stay in its day, not round into the next one.
+    const lastMsOfDay = (DAY1 + 86_400n - 1n) * 1000n + 999n;
+    const secs = blockTimestampSeconds(Number(lastMsOfDay));
+    expect(secs).toBe(DAY1 + 86_400n - 1n);
+    expect(dayTimestamp(secs)).toBe(DAY1);
+  });
+
   it("mostRecentAgentId: strictly later wins, ties keep the first, none -> -1", () => {
     const ts = new Map([
       [1, 100n],

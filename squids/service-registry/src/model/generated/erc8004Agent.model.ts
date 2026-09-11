@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, OneToOne as OneToOne_, Relation as Relation_, StringColumn as StringColumn_, OneToMany as OneToMany_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, OneToMany as OneToMany_, Relation as Relation_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 import {Service} from "./service.model"
 import {ERC8004Metadata} from "./erc8004Metadata.model"
 
@@ -11,8 +11,8 @@ export class ERC8004Agent {
     @PrimaryColumn_()
     id!: string
 
-    @OneToOne_(() => Service, e => e.erc8004Agent)
-    service!: Relation_<Service> | undefined | null
+    @OneToMany_(() => Service, e => e.erc8004Agent)
+    services!: Relation_<Service[]>
 
     @StringColumn_({nullable: true})
     agentWallet!: string | undefined | null

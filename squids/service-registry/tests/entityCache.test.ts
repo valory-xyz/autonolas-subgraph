@@ -1,7 +1,7 @@
 // The production EntityCache against a fake TypeORM store: the load-time
 // FLUSH_ORDER guard (value import), the class-token assert, the chain-wide
 // Safe filter loaded from the Multisig table, cross-batch accumulation of
-// the daily counters, and the unique-agent reverse lookup.
+// the daily counters, and an ERC-8004 agent shared across batches.
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Store } from "@subsquid/typeorm-store";
 import { EntityCache, resetKnownMultisigsForTests } from "../src/entityCache";
@@ -20,7 +20,9 @@ import {
 import { GLOBAL_ID } from "../src/constants";
 
 // Rows are shallow-copied on read so every batch gets a fresh instance,
-// like a real store; relations are re-resolved by id on the way out.
+// like a real store. Relations are kept on read, which TypeORM's plain
+// get() does NOT do — nothing here reads a relation off a loaded row, and
+// the fake must not be trusted for a test that would.
 class FakeStore {
   tables = new Map<string, Map<string, any>>();
   private table(cls: { name: string }) {
@@ -36,13 +38,6 @@ class FakeStore {
   }
   async find(cls: any) {
     return [...this.table(cls).values()].map((r) => this.copy(cls, r));
-  }
-  async findOneBy(cls: any, where: any) {
-    const agentId = where.erc8004Agent?.id;
-    for (const row of this.table(cls).values()) {
-      if (row.erc8004Agent?.id === agentId) return this.copy(cls, row);
-    }
-    return undefined;
   }
   async upsert(entities: any[]) {
     for (const e of entities) this.table(e.constructor).set(e.id, { ...e });
@@ -124,21 +119,21 @@ describe("EntityCache", () => {
     expect(store.tables.get("DailyAgentMultisig")!.size).toBe(1);
   });
 
-  it("finds the service holding an agent across batches and releases it on relink", async () => {
+  it("links the same agent from two services across batches without touching the first", async () => {
     await deployInOneBatch();
     let c = batch();
     await h.handleCreateService(c, meta(DAY_TS), { serviceId: 2n, configHash: "0x02" });
     await h.handleServiceAgentLinked(c, meta(DAY_TS), { serviceId: 1n, agentId: 77n });
     await c.flush();
 
+    // A later batch: service 1 is only in the store, not in this cache.
     c = batch();
-    expect((await c.findServiceByErc8004Agent("77"))?.id).toBe("1");
     await h.handleServiceAgentLinked(c, meta(DAY_TS), { serviceId: 2n, agentId: 77n });
     await c.flush();
 
-    expect((await store.get(Service, "1")).erc8004Agent).toBeNull();
+    expect((await store.get(Service, "1")).erc8004Agent?.id).toBe("77");
     expect((await store.get(Service, "2")).erc8004Agent?.id).toBe("77");
-    expect(await store.get(ERC8004Agent, "77")).toBeDefined();
+    expect(store.tables.get("ERC8004Agent")!.size).toBe(1);
     expect(await store.get(Multisig, SAFE)).toBeDefined();
   });
 });
