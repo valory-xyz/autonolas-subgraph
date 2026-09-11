@@ -1,19 +1,7 @@
 // Event semantics, ported branch-for-branch from the subgraph's
-// src/marketplace/{mech-marketplace,utils,mech-factory,karma,
-// service-registry-l-2,complementary-service-metadata}.ts, minus the legacy
-// AgentMech path and the IPFS fetching.
-//
-// Every handler takes an explicit `EventMeta` instead of graph-node's
-// ambient `event`, and a `Ctx` instead of the global store, so the whole
-// file is unit-testable without a database or network (tests/handlers.test.ts).
-//
-// The double-count guards the subgraph documents are all here, unchanged:
-// - Marketplace txs (tx.to == marketplace) are counted by the marketplace
-//   handlers; the mech-side handlers then skip field assignment/counters.
-// - Within a marketplace tx `MarketplaceDelivery` fires BEFORE the mech's
-//   `Deliver`; the former sets isDelivered, the latter carries the rate, so
-//   the fee write-once guard is `finalFeeUSD == null`, NOT `!isDelivered`.
-// - `AtaTransaction` is the global per-tx dedup table for ATA counting.
+// src/marketplace/*.ts minus the legacy AgentMech path and IPFS fetching.
+// Handlers take an explicit EventMeta and a Ctx, so they run without a
+// database or network (tests/handlers.test.ts).
 
 import { BigDecimal } from "@subsquid/big-decimal";
 import {
@@ -62,21 +50,11 @@ export interface Ctx {
   cache: IEntityCache;
   log: CacheLogger;
   price: NativePriceSource;
-  /**
-   * Replaces the subgraph's `PendingMechData` table. The factory's
-   * `CreateMech<Kind>` (carrying maxDeliveryRate) and the marketplace's
-   * `CreateMech` are two logs of ONE transaction; a batch handler sees both
-   * in memory, and SQD never splits a block across batches, so a per-batch
-   * map is enough. mech address -> maxDeliveryRate.
-   */
+  /** Per batch (the subgraph's PendingMechData table): mech address -> maxDeliveryRate
+   *  from the factory log, consumed by the marketplace CreateMech in the same tx. */
   pendingMechRates: Map<string, bigint>;
-  /**
-   * The mech's `Request` log (carrying the payload) precedes the
-   * marketplace's `MarketplaceRequest` (which creates the Request entity)
-   * in the same tx. The payload is parked here until the entity exists, so
-   * no RequestToMarketplace row is ever written pointing at a Request that
-   * does not. requestId -> raw payload hex.
-   */
+  /** Per batch: requestId -> payload from the mech's Request log, consumed by the
+   *  MarketplaceRequest that creates the Request entity later in the same tx. */
   pendingRequestPayloads: Map<string, string>;
 }
 
@@ -580,7 +558,7 @@ export async function handleComplementaryMetadataUpdated(
     const service = await getService(ctx, id);
     row = new Metadata({
       id,
-      serviceId: p.serviceId,
+      serviceIdRaw: p.serviceId,
       service: service ?? null,
       mech: null,
     });
@@ -837,9 +815,7 @@ export async function handleMarketplaceDelivery(
     await updateMechCountersOnDelivery(ctx, request, p.deliveryMech);
     successfulDeliveries += 1n;
 
-    // The Deliver entity itself is created by the mech's Deliver log that
-    // follows in this tx (it carries the rate); here only the marketplace
-    // marker is written.
+    // The Deliver row comes from the mech's Deliver log later in this tx.
     const dfm = await getOrCreateDeliverForMarketplace(ctx, requestId);
     dfm.isMarketplace = true;
     dfm.isOffChain = false;
@@ -890,12 +866,10 @@ interface SignedDeliverArgs {
 }
 
 /**
- * Off-chain (signed) delivery: no prior request event, so a Deliver row
- * keyed txHash-requestId is upserted and the marketplace marker written.
- * Called once per request from BOTH the per-request marketplace `Deliver`
- * (rate + multisig + payload) and the batch
- * `MarketplaceDeliveryWithSignatures` (neither); the null-guards make the
- * two writes compose regardless of log order.
+ * Signed delivery, keyed txHash-requestId. Called from BOTH the per-request
+ * marketplace `Deliver` (rate + multisig + payload) and the batch
+ * `MarketplaceDeliveryWithSignatures` (neither); the null-guards make the two
+ * writes compose in either log order.
  */
 async function persistSignedDeliver(ctx: Ctx, a: SignedDeliverArgs): Promise<void> {
   const serviceId = await getServiceIdFromMech(ctx, a.mech);
@@ -904,7 +878,7 @@ async function persistSignedDeliver(ctx: Ctx, a: SignedDeliverArgs): Promise<voi
 
   const deliver =
     (await ctx.cache.get(Deliver, deliverId)) ?? new Deliver({ id: deliverId });
-  deliver.requestId = a.requestId;
+  deliver.requestIdBytes = a.requestId;
   deliver.mech = a.mech;
   deliver.blockNumber = a.meta.blockNumber;
   deliver.blockTimestamp = a.meta.blockTimestamp;
@@ -1083,23 +1057,12 @@ export async function handleMechKarmaChanged(
 }
 
 // =======================================================================
-// Mech contracts (the subgraph's per-mech templates)
-//
-// Subscribed by topic without an address filter, so every handler first
-// checks the emitter is a known mech and returns `false` otherwise. For a
-// KNOWN mech the policy is the subgraph's: a missing Mech entity is a bug
-// and throws.
+// Mech contracts (the subgraph's per-mech templates). Subscribed by topic
+// without an address filter: handlers return `false` for unknown emitters;
+// for a KNOWN mech a missing Mech entity throws, as in the subgraph.
 // =======================================================================
 
-/** True when `address` has a CreateMech row, i.e. is one of ours. */
-export async function isKnownMech(ctx: Ctx, address: string): Promise<boolean> {
-  return (await getServiceIdFromMech(ctx, address)) != null;
-}
-
-/**
- * OlasMech `Request(mech, requestId, data)`; `mech` is `address(this)`, so
- * the emitter (`meta.address`) is the mech.
- */
+/** OlasMech `Request(mech, requestId, data)`; the emitter is the mech. */
 export async function handleMechRequest(
   ctx: Ctx,
   meta: EventMeta,
@@ -1113,9 +1076,8 @@ export async function handleMechRequest(
   let request: Request | undefined;
 
   if (!isMarketplaceTx) {
-    // Direct-to-mech request: this log is the only record of it. NOTE: the
-    // subgraph populates the Request entity here but increments NO
-    // Service/Sender/Global request counters on this path; kept as-is.
+    // Direct-to-mech request. The subgraph increments NO request counters on
+    // this path; kept as-is.
     const senderAddress = meta.txFrom ?? mech;
     const sender = await getOrCreateSender(ctx, senderAddress);
     const service = await getService(ctx, serviceId);
@@ -1149,17 +1111,14 @@ export async function handleMechRequest(
     rtm.request = request;
     ctx.cache.set(RequestToMarketplace, rtm);
   } else {
-    // Marketplace tx: MarketplaceRequest creates the Request later in this
-    // tx and picks the payload up from here.
+    // Marketplace tx: MarketplaceRequest creates the Request later and picks
+    // the payload up from here.
     ctx.pendingRequestPayloads.set(p.requestId, p.data);
   }
   return true;
 }
 
-/**
- * OlasMech `Deliver(mech, mechServiceMultisig, requestId, deliveryRate,
- * data)`; the emitter is the mech.
- */
+/** OlasMech `Deliver(mech, mechServiceMultisig, requestId, deliveryRate, data)`; the emitter is the mech. */
 export async function handleMechDeliver(
   ctx: Ctx,
   meta: EventMeta,
@@ -1179,8 +1138,9 @@ export async function handleMechDeliver(
   const request = await getRequest(ctx, p.requestId);
   let isNewDelivery = false;
 
-  // finalFeeUSD == null (not !isDelivered) is the guard: on the marketplace
-  // path MarketplaceDelivery already set isDelivered but had no rate.
+  // The write-once guard is finalFeeUSD == null, NOT !isDelivered: on the
+  // marketplace path MarketplaceDelivery already set isDelivered but had no
+  // rate; this log carries it.
   if (request != null && request.finalFeeUSD == null) {
     if (!request.isDelivered) {
       isNewDelivery = true;
@@ -1197,7 +1157,7 @@ export async function handleMechDeliver(
   const service = await getService(ctx, serviceId);
   const deliver =
     (await ctx.cache.get(Deliver, deliverId)) ?? new Deliver({ id: deliverId });
-  deliver.requestId = p.requestId;
+  deliver.requestIdBytes = p.requestId;
   deliver.mech = mech;
   deliver.blockNumber = meta.blockNumber;
   deliver.blockTimestamp = meta.blockTimestamp;
@@ -1211,8 +1171,7 @@ export async function handleMechDeliver(
     await incrementServiceDeliveries(ctx, serviceId);
   }
   if (!isMarketplaceTx) {
-    // Direct delivery: ATA only (no Global.totalDeliveries/-Transactions
-    // increment on this path — subgraph parity).
+    // Direct delivery: ATA only, no Global.totalDeliveries (subgraph parity).
     const global = await getGlobal(ctx);
     if (!(await ataTransactionExists(ctx, meta.txHash))) {
       createAtaTransaction(ctx, meta);
@@ -1221,8 +1180,7 @@ export async function handleMechDeliver(
     ctx.cache.set(Global, global);
   }
 
-  // Marketplace marker. `isMarketplace` is true even on the direct path —
-  // the subgraph writes it so; kept for parity.
+  // `isMarketplace` is true even on the direct path (subgraph parity).
   const dfm = await getOrCreateDeliverForMarketplace(ctx, p.requestId);
   dfm.mechServiceMultisig = p.mechServiceMultisig;
   dfm.deliveryRate = p.deliveryRate;

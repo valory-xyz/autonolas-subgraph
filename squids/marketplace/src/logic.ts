@@ -50,24 +50,15 @@ export function serviceEntityId(serviceId: bigint): string {
 // --- Classification -----------------------------------------------------
 
 /**
- * The subgraph's `isMarketplaceTransaction`: the outermost tx `to` is the
- * marketplace. Marketplace txs are counted by the marketplace handlers and
- * the mech-side handlers then skip field assignment / counters.
- *
- * Known limitation carried over verbatim: a marketplace call routed through
- * another contract (a Safe `execTransaction`) classifies as "direct"; the
- * write-once guards in the handlers are what keep counters from
- * double-incrementing in that case.
+ * Outermost tx `to` == marketplace. A marketplace call routed through
+ * another contract (a Safe) classifies as "direct" — same limitation as the
+ * subgraph; the write-once guards keep counters from double-incrementing.
  */
 export function isMarketplaceTransaction(txTo: string | null): boolean {
   return txTo != null && txTo.toLowerCase() === CHAIN.mechMarketplace.address;
 }
 
-/**
- * Request / delivery payloads that are exactly 32 bytes are a raw IPFS
- * digest and are stored as `ipfsHashBytes`; anything else is skipped with a
- * warning, as in the subgraph. Nothing is fetched from IPFS in this squid.
- */
+/** Exactly 32 bytes = a raw IPFS digest, stored as `ipfsHashBytes` (never fetched). */
 export function isIpfsPayload(hex: string): boolean {
   return hex.length === 66 && hex.startsWith("0x");
 }
@@ -80,12 +71,9 @@ export function factoryConfig(factory: string): MechFactoryConfig | undefined {
 }
 
 /**
- * Payment type hash from the factory address. THROWS on an unknown factory,
- * exactly like the subgraph: a mech from a factory this table does not know
- * means the code was not updated before the factory went live, and every
- * later event of that mech would be misattributed. The batch fails and the
- * processor crash-loops loudly until the table is fixed (see README,
- * "Adding a mech factory").
+ * THROWS on an unknown factory, like the subgraph: the table was not updated
+ * before the factory went live, and every later event of that mech would be
+ * misattributed. Crash-loops until fixed (README, "Adding a mech factory").
  */
 export function getPaymentTypeFromFactory(factory: string): string {
   const cfg = factoryConfig(factory);
@@ -99,12 +87,7 @@ export function getPaymentTypeFromFactory(factory: string): string {
   return cfg.paymentType;
 }
 
-/**
- * Fee unit from the factory address. Unlike the payment type this does NOT
- * throw — the subgraph falls back to NATIVE with a warning — so the caller
- * gets `null` and decides. In practice getPaymentTypeFromFactory has already
- * thrown for an unknown factory at CreateMech time.
- */
+/** Null for an unknown factory; callers fall back to NATIVE with a warning (subgraph parity). */
 export function getFeeUnitFromFactory(factory: string): FeeUnitName | null {
   return factoryConfig(factory)?.feeUnit ?? null;
 }

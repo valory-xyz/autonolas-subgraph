@@ -11,7 +11,7 @@ export class Metadata {
     id!: string
 
     @BigIntColumn_({nullable: false})
-    serviceId!: bigint
+    serviceIdRaw!: bigint
 
     @StringColumn_({nullable: true})
     mech!: string | undefined | null

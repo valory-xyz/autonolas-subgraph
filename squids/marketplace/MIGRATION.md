@@ -45,6 +45,14 @@ What changed:
   `SetMechFactoryStatuses`, `PendingMechData`.
 - **Renamed**: `Transfer.internal_id` → `Transfer.serviceId` (OpenReader
   rejects underscores in field names).
+- **Renamed — column collision**: `Deliver.requestId` → **`Deliver.requestIdBytes`**
+  and `Metadata.serviceId` → **`Metadata.serviceIdRaw`**. In the squid store a
+  scalar `requestId` and the `request` relation would share the `request_id`
+  column (likewise `serviceId` / `service`), so the scalars carry the raw
+  value under a distinct name. `Deliver.request` is null for signed
+  (off-chain) deliveries; `requestIdBytes` is always set. The dapp's
+  service-activity query reads `delivers { requestId }` today and must
+  switch to `requestIdBytes` (or `request { id }` for on-chain ones).
 - **Typed**: `Service.agentIds` is `[Int!]!` (was `[BigInt!]!`).
 - **Ids**: event-log rows and on-chain `Deliver` rows are
   `<txHash>-<logIndex>`; signed `Deliver` rows are `<txHash>-<requestId>`

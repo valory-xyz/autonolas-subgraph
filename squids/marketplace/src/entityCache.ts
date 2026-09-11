@@ -170,6 +170,11 @@ export class EntityCache implements IEntityCache {
   }
 
   set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
+    // EntityClass<T> is structural; a mismatched token would file the row in
+    // the wrong FLUSH_ORDER bucket.
+    if (entity.constructor !== cls) {
+      throw new Error(`set(${cls.name}) called with a ${entity.constructor.name} instance`);
+    }
     this.bucket(this.cache, cls).set(entity.id, entity);
     this.bucket(this.dirty, cls).set(entity.id, entity);
   }

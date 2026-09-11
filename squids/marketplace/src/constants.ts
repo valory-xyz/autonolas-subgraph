@@ -1,14 +1,6 @@
-// Per-chain constants for the marketplace squid.
-//
-// A squid deployment is ONE chain (unlike the subgraph's seven manifests), so
-// there is no `dataSource.network()` switch: the chain is picked once, from
-// MARKETPLACE_CHAIN, and everything else reads `CHAIN`. Bringing up another
-// chain is a new entry in `CHAINS` plus a fresh database — nothing in the
-// handlers is Robinhood-specific.
-//
-// EVERY address here is lowercase: SQD normalizes log addresses and decoded
-// address params to lowercase, and the handlers compare with `===`. A
-// mixed-case literal is a silent no-match, so keep them lowercase.
+// Per-chain constants. One deployment = one chain, picked by MARKETPLACE_CHAIN.
+// EVERY address must be lowercase: SQD lowercases log addresses and the
+// handlers compare with `===`, so a mixed-case literal is a silent no-match.
 
 export type ChainName = "robinhood";
 
@@ -38,21 +30,12 @@ export const PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE =
 export const PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC =
   "0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14";
 
-/**
- * Which mech-side event set a factory's mechs emit. Both FixedPrice kinds
- * emit the identical OlasMech `Request` / `Deliver` / `MaxDeliveryRateUpdated`
- * ABI, so today the kind is informational; it is kept so an NVM factory
- * (different ABI) can be added without reshaping the table.
- */
-export type MechFactoryKind = "FixedPriceNative" | "FixedPriceToken";
-
 export interface MechFactoryConfig {
   address: string;
-  /** Solidity event the factory emits on mech creation (for the docs). */
+  /** Solidity event the factory emits on mech creation. */
   event: string;
   paymentType: string;
   feeUnit: FeeUnitName;
-  kind: MechFactoryKind;
   startBlock: number;
 }
 
@@ -123,20 +106,17 @@ const CHAINS: Record<ChainName, ChainConfig> = {
         event: "CreateMechFixedPriceNative",
         paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
         feeUnit: FEE_UNIT_NATIVE,
-        kind: "FixedPriceNative",
         startBlock: 59_579_034,
       },
       {
-        // Deployed as MechFactoryFixedPriceTokenUSDC, but this build emits
-        // the plain `CreateMechFixedPriceToken` event (verified against the
-        // forge artifact in autonolas-marketplace abis/deployed/). Registered
-        // on-chain under the FixedPriceTokenUSDC payment type — verified via
-        // mapPaymentTypeBalanceTrackers(keccak256("FixedPriceTokenUSDC")).
+        // A MechFactoryFixedPriceTokenUSDC deployment that emits the plain
+        // `CreateMechFixedPriceToken` event (forge artifact in
+        // autonolas-marketplace abis/deployed/), registered on-chain under the
+        // FixedPriceTokenUSDC payment type (mapPaymentTypeBalanceTrackers).
         address: "0x7fd1f4b764fa41d19fe3f63c85d12bf64d2bbf68",
         event: "CreateMechFixedPriceToken",
         paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
         feeUnit: FEE_UNIT_USDC,
-        kind: "FixedPriceToken",
         startBlock: 59_579_676,
       },
     ],
@@ -177,8 +157,6 @@ export const MECH_FACTORY_ADDRESSES: string[] = CHAIN.mechFactories.map(
 export const CHAINLINK_PRICE_FEED_DECIMALS = 8;
 
 // --- Misc -------------------------------------------------------------
-
-export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /** The Global singleton id — "" for parity with the subgraph. */
 export const GLOBAL_ID = "";

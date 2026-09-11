@@ -1,12 +1,6 @@
-// Fee -> USD conversion, ported from the subgraph's fee-utils.ts and cut down
-// to what this chain family has: a native token priced by a Chainlink feed
-// and a 6-decimal USD stablecoin at 1:1. There is no OLAS leg (no pool to
-// price it) and no NVM credits leg on these chains, so TOKEN and CREDITS
-// convert to $0 with a warning — the subgraph does the same for OLAS on
-// Celo. Raw amounts are always preserved on the entities.
-//
-// Semantics carried over: conversions read the price AT THE BLOCK being
-// indexed (no TWAP), and every failure is non-fatal and yields $0.
+// Fee -> USD (subgraph fee-utils.ts, reduced to native-via-Chainlink and a
+// 6-decimal stablecoin at 1:1). TOKEN / CREDITS have no price source on
+// these chains and convert to $0 with a warning. Every failure yields $0.
 
 import { BigDecimal } from "@subsquid/big-decimal";
 import {

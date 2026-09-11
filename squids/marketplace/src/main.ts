@@ -29,13 +29,12 @@ import {
 
 const lc = (s: string) => s.toLowerCase();
 
-// run() ctx carries no logger (unlike the old processor.run); create our own.
+// run() ctx carries no logger; create our own.
 const logger = createLogger("sqd:processor:mapping");
 
 const FACTORY_SET = new Set(MECH_FACTORY_ADDRESSES);
 
-// One-shot, informational: says up front whether RPC_HTTP can serve
-// historical state for the fee conversion (see rpc.ts).
+// Informational only (see rpc.ts).
 const probed = probeRpc();
 
 run(

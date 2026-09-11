@@ -12,9 +12,9 @@ export class Deliver {
     @PrimaryColumn_()
     id!: string
 
-    @Index_("idx_deliver_request_id_9503b035")
+    @Index_("idx_deliver_request_id_bytes_9fbabb82")
     @StringColumn_({nullable: false})
-    requestId!: string
+    requestIdBytes!: string
 
     @StringColumn_({nullable: false})
     sender!: string

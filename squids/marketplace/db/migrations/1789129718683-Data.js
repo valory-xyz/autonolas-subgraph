@@ -1,13 +1,13 @@
-module.exports = class Data1789117192925 {
-    name = 'Data1789117192925'
+module.exports = class Data1789129718683 {
+    name = 'Data1789129718683'
 
     async up(db) {
         await db.query(`CREATE TABLE "global" ("id" character varying NOT NULL, "total_mechs" numeric NOT NULL, "total_marketplace_requests" numeric NOT NULL, "total_marketplace_deliveries" numeric NOT NULL, "total_marketplace_deliveries_with_signatures" numeric NOT NULL, "total_requests" numeric NOT NULL, "total_deliveries" numeric NOT NULL, "total_transactions" numeric NOT NULL, "total_ata_transactions" numeric NOT NULL, "total_fees_paid_usd" numeric NOT NULL, CONSTRAINT "PK_48e6c3f5b4e6caf50bc68644a00" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "sender" ("id" character varying NOT NULL, "total_legacy_requests" numeric NOT NULL, "total_legacy_transactions" numeric NOT NULL, "total_legacy_ata_transactions" numeric NOT NULL, "total_marketplace_requests" numeric NOT NULL, "total_off_chain_requests" numeric NOT NULL, "total_fees_paid_usd" numeric NOT NULL, CONSTRAINT "PK_8b4c940381151ff7dfc1bc34e9a" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "deliver_for_marketplace" ("id" character varying NOT NULL, "request_id" text NOT NULL, "request_id_bytes" text NOT NULL, "ipfs_hash_bytes" text, "mech_service_multisig" text, "delivery_rate" numeric, "is_marketplace" boolean, "is_off_chain" boolean, "deliver_id" character varying, CONSTRAINT "REL_c70087e0de61b7349c91cddbfc" UNIQUE ("deliver_id"), CONSTRAINT "PK_ace1802915683dcb530ff39a60e" PRIMARY KEY ("id"))`)
         await db.query(`CREATE UNIQUE INDEX "idx_deliver_for_marketplace_deliver_c307e38d" ON "deliver_for_marketplace" ("deliver_id") `)
-        await db.query(`CREATE TABLE "deliver" ("id" character varying NOT NULL, "request_id" character varying NOT NULL, "sender" text NOT NULL, "mech" text NOT NULL, "block_number" numeric NOT NULL, "block_timestamp" numeric NOT NULL, "transaction_hash" text NOT NULL, "service_id" character varying, CONSTRAINT "PK_4c71d3cf83816acf309a256350c" PRIMARY KEY ("id"))`)
-        await db.query(`CREATE INDEX "idx_deliver_request_id_9503b035" ON "deliver" ("request_id") `)
+        await db.query(`CREATE TABLE "deliver" ("id" character varying NOT NULL, "request_id_bytes" text NOT NULL, "sender" text NOT NULL, "mech" text NOT NULL, "block_number" numeric NOT NULL, "block_timestamp" numeric NOT NULL, "transaction_hash" text NOT NULL, "request_id" character varying, "service_id" character varying, CONSTRAINT "PK_4c71d3cf83816acf309a256350c" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "idx_deliver_request_id_bytes_9fbabb82" ON "deliver" ("request_id_bytes") `)
         await db.query(`CREATE INDEX "idx_deliver_mech_e79ac8c7" ON "deliver" ("mech") `)
         await db.query(`CREATE INDEX "idx_deliver_request_cd231148" ON "deliver" ("request_id") `)
         await db.query(`CREATE INDEX "idx_deliver_block_timestamp_4a213a99" ON "deliver" ("block_timestamp") `)
@@ -21,7 +21,7 @@ module.exports = class Data1789117192925 {
         await db.query(`CREATE INDEX "idx_request_block_timestamp_fb797995" ON "request" ("block_timestamp") `)
         await db.query(`CREATE INDEX "idx_request_transaction_hash_fd580601" ON "request" ("transaction_hash") `)
         await db.query(`CREATE INDEX "idx_request_service_12b44acd" ON "request" ("service_id") `)
-        await db.query(`CREATE TABLE "metadata" ("id" character varying NOT NULL, "service_id" character varying NOT NULL, "mech" text, "metadata" text NOT NULL, CONSTRAINT "PK_56b22355e89941b9792c04ab176" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "metadata" ("id" character varying NOT NULL, "service_id_raw" numeric NOT NULL, "mech" text, "metadata" text NOT NULL, "service_id" character varying, CONSTRAINT "PK_56b22355e89941b9792c04ab176" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_metadata_service_d020c7c9" ON "metadata" ("service_id") `)
         await db.query(`CREATE TABLE "mech" ("id" character varying NOT NULL, "address" text NOT NULL, "mech_factory" text NOT NULL, "config_hash" text, "owner" text NOT NULL, "total_deliveries_transactions" numeric NOT NULL, "received_requests" numeric NOT NULL, "self_delivered_from_received" numeric NOT NULL, "delivered_by_others_from_received" numeric NOT NULL, "max_delivery_rate" numeric, "max_delivery_rate_usd" numeric, "karma" numeric NOT NULL, "payment_type" text NOT NULL, "service_id" character varying, CONSTRAINT "REL_2956c082e0ca5a1486056b01bb" UNIQUE ("service_id"), CONSTRAINT "PK_4bfc2ee5ef5ed6a966e6f114a65" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_mech_address_74fa810f" ON "mech" ("address") `)
@@ -125,7 +125,7 @@ module.exports = class Data1789117192925 {
         await db.query(`DROP INDEX "public"."idx_deliver_block_timestamp_4a213a99"`)
         await db.query(`DROP INDEX "public"."idx_deliver_request_cd231148"`)
         await db.query(`DROP INDEX "public"."idx_deliver_mech_e79ac8c7"`)
-        await db.query(`DROP INDEX "public"."idx_deliver_request_id_9503b035"`)
+        await db.query(`DROP INDEX "public"."idx_deliver_request_id_bytes_9fbabb82"`)
         await db.query(`DROP TABLE "deliver"`)
         await db.query(`DROP INDEX "public"."idx_deliver_for_marketplace_deliver_c307e38d"`)
         await db.query(`DROP TABLE "deliver_for_marketplace"`)

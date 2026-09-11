@@ -301,12 +301,16 @@ negative.
 npm test
 ```
 
-vitest, no database: `tests/handlers.test.ts` drives the handlers against
+vitest, no database. `tests/handlers.test.ts` drives the handlers against
 an in-memory cache through the scenarios the subgraph's Matchstick suite
 covers (registry lifecycle, factory → CreateMech hand-off, on-chain
 request/delivery with the fee write-once guard, direct-to-mech path,
-off-chain signed batches, karma, foreign emitters). `tests/fee.test.ts`
-and `tests/logic.test.ts` cover the pure parts.
+off-chain signed batches, karma, foreign emitters). `tests/entityCache.test.ts`
+runs the real `EntityCache` against a store fake that, like TypeORM, returns
+rows without relations. `tests/rpc.test.ts` covers the Chainlink fallback
+chain with viem stubbed. `tests/schema.test.ts` asserts no scalar shares a
+column with a relation. `tests/fee.test.ts`, `tests/logic.test.ts` and
+`tests/decode.test.ts` cover the pure parts.
 
 ## Migration from the subgraph
 

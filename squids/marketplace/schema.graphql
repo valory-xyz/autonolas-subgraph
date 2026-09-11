@@ -1,39 +1,12 @@
-# SQD port of subgraphs/marketplace/schema.graphql, for chains graph-node
-# does not serve (first deployment: Robinhood Chain, 4663).
+# SQD port of subgraphs/marketplace/schema.graphql (first target: Robinhood
+# Chain, 4663). Field names match the subgraph's; the dialect deltas, the
+# dropped legacy/IPFS entities and the two renames are listed in MIGRATION.md.
 #
-# Dialect deltas from the graph-node schema, applied throughout:
-# - `Bytes` ids/fields -> `String` hex, lowercase (SQD normalizes log
-#   addresses to lowercase; every write must match).
-# - `@entity(immutable: true|false)` -> plain `@entity`. Immutability was a
-#   graph-node storage optimization; the TypeORM store has no equivalent.
-#   The write patterns it documented (write-once event rows, mutable
-#   aggregates) are unchanged in the handlers.
-# - `[BigInt!]!` -> `[Int!]!` (codegen has no BigInt arrays). Only
-#   `Service.agentIds` is affected; agent ids are small integers.
-# - Queried via OpenReader, not the Graph dialect: `limit`/`offset` instead
-#   of `first`/`skip`, `where: {id_eq: ...}`, `serviceById(id:)`. See
-#   MIGRATION.md.
-#
-# Dropped relative to the subgraph, deliberately:
-# - The legacy Gnosis AgentMech path (`MechAgent`, `MarketplaceMech`,
-#   `CreateAgent`, `UpdateAgentHash`, `RequestToMech`, `DeliverForMech`,
-#   `RequestsPerAgentOnchain`, `AgentMultisigAssociation`, the
-#   `Global.totalLegacy*` counters). No legacy mech exists on these chains.
-# - IPFS parsing (`ParsedRequest`, `ParsedDelivery`, `*.totalPredictRequests`).
-#   Request/delivery payloads are off-chain now; the raw 32-byte payload is
-#   still stored as `ipfsHashBytes`, nothing is fetched.
-# - `PendingMechData`: the factory event and the marketplace `CreateMech` are
-#   in one transaction, and a batch handler sees both in memory, so the
-#   hand-off is a per-batch Map instead of a table.
-# - `Transfer.internal_id` is `Transfer.serviceId` (OpenReader field names
-#   cannot contain underscores).
-# - Event-log rows for handlers no manifest ever wired (`ActivateRegistration`,
-#   `DeployService`, `Deposit`, `OwnerUpdated`, `MarketplaceParamsUpdated`,
-#   `SetMechFactoryStatuses`).
-#
-# Field names on the entities that remain are IDENTICAL to the subgraph's,
-# including the documented misnomers on `Sender` (`totalLegacyRequests` is
-# all-time requests across every path) — consumers filter/sum on them.
+# Store rule that shaped two names here: a scalar and a relation on the same
+# entity must not map to the same column. `Deliver.requestIdBytes` (not
+# `requestId`, which is the `request` relation's column) and
+# `Metadata.serviceIdRaw` (not `serviceId`, the `service` relation's column).
+# tests/schema.test.ts enforces it.
 
 enum FeeUnit {
   NATIVE
@@ -165,7 +138,7 @@ type RequestToMarketplace @entity {
 type Deliver @entity {
   # txHash-logIndex for on-chain deliveries; txHash-requestId for signed ones
   id: ID!
-  requestId: String! @index # raw bytes32 hex
+  requestIdBytes: String! @index # raw bytes32 hex; `request` is null for signed deliveries
   sender: String! # address
   mech: String! @index # address
   request: Request @index
@@ -223,7 +196,7 @@ type AtaTransaction @entity {
 
 type Metadata @entity {
   id: ID! # serviceId as decimal string
-  serviceId: BigInt!
+  serviceIdRaw: BigInt! # kept even when the Service row (and so `service`) is absent
   mech: String # address
   metadata: String! # bytes32 hash
   service: Service

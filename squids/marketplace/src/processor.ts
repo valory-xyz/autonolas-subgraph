@@ -17,19 +17,8 @@ import {
   START_BLOCK,
 } from "./constants";
 
-// ---------------------------------------------------------------------------
-// Where blocks come from: the SQD Portal, or the chain's JSON-RPC.
-//
-// `robinhood-mainnet` is a PRIVATE portal dataset — the public portal answers
-// 404 for it — so the portal path needs SQD_PORTAL_API_KEY (and, in
-// production, the private portal URL). The RPC path needs nothing but an
-// endpoint and works out of the box; it is slower on a backfill (every block
-// is fetched with its transactions) but fine at the head of a quiet chain,
-// and for Robinhood the whole tracked history is empty anyway.
-//
-//   INGEST_SOURCE=portal | rpc   explicit
-//   otherwise: portal when SQD_PORTAL_API_KEY is set, rpc when it is not
-// ---------------------------------------------------------------------------
+// Where blocks come from: INGEST_SOURCE=portal | rpc; unset = portal when
+// SQD_PORTAL_API_KEY is set, rpc otherwise. See README, "Where blocks come from".
 export type IngestSource = "portal" | "rpc";
 
 export function selectIngestSource(env: NodeJS.ProcessEnv = process.env): IngestSource {
@@ -41,8 +30,7 @@ export function selectIngestSource(env: NodeJS.ProcessEnv = process.env): Ingest
   return env.SQD_PORTAL_API_KEY ? "portal" : "rpc";
 }
 
-// SQD Portal endpoint. The key goes in the x-api-key header. Keep the private
-// URL out of the repo — infra sets it via env.
+// The private portal URL + key come from env; never commit them.
 const portalUrl = process.env.SQD_PORTAL_URL ?? CHAIN.portalDataset;
 const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
   ? {

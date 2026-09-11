@@ -1,17 +1,10 @@
-// The one eth_call this squid makes: Chainlink `latestRoundData()` on the
-// <native>/USD feed, behind the fee -> USD conversion. Event ingestion never
-// touches the RPC.
-//
-// Read AT THE EVENT'S BLOCK, as graph-node did — so a backfill reproduces
-// the prices the subgraph would have seen — with a documented fallback to
-// `latest` when the node cannot serve that block (pruned state). The
-// alternative failure modes are both worse: $0 loses the figure entirely,
-// and throwing stalls the whole indexer on a node that will never have the
-// state. USD totals are already documented as approximate lower bounds
-// ("may differ slightly between deployments due to price feed timing").
+// Chainlink `latestRoundData()` on the <native>/USD feed, read at the
+// event's block (graph-node semantics) with a logged fallback to `latest`
+// when the node cannot serve that block. See README, "About RPC_HTTP".
 
 import { createPublicClient, http } from "viem";
 import { CHAIN, CHAINLINK_PRICE_FEED_DECIMALS } from "./constants";
+import type { NativePrice, NativePriceSource } from "./fee";
 
 const primaryUrl = process.env.RPC_HTTP ?? CHAIN.defaultRpc;
 
@@ -49,30 +42,10 @@ const AGGREGATOR_V3_ABI = [
   },
 ] as const;
 
-export interface NativePrice {
-  /** Feed answer, fixed point with `decimals` decimals. */
-  answer: bigint;
-  decimals: number;
-}
-
 /**
- * What fee.ts consumes. The production implementation is `rpcPriceSource`;
- * tests inject a stub. `null` means "no price available" and converts to $0
- * with a warning (the subgraph's `.reverted` branch).
- */
-export interface NativePriceSource {
-  usdPerNative(blockNumber: bigint): Promise<NativePrice | null>;
-}
-
-/**
- * True only when the contract genuinely reverted or has no code — a
- * permanent property of the target, and the subgraph's `try_*` .reverted
- * branch. Anything else (timeout, 5xx, rate limit, a pruned node refusing
- * historical state) is a node problem, not a feed problem.
- *
- * Checking `err.name` at the top is NOT enough: viem wraps every failure —
- * HTTP errors included — in a ContractFunctionExecutionError. Walk the cause
- * chain for the two errors that actually mean "the call failed on-chain".
+ * True only for a genuine revert / no code (the subgraph's `.reverted`).
+ * viem wraps every failure, HTTP errors included, in a
+ * ContractFunctionExecutionError, so walk the cause chain.
  */
 export function isRevert(err: unknown): boolean {
   let e: unknown = err;
@@ -134,16 +107,9 @@ async function readDecimals(): Promise<number> {
 }
 
 /**
- * <native>/USD at `blockNumber`.
- *
- * Order of attempts, each only on a NON-revert failure of the previous:
- *   1. primary, pinned to the block
- *   2. fallback (if configured), pinned to the block
- *   3. primary at `latest` — logged, because the figure is now "price at
- *      indexing time" rather than "price at the event"
- * A revert anywhere returns null (-> $0, warned by the caller). If even step
- * 3 fails the error propagates and SQD retries the batch — that is a
- * transport outage, not a data condition.
+ * <native>/USD at `blockNumber`. On a NON-revert failure: primary pinned ->
+ * fallback pinned -> primary at `latest` (logged). A revert anywhere returns
+ * null (-> $0). If `latest` fails too the error propagates (batch retry).
  */
 export async function readNativeUsd(
   blockNumber: bigint
@@ -200,14 +166,7 @@ export const rpcPriceSource: NativePriceSource = {
   usdPerNative: readNativeUsd,
 };
 
-/**
- * Startup probe. Not a hard gate (unlike pearl-transactions, whose Safe
- * owner reads are irreparable without archive state): here a pruned node
- * only degrades historical USD figures to current prices, which
- * readNativeUsd handles and logs per block. This just says so up front,
- * once, with the endpoint named — so an operator running a backfill knows
- * before the warnings start.
- */
+/** Startup probe: says once whether RPC_HTTP can serve historical state. Not a gate. */
 export async function probeRpc(): Promise<void> {
   if (feedAddress == null) {
     console.info(

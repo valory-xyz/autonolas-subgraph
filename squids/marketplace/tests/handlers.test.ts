@@ -336,6 +336,28 @@ describe("on-chain marketplace request -> delivery", () => {
     expect(cache.count(MarketplaceRequest)).toBe(1);
   });
 
+  it("a mech Request log arriving AFTER MarketplaceRequest still attaches its payload", async () => {
+    const m = meta({ marketplaceTx: true, txFrom: MULTISIG_1 });
+    await h.handleMarketplaceRequest(ctx, { ...m, address: MARKETPLACE, logIndex: 0 }, {
+      priorityMech: MECH_A,
+      requester: MULTISIG_1,
+      numRequests: 1n,
+      requestIds: [rid(5)],
+    });
+    expect((await cache.get(RequestToMarketplace, rid(5)))!.ipfsHashBytes).toBeUndefined();
+    await h.handleMechRequest(ctx, { ...m, address: MECH_A, logIndex: 1 }, {
+      requestId: rid(5),
+      data: payload32(5),
+    });
+    const rtm = (await cache.get(RequestToMarketplace, rid(5)))!;
+    expect(rtm.ipfsHashBytes).toBe(payload32(5));
+    expect(rtm.isMarketplace).toBe(true);
+    expect(ctx.pendingRequestPayloads.size).toBe(0);
+    // and the marketplace-path Request was not re-populated from tx.from
+    expect((await cache.get(Request, rid(5)))!.sender.id).toBe(MULTISIG_1);
+    expect(cache.count(Request)).toBe(1);
+  });
+
   it("a non-multisig requester gets no service, no ATA, no per-agent count", async () => {
     await marketplaceRequest(REQUESTER_EOA, [rid(3)]);
     const r = (await cache.get(Request, rid(3)))!;
@@ -605,6 +627,31 @@ describe("off-chain signed deliveries", () => {
     expect((await global()).totalAtaTransactions).toBe(1n);
     expect((await cache.get(Sender, REQUESTER_EOA))!.totalLegacyAtaTransactions).toBe(0n);
     expect(cache.count(RequestsPerAgent)).toBe(0);
+  });
+
+  it("a repeated signed Deliver for the same request is idempotent (write-once fee, one row)", async () => {
+    const m = meta({ marketplaceTx: true, txFrom: MULTISIG_1 });
+    await h.handleMarketplaceRequest(ctx, { ...m, address: MARKETPLACE }, {
+      priorityMech: MECH_A,
+      requester: MULTISIG_1,
+      numRequests: 1n,
+      requestIds: [rid(1)],
+    });
+    const d = meta({ marketplaceTx: true, txFrom: MULTISIG_2 });
+    const params = {
+      mech: MECH_A,
+      mechServiceMultisig: MULTISIG_2,
+      requestId: rid(1),
+      deliveryRate: 10n ** 16n,
+      deliveryData: payload32(1),
+    };
+    await h.handleDeliverWithSignatures(ctx, { ...d, address: MARKETPLACE, logIndex: 0 }, params);
+    await h.handleDeliverWithSignatures(ctx, { ...d, address: MARKETPLACE, logIndex: 1 }, params);
+    expect((await cache.get(Request, rid(1)))!.finalFeeUSD!.toString()).toBe("20");
+    expect((await cache.get(Sender, MULTISIG_1))!.totalFeesPaidUSD.toString()).toBe("20");
+    expect((await global()).totalFeesPaidUSD.toString()).toBe("20");
+    expect(cache.count(Deliver)).toBe(1); // keyed txHash-requestId, not by log
+    expect(cache.count(DeliverForMarketplace)).toBe(1);
   });
 
   it("a signed delivery of an on-chain marketplace request finalizes its fee once", async () => {
