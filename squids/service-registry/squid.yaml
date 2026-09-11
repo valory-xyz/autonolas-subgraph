@@ -1,0 +1,27 @@
+manifestVersion: subsquid.io/v0.1
+name: service-registry
+version: 1
+description: >-
+  Olas Service Registry on Robinhood Chain (4663): services, multisigs,
+  ERC-8004 links and daily agent activity. SQD port of the service-registry
+  subgraph in autonolas-subgraph-studio.
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]

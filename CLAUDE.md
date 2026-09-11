@@ -24,7 +24,8 @@ subgraphs/
 
 squids/
 ├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
-└── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
+├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
+└── service-registry/    # SQD indexer for the Service Registry on Robinhood Chain (4663)
 ```
 
 Each subgraph is an independent package with its own `package.json`, `schema.graphql`, and manifest files (`subgraph.*.yaml`).
