@@ -91,7 +91,8 @@ Consumers written against the subgraph need those three changes.
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the `robinhood-mainnet` dataset; an override must name the same dataset or the processor refuses to start |
+| `SERVICE_REGISTRY_CHAIN` | Which `CHAINS` entry in `src/constants.ts` this deployment indexes. Default `robinhood`; an unknown name refuses to start |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the chain's dataset; an override must name the same dataset or the processor refuses to start |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required**: the processor refuses to start without it |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
@@ -116,7 +117,8 @@ safe — restart it and it continues from the checkpoint.
 
 ## Production
 
-One Docker image (see `Dockerfile`), three workloads — full example in
+One Docker image (`../Dockerfile`, built from the repo root with
+`--build-arg SQUID=<this folder>`), three workloads — full example in
 `deploy/k8s-example.yaml`. Strict rules:
 
 - **Run exactly one processor.** Two processors writing to one database
@@ -142,5 +144,13 @@ Handlers take plain decoded parameters and the `IEntityCache` interface, so
 ## Adding a chain
 
 Add an entry to `CHAINS` in `src/constants.ts` (portal dataset, registry and
-bridger addresses, start block) and point `CHAIN` at it. One deployment is
-one chain.
+bridger addresses, start block), set `SERVICE_REGISTRY_CHAIN` to its key and
+deploy against a fresh database. One deployment is one chain; nothing else
+in the code names a chain.
+
+## Shared code
+
+Chain selection and the entity cache come from [`../_shared`](../_shared)
+(`@olas/squid-shared`, installed via `file:../_shared`). Build it before this
+squid: `cd ../_shared && npm ci && npm run build`. The shared `../Dockerfile` does
+the same, which is why the image build context is the repo root.

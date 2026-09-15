@@ -14,18 +14,8 @@ import {
  * graph-node's ambient `event`. Addresses are lowercase; timestamps are Unix
  * SECONDS (SQD block headers are ms — see decode.ts).
  */
-export interface EventMeta {
-  blockNumber: bigint;
-  blockTimestamp: bigint;
-  txHash: string;
-  logIndex: number;
-  /** `tx.from` — the subgraph's `event.transaction.from`. Null if not fetched. */
-  txFrom: string | null;
-  /** `tx.to` — the subgraph's `event.transaction.to`. Null for contract creation or if not fetched. */
-  txTo: string | null;
-  /** The contract that emitted the log. */
-  address: string;
-}
+/** Event metadata, the shared helper's shape (see @olas/squid-shared). */
+export type { EventMeta } from "@olas/squid-shared";
 
 // --- Ids ----------------------------------------------------------------
 

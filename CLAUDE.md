@@ -25,17 +25,30 @@ subgraphs/
 squids/
 ├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
 ├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
-├── service-registry/    # SQD indexer for the Service Registry on Robinhood Chain (4663)
-└── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
+├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
+├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
+├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
+├── mech-fees/           # SQD indexer for mech marketplace fees per payment model (Robinhood first; chain via MECH_FEES_CHAIN)
+└── _shared/             # @olas/squid-shared: chain selection, RPC + Chainlink/DEX pricing, entity cache (file:../_shared)
 ```
 
 Each subgraph is an independent package with its own `package.json`, `schema.graphql`, and manifest files (`subgraph.*.yaml`).
 
 ## Squids (SQD indexers)
 
+`squids/_shared` (`@olas/squid-shared`) is consumed by the other squids via
+`"file:../_shared"`. Two consequences: (1) each consumer's `package-lock.json`
+embeds `_shared`'s dependency list, so after changing `_shared/package.json`
+run `npm install` in every consumer (service-registry, marketplace,
+liquidity, mech-fees) or `npm ci` fails in CI; (2) Node resolves the link to
+its real path, so `viem` and `@subsquid/big-decimal` exist twice at runtime
+(`_shared/node_modules` and the squid's) — keep their pins identical across
+the five `package.json`s. One `squids/Dockerfile` builds any squid
+(`--build-arg SQUID=<folder>`, repo root as context).
+
 `squids/` holds indexers built on the SQD (Subsquid) Squid SDK — used where
 graph-node cannot keep up with chain-wide event volume. They are npm packages
-(not yarn) and deploy as Docker images (see each squid's `Dockerfile`,
+(not yarn) and deploy as Docker images (see `squids/Dockerfile`, each squid's
 `deploy/k8s-example.yaml`, and README), not via the subgraph deploy workflows.
 
 `squids/predict-polymarket` supersedes `subgraphs/predict-polymarket`. Key
@@ -113,7 +126,8 @@ easy to trip over:
 
 CI: `build-squid-image.yaml` builds/pushes the Docker image (manual
 workflow_dispatch with `squid` + `version` inputs — `squid` is the folder
-name under `squids/`, validated and checked for a Dockerfile, mirroring
+name under `squids/`, validated by its `package.json` and passed to
+`squids/Dockerfile` as `SQUID`, mirroring
 `deploy-subgraph.yaml`'s `subgraph` input);
 `supply-chain.yml` has a dedicated npm-flavored `squid-audit` job
 (npm audit + lockfile-lint) since the yarn matrices don't cover npm trees.

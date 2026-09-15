@@ -1,0 +1,27 @@
+manifestVersion: subsquid.io/v0.1
+name: liquidity
+version: 1
+description: >-
+  OLAS protocol-owned liquidity pools on one L2: reserves, LP supply, LP
+  transfers and swap fees. SQD port of the liquidity-l2 subgraph in
+  autonolas-subgraph-studio; one deployment = one chain (LIQUIDITY_CHAIN).
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]

@@ -4,60 +4,23 @@
 // cache's relation-loading path is exercised against a real store, not
 // here).
 import {
-  CacheLogger,
-  Entity,
-  EntityClass,
-  IEntityCache,
-} from "../src/entityCache";
+  InMemoryCache as SharedInMemoryCache,
+  type Entity,
+  type EntityClass,
+} from "@olas/squid-shared";
 import { Ctx, newBatchState } from "../src/handlers";
 import { NO_PRICE_SOURCE, NativePriceSource } from "../src/fee";
 import { EventMeta } from "../src/logic";
 
-export class InMemoryCache implements IEntityCache {
-  store = new Map<string, Map<string, Entity>>();
-  warnings: string[] = [];
-  errors: string[] = [];
-  log: CacheLogger = {
-    warn: (msg: string) => this.warnings.push(msg),
-    info: () => {},
-    error: (msg: string) => this.errors.push(msg),
-  };
-
-  private bucket(name: string): Map<string, Entity> {
-    let b = this.store.get(name);
-    if (b == null) {
-      b = new Map();
-      this.store.set(name, b);
-    }
-    return b;
-  }
-
-  async get<T extends Entity>(
-    cls: EntityClass<T>,
-    id: string,
-    _relations?: string[]
-  ): Promise<T | undefined> {
-    return this.bucket(cls.name).get(id) as T | undefined;
-  }
-
-  set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
-    this.bucket(cls.name).set(entity.id, entity);
-  }
-
-  async flush(): Promise<void> {}
-
-  all<T extends Entity>(cls: EntityClass<T>): T[] {
-    return [...this.bucket(cls.name).values()] as T[];
-  }
-
+export class InMemoryCache extends SharedInMemoryCache {
   count(cls: EntityClass<any>): number {
-    return this.bucket(cls.name).size;
+    return this.all(cls).length;
   }
 }
 
 /** A fixed price: $2,000.00 per native unit, 8-decimal feed. */
 export const TWO_K_USD: NativePriceSource = {
-  usdPerNative: async () => ({ answer: 200_000_000_000n, decimals: 8 }),
+  usdAt: async () => ({ answer: 200_000_000_000n, decimals: 8 }),
 };
 
 /**

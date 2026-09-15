@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@olas/squid-shared": "file:../_shared",
     "@subsquid/batch-processor": "1.1.0",
     "@subsquid/big-decimal": "1.0.0",
     "@subsquid/evm-abi": "1.0.0",

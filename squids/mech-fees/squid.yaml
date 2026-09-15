@@ -1,0 +1,28 @@
+manifestVersion: subsquid.io/v0.1
+name: mech-fees
+version: 1
+description: >-
+  Mech marketplace fees per payment model (native, NVM credits, OLAS, USDC/USDG):
+  every accrual, withdrawal and protocol drain on the balance trackers, in raw
+  units and USD. SQD port of the new-mech-fees subgraph. One deployment = one
+  chain (MECH_FEES_CHAIN).
+build:
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd: ["node", "lib/main.js"]
+  api:
+    cmd:
+      [
+        "npx",
+        "squid-graphql-server",
+        "--dumb-cache",
+        "in-memory",
+        "--dumb-cache-ttl",
+        "1000",
+        "--dumb-cache-size",
+        "100",
+        "--dumb-cache-max-age",
+        "1000",
+      ]

@@ -1,0 +1,27 @@
+{
+  "name": "@olas/squid-shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code shared by the squids in this folder: chain selection, RPC reads with fallback, Chainlink / DEX pricing, time helpers, entity cache.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "rm -rf lib && tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@subsquid/big-decimal": "1.0.0",
+    "viem": "2.55.10"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  },
+  "overrides": {
+    "vitest": "4.1.0"
+  }
+}

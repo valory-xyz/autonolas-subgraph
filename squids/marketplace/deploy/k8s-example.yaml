@@ -1,5 +1,5 @@
 # Example spec for the infra team — adapt to the ArgoCD/Helm conventions of
-# internal-infrastructure. One image (see Dockerfile), three workloads.
+# internal-infrastructure. One image (squids/Dockerfile), three workloads.
 # Names carry the chain because one image serves any configured chain; a
 # second chain is a second copy of this file with its own database.
 #

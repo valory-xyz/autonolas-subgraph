@@ -7,6 +7,7 @@ import { run } from "@subsquid/batch-processor";
 import { augmentBlock } from "@subsquid/evm-objects";
 import { createLogger } from "@subsquid/logger";
 import { dataSource } from "./processor";
+import { lc } from "@olas/squid-shared";
 import { EntityCache } from "./entityCache";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as metadata from "./abi/ComplementaryServiceMetadata/events";
@@ -27,7 +28,6 @@ import {
   SERVICE_REGISTRY_L2,
 } from "./constants";
 
-const lc = (s: string) => s.toLowerCase();
 
 // run() ctx carries no logger; create our own.
 const logger = createLogger("sqd:processor:mapping");

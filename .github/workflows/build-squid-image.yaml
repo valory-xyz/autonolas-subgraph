@@ -53,8 +53,8 @@ jobs:
         env:
           INPUT_SQUID: ${{ inputs.squid }}
         run: |
-          if [ ! -f "./squids/$INPUT_SQUID/Dockerfile" ]; then
-            echo "❌ No Dockerfile at squids/$INPUT_SQUID — available squids:"
+          if [ ! -f "./squids/$INPUT_SQUID/package.json" ]; then
+            echo "❌ No squid at squids/$INPUT_SQUID — available squids:"
             ls -1 ./squids
             exit 1
           fi
@@ -78,7 +78,13 @@ jobs:
 
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
-          context: ./squids/${{ inputs.squid }}
+          # One Dockerfile for all squids, built from the repo root so
+          # squids/_shared ("file:../_shared") is inside the context.
+          # .dockerignore at the root keeps the context small.
+          context: .
+          file: ./squids/Dockerfile
+          build-args: |
+            SQUID=${{ inputs.squid }}
           push: true
           # our nodes are amd64; keeps a stray arm64 runner (or local buildx
           # defaults) from ever producing an exec-format-error image

@@ -38,7 +38,7 @@ describe("convertFeeToUsd", () => {
   it("passes the block number through to the price source", async () => {
     const seen: bigint[] = [];
     const src = {
-      usdPerNative: async (b: bigint) => {
+      usdAt: async (b: bigint) => {
         seen.push(b);
         return { answer: 100_000_000n, decimals: 8 };
       },

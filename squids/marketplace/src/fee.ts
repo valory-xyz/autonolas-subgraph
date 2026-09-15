@@ -1,8 +1,12 @@
 // Fee -> USD (subgraph fee-utils.ts, reduced to native-via-Chainlink and a
 // 6-decimal stablecoin at 1:1). TOKEN / CREDITS have no price source on
 // these chains and convert to $0 with a warning. Every failure yields $0.
+//
+// The price source and the arithmetic live in @olas/squid-shared; this
+// module only maps the marketplace's fee units onto them.
 
 import { BigDecimal } from "@subsquid/big-decimal";
+import { NO_PRICE_SOURCE, ZERO_USD, pow10, stableToUsd, toUsd, type UsdPrice, type UsdPriceSource } from "@olas/squid-shared";
 import {
   CHAIN,
   FEE_UNIT_CREDITS,
@@ -12,31 +16,17 @@ import {
   FeeUnitName,
 } from "./constants";
 
-export interface NativePrice {
-  /** Feed answer, fixed point with `decimals` decimals. */
-  answer: bigint;
-  decimals: number;
-}
+/** Feed answer, fixed point with `decimals` decimals. */
+export type NativePrice = UsdPrice;
 
 /**
- * Where the native price comes from. Production wires `rpcPriceSource`
- * (src/rpc.ts); tests inject a stub. `null` = no price available, which
- * converts to $0 with a warning (the subgraph's `.reverted` branch).
+ * Where the native price comes from. Production wires the shared
+ * `ChainlinkSource` (src/rpc.ts); tests inject a stub. `null` = no price
+ * available, which converts to $0 with a warning (the subgraph's `.reverted`).
  */
-export interface NativePriceSource {
-  usdPerNative(blockNumber: bigint): Promise<NativePrice | null>;
-}
+export type NativePriceSource = UsdPriceSource;
 
-/** A source for chains without a feed, and for tests. */
-export const NO_PRICE_SOURCE: NativePriceSource = {
-  usdPerNative: async () => null,
-};
-
-export const ZERO_USD = BigDecimal(0);
-
-export function pow10(n: number): BigDecimal {
-  return BigDecimal(10).pow(n);
-}
+export { NO_PRICE_SOURCE, ZERO_USD, pow10 };
 
 export async function convertFeeToUsd(
   feeRaw: bigint,
@@ -47,7 +37,7 @@ export async function convertFeeToUsd(
 ): Promise<BigDecimal> {
   switch (feeUnit) {
     case FEE_UNIT_NATIVE: {
-      const p = await price.usdPerNative(blockNumber);
+      const p = await price.usdAt(blockNumber);
       if (p == null) {
         log.warn(
           `[fee] native/USD price unavailable at block ${blockNumber} on ` +
@@ -55,13 +45,10 @@ export async function convertFeeToUsd(
         );
         return ZERO_USD;
       }
-      return BigDecimal(feeRaw)
-        .times(BigDecimal(p.answer))
-        .div(pow10(p.decimals))
-        .div(pow10(CHAIN.nativeDecimals));
+      return toUsd(feeRaw, CHAIN.nativeDecimals, p);
     }
     case FEE_UNIT_USDC:
-      return BigDecimal(feeRaw).div(pow10(CHAIN.usdcDecimals));
+      return stableToUsd(feeRaw, CHAIN.usdcDecimals);
     case FEE_UNIT_TOKEN:
       log.warn(
         `[fee] OLAS (TOKEN) pricing is not available on ${CHAIN.name}; ` +
