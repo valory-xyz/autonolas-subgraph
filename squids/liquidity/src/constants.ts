@@ -7,7 +7,7 @@
 // chain moved here re-indexes to the same data. Only Robinhood is deployed
 // today; the other entries are inputs, not deployments.
 
-import { selectChain } from "@olas/squid-shared";
+import { type Address, BALANCER_VAULT, selectChain } from "@olas/squid-shared";
 
 export type ChainName =
   | "robinhood"
@@ -22,7 +22,7 @@ export type DexKind = "balancer-v2" | "uniswap-v2";
 
 export interface PoolConfig {
   /** LP token / pool contract, lowercase. */
-  address: string;
+  address: Address;
   dex: DexKind;
   startBlock: number;
 }
@@ -36,12 +36,13 @@ export interface ChainConfig {
   defaultRpc: string;
   pools: PoolConfig[];
   /** Balancer V2 Vault; the same address on every chain that has one. */
-  balancerVault: string;
+  balancerVault: Address;
   /** Chainlink AggregatorV3 for <native>/USD, or null (nativeUsdPrice stays 0). */
-  nativeUsdFeed: string | null;
+  nativeUsdFeed: Address | null;
 }
 
-export const BALANCER_VAULT = "0xba12222222228d8ba445958a75a0704d566bf2c8";
+// Re-exported so this file stays the one place a chain config reads from.
+export { BALANCER_VAULT };
 
 export const CHAINS: Record<ChainName, ChainConfig> = {
   robinhood: {

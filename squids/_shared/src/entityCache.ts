@@ -39,10 +39,14 @@ export interface IEntityCache {
 }
 
 /**
- * Assert a FLUSH_ORDER lists every entity class exported by `models`.
- * flush() only visits what is listed, while set() accepts any class, so an
- * entity missing from the order is cached in memory, never written, and
+ * Assert a FLUSH_ORDER lists every entity class exported by `models`, exactly
+ * once. flush() only visits what is listed while set() accepts any class, so
+ * an entity missing from the order is cached in memory, never written, and
  * never errors. Call at module load.
+ *
+ * Ordering is the other half of the invariant and is checked separately by
+ * {@link assertFlushOrderIsFkSafe}, which each squid's test drives from its
+ * own typeorm metadata.
  */
 export function assertFlushOrderExhaustive(
   models: Record<string, unknown>,
@@ -63,6 +67,37 @@ export function assertFlushOrderExhaustive(
         `unknown [${unknown.join(", ")}], duplicates ${flushOrder.length - listed.size}. ` +
         `An entity absent from FLUSH_ORDER is silently never persisted — add it ` +
         `after everything it references.`
+    );
+  }
+}
+
+/**
+ * Every owning-side relation must point at a class written earlier in
+ * `flushOrder`; an entity listed before something it references writes its FK
+ * first, which only fails when Postgres rejects the upsert on a real store.
+ *
+ * `relations` is passed in rather than read here: this package deliberately
+ * does not depend on typeorm (see `StoreLike` above), and a second copy of it
+ * would carry its own empty metadata storage and silently find nothing. Each
+ * squid's test extracts the pairs from its own typeorm and calls this. Self
+ * references are ignored — a row pointing at its own table is ordered within
+ * the batch, not by `flushOrder`.
+ */
+export function assertFlushOrderIsFkSafe(
+  flushOrder: EntityClass<any>[],
+  relations: { from: string; to: string; property: string }[]
+): void {
+  const position = new Map(flushOrder.map((c, i) => [c.name, i]));
+  const violations = relations
+    .filter(({ from, to }) => from !== to && position.has(from) && position.has(to))
+    .filter(({ from, to }) => position.get(to)! > position.get(from)!)
+    .map(({ from, to, property }) => `${from}.${property} -> ${to}`);
+
+  if (violations.length) {
+    throw new Error(
+      `FLUSH_ORDER is not FK-safe: [${violations.join(", ")}] reference entities ` +
+        `written later in the order. Postgres rejects the upsert on a real store; ` +
+        `move each referenced entity before the one that references it.`
     );
   }
 }

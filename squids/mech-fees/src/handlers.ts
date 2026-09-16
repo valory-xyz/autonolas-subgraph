@@ -217,7 +217,12 @@ async function recordFeeOut(
 
 // --- handlers ----------------------------------------------------------------
 
-/** null = skip the event, as the subgraph `return`s when a price is missing or zero. */
+/**
+ * Per-model pricing for a fee-in, with a different null policy per arm:
+ * native and USDC return null to skip the event, as the subgraph `return`s
+ * when a price is missing. NVM treats a null as a config error and throws.
+ * OLAS coalesces a null to zero and records it, so it never skips.
+ */
 async function priceFeeIn(ctx: Ctx, meta: EventMeta, model: Model, amount: bigint): Promise<BigDecimal | null> {
   switch (model) {
     case MODEL_NATIVE: {

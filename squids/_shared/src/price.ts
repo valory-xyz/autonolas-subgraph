@@ -3,7 +3,7 @@
 // and callers turn null into $0 with a warning — graph-node's `.reverted`.
 
 import { BigDecimal } from "@subsquid/big-decimal";
-import { BlockMemo, Rpc } from "./rpc";
+import { BlockMemo, isRevert, Rpc } from "./rpc";
 
 export const ZERO_USD = BigDecimal(0);
 export const CHAINLINK_DECIMALS_DEFAULT = 8;
@@ -86,15 +86,26 @@ export class ChainlinkSource implements UsdPriceSource {
         )
       );
     } catch (err) {
+      // Deliberately not cached: one RPC hiccup during a cold backfill would
+      // otherwise pin an 18-decimal feed to 8 for the life of the process and
+      // mis-scale every later price by 1e10. Retry on the next call instead.
       this.log.warn(
         `[price] ${this.feed}.decimals() failed (${String((err as Error)?.message ?? err).split("\n")[0]}); ` +
-          `assuming ${CHAINLINK_DECIMALS_DEFAULT}`
+          `assuming ${CHAINLINK_DECIMALS_DEFAULT} for this read`
       );
-      this.decimals = CHAINLINK_DECIMALS_DEFAULT;
+      return CHAINLINK_DECIMALS_DEFAULT;
     }
     return this.decimals;
   }
 
+  /**
+   * Price at `blockNumber`, or null when the feed has nothing usable to say.
+   *
+   * Not a freshness check: a feed that keeps returning its last good answer
+   * past its heartbeat still reads as valid here, because the heartbeat is
+   * per-feed and not configured. What is caught is an unusable answer and a
+   * round that has not been answered yet.
+   */
   async usdAt(blockNumber: bigint): Promise<UsdPrice | null> {
     const hit = this.memo.get(this.feed, blockNumber);
     if (hit != null) return hit;
@@ -108,6 +119,28 @@ export class ChainlinkSource implements UsdPriceSource {
       })
     );
     if (round == null) return null;
+    // A non-positive answer is not a price. Zero is what a feed returns for a
+    // block predating its first round; negative would decrement the running
+    // USD totals rather than skip. Filtered here so neither squid has to
+    // remember to do it at the call site.
+    // latestRoundData() is (roundId, answer, startedAt, updatedAt, answeredInRound).
+    if (round[1] <= 0n) {
+      this.log.warn(
+        `[price] ${this.feed} answered ${round[1]} at block ${blockNumber}; not a usable price`
+      );
+      return null;
+    }
+    // A round still in progress carries the previous round's answer. Skipping
+    // it is the same policy as a missing price rather than shipping a stale
+    // figure that looks plausible. This does not catch a feed that is merely
+    // slow — that needs the per-feed heartbeat, see the note in usdAt's doc.
+    if (round[4] < round[0]) {
+      this.log.warn(
+        `[price] ${this.feed} round ${round[0]} not yet answered (answeredInRound ` +
+          `${round[4]}) at block ${blockNumber}; skipping rather than using a stale answer`
+      );
+      return null;
+    }
     return this.memo.set(this.feed, blockNumber, { answer: round[1], decimals });
   }
 }
@@ -155,16 +188,24 @@ export class BalancerPool {
   constructor(
     private readonly rpc: Rpc,
     readonly pool: `0x${string}`,
-    readonly vault: `0x${string}` = BALANCER_VAULT
+    readonly vault: `0x${string}` = BALANCER_VAULT,
+    private readonly log: { warn(msg: string): void } = console
   ) {}
 
+  /**
+   * Pool id, memoized. A revert means this address is not a Balancer pool and
+   * yields null; anything else is re-thrown so SQD retries the batch, rather
+   * than letting a transport failure read as "no such pool".
+   */
   async getPoolId(): Promise<`0x${string}` | null> {
     if (this.poolId != null) return this.poolId;
     try {
       this.poolId = await this.rpc.latest((c) =>
         c.readContract({ address: this.pool, abi: BALANCER_POOL_ABI, functionName: "getPoolId" })
       );
-    } catch {
+    } catch (err) {
+      if (!isRevert(err)) throw err;
+      this.log.warn(`[price] ${this.pool}.getPoolId() reverted; not a Balancer pool`);
       return null;
     }
     return this.poolId;
@@ -253,8 +294,18 @@ export class UniswapV2Pair {
   private tokens: [string, string] | null = null;
   private readonly memo = new BlockMemo<PoolReserves>();
 
-  constructor(private readonly rpc: Rpc, readonly pair: `0x${string}`) {}
+  constructor(
+    private readonly rpc: Rpc,
+    readonly pair: `0x${string}`,
+    private readonly log: { warn(msg: string): void } = console
+  ) {}
 
+  /**
+   * Both token addresses, memoized and lowercased. As with
+   * {@link BalancerPool.getPoolId}, only a revert yields null; a transport
+   * failure is re-thrown so the batch retries instead of leaving the pool's
+   * token identity unset with no trace.
+   */
   async getTokens(): Promise<[string, string] | null> {
     if (this.tokens != null) return this.tokens;
     try {
@@ -263,7 +314,9 @@ export class UniswapV2Pair {
         this.rpc.latest((c) => c.readContract({ address: this.pair, abi: UNISWAP_V2_PAIR_ABI, functionName: "token1" })),
       ]);
       this.tokens = [t0.toLowerCase(), t1.toLowerCase()];
-    } catch {
+    } catch (err) {
+      if (!isRevert(err)) throw err;
+      this.log.warn(`[price] ${this.pair} token0()/token1() reverted; not a Uniswap V2 pair`);
       return null;
     }
     return this.tokens;

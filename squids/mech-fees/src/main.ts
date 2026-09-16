@@ -17,28 +17,21 @@ import { CHAIN, INDEXER_STATUS_ID, START_BLOCK, type Model } from "./constants";
 import type { Ctx } from "./handlers";
 
 const logger = createLogger("sqd:processor:mapping");
-const log = {
-  warn: (m: string) => logger.warn(m),
-  info: (m: string) => logger.info(m),
-  error: (m: string) => logger.error(m),
-};
-
-const rpc = Rpc.fromEnv(CHAIN.defaultRpc, log);
-const { native, olasQuote } = makeSources(rpc, log);
-const pricing = makePricing(CHAIN, native, olasQuote, log);
+const rpc = Rpc.fromEnv(CHAIN.defaultRpc, logger);
+const { native, olasQuote } = makeSources(rpc, logger);
+const pricing = makePricing(CHAIN, native, olasQuote, logger);
 const modelByTracker = new Map<string, Model>(CHAIN.trackers.map((t) => [t.address, t.model]));
 
-// Informational: says once whether RPC_HTTP can serve historical state.
 const probed =
   CHAIN.nativeUsdFeed == null
     ? Promise.resolve()
-    : rpc.probeArchive(CHAIN.nativeUsdFeed as `0x${string}`, BigInt(START_BLOCK));
+    : rpc.probeArchive(CHAIN.nativeUsdFeed, BigInt(START_BLOCK));
 
 run(dataSource, new TypeormDatabase({ supportHotBlocks: true }), async (sqd) => {
   await probed;
   const cache = new EntityCache(sqd.store, FLUSH_ORDER);
-  cache.log = log;
-  const ctx: Ctx = { cache, chain: CHAIN, pricing, log };
+  cache.log = logger;
+  const ctx: Ctx = { cache, chain: CHAIN, pricing, log: logger };
 
   for (const block of sqd.blocks.map(augmentBlock)) {
     for (const rawLog of block.logs) {

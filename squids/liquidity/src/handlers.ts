@@ -175,7 +175,14 @@ export async function handleUniswapSync(
   m.reserve1 = p.reserve1;
   if (m.token0 == null || m.token1 == null) {
     const tokens = await ctx.pair(meta.address).getTokens();
-    if (tokens != null) {
+    if (tokens == null) {
+      // Same underlying failure the Balancer swap path warns about; without
+      // this, token0/token1 stay null indefinitely with no trace on the
+      // Uniswap side alone.
+      ctx.cache.log.warn(
+        `[liquidity] pool ${meta.address} sync: token addresses unset`
+      );
+    } else {
       m.token0 = tokens[0];
       m.token1 = tokens[1];
     }

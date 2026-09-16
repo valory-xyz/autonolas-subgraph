@@ -1,7 +1,8 @@
 // JSON-RPC reads at a pinned block with a fallback chain, shared by every
 // squid that converts amounts to USD during indexing:
 //
-//   primary pinned to the block -> fallback pinned -> primary at `latest` (warned)
+//   primary pinned to the block -> fallback pinned -> `latest` (warned),
+//   primary then fallback
 //
 // A genuine revert (no code, empty return) anywhere returns null so the
 // caller can record $0, as graph-node's `.reverted` did. Any other failure at
@@ -17,6 +18,32 @@ export interface RpcOptions {
 }
 
 export type Logger = { warn(msg: string): void; info(msg: string): void };
+
+/**
+ * A 0x-prefixed contract address, the shape viem's readers require. Config
+ * tables use this rather than `string` so a literal that is not an address at
+ * all fails at module load instead of at an RPC call three files away, and so
+ * the readers need no cast at the call site. Lowercasing is a separate rule
+ * the per-squid constants tests enforce.
+ */
+export type Address = `0x${string}`;
+
+/**
+ * Narrow a runtime string to an {@link Address}, throwing if it is not one.
+ *
+ * Config literals are typed `Address` directly and need no call. Use this
+ * where an address arrives as untyped data — a log address from the portal,
+ * an env var — so a malformed value fails here rather than as a silent
+ * no-match against a contract that does not exist.
+ */
+export function asAddress(value: string): Address {
+  if (!/^0x[0-9a-f]{40}$/.test(value)) {
+    throw new Error(
+      `not a lowercase 0x-prefixed 20-byte address: ${JSON.stringify(value)}`
+    );
+  }
+  return value as Address;
+}
 
 const consoleLog: Logger = {
   warn: (m) => console.warn(m),
@@ -107,13 +134,32 @@ export class Rpc {
       return await read(this.primary, null);
     } catch (e3) {
       if (isRevert(e3)) return null;
-      throw e3;
+      // A primary that is down, rather than merely non-archival, would
+      // otherwise defeat the fallback at this step and retry the batch
+      // forever against an endpoint that cannot answer.
+      if (this.fallback == null) throw e3;
+      try {
+        return await read(this.fallback, null);
+      } catch (e4) {
+        if (isRevert(e4)) return null;
+        throw e4;
+      }
     }
   }
 
-  /** Unpinned read on the primary only. Throws on any failure. */
+  /**
+   * Unpinned read, primary first then the fallback. Throws on any failure, so
+   * SQD retries the batch; callers that want a revert to read as "absent"
+   * check {@link isRevert} themselves.
+   */
   async latest<T>(read: Read<T>): Promise<T> {
-    return read(this.primary, null);
+    if (this.fallback == null) return read(this.primary, null);
+    try {
+      return await read(this.primary, null);
+    } catch (err) {
+      if (isRevert(err)) throw err;
+      return read(this.fallback, null);
+    }
   }
 
   /**

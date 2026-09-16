@@ -90,11 +90,11 @@ export function makePricing(
 
 /** Production sources for CHAIN. */
 export function makeSources(rpc: Rpc, log: { warn(msg: string): void }) {
-  const native = CHAIN.nativeUsdFeed == null ? null : new ChainlinkSource(rpc, CHAIN.nativeUsdFeed as `0x${string}`, log);
+  const native = CHAIN.nativeUsdFeed == null ? null : new ChainlinkSource(rpc, CHAIN.nativeUsdFeed, log);
   let olasQuote: OlasQuoteSource | null = null;
   const olas = CHAIN.olas;
   if (olas.kind === "balancer-v2") {
-    const pool = new BalancerPool(rpc, olas.pool as `0x${string}`, olas.vault as `0x${string}`);
+    const pool = new BalancerPool(rpc, olas.pool, olas.vault);
     olasQuote = {
       async olasInQuote(block) {
         const r = await pool.reservesAt(block);
@@ -102,7 +102,7 @@ export function makeSources(rpc: Rpc, log: { warn(msg: string): void }) {
       },
     };
   } else if (olas.kind === "uniswap-v2") {
-    const pair = new UniswapV2Pair(rpc, olas.pair as `0x${string}`);
+    const pair = new UniswapV2Pair(rpc, olas.pair);
     olasQuote = {
       async olasInQuote(block) {
         const r = await pair.reservesAt(block);

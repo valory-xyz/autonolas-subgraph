@@ -8,7 +8,7 @@
 // data. Only Robinhood is deployed today; the other entries are inputs, not
 // deployments.
 
-import { selectChain } from "@olas/squid-shared";
+import { type Address, BALANCER_VAULT, selectChain } from "@olas/squid-shared";
 
 export type ChainName =
   | "robinhood"
@@ -29,7 +29,7 @@ export const MODEL_USDC = "token-usdc" as const;
 
 export interface TrackerConfig {
   /** BalanceTracker contract, lowercase. */
-  address: string;
+  address: Address;
   model: Model;
   startBlock: number;
 }
@@ -48,19 +48,19 @@ export interface NvmConfig {
 export type OlasPricing =
   | {
       kind: "balancer-v2";
-      vault: string;
-      pool: string;
-      olas: string;
+      vault: Address;
+      pool: Address;
+      olas: Address;
       /** The pool's other token. */
-      quote: string;
+      quote: Address;
       quoteDecimals: number;
       /** Quote is the native token (WMATIC/WETH): multiply by the native feed. */
       quoteIsNative: boolean;
     }
   | {
       kind: "uniswap-v2";
-      pair: string;
-      olas: string;
+      pair: Address;
+      olas: Address;
       /** Quote is WETH, priced via the native feed. */
     }
   | { kind: "none" };
@@ -72,9 +72,9 @@ export interface ChainConfig {
   defaultRpc: string;
   trackers: TrackerConfig[];
   /** Withdrawals to this address are burns, not mech income; null when none. */
-  burnAddress: string | null;
+  burnAddress: Address | null;
   /** Chainlink <native>/USD, or null when the native token is a USD stable (xDAI). */
-  nativeUsdFeed: string | null;
+  nativeUsdFeed: Address | null;
   nativeDecimals: number;
   /** The `token-usdc` model's token decimals (USDC 6; USDG on Robinhood 6). */
   usdcDecimals: number;
@@ -82,7 +82,6 @@ export interface ChainConfig {
   olas: OlasPricing;
 }
 
-const BALANCER_VAULT = "0xba12222222228d8ba445958a75a0704d566bf2c8";
 const NVM_RATIO_USDC = "990000000000000000";
 const NVM_RATIO_XDAI = "990000000000000000000000000000";
 
@@ -271,7 +270,9 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     nativeDecimals: 18,
     usdcDecimals: 6,
     nvm: null,
-    // No OLAS pricing pool on Celo: raw OLAS is recorded, USD is 0 (subgraph parity).
+    // OLAS pricing is not wired up for Celo: raw OLAS is recorded, USD is 0
+    // (subgraph parity). A Ubeswap CELO-OLAS pair does exist and liquidity
+    // indexes it (see liquidity/src/constants.ts), so this is unwired, not absent.
     olas: { kind: "none" },
   },
 };

@@ -11,6 +11,7 @@ import {
   EntityCache,
   Rpc,
   UniswapV2Pair,
+  asAddress,
   eventMeta,
   lastBlock,
   lc,
@@ -26,15 +27,9 @@ import { CHAIN, INDEXER_STATUS_ID, START_BLOCK, type PoolConfig } from "./consta
 import type { Ctx } from "./handlers";
 
 const logger = createLogger("sqd:processor:mapping");
-const log = {
-  warn: (m: string) => logger.warn(m),
-  info: (m: string) => logger.info(m),
-  error: (m: string) => logger.error(m),
-};
-
-const rpc = Rpc.fromEnv(CHAIN.defaultRpc, log);
+const rpc = Rpc.fromEnv(CHAIN.defaultRpc, logger);
 const price: UsdPriceSource | null =
-  CHAIN.nativeUsdFeed == null ? null : new ChainlinkSource(rpc, CHAIN.nativeUsdFeed as `0x${string}`, log);
+  CHAIN.nativeUsdFeed == null ? null : new ChainlinkSource(rpc, CHAIN.nativeUsdFeed, logger);
 
 const pools = new Map<string, PoolConfig>(CHAIN.pools.map((p) => [p.address, p]));
 const balancerReaders = new Map<string, BalancerPool>();
@@ -42,7 +37,7 @@ const pairReaders = new Map<string, UniswapV2Pair>();
 const balancer = (pool: string) => {
   let r = balancerReaders.get(pool);
   if (r == null) {
-    r = new BalancerPool(rpc, pool as `0x${string}`, CHAIN.balancerVault as `0x${string}`);
+    r = new BalancerPool(rpc, asAddress(pool), CHAIN.balancerVault);
     balancerReaders.set(pool, r);
   }
   return r;
@@ -50,19 +45,18 @@ const balancer = (pool: string) => {
 const pairReader = (pool: string) => {
   let r = pairReaders.get(pool);
   if (r == null) {
-    r = new UniswapV2Pair(rpc, pool as `0x${string}`);
+    r = new UniswapV2Pair(rpc, asAddress(pool));
     pairReaders.set(pool, r);
   }
   return r;
 };
 
-// Informational: says once whether RPC_HTTP can serve historical state.
-const probed = rpc.probeArchive(CHAIN.pools[0].address as `0x${string}`, BigInt(START_BLOCK));
+const probed = rpc.probeArchive(CHAIN.pools[0].address, BigInt(START_BLOCK));
 
 run(dataSource, new TypeormDatabase({ supportHotBlocks: true }), async (sqd) => {
   await probed;
   const cache = new EntityCache(sqd.store, FLUSH_ORDER);
-  cache.log = log;
+  cache.log = logger;
   const ctx: Ctx = { cache, pools, balancer, pair: pairReader, price, chainName: CHAIN.name };
 
   for (const block of sqd.blocks.map(augmentBlock)) {

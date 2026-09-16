@@ -29,8 +29,7 @@
     "@subsquid/typeorm-store": "1.9.2",
     "dotenv": "16.4.5",
     "pg": "8.16.0",
-    "typeorm": "0.3.31",
-    "viem": "2.55.10"
+    "typeorm": "0.3.31"
   },
   "devDependencies": {
     "@subsquid/evm-typegen": "5.0.0",

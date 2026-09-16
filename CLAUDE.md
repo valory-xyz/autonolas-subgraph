@@ -37,14 +37,16 @@ Each subgraph is an independent package with its own `package.json`, `schema.gra
 ## Squids (SQD indexers)
 
 `squids/_shared` (`@olas/squid-shared`) is consumed by the other squids via
-`"file:../_shared"`. Two consequences: (1) each consumer's `package-lock.json`
-embeds `_shared`'s dependency list, so after changing `_shared/package.json`
-run `npm install` in every consumer (service-registry, marketplace,
-liquidity, mech-fees) or `npm ci` fails in CI; (2) Node resolves the link to
-its real path, so `viem` and `@subsquid/big-decimal` exist twice at runtime
-(`_shared/node_modules` and the squid's) — keep their pins identical across
-the five `package.json`s. One `squids/Dockerfile` builds any squid
-(`--build-arg SQUID=<folder>`, repo root as context).
+`"file:../_shared"`. Each consumer's `package-lock.json` embeds `_shared`'s
+dependency list, so after changing `_shared/package.json` run `npm install` in
+every consumer (service-registry, marketplace, liquidity, mech-fees) or
+`npm ci` fails in CI. Consumers declare only what they import themselves:
+`viem` is reached through `_shared` and must not be re-declared, or Node
+resolves the link to its real path and loads it twice. `@subsquid/big-decimal`
+is imported directly by marketplace, liquidity and mech-fees, so it is
+declared in both places and the pins must stay identical. One
+`squids/Dockerfile` builds any squid (`--build-arg SQUID=<folder>`, repo root
+as context).
 
 `squids/` holds indexers built on the SQD (Subsquid) Squid SDK — used where
 graph-node cannot keep up with chain-wide event volume. They are npm packages

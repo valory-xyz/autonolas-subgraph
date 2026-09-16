@@ -1,5 +1,7 @@
 // Pure helpers, ported from subgraphs/liquidity-l2/src/utils.ts + mapping.ts.
 // No store or network access: everything here is unit-tested directly.
+import { PoolReserves } from "@olas/squid-shared";
+
 import { UNISWAP_V2_FEE_DENOMINATOR, UNISWAP_V2_FEE_NUMERATOR, WEI } from "./constants";
 
 /** Uniswap V2: 0.3% of the input amount, integer floor as the subgraph computes it. */
@@ -29,16 +31,14 @@ export function poolAddressFromPoolId(poolId: string): string {
 export const dailyFeesId = (pool: string, day: bigint): string => `${pool}-${day}`;
 
 /** Readers the handlers depend on; the shared BalancerPool / UniswapV2Pair satisfy them, tests stub them. */
-export interface PoolReserves {
-  tokens: string[];
-  balances: bigint[];
-}
 export interface BalancerReader {
   getPoolId(): Promise<string | null>;
   /** Fee at `block` — read once, at the first observed swap (subgraph parity). */
   getSwapFeePercentage(block: bigint): Promise<bigint | null>;
   reservesAt(blockNumber: bigint): Promise<PoolReserves | null>;
 }
+export type { PoolReserves };
+
 export interface PairReader {
   getTokens(): Promise<[string, string] | null>;
 }
