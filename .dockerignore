@@ -1,0 +1,13 @@
+# Squid images are built with the repo root as context (see
+# .github/workflows/build-squid-image.yaml) so squids/_shared is available to
+# every squid's Dockerfile. Keep the context small.
+**/node_modules
+**/lib
+**/build
+**/.env
+**/*.log
+**/db_data
+.git
+subgraphs
+docs
+scripts

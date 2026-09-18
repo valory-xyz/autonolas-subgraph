@@ -6,6 +6,7 @@ import { run } from "@subsquid/batch-processor";
 import { augmentBlock } from "@subsquid/evm-objects";
 import { createLogger } from "@subsquid/logger";
 import { dataSource } from "./processor";
+import { lc } from "@olas/squid-shared";
 import { EntityCache } from "./entityCache";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as bridger from "./abi/IdentityRegistryBridge/events";
@@ -14,7 +15,6 @@ import * as h from "./handlers";
 import { blockTimestampSeconds, type EventMeta } from "./logic";
 import { IDENTITY_REGISTRY_BRIDGER, SERVICE_REGISTRY_L2 } from "./constants";
 
-const lc = (s: string) => s.toLowerCase();
 
 // A topic subscribed in processor.ts but not dispatched below fails loudly.
 const unhandled = (address: string, topic0: string) =>

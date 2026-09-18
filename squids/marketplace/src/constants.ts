@@ -2,6 +2,8 @@
 // EVERY address must be lowercase: SQD lowercases log addresses and the
 // handlers compare with `===`, so a mixed-case literal is a silent no-match.
 
+import { selectChain } from "@olas/squid-shared";
+
 export type ChainName = "robinhood";
 
 // Fee unit names (schema enum FeeUnit). String constants rather than the
@@ -128,20 +130,8 @@ const CHAINS: Record<ChainName, ChainConfig> = {
   },
 };
 
-function selectChain(): ChainConfig {
-  const name = (process.env.MARKETPLACE_CHAIN ?? "robinhood").trim();
-  const chain = (CHAINS as Record<string, ChainConfig | undefined>)[name];
-  if (chain == null) {
-    throw new Error(
-      `MARKETPLACE_CHAIN="${name}" is not configured. Known chains: ` +
-        Object.keys(CHAINS).join(", ")
-    );
-  }
-  return chain;
-}
-
 // This deployment's chain.
-export const CHAIN: ChainConfig = selectChain();
+export const CHAIN: ChainConfig = selectChain("MARKETPLACE_CHAIN", CHAINS, "robinhood");
 
 export const START_BLOCK = CHAIN.startBlock;
 export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2.address;

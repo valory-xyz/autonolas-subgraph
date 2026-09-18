@@ -48,8 +48,9 @@ Key files:
 | `src/main.ts` | decode-and-dispatch: routes each event to its handler |
 | `src/handlers.ts` | what each event does to the data — the subgraph's handlers, branch for branch |
 | `src/logic.ts` | the pure half — ids, tx classification, factory tables. Unit-tested |
-| `src/fee.ts` | fee → USD conversion (native via Chainlink, USDC 1:1) |
-| `src/rpc.ts` | the one eth_call: Chainlink `latestRoundData` pinned to the event's block |
+| `src/fee.ts` | fee unit → USD over the shared price source (native via Chainlink, USDC 1:1) |
+| `src/rpc.ts` | wires the shared RPC client + Chainlink source (`latestRoundData` pinned to the event's block) |
+| [`../_shared`](../_shared) | `@olas/squid-shared`: chain selection, RPC with fallback, Chainlink reader, entity cache. Build it first: `cd ../_shared && npm ci && npm run build` |
 | `src/entityCache.ts` | read-through cache, FK-ordered writes |
 | `db/migrations/` | generated SQL that creates the database tables |
 | `squid.yaml` | SQD deployment description |
@@ -168,7 +169,8 @@ Node 24 is required (see [`.nvmrc`](../../.nvmrc)).
 
 ## Production
 
-One Docker image (see `Dockerfile`), three workloads — full example in
+One Docker image (`../Dockerfile`, built from the repo root with
+`--build-arg SQUID=<this folder>`), three workloads — full example in
 `deploy/k8s-example.yaml`. Strict rules:
 
 - **Run exactly one processor.** Never two. Two processors writing to one

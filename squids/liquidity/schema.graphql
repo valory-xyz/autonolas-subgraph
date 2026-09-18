@@ -1,0 +1,74 @@
+# SQD port of subgraphs/liquidity-l2/schema.graphql (autonolas-subgraph-studio).
+# Field names match the subgraph's except:
+#   - ids and addresses are lowercase hex strings, not Bytes;
+#   - `celoUsdPrice` -> `nativeUsdPrice` and PriceData id "celo-usd" ->
+#     "native-usd": the price is the chain's native token, whatever it is;
+#   - PoolMetrics.dex names the pool kind, and BPTTransfer / DailyFees carry a
+#     `pool` link so a deployment with several pools (Base) stays attributable;
+#   - IndexerStatus, as in the marketplace squid, for stale-data checks.
+
+# One row per tracked pool (LP token address).
+type PoolMetrics @entity {
+  id: ID! # pool / LP token address, lowercase
+  dex: String! # "balancer-v2" | "uniswap-v2"
+  poolId: String # Balancer V2 pool id (bytes32 hex); null for Uniswap V2
+  token0: String # lowercase; null until first observed
+  token1: String
+  reserve0: BigInt!
+  reserve1: BigInt!
+  totalSupply: BigInt! # LP supply, minted - burned
+  # Block of the last absolute reserve refetch (Balancer getPoolTokens at
+  # mint/burn). Vault swap deltas in that block are skipped. 0 for Uniswap V2,
+  # whose Sync event is authoritative.
+  reservesRefreshedAtBlock: BigInt!
+  totalMinted: BigInt!
+  totalBurned: BigInt!
+  cumulativeFeesToken0: BigInt!
+  cumulativeFeesToken1: BigInt!
+  swapFeePercentage: BigInt! # Balancer, 18 decimals; 0 for Uniswap V2 (fixed 0.3%)
+  # Native/USD from the chain's Chainlink feed, feed decimals (8); 0 when the
+  # chain has no feed configured.
+  nativeUsdPrice: BigInt!
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
+  lastUpdatedTransaction: String!
+  transfers: [BPTTransfer!]! @derivedFrom(field: "pool")
+  dailyFees: [DailyFees!]! @derivedFrom(field: "pool")
+}
+
+# Last Chainlink read, refreshed at most once per PRICE_STALENESS_SECONDS.
+type PriceData @entity {
+  id: ID! # "native-usd"
+  price: BigInt!
+  decimals: Int!
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+# Swap fees per pool per UTC day.
+type DailyFees @entity {
+  id: ID! # `${pool}-${dayTimestamp}`
+  pool: PoolMetrics! @index
+  dayTimestamp: BigInt! @index
+  totalFeesToken0: BigInt!
+  totalFeesToken1: BigInt!
+  swapCount: Int!
+}
+
+# One row per LP token Transfer.
+type BPTTransfer @entity {
+  id: ID! # `${txHash}-${logIndex}`
+  pool: PoolMetrics! @index
+  from: String! @index
+  to: String! @index
+  value: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt! @index
+  transactionHash: String!
+}
+
+type IndexerStatus @entity {
+  id: ID! # "1"
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}

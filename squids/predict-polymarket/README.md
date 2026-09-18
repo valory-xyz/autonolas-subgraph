@@ -64,7 +64,8 @@ continues from the checkpoint.
 
 ## Production
 
-One Docker image (see `Dockerfile`), three workloads — full example in
+One Docker image (`../Dockerfile`, built from the repo root with
+`--build-arg SQUID=<this folder>`), three workloads — full example in
 `deploy/k8s-example.yaml`. Strict rules:
 
 - **Run exactly one processor.** Never two. Two processors writing to one

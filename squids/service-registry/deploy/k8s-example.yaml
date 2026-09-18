@@ -1,11 +1,12 @@
 # Example spec for the infra team — adapt to the ArgoCD/Helm conventions of
-# internal-infrastructure. One image (see Dockerfile), three workloads.
+# internal-infrastructure. One image (squids/Dockerfile), three workloads.
 #
 # Required env, split into two Secrets so only the processor sees the
 # vendor credentials:
 #   Secret service-registry-squid-db   (all three workloads):
 #     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
 #   Secret service-registry-squid-data (processor ONLY):
+#     SERVICE_REGISTRY_CHAIN -> "robinhood" (key into src/constants.ts CHAINS)
 #     SQD_PORTAL_URL     -> private SQD Portal dataset URL (robinhood-mainnet)
 #     SQD_PORTAL_API_KEY -> private portal key (x-api-key header). Required:
 #       robinhood-mainnet is not on the public portal at all.

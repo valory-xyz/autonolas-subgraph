@@ -154,9 +154,12 @@ jobs:
         # One entry per squid: each is its own npm tree with its
         # own lockfile, so auditing one would not cover the other.
         squid:
+          - _shared
           - predict-polymarket
           - pearl-transactions
           - service-registry
+          - liquidity
+          - mech-fees
           - marketplace
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4

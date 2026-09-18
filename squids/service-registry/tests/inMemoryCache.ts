@@ -1,49 +1,18 @@
-// In-memory implementation of IEntityCache for unit tests: plain Maps, no
-// Postgres. Relations are held as live object references, which mirrors how
-// they behave inside a real batch.
-import {
-  CacheLogger,
-  Entity,
-  EntityClass,
-  IEntityCache,
-} from "../src/entityCache";
+// In-memory implementation of IEntityCache for unit tests: the shared
+// in-memory cache plus the known-multisig set. Relations are held as live
+// object references, which mirrors how they behave inside a real batch.
+import { InMemoryCache as SharedInMemoryCache } from "@olas/squid-shared";
+import type { Entity, EntityClass, IEntityCache } from "../src/entityCache";
 
-export class InMemoryCache implements IEntityCache {
-  store = new Map<string, Map<string, Entity>>();
-  warnings: string[] = [];
-  infos: string[] = [];
+export class InMemoryCache extends SharedInMemoryCache implements IEntityCache {
   known = new Set<string>();
-  log: CacheLogger = {
-    warn: (msg: string) => this.warnings.push(msg),
-    info: (msg: string) => this.infos.push(msg),
-  };
 
-  private bucket(name: string): Map<string, Entity> {
-    let b = this.store.get(name);
-    if (b == null) {
-      b = new Map();
-      this.store.set(name, b);
-    }
-    return b;
-  }
-
-  async get<T extends Entity>(
-    cls: EntityClass<T>,
-    id: string,
-  ): Promise<T | undefined> {
-    return this.bucket(cls.name).get(id) as T | undefined;
-  }
-
-  set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
+  override set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
     if (entity.constructor !== cls) {
-      throw new Error(
-        `set(${cls.name}) called with a ${entity.constructor.name} instance`,
-      );
+      throw new Error(`set(${cls.name}) called with a ${entity.constructor.name} instance`);
     }
-    this.bucket(cls.name).set(entity.id, entity);
+    super.set(cls, entity);
   }
-
-  async flush(): Promise<void> {}
 
   async isKnownMultisig(address: string): Promise<boolean> {
     return this.known.has(address);
@@ -51,9 +20,5 @@ export class InMemoryCache implements IEntityCache {
 
   async addKnownMultisig(address: string): Promise<void> {
     this.known.add(address);
-  }
-
-  all<T extends Entity>(cls: EntityClass<T>): T[] {
-    return [...this.bucket(cls.name).values()] as T[];
   }
 }

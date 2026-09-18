@@ -1,14 +1,11 @@
 // Pure helpers, ported from the subgraph's src/utils.ts. No store access —
 // everything here is unit-testable without a database.
-import { ONE_DAY } from "./constants";
+import { dayTimestamp, type EventMeta as SharedEventMeta } from "@olas/squid-shared";
 
-export type EventMeta = {
-  blockNumber: bigint;
-  /** Unix seconds (SQD block headers carry ms; converted at the boundary). */
-  blockTimestamp: bigint;
-  txHash: string;
-  logIndex: number;
-};
+/** What the handlers read off an event; the dispatcher passes the shared superset. */
+export type EventMeta = Pick<SharedEventMeta, "blockNumber" | "blockTimestamp" | "txHash" | "logIndex">;
+
+export { dayTimestamp };
 
 /**
  * SQD block headers carry Unix MILLISECONDS; every entity field and day
@@ -17,11 +14,6 @@ export type EventMeta = {
  */
 export function blockTimestampSeconds(headerTimestampMs: number): bigint {
   return BigInt(Math.floor(headerTimestampMs / 1000));
-}
-
-/** UTC-midnight bucket, same arithmetic as the subgraph's getDayTimestamp. */
-export function dayTimestamp(ts: bigint): bigint {
-  return (ts / ONE_DAY) * ONE_DAY;
 }
 
 // --- Entity ids, character for character as the subgraph builds them ----

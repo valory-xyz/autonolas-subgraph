@@ -1,0 +1,104 @@
+# Port of subgraphs/new-mech-fees/schema.graphql (autonolas-subgraph-studio),
+# entity for entity. Store-forced deltas: `Bytes` fields are lowercase hex
+# strings; ids are strings; `IndexerStatus` added for stale-data checks.
+# Raw units are NOT comparable across models — use the USD fields for
+# cross-model analysis and `MechModel` for per-model raw totals.
+
+type Global @entity {
+  id: ID! # ""
+  totalFeesInUSD: BigDecimal!
+  totalFeesOutUSD: BigDecimal!
+  # Cumulative protocol fees drained from the balance trackers (the marketplace
+  # fee), summed in USD across every payment model. Sourced from `Drained`,
+  # which carries the exact `collectedFees` sent to the drainer. This is the
+  # already-distributed portion only — the accrued-but-undrained balance is the
+  # live `collectedFees()` on each tracker (read on-chain by consumers).
+  totalDrainedFeesUSD: BigDecimal!
+  # Cumulative OLAS burned: the drained fees of the `token-olas` model, which are
+  # burned rather than sent to the Treasury. Raw is OLAS wei; USD at drain time.
+  totalOlasBurnedRaw: BigDecimal!
+  totalOlasBurnedUSD: BigDecimal!
+}
+
+# Lifetime totals per mech address.
+type Mech @entity {
+  id: ID! # mech address, lowercase
+  totalFeesInUSD: BigDecimal!
+  totalFeesOutUSD: BigDecimal!
+  totalFeesInRaw: BigDecimal!
+  totalFeesOutRaw: BigDecimal!
+}
+
+# Per-mech, per-payment-model aggregates: `${mech}-${model}`.
+type MechModel @entity {
+  id: ID!
+  mech: Mech!
+  model: String! @index
+  totalFeesInUSD: BigDecimal!
+  totalFeesOutUSD: BigDecimal!
+  totalFeesInRaw: BigDecimal!
+  totalFeesOutRaw: BigDecimal!
+}
+
+# One row per fee event: `${txHash}-${logIndex}`.
+type MechTransaction @entity {
+  id: ID!
+  mech: Mech!
+  type: String! @index # FEE_IN | FEE_OUT
+  model: String! @index
+  amountRaw: BigDecimal!
+  amountUSD: BigDecimal!
+  timestamp: BigInt! @index
+  blockNumber: BigInt!
+  txHash: String!
+  deliveryRate: BigInt
+  balance: BigInt
+  rateDiff: BigInt
+}
+
+# Global per-day USD totals: id = day start (seconds) as string.
+type DailyTotals @entity {
+  id: ID!
+  date: Int! @index
+  totalFeesInUSD: BigDecimal!
+  totalFeesOutUSD: BigDecimal!
+}
+
+# Per-mech per-day totals: `${mech}-${dayStart}`.
+type MechDaily @entity {
+  id: ID!
+  mech: Mech!
+  date: Int! @index
+  feesInUSD: BigDecimal!
+  feesOutUSD: BigDecimal!
+  feesInRaw: BigDecimal!
+  feesOutRaw: BigDecimal!
+}
+
+# Per-payment-model cumulative drained protocol fees. Within one deployment the
+# model uniquely identifies the token (`native` = ETH on Robinhood, xDAI on Gnosis).
+type DrainTotals @entity {
+  id: ID! # payment model: native | nvm | token-olas | token-usdc
+  model: String!
+  totalDrainedRaw: BigDecimal!
+  totalDrainedUSD: BigDecimal!
+}
+
+# One row per `drain()` on a balance tracker: `${txHash}-${logIndex}`.
+type DrainEvent @entity {
+  id: ID!
+  model: String! @index
+  token: String! # drained token address, lowercase
+  amountRaw: BigDecimal!
+  amountUSD: BigDecimal!
+  timestamp: BigInt! @index
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# Last indexed block, for stale-data checks (id "1").
+type IndexerStatus @entity {
+  id: ID!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}

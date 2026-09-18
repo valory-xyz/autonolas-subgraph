@@ -94,9 +94,12 @@ jobs:
         # compiled and tested, so a PR breaking tsc or regressing another
         # squid merges green.
         squid:
+          - _shared
           - predict-polymarket
           - pearl-transactions
           - service-registry
+          - liquidity
+          - mech-fees
           - marketplace
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -104,6 +107,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version-file: .nvmrc
+
+      # The squids depend on squids/_shared via "file:../_shared", which npm
+      # links rather than copies, so the shared package must be built first.
+      # Its own tests run in the `_shared` matrix entry, not here.
+      - name: Build squids/_shared
+        if: matrix.squid != '_shared'
+        working-directory: squids/_shared
+        run: npm ci && npm run build
 
       - name: Install
         working-directory: squids/${{ matrix.squid }}

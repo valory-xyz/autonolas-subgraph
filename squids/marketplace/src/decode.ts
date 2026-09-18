@@ -3,40 +3,11 @@
 // These live outside main.ts because main.ts calls run(...) at module scope:
 // importing it from a test would start the real processor.
 
-import { EventMeta } from "./logic";
-
-const lc = (s: string | undefined | null): string | null =>
-  s == null ? null : s.toLowerCase();
-
 /**
- * SQD block header timestamps are Unix MILLISECONDS (evm-stream converts the
- * portal's seconds to ms); entity fields keep the subgraph convention of
- * seconds.
- *
- * `log.transaction` is only present on logs whose subscription asked for
- * `include: {transaction: true}` (processor.ts); the marketplace and mech
- * subscriptions do, because `Mech.owner`, direct-path `Request.sender` and
- * the marketplace-vs-direct classification all come from the transaction.
+ * Event metadata is the shared helper's (ms -> s, lowercase addresses,
+ * transaction fields when the subscription included the transaction).
  */
-export function eventMeta(
-  block: { number: number; timestamp: number },
-  log: {
-    address: string;
-    transactionHash: string;
-    logIndex: number;
-    transaction?: { from?: string; to?: string | null } | null;
-  }
-): EventMeta {
-  return {
-    blockNumber: BigInt(block.number),
-    blockTimestamp: BigInt(Math.floor(block.timestamp / 1000)),
-    txHash: log.transactionHash,
-    logIndex: log.logIndex,
-    txFrom: lc(log.transaction?.from),
-    txTo: lc(log.transaction?.to),
-    address: log.address.toLowerCase(),
-  };
-}
+export { eventMeta } from "@olas/squid-shared";
 
 /**
  * Decode a log from an ADDRESS-LESS subscription, returning null when the

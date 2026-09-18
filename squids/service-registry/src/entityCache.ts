@@ -1,4 +1,10 @@
-import { Store } from "@subsquid/typeorm-store";
+import type { Store } from "@subsquid/typeorm-store";
+import {
+  EntityCache as SharedEntityCache,
+  assertFlushOrderExhaustive,
+  type EntityClass,
+  type IEntityCache as SharedIEntityCache,
+} from "@olas/squid-shared";
 import * as models from "./model";
 import {
   AgentPerformance,
@@ -19,19 +25,14 @@ import {
   Service,
 } from "./model";
 
-export type EntityClass<T> = { new (...args: any[]): T; name: string };
-export type Entity = { id: string };
-export type CacheLogger = { warn(msg: string): void; info(msg: string): void };
+export type { CacheLogger, Entity, EntityClass } from "@olas/squid-shared";
 
 /**
- * The surface handlers depend on. `EntityCache` is the production
- * implementation (TypeORM store); tests substitute an in-memory one.
+ * The surface handlers depend on: the shared cache plus the chain-wide Safe
+ * filter. `EntityCache` is the production implementation (TypeORM store);
+ * tests substitute an in-memory one.
  */
-export interface IEntityCache {
-  log: CacheLogger;
-  get<T extends Entity>(cls: EntityClass<T>, id: string): Promise<T | undefined>;
-  set<T extends Entity>(cls: EntityClass<T>, entity: T): void;
-  flush(): Promise<void>;
+export interface IEntityCache extends SharedIEntityCache {
   /** Is this (lowercase) address a service multisig we have seen created? */
   isKnownMultisig(address: string): Promise<boolean>;
   addKnownMultisig(address: string): Promise<void>;
@@ -60,29 +61,9 @@ const FLUSH_ORDER: EntityClass<any>[] = [
   DailyActiveMultisig, // -> DailyActiveMultisigs, Multisig
 ];
 
-// flush() only visits what is listed, while set() accepts any entity class,
-// so an entity missing from FLUSH_ORDER would be cached in memory, never
-// written, and never error. Assert exhaustiveness at module load (a value
-// import in tests/entityCache.test.ts makes this run in CI).
-{
-  const names = Object.values(models)
-    .filter(
-      (v): v is EntityClass<any> =>
-        typeof v === "function" &&
-        typeof (v as any).prototype?.constructor === "function",
-    )
-    .map((c) => c.name);
-  const listed = new Set(FLUSH_ORDER.map((c) => c.name));
-  const missing = names.filter((n) => !listed.has(n));
-  const unknown = [...listed].filter((n) => !names.includes(n));
-  if (missing.length || unknown.length || listed.size !== FLUSH_ORDER.length) {
-    throw new Error(
-      `FLUSH_ORDER is not exhaustive: missing [${missing.join(", ")}], ` +
-        `unknown [${unknown.join(", ")}], duplicates ${FLUSH_ORDER.length - listed.size}. ` +
-        `An entity absent from FLUSH_ORDER is silently never persisted.`,
-    );
-  }
-}
+// Runs at module load (a value import in tests/entityCache.test.ts makes
+// this run in CI).
+assertFlushOrderExhaustive(models, FLUSH_ORDER);
 
 /**
  * Process-lifetime set of service multisig addresses, shared across batches.
@@ -106,56 +87,9 @@ export function resetKnownMultisigsForTests(): void {
   knownMultisigSingleton.set = null;
 }
 
-/**
- * Read-through cache over the TypeORM store with deferred, FK-ordered writes.
- * Gives the handlers get/set semantics close to graph-node's load/save.
- */
-export class EntityCache implements IEntityCache {
-  private cache = new Map<string, Map<string, Entity | undefined>>();
-  private dirty = new Map<string, Map<string, Entity>>();
-  log: CacheLogger = console;
-
-  constructor(private store: Store) {}
-
-  private bucket(map: Map<string, Map<string, any>>, cls: EntityClass<any>) {
-    let b = map.get(cls.name);
-    if (b == null) {
-      b = new Map();
-      map.set(cls.name, b);
-    }
-    return b;
-  }
-
-  async get<T extends Entity>(
-    cls: EntityClass<T>,
-    id: string,
-  ): Promise<T | undefined> {
-    const bucket = this.bucket(this.cache, cls);
-    if (bucket.has(id)) return bucket.get(id) as T | undefined;
-    const fromDb = await this.store.get(cls, id);
-    bucket.set(id, fromDb);
-    return fromDb;
-  }
-
-  set<T extends Entity>(cls: EntityClass<T>, entity: T): void {
-    // EntityClass<T> is structural; a mismatched token would file the row in
-    // the wrong FLUSH_ORDER bucket.
-    if (entity.constructor !== cls) {
-      throw new Error(
-        `set(${cls.name}) called with a ${entity.constructor.name} instance`,
-      );
-    }
-    this.bucket(this.cache, cls).set(entity.id, entity);
-    this.bucket(this.dirty, cls).set(entity.id, entity);
-  }
-
-  async flush(): Promise<void> {
-    for (const cls of FLUSH_ORDER) {
-      const bucket = this.dirty.get(cls.name);
-      if (bucket == null || bucket.size === 0) continue;
-      await this.store.upsert([...bucket.values()]);
-      bucket.clear();
-    }
+export class EntityCache extends SharedEntityCache implements IEntityCache {
+  constructor(store: Store) {
+    super(store, FLUSH_ORDER);
   }
 
   private async knownMultisigs(): Promise<Set<string>> {
