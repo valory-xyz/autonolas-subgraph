@@ -1,9 +1,8 @@
-// Guards the store rule that bit this squid once: a scalar field and a
-// relation on the same entity must not map to the same column. TypeORM
-// silently collapses them into one FK column (`Deliver.requestId` +
-// `Deliver.request` -> a single NOT NULL `request_id`), and the failure only
-// shows up as an FK violation in production. Reads the decorator metadata
-// the generated models register, so it needs no database.
+// Guards a store rule: a scalar field and a relation on the same entity must
+// not map to the same column. TypeORM silently collapses the two into one FK
+// column (`foo` + `fooId` -> a single NOT NULL `foo_id`), and the failure
+// only shows up as an FK violation in production. Reads the decorator
+// metadata the generated models register, so it needs no database.
 import { describe, expect, it } from "vitest";
 import { getMetadataArgsStorage } from "typeorm";
 import * as models from "../src/model";
@@ -31,7 +30,8 @@ describe("generated models", () => {
         )
         .map((r) => `${snake(r.propertyName)}_id`);
       const clash = scalarColumns.filter((c) => joinColumns.includes(c));
-      expect(clash, `${cls.name}: rename the scalar (see schema.graphql header)`).toEqual([]);
+      const hint = `${cls.name}: rename the scalar so it does not collide with the relation's join column`;
+      expect(clash, hint).toEqual([]);
     }
   });
 });

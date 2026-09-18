@@ -4,30 +4,16 @@
 // only guard against that runs when the processor boots, not in CI.
 //
 // Then checks the half that assertion cannot see on its own — that every
-// owning-side relation points at an entity written earlier. The pairs are
-// read from this squid's own typeorm metadata, which is why this lives here
+// owning-side relation points at an entity written earlier. The pairs come
+// from this squid's own typeorm metadata, which is why this lives here
 // rather than in the shared package (see assertFlushOrderIsFkSafe).
 import { describe, expect, it } from "vitest";
 import { getMetadataArgsStorage } from "typeorm";
-import { assertFlushOrderIsFkSafe } from "@olas/squid-shared";
+import { assertFlushOrderIsFkSafe, owningRelations } from "@olas/squid-shared";
 import { FLUSH_ORDER } from "../src/entityCache";
 import * as models from "../src/model";
 
-const owningRelations = () =>
-  getMetadataArgsStorage()
-    .relations.filter(
-      (r) => r.relationType === "many-to-one" || r.relationType === "one-to-one"
-    )
-    .flatMap((r) => {
-      const from = (r.target as { name?: string })?.name;
-      let to: string | undefined;
-      try {
-        to = ((r.type as () => unknown)() as { name?: string })?.name;
-      } catch {
-        return [];
-      }
-      return from != null && to != null ? [{ from, to, property: r.propertyName }] : [];
-    });
+const relations = () => owningRelations(getMetadataArgsStorage());
 
 describe("FLUSH_ORDER", () => {
   it("lists every generated entity exactly once", () => {
@@ -40,18 +26,18 @@ describe("FLUSH_ORDER", () => {
   });
 
   it("writes every referenced entity before the one referencing it", () => {
-    expect(() => assertFlushOrderIsFkSafe(FLUSH_ORDER, owningRelations())).not.toThrow();
+    expect(() => assertFlushOrderIsFkSafe(FLUSH_ORDER, relations())).not.toThrow();
   });
 
   it("rejects an order that puts a referenced entity last", () => {
-    const relations = owningRelations();
-    expect(relations.length).toBeGreaterThan(0);
-    const { from, to } = relations[0];
+    const pairs = relations();
+    expect(pairs.length).toBeGreaterThan(0);
+    const { from, to } = pairs[0];
     const reordered = [
       ...FLUSH_ORDER.filter((c) => c.name !== to),
       FLUSH_ORDER.find((c) => c.name === to)!,
     ];
-    expect(() => assertFlushOrderIsFkSafe(reordered, relations)).toThrow(
+    expect(() => assertFlushOrderIsFkSafe(reordered, pairs)).toThrow(
       new RegExp(`${from}\\..* -> ${to}`)
     );
   });

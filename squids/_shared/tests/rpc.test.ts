@@ -1,6 +1,8 @@
 // The read's fallback chain, with viem stubbed: primary pinned to the block
 // -> fallback pinned -> primary at `latest` (warned once per block) -> throw.
-// A revert anywhere is null. ChainlinkSource memoizes successful reads per block.
+// A revert anywhere is null. ChainlinkSource memoizes successful reads per
+// block. The pool readers split the two cases the same way: a revert means
+// "not that kind of contract", anything else re-throws for a batch retry.
 import { beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 
@@ -10,6 +12,8 @@ const state = vi.hoisted(() => ({
   script: new Map<string, (blockNumber?: bigint) => Promise<bigint>>(),
   /** Successive decimals() results; a thrown value simulates an RPC failure. */
   decimals: [] as (number | Error)[],
+  /** Reads other than the Chainlink feed, by function name. */
+  byFn: new Map<string, () => Promise<unknown>>(),
   roundId: 1n,
   answeredInRound: 1n,
 }));
@@ -24,6 +28,8 @@ vi.mock("viem", () => ({
         if (next instanceof Error) throw next;
         return next ?? 8;
       }
+      const byFn = state.byFn.get(args.functionName);
+      if (byFn != null) return byFn();
       const h = state.script.get(transport.url);
       if (h == null) throw new Error(`no script for ${transport.url}`);
       const answer = await h(args.blockNumber);
@@ -36,11 +42,13 @@ vi.mock("viem", () => ({
 }));
 
 import { Rpc, isRevert } from "../src/rpc";
-import { ChainlinkSource } from "../src/price";
+import { BALANCER_VAULT, BalancerPool, ChainlinkSource, UniswapV2Pair } from "../src/price";
 
 const PRIMARY = "http://primary";
 const FALLBACK = "http://fallback";
 const FEED = "0x00000000000000000000000000000000000000fe" as const;
+const POOL = "0x00000000000000000000000000000000000000b0" as const;
+const PAIR = "0x00000000000000000000000000000000000000a1" as const;
 const revert = () => Object.assign(new Error("execution reverted"), { name: "ContractFunctionRevertedError" });
 const wrappedRevert = () =>
   Object.assign(new Error("call failed"), {
@@ -53,13 +61,14 @@ function make(withFallback: boolean) {
   const warnings: string[] = [];
   const log = { warn: (m: string) => warnings.push(m), info: () => {} };
   const rpc = new Rpc({ primaryUrl: PRIMARY, fallbackUrl: withFallback ? FALLBACK : null }, log);
-  return { rpc, src: new ChainlinkSource(rpc, FEED, log), warnings };
+  return { rpc, log, src: new ChainlinkSource(rpc, FEED, log), warnings };
 }
 
 beforeEach(() => {
   state.calls.length = 0;
   state.script.clear();
   state.decimals.length = 0;
+  state.byFn.clear();
   state.roundId = 1n;
   state.answeredInRound = 1n;
 });
@@ -167,14 +176,69 @@ describe("ChainlinkSource over Rpc", () => {
     expect(warnings.some((w) => /not yet answered/.test(w))).toBe(true);
   });
 
-  it("does not pin the assumed decimals after a failed read", async () => {
-    // One hiccup during a cold backfill must not fix an 18-decimal feed at 8
-    // for the life of the process and mis-scale every later price by 1e10.
+  it("re-throws a failed decimals() read rather than assuming a scale", async () => {
+    // Assuming 8 for an 18-decimal feed misprices every event in the block by
+    // 1e10, and the figure still looks plausible. The read is not pinned
+    // either: the retry sees the feed's real scale.
     const { src } = make(false);
-    state.decimals.push(pruned(), 18);
+    state.decimals.push(pruned());
     state.script.set(PRIMARY, async () => 1n);
 
-    expect(await src.usdAt(100n)).toEqual({ answer: 1n, decimals: 8 });
+    await expect(src.usdAt(100n)).rejects.toThrow(/metadata is not found/);
+    state.decimals.push(18);
     expect(await src.usdAt(101n)).toEqual({ answer: 1n, decimals: 18 });
+  });
+
+  it("returns null when decimals() reverts", async () => {
+    const { src, warnings } = make(false);
+    state.decimals.push(revert());
+    state.script.set(PRIMARY, async () => 1n);
+
+    expect(await src.usdAt(100n)).toBeNull();
+    expect(warnings.some((w) => /not a Chainlink feed/.test(w))).toBe(true);
+  });
+});
+
+describe("pool readers", () => {
+  const throws = (err: Error) => async () => {
+    throw err;
+  };
+
+  it("re-throws a non-revert getPoolId() failure instead of reading it as 'not a pool'", async () => {
+    const { rpc, log, warnings } = make(false);
+    state.byFn.set("getPoolId", throws(pruned()));
+    const pool = new BalancerPool(rpc, POOL, BALANCER_VAULT, log);
+
+    await expect(pool.getPoolId()).rejects.toThrow(/metadata is not found/);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("reads a reverting getPoolId() as 'not a Balancer pool'", async () => {
+    const { rpc, log, warnings } = make(false);
+    state.byFn.set("getPoolId", throws(wrappedRevert()));
+    const pool = new BalancerPool(rpc, POOL, BALANCER_VAULT, log);
+
+    expect(await pool.getPoolId()).toBeNull();
+    expect(warnings.some((w) => /not a Balancer pool/.test(w))).toBe(true);
+  });
+
+  it("re-throws a non-revert token0()/token1() failure", async () => {
+    const { rpc, log, warnings } = make(false);
+    state.byFn.set("token0", throws(pruned()));
+    state.byFn.set("token1", async () => `0x${"11".repeat(20)}`);
+    const pair = new UniswapV2Pair(rpc, PAIR, log);
+
+    await expect(pair.getTokens()).rejects.toThrow(/metadata is not found/);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("reads a reverting token0() as 'not a Uniswap V2 pair'", async () => {
+    const { rpc, log, warnings } = make(false);
+    state.byFn.set("token0", throws(wrappedRevert()));
+    state.byFn.set("token1", async () => `0x${"11".repeat(20)}`);
+    const pair = new UniswapV2Pair(rpc, PAIR, log);
+
+    expect(await pair.getTokens()).toBeNull();
+    expect(warnings.some((w) => /not a Uniswap V2 pair/.test(w))).toBe(true);
   });
 });

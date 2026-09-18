@@ -6,7 +6,6 @@ import { BigDecimal } from "@subsquid/big-decimal";
 import { BlockMemo, isRevert, Rpc } from "./rpc";
 
 export const ZERO_USD = BigDecimal(0);
-export const CHAINLINK_DECIMALS_DEFAULT = 8;
 
 export function pow10(n: number): BigDecimal {
   return BigDecimal(10).pow(n);
@@ -77,7 +76,13 @@ export class ChainlinkSource implements UsdPriceSource {
     private readonly log: { warn(msg: string): void } = console
   ) {}
 
-  private async readDecimals(): Promise<number> {
+  /**
+   * Feed decimals, memoized. A revert means this address is not an
+   * AggregatorV3 and yields null; anything else is re-thrown so SQD retries
+   * the batch. No assumed default: it would mis-scale every price in the
+   * block that provoked it, and the mistake reads as a plausible figure.
+   */
+  private async readDecimals(): Promise<number | null> {
     if (this.decimals != null) return this.decimals;
     try {
       this.decimals = Number(
@@ -86,14 +91,9 @@ export class ChainlinkSource implements UsdPriceSource {
         )
       );
     } catch (err) {
-      // Deliberately not cached: one RPC hiccup during a cold backfill would
-      // otherwise pin an 18-decimal feed to 8 for the life of the process and
-      // mis-scale every later price by 1e10. Retry on the next call instead.
-      this.log.warn(
-        `[price] ${this.feed}.decimals() failed (${String((err as Error)?.message ?? err).split("\n")[0]}); ` +
-          `assuming ${CHAINLINK_DECIMALS_DEFAULT} for this read`
-      );
-      return CHAINLINK_DECIMALS_DEFAULT;
+      if (!isRevert(err)) throw err;
+      this.log.warn(`[price] ${this.feed}.decimals() reverted; not a Chainlink feed`);
+      return null;
     }
     return this.decimals;
   }
@@ -110,6 +110,7 @@ export class ChainlinkSource implements UsdPriceSource {
     const hit = this.memo.get(this.feed, blockNumber);
     if (hit != null) return hit;
     const decimals = await this.readDecimals();
+    if (decimals == null) return null;
     const round = await this.rpc.at(blockNumber, `latestRoundData(${this.feed})`, (c, block) =>
       c.readContract({
         address: this.feed,

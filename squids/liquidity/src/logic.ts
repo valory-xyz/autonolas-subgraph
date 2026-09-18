@@ -37,7 +37,6 @@ export interface BalancerReader {
   getSwapFeePercentage(block: bigint): Promise<bigint | null>;
   reservesAt(blockNumber: bigint): Promise<PoolReserves | null>;
 }
-export type { PoolReserves };
 
 export interface PairReader {
   getTokens(): Promise<[string, string] | null>;

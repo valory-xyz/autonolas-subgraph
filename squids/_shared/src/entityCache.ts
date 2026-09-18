@@ -79,9 +79,9 @@ export function assertFlushOrderExhaustive(
  * `relations` is passed in rather than read here: this package deliberately
  * does not depend on typeorm (see `StoreLike` above), and a second copy of it
  * would carry its own empty metadata storage and silently find nothing. Each
- * squid's test extracts the pairs from its own typeorm and calls this. Self
- * references are ignored — a row pointing at its own table is ordered within
- * the batch, not by `flushOrder`.
+ * squid's test passes its own `getMetadataArgsStorage()` through
+ * {@link owningRelations}. Self references are ignored — a row pointing at
+ * its own table is ordered within the batch, not by `flushOrder`.
  */
 export function assertFlushOrderIsFkSafe(
   flushOrder: EntityClass<any>[],
@@ -100,6 +100,40 @@ export function assertFlushOrderIsFkSafe(
         `move each referenced entity before the one that references it.`
     );
   }
+}
+
+/**
+ * The slice of typeorm's `getMetadataArgsStorage()` {@link owningRelations}
+ * reads, typed structurally for the same reason as {@link StoreLike}.
+ */
+export interface RelationMetadataStorageLike {
+  relations: readonly {
+    target: unknown;
+    propertyName: string;
+    relationType: string;
+    type: unknown;
+  }[];
+}
+
+/**
+ * The `{ from, to, property }` pairs {@link assertFlushOrderIsFkSafe} checks,
+ * read from a squid's own typeorm metadata storage.
+ */
+export function owningRelations(
+  storage: RelationMetadataStorageLike
+): { from: string; to: string; property: string }[] {
+  return storage.relations
+    .filter((r) => r.relationType === "many-to-one" || r.relationType === "one-to-one")
+    .flatMap((r) => {
+      const from = (r.target as { name?: string })?.name;
+      let to: string | undefined;
+      try {
+        to = ((r.type as () => unknown)() as { name?: string })?.name;
+      } catch {
+        return [];
+      }
+      return from != null && to != null ? [{ from, to, property: r.propertyName }] : [];
+    });
 }
 
 /**
