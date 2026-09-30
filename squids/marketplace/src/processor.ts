@@ -1,5 +1,5 @@
 import { DataSourceBuilder, FieldSelection, LogRequest } from "@subsquid/evm-stream";
-import type { PortalClientOptions } from "@subsquid/portal-client";
+import { getIngestionConfig } from "@olas/squid-shared";
 import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as metadata from "./abi/ComplementaryServiceMetadata/events";
@@ -17,27 +17,9 @@ import {
   START_BLOCK,
 } from "./constants";
 
-// Where blocks come from: INGEST_SOURCE=portal | rpc; unset = portal when
-// SQD_PORTAL_API_KEY is set, rpc otherwise. See README, "Where blocks come from".
-export type IngestSource = "portal" | "rpc";
+export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
 
-export function selectIngestSource(env: NodeJS.ProcessEnv = process.env): IngestSource {
-  const explicit = env.INGEST_SOURCE?.trim().toLowerCase();
-  if (explicit === "portal" || explicit === "rpc") return explicit;
-  if (explicit) {
-    throw new Error(`INGEST_SOURCE="${env.INGEST_SOURCE}" must be "portal" or "rpc"`);
-  }
-  return env.SQD_PORTAL_API_KEY ? "portal" : "rpc";
-}
-
-// The private portal URL + key come from env; never commit them.
-const portalUrl = process.env.SQD_PORTAL_URL ?? CHAIN.portalDataset;
-const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
-  ? {
-      url: portalUrl,
-      http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } },
-    }
-  : portalUrl;
+const ingestion = getIngestionConfig(CHAIN);
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here, or the property does not exist at runtime.
@@ -158,36 +140,21 @@ function addQueries<B extends { addLog(q: LogQuery): B }>(builder: B): B {
   return b;
 }
 
-export const INGEST_SOURCE: IngestSource = selectIngestSource();
+export const INGEST_SOURCE = ingestion.source;
 
 function buildPortalSource() {
   return addQueries(
     new DataSourceBuilder()
-      .setPortal(portal)
+      .setPortal(ingestion.portal)
       .setBlockRange({ from: START_BLOCK })
       .setFields(fields)
   ).build();
 }
 
 function buildRpcSource() {
-  const url = process.env.RPC_HTTP ?? CHAIN.defaultRpc;
-  const rateLimit = process.env.RPC_RATE_LIMIT
-    ? Number(process.env.RPC_RATE_LIMIT)
-    : undefined;
   return addQueries(
     new EvmRpcDataSourceBuilder()
-      .setRpc({
-        url,
-        // No shipped preset for this chain; passing explicit validation
-        // options is what clears the SDK's "parity unverified" warning.
-        // Block hash + logs bloom are cheap and catch a node handing back
-        // a wrong or log-less block. Finality is left to the node's own
-        // `finalized` tag (Nitro reports L1 finality), so no confirmation
-        // depth is set here.
-        network: CHAIN.chainId,
-        rpc: { verifyBlockHash: true, verifyLogsBloom: true },
-        ...(rateLimit != null && Number.isFinite(rateLimit) ? { rateLimit } : {}),
-      })
+      .setRpc(ingestion.rpc)
       .setBlockRange({ from: START_BLOCK })
       .setFields(fields)
   ).build();

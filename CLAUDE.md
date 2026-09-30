@@ -28,6 +28,8 @@ squids/
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
 ├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
 ├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
+├── tokenomics/          # SQD OLAS holder tracking (Robinhood), port of studio tokenomics-l2
+├── staking/             # SQD staking indexer (Robinhood), port of studio main; requires archive RPC
 ├── mech-fees/           # SQD indexer for mech marketplace fees per payment model (Robinhood first; chain via MECH_FEES_CHAIN)
 └── _shared/             # @olas/squid-shared: chain selection, RPC + Chainlink/DEX pricing, entity cache (file:../_shared)
 ```

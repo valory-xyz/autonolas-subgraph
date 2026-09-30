@@ -1,0 +1,21 @@
+type Token @entity {
+  id: ID!
+  balance: BigInt!
+  holderCount: Int!
+}
+
+type TokenHolder @entity {
+  id: ID!
+  token: String!
+  balance: BigInt!
+}
+
+type Transfer @entity {
+  id: ID!
+  from: String!
+  to: String!
+  value: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}

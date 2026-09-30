@@ -1,19 +1,10 @@
 import { DataSourceBuilder, FieldSelection, LogRequest } from "@subsquid/evm-stream";
-import type { PortalClientOptions } from "@subsquid/portal-client";
+import { getIngestionConfig } from "@olas/squid-shared";
 import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import * as native from "./abi/BalanceTrackerFixedPriceNative/events";
 import { CHAIN, START_BLOCK } from "./constants";
 
-// Where blocks come from: INGEST_SOURCE=portal | rpc; unset = portal when
-// SQD_PORTAL_API_KEY is set, rpc otherwise (same rule as the sibling squids).
-export type IngestSource = "portal" | "rpc";
-
-export function selectIngestSource(env: NodeJS.ProcessEnv = process.env): IngestSource {
-  const explicit = env.INGEST_SOURCE?.trim().toLowerCase();
-  if (explicit === "portal" || explicit === "rpc") return explicit;
-  if (explicit) throw new Error(`INGEST_SOURCE="${env.INGEST_SOURCE}" must be "portal" or "rpc"`);
-  return env.SQD_PORTAL_API_KEY ? "portal" : "rpc";
-}
+export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
 
 /** Optional upper bound for validation runs: index up to this block and exit. */
 export function selectEndBlock(env: NodeJS.ProcessEnv = process.env): number | undefined {
@@ -24,10 +15,7 @@ export function selectEndBlock(env: NodeJS.ProcessEnv = process.env): number | u
   return n;
 }
 
-const portalUrl = process.env.SQD_PORTAL_URL ?? CHAIN.portalDataset;
-const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
-  ? { url: portalUrl, http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } } }
-  : portalUrl;
+const ingestion = getIngestionConfig(CHAIN);
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here. `logIndex` and `block.number` are always present.
@@ -51,7 +39,7 @@ export const LOG_QUERIES: LogQuery[] = CHAIN.trackers.map((t) => ({
   range: { from: t.startBlock },
 }));
 
-export const INGEST_SOURCE: IngestSource = selectIngestSource();
+export const INGEST_SOURCE = ingestion.source;
 export const END_BLOCK = selectEndBlock();
 const blockRange = END_BLOCK == null ? { from: START_BLOCK } : { from: START_BLOCK, to: END_BLOCK };
 
@@ -61,20 +49,13 @@ function addQueries<B extends { addLog(q: LogQuery): B }>(b: B): B {
 }
 
 function buildPortalSource() {
-  return addQueries(new DataSourceBuilder().setPortal(portal).setBlockRange(blockRange).setFields(fields)).build();
+  return addQueries(new DataSourceBuilder().setPortal(ingestion.portal).setBlockRange(blockRange).setFields(fields)).build();
 }
 
 function buildRpcSource() {
-  const url = process.env.RPC_HTTP ?? CHAIN.defaultRpc;
-  const rateLimit = process.env.RPC_RATE_LIMIT ? Number(process.env.RPC_RATE_LIMIT) : undefined;
   return addQueries(
     new EvmRpcDataSourceBuilder()
-      .setRpc({
-        url,
-        network: CHAIN.chainId,
-        rpc: { verifyBlockHash: true, verifyLogsBloom: true },
-        ...(rateLimit != null && Number.isFinite(rateLimit) ? { rateLimit } : {}),
-      })
+      .setRpc(ingestion.rpc)
       .setBlockRange(blockRange)
       .setFields(fields)
   ).build();
