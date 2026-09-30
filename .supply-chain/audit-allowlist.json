@@ -882,6 +882,123 @@
       "reason": "Surfaced 2026-08 — newly published advisory (node-tar uncatchable stack-overflow DoS via crafted long-path tar), hit only by the legacy graph-cli 0.64.0 trees (autonolas/autonolas-base): graph-cli > binary-install-raw > tar; build-time CLI tooling only. Patched in >=7.5.21 but pinned by the graph-cli line — no fix until Tier 3 Wave 3. Re-evaluate then.",
       "added": "2026-08-31",
       "review": "2026-11-29"
+    },
+    {
+      "id": 1240094,
+      "ghsa": "GHSA-hrh2-vp3x-79xf",
+      "package": "@xhmikosr/decompress",
+      "severity": "critical",
+      "reason": "Transitive of @graphprotocol/graph-cli (CLI archive extraction) in the dependency-audit job. The advisory has no patched version (npm reports fix in <0.0.0); this tool-only dependency is not included in squid runtime images. Re-review for an upstream fix or a safe graph-cli update.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240041,
+      "ghsa": "GHSA-rfgv-xxqx-mfg5",
+      "package": "undici",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for undici <7.29.1 (unrequested WebSocket subprotocol can cause denial of service), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240104,
+      "ghsa": "GHSA-qhr7-859c-m2p7",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <1.1.20 (uncontrolled recursion in nested brace groups can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240105,
+      "ghsa": "GHSA-qhr7-859c-m2p7",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <2.1.6 (uncontrolled recursion in nested brace groups can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240107,
+      "ghsa": "GHSA-qhr7-859c-m2p7",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <5.0.11 (uncontrolled recursion in nested brace groups can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240108,
+      "ghsa": "GHSA-6j4f-fj2g-mc7p",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <1.1.19 (uncontrolled recursion in brace parsing can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240109,
+      "ghsa": "GHSA-6j4f-fj2g-mc7p",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <2.1.5 (uncontrolled recursion in brace parsing can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240111,
+      "ghsa": "GHSA-6j4f-fj2g-mc7p",
+      "package": "brace-expansion",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for brace-expansion <5.0.10 (uncontrolled recursion in brace parsing can exhaust the stack), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240603,
+      "ghsa": "GHSA-c29m-xwm3-cm6r",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (ReDoS in data URL parsing can freeze the event loop), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240604,
+      "ghsa": "GHSA-mghh-pgcx-3jjj",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (ReDoS in proxy host normalization), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240605,
+      "ghsa": "GHSA-x97p-jq2g-jp4f",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (prototype pollution through toFormData options), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240607,
+      "ghsa": "GHSA-3pq3-5fj3-cg6v",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (HTTP/2 adapter bypasses DNS lookup and proxy controls), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
+    },
+    {
+      "id": 1240608,
+      "ghsa": "GHSA-542g-h47m-68v8",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (denial of service from an unhandled HTTP/2 session error), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
+      "added": "2026-09-30",
+      "review": "2026-12-29"
     }
   ]
 }
