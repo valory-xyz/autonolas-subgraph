@@ -1,0 +1,78 @@
+# Build from repo root: docker build -f squids/Dockerfile --build-arg SQUID=staking .
+# Replace registry.example/staking-squid:VERSION with the published image.
+# Secret staking-robinhood-squid-db: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS.
+# Secret staking-robinhood-squid-data: RPC_HTTP (archive REQUIRED), STAKING_CHAIN=robinhood,
+# INGEST_SOURCE=portal|rpc, SQD_PORTAL_URL and SQD_PORTAL_API_KEY for private portal access.
+# Run the migration job successfully before starting the processor/API.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: staking-robinhood-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.example/staking-squid:VERSION
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: staking-robinhood-squid-db } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staking-robinhood-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: staking-robinhood-squid-processor } }
+  template:
+    metadata:
+      labels: { app: staking-robinhood-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: registry.example/staking-squid:VERSION
+          command: ["node", "lib/main.js"]
+          envFrom:
+            - { secretRef: { name: staking-robinhood-squid-db } }
+            - { secretRef: { name: staking-robinhood-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports: [{ name: metrics, containerPort: 3000 }]
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "2", memory: "1Gi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staking-robinhood-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: staking-robinhood-squid-api } }
+  template:
+    metadata:
+      labels: { app: staking-robinhood-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example/staking-squid:VERSION
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: staking-robinhood-squid-db } }]
+          env:
+            - { name: GQL_PORT, value: "4350" }
+          ports: [{ name: graphql, containerPort: 4350 }]
+          readinessProbe:
+            tcpSocket: { port: graphql }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: staking-robinhood-squid-api
+spec:
+  selector: { app: staking-robinhood-squid-api }
+  ports: [{ port: 4350, targetPort: graphql }]

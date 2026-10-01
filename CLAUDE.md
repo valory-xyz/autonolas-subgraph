@@ -28,6 +28,8 @@ squids/
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
 ├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
 ├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
+├── tokenomics/          # SQD OLAS holder tracking (Robinhood), port of studio tokenomics-l2
+├── staking/             # SQD staking indexer (Robinhood), port of studio main; requires archive RPC
 ├── mech-fees/           # SQD indexer for mech marketplace fees per payment model (Robinhood first; chain via MECH_FEES_CHAIN)
 └── _shared/             # @olas/squid-shared: chain selection, RPC + Chainlink/DEX pricing, entity cache (file:../_shared)
 ```
@@ -39,7 +41,8 @@ Each subgraph is an independent package with its own `package.json`, `schema.gra
 `squids/_shared` (`@olas/squid-shared`) is consumed by the other squids via
 `"file:../_shared"`. Each consumer's `package-lock.json` embeds `_shared`'s
 dependency list, so after changing `_shared/package.json` run `npm install` in
-every consumer (service-registry, marketplace, liquidity, mech-fees) or
+every consumer (service-registry, marketplace, liquidity, mech-fees, staking,
+tokenomics) or
 `npm ci` fails in CI. Consumers declare only what they import themselves:
 `viem` is reached through `_shared` and must not be re-declared, or Node
 resolves the link to its real path and loads it twice. `@subsquid/big-decimal`

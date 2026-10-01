@@ -1,0 +1,251 @@
+# Port of studio main ab3ac860ada32aa16121c3637816cba3f8075f1b.
+# Hex bytes use String; numeric arrays use decimal String arrays (SQD codegen limit).
+# Scalar integers retain BigInt. IDs retain the source encodings; see README.
+
+type InstanceCreated @entity {
+  id: ID!
+  sender: String! # address
+  instance: String! # address
+  implementation: String! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type InstanceRemoved @entity {
+  id: ID!
+  instance: String! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type InstanceStatusChanged @entity {
+  id: ID!
+  instance: String! # address
+  isEnabled: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type OwnerUpdated @entity {
+  id: ID!
+  owner: String! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type VerifierUpdated @entity {
+  id: ID!
+  verifier: String! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type Checkpoint @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  serviceIds: [String!]! # uint256[]
+  rewards: [String!]! # uint256[]
+  epochLength: BigInt! # uint256
+  blockNumber: BigInt!
+  transactionHash: String!
+  blockTimestamp: BigInt!
+  contractAddress: String! # address
+}
+
+type Deposit @entity {
+  id: ID!
+  sender: String! # address
+  amount: BigInt! # uint256
+  balance: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type RewardClaimed @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: String! # address
+  multisig: String! # address
+  nonces: [String!]! # uint256[]
+  reward: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServiceForceUnstaked @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: String! # address
+  multisig: String! # address
+  nonces: [String!]! # uint256[]
+  reward: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServiceInactivityWarning @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  serviceInactivity: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServiceStaked @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: String! # address
+  multisig: String! # address
+  nonces: [String!]! # uint256[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServiceUnstaked @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceId: BigInt! # uint256
+  owner: String! # address
+  multisig: String! # address
+  nonces: [String!]! # uint256[]
+  reward: BigInt! # uint256
+  availableRewards: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServicesEvicted @entity {
+  id: ID!
+  epoch: BigInt! # uint256
+  serviceIds: [String!]! # uint256[]
+  owners: [String!]! # address[]
+  multisigs: [String!]! # address[]
+  serviceInactivity: [String!]! # uint256[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type Withdraw @entity {
+  id: ID!
+  to: String! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type StakingContract @entity {
+  id: ID! # instance address
+  sender: String! # address
+  instance: String! # address
+  implementation: String! # address
+  # Nullable below: implementations expose different getters
+  stakingManager: String
+  stakingToken: String
+  serviceRegistryTokenUtility: String
+  version: String
+  configComplete: Boolean! # false when a getter reverted and the field holds a default
+  isOlasStaking: Boolean! # stakingToken matches this network's OLAS
+  eventsIndexed: Boolean! # false when the implementation's events do not match the manifest
+  metadataHash: String!
+  maxNumServices: BigInt!
+  rewardsPerSecond: BigInt!
+  minStakingDeposit: BigInt!
+  minStakingDuration: BigInt!
+  maxNumInactivityPeriods: BigInt!
+  livenessPeriod: BigInt!
+  timeForEmissions: BigInt!
+  numAgentInstances: BigInt!
+  agentIds: [String!]!
+  threshold: BigInt!
+  configHash: String!
+  proxyHash: String!
+  serviceRegistry: String!
+  activityChecker: String!
+}
+
+type RewardUpdate @entity {
+  id: ID!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+  type: String! # "Claimable" or "Claimed"
+  amount: BigInt!
+}
+
+type Service @entity {
+  id: ID!
+  currentOlasStaked: BigInt!
+  currentStakeAmount: BigInt! # recorded on stake, subtracted on unstake
+  hasOlasStake: Boolean! # has staked in an OLAS contract at least once
+  olasRewardsEarned: BigInt!
+  olasRewardsClaimed: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  global: Global!
+  latestStakingContract: String
+  totalEpochsParticipated: Int!
+  rewardsHistory: [ServiceRewardsHistory!]! @derivedFrom(field: "service")
+}
+
+type ServiceRewardsHistory @entity {
+  id: ID! # {serviceId}-{contractAddress}-{epoch}
+  service: Service!
+  epoch: BigInt!
+  contractAddress: String!
+  checkpoint: Checkpoint
+  rewardAmount: BigInt!
+  checkpointedAt: BigInt
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ActiveServiceEpoch @entity {
+  id: ID! # {contractAddress}-{epoch}
+  contractAddress: String!
+  epoch: BigInt!
+  activeServiceIds: [String!]!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type Global @entity {
+  id: ID!
+  cumulativeOlasStaked: BigInt!
+  cumulativeOlasUnstaked: BigInt!
+  currentOlasStaked: BigInt!
+  totalRewards: BigInt! # cumulative rewards earned
+  totalRewardsClaimed: BigInt! # cumulative rewards paid out
+  lastActiveDayTimestamp: BigInt!
+  services: [Service!]! @derivedFrom(field: "global")
+}
+
+type CumulativeDailyStakingGlobal @entity {
+  id: ID!
+  timestamp: BigInt!
+  block: BigInt!
+  totalRewards: BigInt!
+  totalRewardsClaimed: BigInt!
+  numServices: Int!
+  medianCumulativeRewards: BigInt!
+}

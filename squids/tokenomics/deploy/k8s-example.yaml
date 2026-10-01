@@ -1,0 +1,78 @@
+# Build from repo root: docker build -f squids/Dockerfile --build-arg SQUID=tokenomics .
+# Replace registry.example/tokenomics-squid:VERSION with the published image.
+# Secret tokenomics-robinhood-squid-db: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS.
+# Secret tokenomics-robinhood-squid-data: RPC_HTTP (when ingesting over RPC), TOKENOMICS_CHAIN=robinhood,
+# INGEST_SOURCE=portal|rpc, SQD_PORTAL_URL and SQD_PORTAL_API_KEY for private portal access.
+# Run the migration job successfully before starting the processor/API.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tokenomics-robinhood-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.example/tokenomics-squid:VERSION
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: tokenomics-robinhood-squid-db } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenomics-robinhood-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: tokenomics-robinhood-squid-processor } }
+  template:
+    metadata:
+      labels: { app: tokenomics-robinhood-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: registry.example/tokenomics-squid:VERSION
+          command: ["node", "lib/main.js"]
+          envFrom:
+            - { secretRef: { name: tokenomics-robinhood-squid-db } }
+            - { secretRef: { name: tokenomics-robinhood-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports: [{ name: metrics, containerPort: 3000 }]
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "2", memory: "1Gi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenomics-robinhood-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: tokenomics-robinhood-squid-api } }
+  template:
+    metadata:
+      labels: { app: tokenomics-robinhood-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example/tokenomics-squid:VERSION
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: tokenomics-robinhood-squid-db } }]
+          env:
+            - { name: GQL_PORT, value: "4350" }
+          ports: [{ name: graphql, containerPort: 4350 }]
+          readinessProbe:
+            tcpSocket: { port: graphql }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tokenomics-robinhood-squid-api
+spec:
+  selector: { app: tokenomics-robinhood-squid-api }
+  ports: [{ port: 4350, targetPort: graphql }]
