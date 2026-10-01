@@ -37,7 +37,7 @@ if (to !== undefined && (!Number.isSafeInteger(to) || to < CHAIN.startBlock)) {
     "TOKENOMICS_TO_BLOCK must be an integer at or after token deployment",
   );
 }
-const blockRange = {
+export const BLOCK_RANGE = {
   from: CHAIN.startBlock,
   ...(to === undefined ? {} : { to }),
 };
@@ -48,7 +48,7 @@ function buildPortalSource() {
   return addQueries(
     new DataSourceBuilder()
       .setPortal(ingestion.portal)
-      .setBlockRange(blockRange)
+      .setBlockRange(BLOCK_RANGE)
       .setFields(fields),
   ).build();
 }
@@ -57,7 +57,7 @@ function buildRpcSource() {
   return addQueries(
     new EvmRpcDataSourceBuilder()
       .setRpc(ingestion.rpc)
-      .setBlockRange(blockRange)
+      .setBlockRange(BLOCK_RANGE)
       .setFields(fields),
   ).build();
 }
