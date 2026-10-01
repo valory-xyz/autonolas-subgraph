@@ -24,5 +24,29 @@ it("honours explicit source, RPC endpoint and ingestion rate overrides", () => {
   expect(config.rpc).toMatchObject({ url: "https://custom.example", rateLimit: 10 });
   expect(selectIngestSource({ INGEST_SOURCE: "portal" })).toBe("portal");
   expect(() => selectIngestSource({ INGEST_SOURCE: "unknown" })).toThrow('must be "portal" or "rpc"');
-  expect(getIngestionConfig(chain, { RPC_RATE_LIMIT: "invalid" }).rpc).not.toHaveProperty("rateLimit");
+  expect(() => getIngestionConfig(chain, { RPC_RATE_LIMIT: "invalid" })).toThrow(
+    "RPC_RATE_LIMIT must be a positive finite number",
+  );
+});
+
+it("rejects non-positive and non-finite RPC rate limits", () => {
+  for (const RPC_RATE_LIMIT of ["0", "-1", "Infinity"]) {
+    expect(() => getIngestionConfig(chain, { RPC_RATE_LIMIT })).toThrow(
+      "RPC_RATE_LIMIT must be a positive finite number",
+    );
+  }
+});
+
+it("requires a key only for an explicitly selected private Portal dataset", () => {
+  const privateChain = { ...chain, portalRequiresApiKey: true };
+  expect(() =>
+    getIngestionConfig(privateChain, { INGEST_SOURCE: "portal" }),
+  ).toThrow("SQD_PORTAL_API_KEY is required");
+  expect(
+    getIngestionConfig(privateChain, {
+      INGEST_SOURCE: "portal",
+      SQD_PORTAL_API_KEY: "test",
+    }).source,
+  ).toBe("portal");
+  expect(getIngestionConfig(privateChain, {}).source).toBe("rpc");
 });

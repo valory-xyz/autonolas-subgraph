@@ -20,15 +20,7 @@ run(
       for (const log of [...block.logs].sort(
         (left, right) => left.logIndex - right.logIndex,
       )) {
-        await dispatch(
-          cache,
-          eventMeta(block.header, {
-            address: log.address,
-            transactionHash: log.transactionHash,
-            logIndex: log.logIndex,
-          }),
-          log,
-        );
+        await dispatch(cache, eventMeta(block.header, log), log);
       }
     }
     await cache.flush();

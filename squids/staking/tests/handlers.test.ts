@@ -9,11 +9,16 @@ import { getMetadataArgsStorage } from "typeorm";
 import {
   ActiveServiceEpoch,
   CumulativeDailyStakingGlobal,
+  Deposit,
   RewardClaimed,
   RewardUpdate,
+  ServiceInactivityWarning,
   ServiceForceUnstaked,
   ServiceRewardsHistory,
+  ServiceUnstaked,
   StakingContract,
+  ServicesEvicted,
+  Withdraw,
 } from "../src/model";
 import * as handlers from "../src/handlers";
 import type { Ctx } from "../src/handlers";
@@ -234,6 +239,18 @@ it("rejects malformed checkpoint arrays and missing service history", async () =
     "Missing staked service",
   );
 });
+it("does not advance claimed totals for a claim without its staked service", async () => {
+  const { ctx, contract } = setup();
+  await expect(
+    handlers.handleRewardClaimed(ctx, meta(), contract, {
+      ...params,
+      reward: 25n,
+    }),
+  ).rejects.toThrow("Missing claimed service");
+  expect(await handlers.getOrCreateGlobal(ctx)).toMatchObject({
+    totalRewardsClaimed: 0n,
+  });
+});
 it("ignores foreign malformed logs and unsupported versions before decoding", async () => {
   const { ctx, contract } = setup();
   const reader = {
@@ -305,6 +322,32 @@ it("discovers a proxy then processes its events in the same batch", async () => 
     isOlasStaking: true,
   });
   expect(ctx.services.get("1")?.currentOlasStaked).toBe(300n);
+});
+
+it("routes every staking proxy event to its matching entity and unstake handler", async () => {
+  const { ctx, cache, contract } = setup();
+  await handlers.handleServiceStaked(ctx, meta(), contract, params);
+  const reader = { config: async () => { throw new Error("unexpected config read"); } };
+  const send = async (encoded: { topics: string[]; data: string }, index: number) =>
+    dispatch(ctx, meta(index), encoded, reader);
+
+  await send(stakingProxy.Deposit.encode({ sender: owner, amount: 1n, balance: 2n, availableRewards: 3n }), 1);
+  await send(stakingProxy.Withdraw.encode({ to: owner, amount: 1n }), 2);
+  await send(stakingProxy.ServiceInactivityWarning.encode({ epoch: 1n, serviceId: 1n, serviceInactivity: 2n }), 3);
+  await send(stakingProxy.ServicesEvicted.encode({ epoch: 1n, serviceIds: [1n], owners: [owner], multisigs: [owner], serviceInactivity: [2n] }), 4);
+  await send(stakingProxy.ServiceUnstaked.encode({ ...params, reward: 10n, availableRewards: 0n }), 5);
+
+  expect(cache.all(Deposit)).toHaveLength(1);
+  expect(cache.all(Withdraw)).toHaveLength(1);
+  expect(cache.all(ServiceInactivityWarning)).toHaveLength(1);
+  expect(cache.all(ServicesEvicted)[0].serviceIds).toEqual(["1"]);
+  expect(cache.all(ServiceUnstaked)).toHaveLength(1);
+  expect(cache.all(ServiceForceUnstaked)).toHaveLength(0);
+
+  await handlers.handleServiceStaked(ctx, meta(6), contract, { ...params, serviceId: 2n });
+  await send(stakingProxy.ServiceForceUnstaked.encode({ ...params, serviceId: 2n, reward: 10n, availableRewards: 10n }), 7);
+  expect(cache.all(ServiceForceUnstaked)).toHaveLength(1);
+  expect(cache.all(ServiceUnstaked)).toHaveLength(1);
 });
 
 it("continues Pearl's zero-reward epoch timeline after unstaking until migration", async () => {

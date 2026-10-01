@@ -1,4 +1,5 @@
-import type { IEntityCache, EventMeta } from "@olas/squid-shared";
+import { graphEventId, type IEntityCache, type EventMeta } from "@olas/squid-shared";
+export const eventId = graphEventId;
 import {
   ActiveServiceEpoch,
   Checkpoint,
@@ -25,12 +26,6 @@ export interface Ctx {
     serviceId: bigint,
     block: bigint,
   ): Promise<bigint>;
-}
-export function eventId(meta: EventMeta): string {
-  // graph-ts Bytes.concatI32 appends the four-byte little-endian log index.
-  const suffix = Buffer.alloc(4);
-  suffix.writeInt32LE(meta.logIndex);
-  return meta.txHash + suffix.toString("hex");
 }
 export interface EventFields {
   id: string;
@@ -347,10 +342,10 @@ export async function handleRewardClaimed(
   );
   if (!contract.isOlasStaking) return;
   const service = ctx.services.get(String(params.serviceId));
-  if (service) {
-    service.olasRewardsClaimed += params.reward;
-    saveService(ctx, service);
-  }
+  if (!service)
+    throw new Error(`Missing claimed service ${params.serviceId} at ${meta.blockNumber}`);
+  service.olasRewardsClaimed += params.reward;
+  saveService(ctx, service);
   createRewardUpdate(ctx, meta, "Claimed", params.reward);
   await recordRewardsClaimed(ctx, meta, params.reward);
 }
@@ -371,6 +366,8 @@ export async function handleServiceUnstaked(
   else ctx.cache.set(ServiceUnstaked, new ServiceUnstaked(fields));
   const paid = !forced && contract.isOlasStaking;
   const service = ctx.services.get(String(params.serviceId));
+  if (contract.isOlasStaking && !service)
+    throw new Error(`Missing unstaked service ${params.serviceId} at ${meta.blockNumber}`);
   const amount = service?.currentStakeAmount ?? 0n;
   if (service) {
     service.latestStakingContract = null;

@@ -6,6 +6,7 @@ export interface ChainConfig {
   name: ChainName;
   chainId: number;
   portalDataset: string;
+  portalRequiresApiKey: boolean;
   /** JSON-RPC used when INGEST_SOURCE=rpc. No contract reads are needed to index. */
   defaultRpc: string;
   /** Token deployment block, including the initial mint. */
@@ -18,6 +19,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     name: "robinhood",
     chainId: 4663,
     portalDataset: "https://portal.sqd.dev/datasets/robinhood-mainnet",
+    portalRequiresApiKey: true,
     defaultRpc: "https://rpc-gate.autonolas.tech/robinhood-rpc/",
     // First bytecode and initial Transfer mint, verified against archive RPC.
     startBlock: 56_201_065,

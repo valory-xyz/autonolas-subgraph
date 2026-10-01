@@ -192,3 +192,10 @@ it("retains graph-ts event IDs and includes every model in FK-safe flush order",
     ),
   ).not.toThrow();
 });
+
+it("rejects a transfer that would create a negative holder balance", async () => {
+  const { transfer } = setup();
+  await expect(transfer(alice, bob, 1n)).rejects.toThrow(
+    "balance would become negative",
+  );
+});

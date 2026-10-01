@@ -41,7 +41,8 @@ Each subgraph is an independent package with its own `package.json`, `schema.gra
 `squids/_shared` (`@olas/squid-shared`) is consumed by the other squids via
 `"file:../_shared"`. Each consumer's `package-lock.json` embeds `_shared`'s
 dependency list, so after changing `_shared/package.json` run `npm install` in
-every consumer (service-registry, marketplace, liquidity, mech-fees) or
+every consumer (service-registry, marketplace, liquidity, mech-fees, staking,
+tokenomics) or
 `npm ci` fails in CI. Consumers declare only what they import themselves:
 `viem` is reached through `_shared` and must not be re-declared, or Node
 resolves the link to its real path and loads it twice. `@subsquid/big-decimal`

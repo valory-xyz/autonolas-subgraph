@@ -1,4 +1,4 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
 import { StakingReader, ContractRevert, supportsEvents } from "../src/rpc";
 import * as stakingProxy from "../src/abi/StakingProxy/functions";
 import { StakingContract } from "../src/model";
@@ -70,6 +70,36 @@ it("uses contract minimum when deposit getters are unavailable, but not for netw
   });
   await expect(broken.lockedOlas(contract, 1n, 123n)).rejects.toThrow(
     "HTTP 429",
+  );
+  const unknownMinimum = new StakingContract({ ...contract, minStakingDeposit: 0n, numAgentInstances: 0n });
+  await expect(reader.lockedOlas(unknownMinimum, 1n, 123n)).rejects.toThrow(
+    "Cannot estimate locked OLAS",
+  );
+});
+
+it("rejects a mismatch between service agent IDs and agent parameters", async () => {
+  const utility = await import(
+    "../src/abi/ServiceRegistryTokenUtility/functions"
+  );
+  const registry = await import("../src/abi/ServiceRegistryL2/functions");
+  const contract = new StakingContract({
+    id: "0x" + "11".repeat(20),
+    isOlasStaking: true,
+    minStakingDeposit: 1n,
+    numAgentInstances: 1n,
+    serviceRegistry: "0x" + "22".repeat(20),
+    serviceRegistryTokenUtility: "0x" + "33".repeat(20),
+  });
+  const reader = new StakingReader(async () => "0x", () => {});
+  vi.spyOn(reader, "read").mockImplementation(async (_address, _block, fn): Promise<any> => {
+    if (fn === utility.mapServiceIdTokenDeposit)
+      return { token: "0x" + "44".repeat(20), securityDeposit: 100n };
+    if (fn === registry.getService) return { agentIds: [7, 8] };
+    if (fn === registry.getAgentParams) return { agentParams: [{ slots: 2, bond: 0n }] };
+    throw new Error("unexpected getter");
+  });
+  await expect(reader.lockedOlas(contract, 1n, 123n)).rejects.toThrow(
+    "2 agent IDs, 1 agent params",
   );
 });
 

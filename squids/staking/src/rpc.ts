@@ -174,6 +174,11 @@ export class StakingReader {
     this.warn(
       `Locked OLAS unreadable for service ${serviceId} on ${contract.id}; using minimum ${fallback}`,
     );
+    if (fallback <= 0n) {
+      throw new Error(
+        `Cannot estimate locked OLAS for ${contract.id}: minStakingDeposit or numAgentInstances could not be read`,
+      );
+    }
     return fallback;
   }
   private async readLocked(
@@ -200,12 +205,13 @@ export class StakingReader {
       }),
     ]);
     if (!service || !params) return null;
+    if (service.agentIds.length !== params.agentParams.length) {
+      throw new Error(
+        `Staking bond arrays differ for service ${serviceId} on ${contract.id}: ${service.agentIds.length} agent IDs, ${params.agentParams.length} agent params`,
+      );
+    }
     let total = deposit.securityDeposit;
-    for (
-      let i = 0;
-      i < Math.min(service.agentIds.length, params.agentParams.length);
-      i++
-    ) {
+    for (let i = 0; i < service.agentIds.length; i++) {
       const bond = await this.read(
         utilityAddress,
         block,

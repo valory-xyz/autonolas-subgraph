@@ -28,11 +28,15 @@ export function eventMeta(
     address: string;
     transactionHash: string;
     logIndex: number;
-    transaction?: { from?: string; to?: string | null } | null;
+    transaction?: unknown;
   }
 ): EventMeta {
-  const from = log.transaction?.from;
-  const to = log.transaction?.to;
+  const transaction = log.transaction as
+    | { from?: string; to?: string | null }
+    | null
+    | undefined;
+  const from = transaction?.from;
+  const to = transaction?.to;
   return {
     blockNumber: BigInt(block.number),
     blockTimestamp: BigInt(Math.floor(block.timestamp / 1000)),
@@ -59,3 +63,10 @@ export function lastBlock(
 /** `<txHash>-<logIndex>`, the id scheme for event-log rows across the squids. */
 export const logId = (meta: { txHash: string; logIndex: number }): string =>
   `${meta.txHash}-${meta.logIndex}`;
+
+/** graph-ts Bytes.concatI32 id: transaction hash plus little-endian log index. */
+export function graphEventId(meta: { txHash: string; logIndex: number }): string {
+  const suffix = Buffer.alloc(4);
+  suffix.writeInt32LE(meta.logIndex);
+  return meta.txHash + suffix.toString("hex");
+}

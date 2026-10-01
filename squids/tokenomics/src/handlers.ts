@@ -1,15 +1,10 @@
-import type { EventMeta, IEntityCache } from "@olas/squid-shared";
+import { graphEventId, type EventMeta, type IEntityCache } from "@olas/squid-shared";
 import type { EventParams } from "./abi/abi.support";
 import type * as olas from "./abi/OLAS/events";
 import { Token, TokenHolder, Transfer } from "./model";
 import { ZERO_ADDRESS } from "./constants";
 
-export function eventId(meta: EventMeta): string {
-  // Preserve graph-ts Bytes.concatI32: transaction hash + little-endian log index.
-  const suffix = Buffer.alloc(4);
-  suffix.writeInt32LE(meta.logIndex);
-  return meta.txHash + suffix.toString("hex");
-}
+export const eventId = graphEventId;
 
 async function getOrCreateToken(
   cache: IEntityCache,
@@ -62,6 +57,8 @@ export async function handleTransfer(
     const holder = await getOrCreateTokenHolder(cache, tokenAddress, from);
     const oldBalance = holder.balance;
     holder.balance -= amount;
+    if (holder.balance < 0n)
+      throw new Error(`Token holder ${from} balance would become negative at ${meta.blockNumber}`);
     cache.set(TokenHolder, holder);
     if (oldBalance > 0n && holder.balance === 0n) token.holderCount--;
   }

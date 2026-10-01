@@ -6,6 +6,7 @@ export interface ChainConfig {
   name: ChainName;
   chainId: number;
   portalDataset: string;
+  portalRequiresApiKey: boolean;
   /** Archive RPC used for historical contract reads and optional ingestion. */
   defaultRpc: string;
   /** Factory deployment block; indexing must include the full staking history. */
@@ -19,6 +20,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     name: "robinhood",
     chainId: 4663,
     portalDataset: "https://portal.sqd.dev/datasets/robinhood-mainnet",
+    portalRequiresApiKey: true,
     defaultRpc: "https://rpc-gate.autonolas.tech/robinhood-rpc/",
     // First block with factory bytecode, verified against archive RPC.
     startBlock: 58_661_778,

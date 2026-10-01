@@ -37,16 +37,7 @@ run(
       for (const entry of [...block.logs].sort(
         (a, b) => a.logIndex - b.logIndex,
       )) {
-        await dispatch(
-          handlerContext,
-          eventMeta(block.header, {
-            address: entry.address,
-            transactionHash: entry.transactionHash,
-            logIndex: entry.logIndex,
-          }),
-          entry,
-          reader,
-        );
+        await dispatch(handlerContext, eventMeta(block.header, entry), entry, reader);
       }
     }
     await cache.flush();

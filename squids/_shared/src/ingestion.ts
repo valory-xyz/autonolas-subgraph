@@ -4,6 +4,8 @@ export interface IngestionChain {
   chainId: number;
   portalDataset: string;
   defaultRpc: string;
+  /** Set for private Portal datasets so explicit portal mode fails fast. */
+  portalRequiresApiKey?: boolean;
 }
 
 // Structural options keep SDK runtime dependencies in each consuming squid.
@@ -33,9 +35,17 @@ export function getIngestionConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): IngestionConfig {
   const portalUrl = env.SQD_PORTAL_URL ?? chain.portalDataset;
-  const rateLimit = env.RPC_RATE_LIMIT ? Number(env.RPC_RATE_LIMIT) : undefined;
+  const source = selectIngestSource(env);
+  const rawRateLimit = env.RPC_RATE_LIMIT;
+  const rateLimit = rawRateLimit === undefined ? undefined : Number(rawRateLimit);
+  if (rateLimit !== undefined && (!Number.isFinite(rateLimit) || rateLimit <= 0)) {
+    throw new Error("RPC_RATE_LIMIT must be a positive finite number");
+  }
+  if (source === "portal" && chain.portalRequiresApiKey && !env.SQD_PORTAL_API_KEY) {
+    throw new Error("SQD_PORTAL_API_KEY is required for this Portal dataset");
+  }
   return {
-    source: selectIngestSource(env),
+    source,
     portal: env.SQD_PORTAL_API_KEY
       ? { url: portalUrl, http: { headers: { "x-api-key": env.SQD_PORTAL_API_KEY } } }
       : portalUrl,
@@ -45,7 +55,7 @@ export function getIngestionConfig(
       // Explicit verification supports chains without an SDK preset. Finality
       // comes from the node's finalized tag; do not substitute a fixed depth.
       rpc: { verifyBlockHash: true, verifyLogsBloom: true },
-      ...(rateLimit != null && Number.isFinite(rateLimit) ? { rateLimit } : {}),
+      ...(rateLimit === undefined ? {} : { rateLimit }),
     },
   };
 }
