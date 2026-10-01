@@ -999,6 +999,24 @@
       "reason": "Newly surfaced audit advisory for axios <1.20.0 (denial of service from an unhandled HTTP/2 session error), transitive of @graphprotocol/graph-cli in subgraph build tooling. It is not part of deployed squid runtime images. Keep tracked while validating a compatible upstream graph-cli/dependency-tree update; re-review this temporary exception.",
       "added": "2026-09-30",
       "review": "2026-12-29"
+    },
+    {
+      "id": 1240628,
+      "ghsa": "GHSA-m8m8-qj5v-23w3",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (Node HTTP adapter prototype-pollution gadget can hijack request sockets), transitive of @graphprotocol/graph-cli in subgraph build tooling. Fixed in axios >=1.20.0; upstream graph-cli currently pins the vulnerable range. Not part of deployed squid runtime images. Re-review this temporary exception after the graph-cli dependency tree can be updated.",
+      "added": "2026-10-01",
+      "review": "2026-12-30"
+    },
+    {
+      "id": 1240634,
+      "ghsa": "GHSA-r4gj-5m52-g5wh",
+      "package": "axios",
+      "severity": "high",
+      "reason": "Newly surfaced audit advisory for axios <1.20.0 (fetch adapter does not enforce maxRedirects: 0, allowing redirect-based SSRF), transitive of @graphprotocol/graph-cli in subgraph build tooling. Fixed in axios >=1.20.0; upstream graph-cli currently pins the vulnerable range. Not part of deployed squid runtime images. Re-review this temporary exception after the graph-cli dependency tree can be updated.",
+      "added": "2026-10-01",
+      "review": "2026-12-30"
     }
   ]
 }
