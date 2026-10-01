@@ -56,7 +56,9 @@ processor reads configuration at instance creation and service deposits/bonds at
 stake time. The example uses the Olas archive RPC. Genuine contract reverts use
 the studio defaults; transport errors and unavailable historical state fail the
 batch instead of replacing history with current state. There is no latest fallback.
-An RPC that silently ignores block tags is unsuitable.
+Before indexing, the processor checks factory bytecode and an `owner()` call at the
+factory deployment block. An RPC that returns empty data or silently ignores block
+tags is unsuitable.
 
 Proxy logs are subscribed by topic, then checked against factory-discovered
 instances before decoding. Known malformed events fail the batch. Removal/status

@@ -8,19 +8,24 @@ import { dataSource } from "./processor";
 import { EntityCache } from "./entityCache";
 import { Service } from "./model";
 import { CHAIN } from "./constants";
-import { StakingReader, transport } from "./rpc";
+import { assertArchiveRpc, StakingReader, transport } from "./rpc";
 import { dispatch } from "./dispatch";
 import type { Ctx } from "./handlers";
 
 const log = createLogger("sqd:staking");
-const reader = new StakingReader(
-  transport(process.env.RPC_HTTP ?? CHAIN.defaultRpc),
-  (message) => log.warn(message),
-);
+const rpc = transport(process.env.RPC_HTTP ?? CHAIN.defaultRpc);
+const reader = new StakingReader(rpc, (message) => log.warn(message));
+let archiveChecked: Promise<void> | undefined;
 run(
   dataSource,
   new TypeormDatabase({ supportHotBlocks: true }),
   async (ctx) => {
+    archiveChecked ??= assertArchiveRpc(
+      rpc,
+      CHAIN.stakingFactory,
+      CHAIN.startBlock,
+    );
+    await archiveChecked;
     // No state survives a batch: a hot-block rollback or retry reloads canonical DB state.
     const cache = new EntityCache(ctx.store);
     cache.log = log;

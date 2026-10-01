@@ -1,4 +1,5 @@
 import * as stakingProxy from "./abi/StakingProxy/functions";
+import * as stakingFactory from "./abi/StakingFactory/functions";
 import * as registry from "./abi/ServiceRegistryL2/functions";
 import * as utility from "./abi/ServiceRegistryTokenUtility/functions";
 import { StakingContract } from "./model";
@@ -38,6 +39,46 @@ export function transport(url: string): Transport {
     return body.result;
   };
 }
+
+/** Fail before indexing if RPC_HTTP cannot serve the factory's historical state. */
+export async function assertArchiveRpc(
+  request: Transport,
+  factoryAddress: string,
+  startBlock: number,
+): Promise<void> {
+  const blockTag = `0x${BigInt(startBlock).toString(16)}`;
+  let code: string;
+  try {
+    code = await request("eth_getCode", [factoryAddress, blockTag]);
+  } catch (err) {
+    throw new Error(
+      `RPC_HTTP cannot read factory code at block ${startBlock}: ${errorMessage(err)}. An archive RPC is required.`,
+    );
+  }
+  if (code === "0x") {
+    throw new Error(
+      `RPC_HTTP returned no factory code at block ${startBlock}; the endpoint is not archive-capable.`,
+    );
+  }
+
+  try {
+    const result = await request("eth_call", [
+      { to: factoryAddress, data: stakingFactory.owner.encode({}) },
+      blockTag,
+    ]);
+    if (result === "0x") throw new Error("owner() returned empty data");
+    stakingFactory.owner.decodeResult(result);
+  } catch (err) {
+    throw new Error(
+      `RPC_HTTP cannot call the staking factory at block ${startBlock}: ${errorMessage(err)}. An archive RPC is required.`,
+    );
+  }
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message.split("\n", 1)[0] : String(err);
+}
+
 export class StakingReader {
   constructor(
     private request: Transport,

@@ -35,6 +35,12 @@ it("rejects non-positive and non-finite RPC rate limits", () => {
       "RPC_RATE_LIMIT must be a positive finite number",
     );
   }
+  expect(
+    getIngestionConfig(chain, { RPC_RATE_LIMIT: "" }).rpc,
+  ).not.toHaveProperty("rateLimit");
+  expect(
+    getIngestionConfig(chain, { RPC_RATE_LIMIT: "   " }).rpc,
+  ).not.toHaveProperty("rateLimit");
 });
 
 it("requires a key only for an explicitly selected private Portal dataset", () => {

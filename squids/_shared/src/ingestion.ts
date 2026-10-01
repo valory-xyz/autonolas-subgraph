@@ -36,8 +36,8 @@ export function getIngestionConfig(
 ): IngestionConfig {
   const portalUrl = env.SQD_PORTAL_URL ?? chain.portalDataset;
   const source = selectIngestSource(env);
-  const rawRateLimit = env.RPC_RATE_LIMIT;
-  const rateLimit = rawRateLimit === undefined ? undefined : Number(rawRateLimit);
+  const rawRateLimit = env.RPC_RATE_LIMIT?.trim();
+  const rateLimit = rawRateLimit ? Number(rawRateLimit) : undefined;
   if (rateLimit !== undefined && (!Number.isFinite(rateLimit) || rateLimit <= 0)) {
     throw new Error("RPC_RATE_LIMIT must be a positive finite number");
   }

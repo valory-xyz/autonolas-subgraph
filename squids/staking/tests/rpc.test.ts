@@ -1,5 +1,10 @@
 import { it, expect, vi } from "vitest";
-import { StakingReader, ContractRevert, supportsEvents } from "../src/rpc";
+import {
+  assertArchiveRpc,
+  StakingReader,
+  ContractRevert,
+  supportsEvents,
+} from "../src/rpc";
 import * as stakingProxy from "../src/abi/StakingProxy/functions";
 import { StakingContract } from "../src/model";
 
@@ -26,6 +31,30 @@ it("pins reads to the event block and never falls back to latest on transport er
   ).rejects.toThrow("missing trie node");
   expect(calls).toHaveLength(1);
   expect(calls[0][1]).toBe("0x7b");
+});
+it("checks factory code and a real historical call before indexing", async () => {
+  const calls: Array<[string, unknown[]]> = [];
+  const request = async (method: string, params: unknown[]) => {
+    calls.push([method, params]);
+    return method === "eth_getCode"
+      ? "0x6000"
+      : `0x${"00".repeat(12)}${"11".repeat(20)}`;
+  };
+  await expect(assertArchiveRpc(request, "0x" + "22".repeat(20), 100)).resolves.toBeUndefined();
+  expect(calls.map(([method]) => method)).toEqual(["eth_getCode", "eth_call"]);
+  expect(calls.map(([, params]) => params[1])).toEqual(["0x64", "0x64"]);
+});
+it("fails archive validation when historical code or calls return empty data", async () => {
+  await expect(
+    assertArchiveRpc(async () => "0x", "0x" + "22".repeat(20), 100),
+  ).rejects.toThrow("returned no factory code at block 100");
+  await expect(
+    assertArchiveRpc(
+      async (method) => (method === "eth_getCode" ? "0x6000" : "0x"),
+      "0x" + "22".repeat(20),
+      100,
+    ),
+  ).rejects.toThrow("cannot call the staking factory at block 100");
 });
 it("defaults only genuine revert/empty results and marks degraded config", async () => {
   const reader = new StakingReader(
