@@ -79,7 +79,9 @@ jobs:
       - name: Test
         if: matrix.test
         working-directory: subgraphs/${{ matrix.subgraph }}
-        run: yarn test
+        # Pin Matchstick to matchstick-as so CI doesn't depend on the
+        # GitHub "latest release" lookup, which can return no tag_name.
+        run: yarn test --version 0.6.0
 
   # The squid is an npm/TypeScript package with its own vitest suite —
   # separate job because the matrix above is graph-cli/yarn-shaped.
