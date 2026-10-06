@@ -2,9 +2,9 @@
 //
 // A squid deployment is ONE chain (unlike the subgraph's 4-manifest
 // generator), so there is no `dataSource.network()` switch here — the chain
-// is picked once, below. The per-chain table is kept in full anyway so
-// Gnosis / Optimism / Base can be brought up by changing `CHAIN` and the
-// portal dataset, not by rewriting this file. Addresses mirror
+// is picked once at startup from `PEARL_TRANSACTIONS_CHAIN` (see `CHAIN`
+// below). The per-chain table is kept in full so Gnosis / Optimism / Base
+// are brought up by env, not by rewriting this file. Addresses mirror
 // `subgraphs/pearl-transactions/networks.json` in autonolas-subgraph-studio.
 //
 // EVERY address here is lowercase: SQD normalizes log addresses and event
@@ -17,6 +17,8 @@ export interface ChainConfig {
   name: ChainName;
   /** SQD Portal dataset for this chain. */
   portalDataset: string;
+  /** Public RPC used when `RPC_HTTP` is unset. Fine for a smoke test only. */
+  defaultRpc: string;
   /** Earliest block any tracked contract was deployed at. */
   startBlock: number;
   serviceRegistryL2: string;
@@ -35,10 +37,11 @@ export interface ChainConfig {
 // multiple StakingProxy implementations, but pearl-transactions only indexes
 // proxies whose implementation is on this per-chain allow-list. Sourced from
 // `subgraphs/staking/src/utils.ts` (the canonical list).
-const CHAINS: Record<ChainName, ChainConfig> = {
+export const CHAINS: Record<ChainName, ChainConfig> = {
   matic: {
     name: "matic",
     portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    defaultRpc: "https://polygon-bor-rpc.publicnode.com",
     startBlock: 80_360_433,
     serviceRegistryL2: "0xe3607b00e75f6405248323a9417ff6b39b244b50",
     serviceRegistryTokenUtility: "0xa45e64d13a30a51b91ae0eb182e88a40e9b18ed8",
@@ -58,6 +61,7 @@ const CHAINS: Record<ChainName, ChainConfig> = {
   gnosis: {
     name: "gnosis",
     portalDataset: "https://portal.sqd.dev/datasets/gnosis-mainnet",
+    defaultRpc: "https://gnosis-rpc.publicnode.com",
     startBlock: 27_871_084,
     serviceRegistryL2: "0x9338b5153ae39bb89f50468e608ed9d764b755fd",
     serviceRegistryTokenUtility: "0xa45e64d13a30a51b91ae0eb182e88a40e9b18ed8",
@@ -76,6 +80,7 @@ const CHAINS: Record<ChainName, ChainConfig> = {
   optimism: {
     name: "optimism",
     portalDataset: "https://portal.sqd.dev/datasets/optimism-mainnet",
+    defaultRpc: "https://optimism-rpc.publicnode.com",
     startBlock: 116_423_039,
     serviceRegistryL2: "0x3d77596beb0f130a4415df3d2d8232b3d3d31e44",
     serviceRegistryTokenUtility: "0xbb7e1d6cb6f243d6bde81ce92a9f2aff7fbe7eac",
@@ -94,6 +99,7 @@ const CHAINS: Record<ChainName, ChainConfig> = {
   base: {
     name: "base",
     portalDataset: "https://portal.sqd.dev/datasets/base-mainnet",
+    defaultRpc: "https://base-rpc.publicnode.com",
     startBlock: 10_827_380,
     serviceRegistryL2: "0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe",
     serviceRegistryTokenUtility: "0x34c895f302d0b5cf52ec0edd3945321eb0f83dd5",
@@ -110,9 +116,37 @@ const CHAINS: Record<ChainName, ChainConfig> = {
   },
 };
 
-// This deployment's chain. Polygon: the deployment graph-node could not
-// keep up with (~5 blk/s through the USDC.e-dense range).
-export const CHAIN: ChainConfig = CHAINS.matic;
+/**
+ * One deployment indexes ONE chain, picked by `envVar`. Unknown names fail
+ * at startup with the list of configured chains, so a typo can never index
+ * the default chain by accident. Mirrors `selectChain` in squids/_shared —
+ * this squid does not depend on @olas/squid-shared.
+ */
+export function selectChain<T extends { name: string }>(
+  envVar: string,
+  table: Record<string, T>,
+  defaultName: string
+): T {
+  const name = (process.env[envVar] ?? defaultName).trim();
+  const chain = Object.prototype.hasOwnProperty.call(table, name)
+    ? table[name]
+    : undefined;
+  if (chain == null) {
+    throw new Error(
+      `${envVar}="${name}" is not configured. Known chains: ${Object.keys(table).join(", ")}`
+    );
+  }
+  return chain;
+}
+
+// This deployment's chain. Defaults to Polygon (`matic`), the deployment
+// graph-node could not keep up with (~5 blk/s through the USDC.e-dense
+// range), so existing deployments need no new env.
+export const CHAIN: ChainConfig = selectChain(
+  "PEARL_TRANSACTIONS_CHAIN",
+  CHAINS,
+  "matic"
+);
 
 export const START_BLOCK = CHAIN.startBlock;
 export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2;

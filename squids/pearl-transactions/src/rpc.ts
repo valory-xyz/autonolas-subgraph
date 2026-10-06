@@ -9,7 +9,7 @@
 // lifetime. Both are one-shot per Master Safe at first sighting.
 
 import { createPublicClient, http, type PublicClient } from "viem";
-import { SERVICE_REGISTRY_L2 } from "./constants";
+import { CHAIN, SERVICE_REGISTRY_L2 } from "./constants";
 
 // Erigon archive nodes reject a historical eth_call whose `from` has no
 // state at that block; the zero-address default has none.
@@ -18,17 +18,37 @@ const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 const clientFor = (url: string): PublicClient =>
   createPublicClient({ transport: http(url, { batch: true }) });
 
-const primary = clientFor(
-  process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com"
-);
+/**
+ * An RPC URL from the chain-neutral env var, else its legacy Polygon alias
+ * (`RPC_POLYGON_HTTP*`, kept so existing Polygon deployments need no env
+ * change). Empty counts as unset. `envName` is the var actually read, so
+ * error messages point at the one the operator set.
+ */
+export function rpcFromEnv(
+  generic: string,
+  alias: string
+): { url: string; envName: string } | null {
+  for (const envName of [generic, alias]) {
+    const url = process.env[envName];
+    if (url) return { url, envName };
+  }
+  return null;
+}
+
+const primaryRpc = rpcFromEnv("RPC_HTTP", "RPC_POLYGON_HTTP") ?? {
+  url: CHAIN.defaultRpc,
+  envName: "RPC_HTTP",
+};
+const primary = clientFor(primaryRpc.url);
 
 /**
  * Optional second archive endpoint, tried only when the primary fails with
  * something that is NOT a revert (e.g. a hole in its archive). Sees only
  * the calls the primary could not serve, so a rate-limited endpoint is fine.
  */
-const fallback: PublicClient | null = process.env.RPC_POLYGON_HTTP_FALLBACK
-  ? clientFor(process.env.RPC_POLYGON_HTTP_FALLBACK)
+const fallbackRpc = rpcFromEnv("RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK");
+const fallback: PublicClient | null = fallbackRpc
+  ? clientFor(fallbackRpc.url)
   : null;
 
 const SAFE_ABI = [
@@ -148,7 +168,7 @@ async function historicalRead<
     if (isRevert(err) || fallback == null) throw err;
     console.warn(
       `[rpc] primary failed for ${functionName}(${address}) at block ` +
-        `${blockNumber} — ${firstLine(err)} — retrying on RPC_POLYGON_HTTP_FALLBACK`
+        `${blockNumber} — ${firstLine(err)} — retrying on ${fallbackRpc?.envName}`
     );
     try {
       return await readAt(fallback, address, abi, functionName, blockNumber);
@@ -170,7 +190,7 @@ async function historicalRead<
  * would produce a wrong owner set and, worse, a wrong `masterEoa`. Reading
  * at the first-sighting block reproduces what the subgraph saw.
  *
- * This makes RPC_POLYGON_HTTP an ARCHIVE endpoint requirement for backfill.
+ * This makes RPC_HTTP an ARCHIVE endpoint requirement for backfill.
  *
  * Returns null when the address is not a Safe: `getOwners` reverts on
  * anything else, which is how the subgraph distinguishes a Master Safe from
@@ -241,11 +261,11 @@ export async function assertArchiveRpc(
   registryAddress: string,
   startBlock: number
 ): Promise<void> {
-  await assertClientArchive(primary, "RPC_POLYGON_HTTP", registryAddress, startBlock);
-  if (fallback != null) {
+  await assertClientArchive(primary, primaryRpc.envName, registryAddress, startBlock);
+  if (fallback != null && fallbackRpc != null) {
     await assertClientArchive(
       fallback,
-      "RPC_POLYGON_HTTP_FALLBACK",
+      fallbackRpc.envName,
       registryAddress,
       startBlock
     );

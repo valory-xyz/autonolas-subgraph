@@ -150,8 +150,11 @@ describe("fallback RPC", () => {
   let warn: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     vi.resetModules();
-    vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
-    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+    vi.stubEnv("RPC_HTTP", PRIMARY);
+    vi.stubEnv("RPC_HTTP_FALLBACK", FALLBACK);
+    // Legacy aliases unset, so these cases exercise the chain-neutral names.
+    vi.stubEnv("RPC_POLYGON_HTTP", "");
+    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", "");
     warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
@@ -205,7 +208,7 @@ describe("fallback RPC", () => {
   });
 
   it("rethrows when the primary fails and no fallback is configured", async () => {
-    vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", "");
+    vi.stubEnv("RPC_HTTP_FALLBACK", "");
     stub({ error: STATE_MISSING }, {});
     const { getSafeConfig } = await import("../src/rpc");
     await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
@@ -217,13 +220,13 @@ describe("fallback RPC", () => {
       // probes would silently shift to the rate-limited endpoint.
       stub({ error: STATE_MISSING }, {});
       const { assertArchiveRpc } = await import("../src/rpc");
-      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_POLYGON_HTTP /);
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_HTTP /);
     });
 
     it("fails when the fallback is pruned, naming the fallback env var", async () => {
       stub({}, { noCode: true });
       const { assertArchiveRpc } = await import("../src/rpc");
-      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_POLYGON_HTTP_FALLBACK/);
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_HTTP_FALLBACK/);
     });
 
     it("passes when both endpoints hold state and answer the call", async () => {
@@ -233,6 +236,42 @@ describe("fallback RPC", () => {
       // both were exercised with a real eth_call, not just getCode
       expect(hit(seen, PRIMARY)).toHaveLength(1);
       expect(hit(seen, FALLBACK)).toHaveLength(1);
+    });
+  });
+
+  describe("legacy RPC_POLYGON_HTTP* alias", () => {
+    it("is used when the chain-neutral vars are unset, and named in errors", async () => {
+      vi.stubEnv("RPC_HTTP", "");
+      vi.stubEnv("RPC_HTTP_FALLBACK", "");
+      vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+      const seen = stub({ error: STATE_MISSING }, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(hit(seen, PRIMARY)).toHaveLength(2);
+      expect(hit(seen, FALLBACK)).toHaveLength(2);
+      expect(String(warn.mock.calls[0][0])).toMatch(/RPC_POLYGON_HTTP_FALLBACK/);
+    });
+
+    it("startup check names the alias the operator actually set", async () => {
+      vi.stubEnv("RPC_HTTP", "");
+      vi.stubEnv("RPC_HTTP_FALLBACK", "");
+      vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+      stub({}, { noCode: true });
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_POLYGON_HTTP_FALLBACK/);
+    });
+
+    it("loses to the chain-neutral var when both are set", async () => {
+      const ALIAS = "https://alias.invalid/";
+      vi.stubEnv("RPC_POLYGON_HTTP", ALIAS);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", ALIAS);
+      const seen = stub({}, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      await getSafeConfig(SAFE, 86_150_361);
+      expect(hit(seen, PRIMARY)).toHaveLength(2);
+      expect(seen.filter((x) => x.url.startsWith(ALIAS))).toHaveLength(0);
     });
   });
 });
