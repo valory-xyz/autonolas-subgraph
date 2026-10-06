@@ -76,7 +76,9 @@ def sql(query):
     )
     if out.returncode != 0:
         sys.exit(f"psql failed: {out.stderr.strip()}")
-    return [tuple(l.split("\x1f")) for l in out.stdout.strip().splitlines() if l]
+    # No .strip() on the output: Python counts \x1f as whitespace, so it
+    # would drop the last row's trailing empty fields.
+    return [tuple(l.split("\x1f")) for l in out.stdout.splitlines() if l]
 
 
 def gql(query):
