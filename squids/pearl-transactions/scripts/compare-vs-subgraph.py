@@ -20,8 +20,11 @@ Sections:
   2. BondMovement   — (txHash, category, token, amount, bondType,
                        service, agentSafe)
   3. MasterSafe     — (id, masterEoa, historyFloorBlock)
-  4. Service        — (serviceId, agentIds)
+  4. Service        — (serviceId, agentIds), registered by the comparison height
   5. DailyServiceFunds for days fully elapsed on both sides
+
+The comparison height is min(squid head, subgraph head), so a squid that
+has only synced a sample of the chain (from START_BLOCK) compares cleanly.
 
 Usage:
   python3 scripts/compare-vs-subgraph.py <subgraph-graphql-url> [--window N]
@@ -116,12 +119,17 @@ def rel(obj, key="id"):
 
 # --- heights ----------------------------------------------------------
 
-squid_rows = sql("select block_number from indexer_status where id = '1'")
+squid_rows = sql(
+    "select block_number, block_timestamp from indexer_status where id = '1'"
+)
 if not squid_rows:
     sys.exit("squid has no IndexerStatus row — has the processor run?")
-squid_head = int(squid_rows[0][0])
-sub_head = int(gql("{ _meta { block { number } } }")["_meta"]["block"]["number"])
+squid_head, squid_ts = int(squid_rows[0][0]), int(squid_rows[0][1])
+sub_meta = gql("{ _meta { block { number timestamp } } }")["_meta"]["block"]
+sub_head, sub_ts = int(sub_meta["number"]), int(sub_meta["timestamp"])
 cutoff = min(squid_head, sub_head)
+# Timestamp of the comparison height, for the sections with no block column.
+cutoff_ts = min(squid_ts, sub_ts)
 floor = max(0, cutoff - WINDOW)
 
 print(f"squid head    : {squid_head:,}")
@@ -229,26 +237,29 @@ sub = {
 compare("MasterSafe (id, masterEoa, historyFloorBlock)", sq, sub)
 
 # --- 4. Service -------------------------------------------------------
-# No block column to window on; services are few enough to compare whole.
+# No block column to window on; services are few enough to compare whole,
+# up to the comparison height so a partially synced squid compares cleanly.
 
 sq = {
     (sid, agent_ids.strip("{}"))
     for sid, agent_ids in sql(
-        "select service_id::text, agent_ids::text from service order by service_id"
+        f"""select service_id::text, agent_ids::text from service
+            where registered_timestamp <= {cutoff_ts} order by service_id"""
     )
 }
 sub = {
     (r["serviceId"], ",".join(str(a) for a in r["agentIds"]))
-    for r in gql_paginate("services", "id serviceId agentIds")
+    for r in gql_paginate(
+        "services", "id serviceId agentIds",
+        f"registeredTimestamp_lte: {cutoff_ts}",
+    )
 }
 compare("Service (serviceId, agentIds)", sq, sub)
 
 # --- 5. DailyServiceFunds --------------------------------------------
 # Only days fully elapsed on both sides; the current day is still moving.
 
-day_cutoff = int(
-    gql("{ _meta { block { timestamp } } }")["_meta"]["block"]["timestamp"]
-) // 86400 * 86400
+day_cutoff = cutoff_ts // 86400 * 86400
 
 sq = {
     (sid, day, claimed)
