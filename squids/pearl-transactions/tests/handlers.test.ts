@@ -317,6 +317,30 @@ describe("transfer classification and balances", () => {
       store.all("FundsMovement").find((r) => r.transactionHash === "0xnoise")
     ).toBeUndefined();
   });
+
+  // The subgraph's Safe template only attaches to Master/Agent Safes, so it
+  // never sees SafeReceived from any other Safe. The squid subscribes by
+  // topic, so a tracked SENDER must not let a foreign Safe's event in.
+  // Found by the Base compare: Master EOA -> someone else's Safe, tx
+  // 0x6b1ae037…fb8a at block 20,591,969.
+  it("ignores native SafeReceived emitted by an untracked Safe, even from a tracked sender", async () => {
+    await discovered();
+    const b = newBatch(store, 1500, 1500);
+    await h.handleSafeReceived(
+      b,
+      meta({ blockNumber: 1500n, txHash: "0xforeign", address: "0xforeignsafe" }),
+      { sender: MASTER_EOA, value: 5n }
+    );
+    await h.handleSafeReceived(
+      b,
+      meta({ blockNumber: 1500n, txHash: "0xnative", address: MASTER }),
+      { sender: MASTER_EOA, value: 5n }
+    );
+    await b.cache.flush();
+    const rows = store.all("FundsMovement");
+    expect(rows.find((r) => r.transactionHash === "0xforeign")).toBeUndefined();
+    expect(rows.find((r) => r.transactionHash === "0xnative").token).toBeNull();
+  });
 });
 
 describe("master safe discovery", () => {

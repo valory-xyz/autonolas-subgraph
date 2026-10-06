@@ -240,8 +240,8 @@ run(
         // --- Safe (unfiltered by address) -----------------------------
         //
         // Replaces the subgraph's Safe template. handleSafeReceived exits
-        // at classifyTransfer's first guard for untracked addresses; the
-        // owner handlers no-op unless the address is a known MasterSafe.
+        // unless the emitter is a tracked Master/Agent Safe; the owner
+        // handlers no-op unless the address is a known MasterSafe.
         if (topic0 === safe.SafeReceived.topic) {
           const e = decodeForeignSafe(safe.SafeReceived, log);
           if (e != null) {

@@ -1018,6 +1018,12 @@ export async function handleSafeReceived(
   meta: EventMeta,
   e: { sender: string; value: bigint }
 ): Promise<void> {
+  // The subgraph's Safe template is only spawned for Master and Agent
+  // Safes. This subscription is topic-only, so without this guard a
+  // tracked SENDER (e.g. a Master EOA paying some other Safe) would record
+  // a row the subgraph never sees.
+  const emitter = await ctx.cache.tracked(meta.address);
+  if (emitter?.role !== ROLE_MASTER && emitter?.role !== ROLE_AGENT) return;
   await handleTransfer(ctx, meta, e.sender, meta.address, e.value, null);
 }
 
