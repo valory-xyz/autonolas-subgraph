@@ -99,7 +99,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   base: {
     name: "base",
     portalDataset: "https://portal.sqd.dev/datasets/base-mainnet",
-    defaultRpc: "https://base-rpc.publicnode.com",
+    defaultRpc: "https://mainnet.base.org",
     startBlock: 10_827_380,
     serviceRegistryL2: "0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe",
     serviceRegistryTokenUtility: "0x34c895f302d0b5cf52ec0edd3945321eb0f83dd5",

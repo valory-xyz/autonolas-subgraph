@@ -1,7 +1,7 @@
 # pearl-transactions-squid
 
 Funds-movement indexer for Pearl **Master Safe / Agent Safe** accounts on
-Polygon, built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
+Polygon (and, by env, Base), built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
 events from the blockchain, classifies every fund movement in and out of a
 user's wallets, stores the result in PostgreSQL, and serves it over a
 GraphQL API. It powers Pearl's wallet transaction-history view.
@@ -51,10 +51,12 @@ Key files:
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
+| `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`. An unknown name fails at startup |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
-| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. **Must be archive-capable** — see below |
-| `RPC_POLYGON_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
+| `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
+| `RPC_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
+| `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only when `RPC_HTTP*` is unset, so existing Polygon deployments keep working |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
@@ -80,7 +82,7 @@ Only the *staking*
 config avoids the network — it is decoded from the `createStakingInstance`
 calldata (`src/stakingConfig.ts`).
 
-**Always set `RPC_POLYGON_HTTP_FALLBACK` in production.** Archive providers
+**Always set `RPC_HTTP_FALLBACK` in production.** Archive providers
 can have holes, and a hole that contains any Safe's first-sighting block
 stalls the backfill forever: the error is deterministic and not a revert,
 so the batch retries the same block indefinitely. With a fallback, that
@@ -203,8 +205,15 @@ topic count; the raw decoder throws on those and kills the batch.
 ### Bringing up another chain
 
 `src/constants.ts` carries the full per-chain table (Gnosis, Polygon,
-Optimism, Base). Change `CHAIN` and redeploy against a fresh database — a
-squid deployment is one chain. Nothing else in the code is Polygon-specific.
+Optimism, Base). Set `PEARL_TRANSACTIONS_CHAIN`, point `SQD_PORTAL_URL` and
+`RPC_HTTP*` at that chain, and deploy against a fresh database — a squid
+deployment is one chain. Nothing else in the code is Polygon-specific.
+
+**Base** (`PEARL_TRANSACTIONS_CHAIN=base`) starts at block 10,827,380 on the
+`base-mainnet` dataset. `https://mainnet.base.org` serves historical state
+and is the default `RPC_HTTP`; `base-rpc.publicnode.com` does not (archive
+calls need a token). Validate with
+`scripts/compare-vs-subgraph.py https://transactions-base.subgraph.autonolas.tech`.
 
 ## Migration from the subgraph
 
