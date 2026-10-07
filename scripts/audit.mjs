@@ -15,6 +15,11 @@
  * allowlist is always resolved relative to the script's own location so
  * a single allowlist at the repo root governs all 12 paths.
  *
+ * `--npm` mode: the squids under squids/ are npm trees. With `--npm` the
+ * script runs `npm audit --omit=dev --json` in cwd instead and applies the
+ * same allowlist, matched by the same numeric advisory id (npm's `source`).
+ * `npm audit` has no suppression mechanism either.
+ *
  * See SUPPLY-CHAIN-SECURITY.md §5.
  */
 
@@ -55,12 +60,18 @@ function loadAllowlist() {
   return data;
 }
 
-function runYarnAudit() {
+const NPM_MODE = process.argv.includes('--npm');
+const TOOL = NPM_MODE ? 'npm audit' : 'yarn audit';
+
+function runAudit() {
   return new Promise((resolvePromise) => {
-    // `shell: true` is required on Windows so the `yarn.cmd` shim in
-    // PATH resolves; harmless on Linux/macOS runners where `yarn` is a
-    // plain executable.
-    const child = spawn('yarn', ['audit', '--groups', 'dependencies', '--json'], {
+    // `shell: true` is required on Windows so the `yarn.cmd` / `npm.cmd`
+    // shim in PATH resolves; harmless on Linux/macOS runners where they
+    // are plain executables.
+    const [cmd, args] = NPM_MODE
+      ? ['npm', ['audit', '--omit=dev', '--json']]
+      : ['yarn', ['audit', '--groups', 'dependencies', '--json']];
+    const child = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
     });
@@ -102,6 +113,49 @@ function parseAdvisories(stdout) {
   return { advisories: [...advisories.values()], sawAuditRow };
 }
 
+// `npm audit --json` (npm 7+) emits one JSON document. Each advisory shows
+// up as an object in the `via` list of the package it affects (string
+// entries in `via` only point at another vulnerable package), so the
+// objects alone list every advisory. It is mapped onto the yarn advisory
+// shape so the gate below is shared.
+function parseNpmAdvisories(stdout) {
+  const advisories = new Map();
+  let report;
+  try {
+    report = JSON.parse(stdout);
+  } catch {
+    return { advisories: [], sawAuditRow: false };
+  }
+  // A completed run always carries `auditReportVersion` and a
+  // `vulnerabilities` object; an error run carries `error` instead.
+  if (!report || report.error || !report.auditReportVersion || typeof report.vulnerabilities !== 'object') {
+    return { advisories: [], sawAuditRow: false };
+  }
+  for (const vuln of Object.values(report.vulnerabilities)) {
+    for (const via of vuln.via || []) {
+      if (typeof via !== 'object' || via === null) continue;
+      const key = via.source;
+      if (!advisories.has(key)) {
+        advisories.set(key, {
+          advisory: {
+            id: via.source,
+            severity: via.severity,
+            module_name: via.name,
+            vulnerable_versions: via.range,
+            // npm's report has no patched range; point at the advisory.
+            patched_versions: via.url ? `see ${via.url}` : 'see advisory',
+            github_advisory_id: (via.url || '').split('/').pop() || undefined,
+            title: via.title,
+          },
+          paths: new Set(),
+        });
+      }
+      for (const node of vuln.nodes || []) advisories.get(key).paths.add(node);
+    }
+  }
+  return { advisories: [...advisories.values()], sawAuditRow: true };
+}
+
 const allowlist = loadAllowlist();
 const allowed = new Map();
 for (const entry of allowlist.entries || []) {
@@ -109,24 +163,25 @@ for (const entry of allowlist.entries || []) {
   allowed.set(entry.id, entry);
 }
 
-const { stdout, stderr, code } = await runYarnAudit();
+const { stdout, stderr, code } = await runAudit();
 
-// Yarn 1.x exits non-zero even on success when advisories exist; we
+// Yarn 1.x (and npm) exit non-zero even on success when advisories exist; we
 // don't gate on exit code — we parse the JSON and apply our own gate.
 if (!stdout) {
-  console.error('::error::`yarn audit` produced no output.');
+  console.error(`::error::\`${TOOL}\` produced no output.`);
   if (stderr) console.error(stderr);
   process.exit(2);
 }
 
-const { advisories, sawAuditRow } = parseAdvisories(stdout);
+const { advisories, sawAuditRow } = NPM_MODE ? parseNpmAdvisories(stdout) : parseAdvisories(stdout);
 
-// A successful `yarn audit` always emits at least an `auditSummary` row.
+// A successful `yarn audit` always emits at least an `auditSummary` row;
+// a successful `npm audit` always emits a report with `vulnerabilities`.
 // If we got output but couldn't recognize any audit-shaped JSON, the
 // stream was likely truncated by a registry / network failure — fail loudly
 // rather than silently passing.
 if (!sawAuditRow) {
-  console.error('::error::`yarn audit` produced output but no recognizable advisory or summary rows.');
+  console.error(`::error::\`${TOOL}\` produced output but no recognizable advisory or summary rows.`);
   console.error('This typically indicates a registry outage or truncated stream.');
   if (stderr) console.error(stderr);
   process.exit(2);
@@ -183,11 +238,11 @@ if (blocking.length > 0) {
     console.error(`    advisory ${advisory.id} (${advisory.github_advisory_id || 'no GHSA'})`);
     console.error(`    ${advisory.title}`);
     console.error(`    ${paths.size} path(s), e.g. ${[...paths][0]}`);
-    console.error(`    fix: bump the dep, add a Yarn resolution, or allowlist in .supply-chain/audit-allowlist.json with a reason + review date.`);
+    console.error(`    fix: bump the dep, add a Yarn resolution / npm override, or allowlist in .supply-chain/audit-allowlist.json with a reason + review date.`);
     console.error('');
   }
   process.exit(1);
 }
 
-console.log(`yarn audit: OK (${suppressed.length} allowlisted, no unlisted high/critical).`);
+console.log(`${TOOL}: OK (${suppressed.length} allowlisted, no unlisted high/critical).`);
 process.exit(0);
