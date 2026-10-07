@@ -107,10 +107,11 @@ export interface SafeConfig {
  */
 const safeMemo = new Map<string, SafeConfig>();
 
-// First line of an error message, for the fallback log.
-const firstLine = (e: unknown): string =>
-  (e as { shortMessage?: string })?.shortMessage ??
-  String((e as Error)?.message ?? e).split("\n")[0];
+// viem keeps the node's own text in `details`; `shortMessage` is generic.
+const firstLine = (e: unknown): string => {
+  const err = e as { details?: string; shortMessage?: string; message?: string };
+  return String(err?.details || err?.shortMessage || err?.message || e).split("\n")[0];
+};
 
 /** One historical read against one client; always pinned, always with `from`. */
 function readAt<const abi extends readonly unknown[], fn extends string>(

@@ -177,6 +177,17 @@ describe("fallback RPC", () => {
     expect(warn).toHaveBeenCalledTimes(2); // getOwners + getThreshold
   });
 
+  it("logs the node's own error text, on one line", async () => {
+    // viem's shortMessage for -32000 is a generic two-line hint; the node's
+    // text, which is what diagnoses an archive hole, is only in `details`.
+    stub({ error: STATE_MISSING }, {});
+    const { getSafeConfig } = await import("../src/rpc");
+    await getSafeConfig(SAFE, 86_150_361);
+    const line = String(warn.mock.calls[0][0]);
+    expect(line).toContain(STATE_MISSING.message);
+    expect(line).not.toContain("\n");
+  });
+
   it("does NOT fall back on a genuine revert from the primary", async () => {
     const seen = stub({ error: REVERT }, {});
     const { getSafeConfig } = await import("../src/rpc");
@@ -221,6 +232,14 @@ describe("fallback RPC", () => {
       stub({ error: STATE_MISSING }, {});
       const { assertArchiveRpc } = await import("../src/rpc");
       await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_HTTP /);
+    });
+
+    it("includes the node's own error text in the startup error", async () => {
+      stub({ error: STATE_MISSING }, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(
+        STATE_MISSING.message
+      );
     });
 
     it("fails when the fallback is pruned, naming the fallback env var", async () => {
