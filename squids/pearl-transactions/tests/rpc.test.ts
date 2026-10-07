@@ -108,7 +108,10 @@ describe("fallback RPC", () => {
   // {code:3} with no data -> ContractFunctionRevertedError in viem.
   const REVERT = { code: 3, message: "execution reverted" };
 
-  type Behaviour = { error?: object; zeroData?: boolean; noCode?: boolean };
+  // What a non-archive public node (publicnode, 1rpc) answers at old blocks.
+  const NO_HISTORY = { code: -32000, message: "historical state 0xabc is not available" };
+
+  type Behaviour = { error?: object; zeroData?: boolean; noCode?: boolean; codeError?: object };
 
   /** fetch stub answering per URL; records every parsed request. */
   function stub(primary: Behaviour, fb: Behaviour) {
@@ -122,6 +125,7 @@ describe("fallback RPC", () => {
         const results = reqs.map((r) => {
           seen.push({ url, req: r });
           if (r.method === "eth_getCode") {
+            if (b.codeError) return { jsonrpc: "2.0", id: r.id, error: b.codeError };
             return { jsonrpc: "2.0", id: r.id, result: b.noCode ? "0x" : "0x6080" };
           }
           if (b.error) return { jsonrpc: "2.0", id: r.id, error: b.error };
@@ -204,6 +208,16 @@ describe("fallback RPC", () => {
     await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow();
   });
 
+  it("does not trust a fallback revert when the fallback's getCode throws", async () => {
+    // The realistic pruned public node: eth_call answers "0x" (reads as a
+    // revert), getCode at the old block errors. Treating that as "has state"
+    // would trust the revert and drop a real Safe; the primary's error must
+    // be rethrown instead.
+    stub({ error: STATE_MISSING }, { zeroData: true, codeError: NO_HISTORY });
+    const { getSafeConfig } = await import("../src/rpc");
+    await expect(getSafeConfig(SAFE, 86_150_361)).rejects.toThrow(STATE_MISSING.message);
+  });
+
   it("accepts a fallback revert when the fallback does hold state at that block", async () => {
     // Same "0x" from eth_call, but getCode proves the node has the block:
     // this is a real not-a-Safe, so null is correct.
@@ -246,6 +260,22 @@ describe("fallback RPC", () => {
       stub({}, { noCode: true });
       const { assertArchiveRpc } = await import("../src/rpc");
       await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(/RPC_HTTP_FALLBACK/);
+    });
+
+    it("fails when the primary's getCode throws, naming the primary env var", async () => {
+      stub({ codeError: NO_HISTORY }, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(
+        /^RPC_HTTP cannot read state at block 80360433: historical state/
+      );
+    });
+
+    it("fails when the fallback's getCode throws, naming the fallback env var", async () => {
+      stub({}, { codeError: NO_HISTORY });
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(
+        /^RPC_HTTP_FALLBACK cannot read state at block 80360433: historical state/
+      );
     });
 
     it("passes when both endpoints hold state and answer the call", async () => {
