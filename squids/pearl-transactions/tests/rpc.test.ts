@@ -278,6 +278,32 @@ describe("fallback RPC", () => {
       );
     });
 
+    it("primary errors describe the primary's failure mode", async () => {
+      stub({ noCode: true }, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(
+        /^RPC_HTTP returned no code.*silently misread as "not a Safe"/
+      );
+    });
+
+    it("fallback errors describe the fallback's failure mode, not the primary's", async () => {
+      // Still fatal (consistent with the primary), but a pruned fallback can
+      // no longer mislabel a Safe (hasStateAt) — it only fails to cover a hole.
+      stub({}, { noCode: true });
+      const { assertArchiveRpc } = await import("../src/rpc");
+      const err = await assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433).catch((e) => e);
+      expect(err.message).toMatch(/^RPC_HTTP_FALLBACK .*could not cover a hole in the primary/);
+      expect(err.message).not.toMatch(/misread|first Master Safe/);
+
+      stub({}, { error: STATE_MISSING });
+      vi.resetModules();
+      const again = await import("../src/rpc");
+      const err2 = await again.assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433).catch((e) => e);
+      expect(err2.message).toMatch(/^RPC_HTTP_FALLBACK cannot serve a historical eth_call/);
+      expect(err2.message).toMatch(/could not cover a hole in the primary/);
+      expect(err2.message).not.toMatch(/first Master Safe/);
+    });
+
     it("passes when both endpoints hold state and answer the call", async () => {
       const seen = stub({}, {});
       const { assertArchiveRpc } = await import("../src/rpc");

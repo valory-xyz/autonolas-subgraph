@@ -250,20 +250,33 @@ export async function getSafeConfig(
  * Checks the primary DIRECTLY, not via historicalRead — otherwise a broken
  * primary would pass on the strength of the fallback and every probe would
  * silently shift to the rate-limited endpoint. Then checks the fallback
- * too, if configured: a pruned fallback is worse than none, because its
- * `0x` reads as a revert and mislabels a real Safe.
+ * too, if configured, and that is fatal as well — deliberately, like the
+ * primary's. Per call, `hasStateAt` already stops a pruned fallback from
+ * mislabelling a Safe, so a bad fallback no longer loses data; it just
+ * cannot cover a hole in the primary, and the backfill stalls there,
+ * possibly days in. Refusing to start says so while someone is watching
+ * the deploy. The cost: an unreachable fallback crash-loops the pod; unset
+ * the fallback var to start on the primary alone.
  */
 export async function assertArchiveRpc(
   registryAddress: string,
   startBlock: number
 ): Promise<void> {
-  await assertClientArchive(primary, primaryRpc.envName, registryAddress, startBlock);
+  await assertClientArchive(primary, primaryRpc.envName, registryAddress, startBlock, {
+    noCode: `every Safe probe would be silently misread as "not a Safe"`,
+    noCall: "the backfill would stall on the first Master Safe",
+  });
   if (fallback != null && fallbackRpc != null) {
+    const fbImpact =
+      "the fallback could not cover a hole in the primary's archive, so " +
+      "the backfill would stall there. Fix it, or unset it to run on the " +
+      "primary alone";
     await assertClientArchive(
       fallback,
       fallbackRpc.envName,
       registryAddress,
-      startBlock
+      startBlock,
+      { noCode: fbImpact, noCall: fbImpact }
     );
   }
 }
@@ -272,7 +285,8 @@ async function assertClientArchive(
   client: PublicClient,
   envName: string,
   registryAddress: string,
-  startBlock: number
+  startBlock: number,
+  impact: { noCode: string; noCall: string }
 ): Promise<void> {
   let code: string;
   try {
@@ -292,8 +306,7 @@ async function assertClientArchive(
     throw new Error(
       `${envName} returned no code for the service registry ` +
         `${registryAddress} at block ${startBlock}, where it is known to be ` +
-        `deployed. The endpoint is not archive-capable; every Safe probe ` +
-        `would be silently misread as "not a Safe".`
+        `deployed. The endpoint is not archive-capable; ${impact.noCode}.`
     );
   }
   try {
@@ -302,7 +315,7 @@ async function assertClientArchive(
     throw new Error(
       `${envName} cannot serve a historical eth_call at block ${startBlock}: ` +
         `${firstLine(err)}. The Safe owner probes use this exact call shape, ` +
-        `so the backfill would stall on the first Master Safe.`
+        `so ${impact.noCall}.`
     );
   }
 }
