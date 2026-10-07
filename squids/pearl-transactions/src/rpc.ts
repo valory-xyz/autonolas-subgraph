@@ -147,13 +147,8 @@ async function hasStateAt(
 }
 
 /**
- * Every historical read goes through here so `blockNumber` and `account`
- * can never be set on one call site and forgotten on another — the startup
- * check and the Safe probes must send the exact same shape, or the check
- * gives false confidence.
- *
- * Primary first; on a non-revert failure, the identical call on the
- * fallback. A revert from the fallback is only trusted if the fallback
+ * A Safe probe read. Primary first; on a non-revert failure, the identical
+ * call on the fallback. A revert from the fallback is only trusted if the fallback
  * actually holds state at that block — a pruned node answers `0x`, which
  * viem reports as a revert, and that would silently mislabel a real Safe.
  * If the fallback is pruned there too, the PRIMARY's error is rethrown so
