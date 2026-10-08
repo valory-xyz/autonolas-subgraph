@@ -2,8 +2,6 @@
  * Pure helpers extracted from audit.mjs so they can be unit-tested without
  * firing the script's top-level side effects (allowlist load, audit spawn,
  * process.exit). Imported by both the script and audit.test.mjs.
- *
- * No I/O, no exit, no global state — same input → same output.
  */
 
 /* eslint-disable no-undef -- standalone module: uses JS built-in globals (works across legacy + flat eslint configs) */

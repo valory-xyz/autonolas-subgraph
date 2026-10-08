@@ -3,7 +3,6 @@
  * Unit tests for the pure helpers exported by audit.lib.mjs, focused on the
  * `--npm` gate: npm audit JSON → advisories → allowlist decision.
  * Uses Node's built-in test runner (node:test) — no new devDependencies.
- * Run with `node --test scripts/audit.test.mjs` (or `yarn audit:test`).
  *
  * The fixtures are trimmed `npm audit --omit=dev --json` reports (npm 7+,
  * auditReportVersion 2). The point is that a change in npm's output format
