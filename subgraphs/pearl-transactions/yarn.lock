@@ -37,9 +37,9 @@
     utf8-codec "^1.0.0"
 
 "@fastify/busboy@^3.1.1":
-  version "3.2.0"
-  resolved "https://registry.yarnpkg.com/@fastify/busboy/-/busboy-3.2.0.tgz#13ed8212f3b9ba697611529d15347f8528058cea"
-  integrity sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA==
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/@fastify/busboy/-/busboy-3.2.1.tgz#b312bc47da6267d64d91c5dee57aab705682f236"
+  integrity sha512-tgK4O+57iz5ycYNGXE5ZWj1ES03lD2XnnBYWSbU/3wYZRMQzCUq7Ycds/RdyBZQeL5MU4fxBt6lzbIWf/Bickw==
 
 "@float-capital/float-subgraph-uncrashable@0.0.0-internal-testing.5":
   version "0.0.0-internal-testing.5"

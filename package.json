@@ -5,6 +5,7 @@
   "packageManager": "yarn@1.22.22",
   "scripts": {
     "audit:prod": "node scripts/audit.mjs",
+    "audit:test": "node --test scripts/audit.test.mjs",
     "audit:install-hooks": "node scripts/audit-install-hooks.mjs",
     "audit:install-hooks:update": "node scripts/audit-install-hooks.mjs --update",
     "license-check": "node scripts/license-check.mjs",
