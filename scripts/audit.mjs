@@ -102,7 +102,7 @@ if (!stdout) {
   process.exit(2);
 }
 
-const { advisories, sawAuditRow } = NPM_MODE ? parseNpmAdvisories(stdout) : parseAdvisories(stdout);
+const { advisories, sawAuditRow, problem } = NPM_MODE ? parseNpmAdvisories(stdout) : parseAdvisories(stdout);
 
 // A successful `yarn audit` always emits at least an `auditSummary` row;
 // a successful `npm audit` always emits a report with `vulnerabilities`.
@@ -112,6 +112,7 @@ const { advisories, sawAuditRow } = NPM_MODE ? parseNpmAdvisories(stdout) : pars
 if (!sawAuditRow) {
   console.error(`::error::\`${TOOL}\` produced output but no recognizable advisory or summary rows.`);
   console.error('This typically indicates a registry outage or truncated stream.');
+  if (problem) console.error(`Parser: ${problem}.`);
   if (stderr) console.error(stderr);
   process.exit(2);
 }

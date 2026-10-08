@@ -38,27 +38,51 @@ export function parseAdvisories(stdout) {
   return { advisories: [...advisories.values()], sawAuditRow };
 }
 
+const NPM_SEVERITIES = new Set(['info', 'low', 'moderate', 'high', 'critical']);
+const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+
 // `npm audit --json` (npm 7+) emits one JSON document. Each advisory shows
 // up as an object in the `via` list of the package it affects (string
 // entries in `via` only point at another vulnerable package), so the
 // objects alone list every advisory. It is mapped onto the yarn advisory
-// shape so the gate below is shared.
+// shape so the gate is shared.
+//
+// Anything that does not look like that format returns `sawAuditRow: false`
+// with a `problem`, so the gate fails loudly (exit 2). An advisory whose id or
+// severity it cannot read would otherwise be skipped and the gate would pass.
 export function parseNpmAdvisories(stdout) {
-  const advisories = new Map();
+  const fail = (problem) => ({ advisories: [], sawAuditRow: false, problem });
   let report;
   try {
     report = JSON.parse(stdout);
   } catch {
-    return { advisories: [], sawAuditRow: false };
+    return fail('output is not JSON');
   }
   // A completed run always carries `auditReportVersion` and a
   // `vulnerabilities` object; an error run carries `error` instead.
-  if (!report || report.error || !report.auditReportVersion || typeof report.vulnerabilities !== 'object') {
-    return { advisories: [], sawAuditRow: false };
-  }
-  for (const vuln of Object.values(report.vulnerabilities)) {
-    for (const via of vuln.via || []) {
-      if (typeof via !== 'object' || via === null) continue;
+  if (!isPlainObject(report)) return fail('report is not a JSON object');
+  if (report.error) return fail(`npm reported an error: ${JSON.stringify(report.error)}`);
+  if (!report.auditReportVersion) return fail('no `auditReportVersion` (not an npm 7+ audit report)');
+  if (!isPlainObject(report.vulnerabilities)) return fail('`vulnerabilities` is missing or not an object');
+
+  const advisories = new Map();
+  let highOrCriticalPackage = false;
+  for (const [pkg, vuln] of Object.entries(report.vulnerabilities)) {
+    if (!isPlainObject(vuln)) return fail(`vulnerabilities.${pkg} is not an object`);
+    if (!Array.isArray(vuln.via) || vuln.via.length === 0) return fail(`vulnerabilities.${pkg}.via is missing or empty`);
+    if (vuln.severity === 'high' || vuln.severity === 'critical') highOrCriticalPackage = true;
+    for (const via of vuln.via) {
+      if (typeof via === 'string') {
+        if (!Object.hasOwn(report.vulnerabilities, via)) {
+          return fail(`vulnerabilities.${pkg}.via points at unknown package "${via}"`);
+        }
+        continue;
+      }
+      if (!isPlainObject(via)) return fail(`vulnerabilities.${pkg}.via has an unexpected entry: ${JSON.stringify(via)}`);
+      if (typeof via.source !== 'number') return fail(`advisory under ${pkg} has no numeric \`source\` id`);
+      if (!NPM_SEVERITIES.has(via.severity)) {
+        return fail(`advisory ${via.source} under ${pkg} has unknown severity ${JSON.stringify(via.severity)}`);
+      }
       const key = via.source;
       if (!advisories.has(key)) {
         advisories.set(key, {
@@ -78,7 +102,13 @@ export function parseNpmAdvisories(stdout) {
       for (const node of vuln.nodes || []) advisories.get(key).paths.add(node);
     }
   }
-  return { advisories: [...advisories.values()], sawAuditRow: true };
+  // Every high/critical package traces back to at least one high/critical
+  // advisory. If none was read, the advisories are in a shape we don't parse.
+  const result = [...advisories.values()];
+  if (highOrCriticalPackage && !result.some(({ advisory: a }) => a.severity === 'high' || a.severity === 'critical')) {
+    return fail('high/critical packages reported but no high/critical advisory could be read');
+  }
+  return { advisories: result, sawAuditRow: true };
 }
 
 // Apply the gate: high/critical advisories not in `allowed` (Map of id →
