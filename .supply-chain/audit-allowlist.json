@@ -1,5 +1,5 @@
 {
-  "_doc": "Allowlist for yarn audit and npm audit (squids, scripts/audit.mjs --npm) high/critical advisories. Every entry needs a reason and a review date. See SUPPLY-CHAIN-SECURITY.md §5.",
+  "_doc": "Allowlist for scripts/audit.mjs high/critical advisories. Every entry needs a reason and a review date. See SUPPLY-CHAIN-SECURITY.md §5 (--npm: §6).",
   "_fields": {
     "id": "npm advisory numeric ID — REQUIRED",
     "ghsa": "GitHub Security Advisory ID — for humans",

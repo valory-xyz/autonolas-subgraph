@@ -170,10 +170,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # high/critical advisories in production deps fail the build unless
-      # allowlisted by id in .supply-chain/audit-allowlist.json (the same
-      # file as the yarn gate). `npm audit` reads package-lock.json
-      # directly, no install needed.
+      # `--npm`: see SUPPLY-CHAIN-SECURITY.md §6. No install needed.
       - name: Run npm audit (squids/${{ matrix.squid }})
         working-directory: squids/${{ matrix.squid }}
         run: node "${{ github.workspace }}/scripts/audit.mjs" --npm

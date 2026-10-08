@@ -15,12 +15,8 @@
  * allowlist is always resolved relative to the script's own location so
  * a single allowlist at the repo root governs all 12 paths.
  *
- * `--npm` mode: the squids under squids/ are npm trees. With `--npm` the
- * script runs `npm audit --omit=dev --json` in cwd instead and applies the
- * same allowlist, matched by the same numeric advisory id (npm's `source`).
- * `npm audit` has no suppression mechanism either.
- *
- * See SUPPLY-CHAIN-SECURITY.md §5.
+ * `--npm`: npm trees (squids/); see SUPPLY-CHAIN-SECURITY.md §6.
+ * Everything else: see SUPPLY-CHAIN-SECURITY.md §5.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
