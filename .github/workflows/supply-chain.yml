@@ -209,6 +209,20 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn license-check
 
+  script-tests:
+    name: Supply-chain script tests
+    # Unit tests for the gate scripts (audit, license-check). They import only
+    # `node:` built-ins and local libs, so no install is needed.
+    # NON-BLOCKING: deliberately NOT in `all-checks-passed.needs` below, same as
+    # license-check. Promote to required by adding it to that `needs:` array.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version-file: .nvmrc
+      - run: node --test scripts/*.test.mjs
+
   # Aggregator that fails iff any of the above fails. Promote this single
   # check to required-status in branch protection (rather than each job
   # individually) for a stable interface that survives matrix changes.
