@@ -317,6 +317,27 @@ describe("transfer classification and balances", () => {
       store.all("FundsMovement").find((r) => r.transactionHash === "0xnoise")
     ).toBeUndefined();
   });
+
+  it("ignores native SafeReceived emitted by an untracked Safe, even from a tracked sender", async () => {
+    await discovered();
+    const b = newBatch(store, 1500, 1500);
+    await h.handleSafeReceived(
+      b,
+      meta({ blockNumber: 1500n, txHash: "0xforeign", address: "0xforeignsafe" }),
+      { sender: MASTER_EOA, value: 5n }
+    );
+    await h.handleSafeReceived(
+      b,
+      meta({ blockNumber: 1500n, txHash: "0xnative", address: MASTER }),
+      { sender: MASTER_EOA, value: 5n }
+    );
+    await b.cache.flush();
+    const rows = store.all("FundsMovement");
+    expect(rows.find((r) => r.transactionHash === "0xforeign")).toBeUndefined();
+    const native = rows.find((r) => r.transactionHash === "0xnative");
+    expect(native).toBeDefined();
+    expect(native!.token).toBeNull();
+  });
 });
 
 describe("master safe discovery", () => {
