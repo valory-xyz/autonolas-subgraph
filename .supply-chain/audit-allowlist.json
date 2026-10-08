@@ -1,5 +1,5 @@
 {
-  "_doc": "Allowlist for yarn audit high/critical advisories. Every entry needs a reason and a review date. See SUPPLY-CHAIN-SECURITY.md §5.",
+  "_doc": "Allowlist for scripts/audit.mjs high/critical advisories. Every entry needs a reason and a review date. See SUPPLY-CHAIN-SECURITY.md §5 (--npm: §6).",
   "_fields": {
     "id": "npm advisory numeric ID — REQUIRED",
     "ghsa": "GitHub Security Advisory ID — for humans",
@@ -1017,6 +1017,24 @@
       "reason": "Newly surfaced audit advisory for axios <1.20.0 (fetch adapter does not enforce maxRedirects: 0, allowing redirect-based SSRF), transitive of @graphprotocol/graph-cli in subgraph build tooling. Fixed in axios >=1.20.0; upstream graph-cli currently pins the vulnerable range. Not part of deployed squid runtime images. Re-review this temporary exception after the graph-cli dependency tree can be updated.",
       "added": "2026-10-01",
       "review": "2026-12-30"
+    },
+    {
+      "id": 1240992,
+      "ghsa": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "reason": "braces <=3.0.3 stack-exhaustion DoS through deeply nested patterns. No patched version exists. Transitive of @graphprotocol/graph-cli (e.g. kubo-rpc-client > it-glob > fast-glob > micromatch > braces) in all 12 yarn trees; it only expands glob patterns we write, during `graph codegen` / `graph build`, never untrusted input, and it is not in the deployed squid runtime images. Re-review when a fixed braces, or a graph-cli without it, is available.",
+      "added": "2026-10-07",
+      "review": "2026-11-06"
+    },
+    {
+      "id": 1241230,
+      "ghsa": "GHSA-7mx3-vvmw-hjmv",
+      "package": "@graphql-tools/utils",
+      "severity": "high",
+      "reason": "Squid runtime (npm, squids/*; gated via scripts/audit.mjs --npm). Prototype pollution in mergeDeep when a gateway merges results from two subgraphs (stitching/federation). Only 12.0.1 is fixed; @subsquid/graphql-server 4.12.1 and @subsquid/apollo-server-core pin 8.x/9.x/10.x, so forcing 12.x means 2-4 major jumps in the served GraphQL stack. Not reachable here: the squids serve a single schema with no stitching (no @graphql-tools/delegate or stitch installed); graphql-tools mergeDeep is only called via mergeResolvers/mergeExtensions while makeExecutableSchema/mergeSchemas build the schema at startup from static inputs; Apollo mocks are off; there are no custom resolvers. Re-review when @subsquid/graphql-server moves to @graphql-tools/utils >=12.0.1.",
+      "added": "2026-10-07",
+      "review": "2026-11-06"
     }
   ]
 }

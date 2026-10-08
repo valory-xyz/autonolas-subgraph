@@ -107,7 +107,7 @@ Catches non-registry deps (e.g., `codeload.github.com` URLs from forked-and-patc
 
 ### Squids (npm trees)
 
-`squids/` packages use npm, not yarn, so they cannot join the yarn matrices above. The dedicated `squid-audit` job in the same workflow covers them: `npm audit --omit=dev --audit-level=high` (fails on high/critical advisories in production dependencies) plus `lockfile-lint --type npm` on `package-lock.json` with the same host/https rules. The job is wired into the `All checks passed` aggregator like every other gate.
+`squids/` packages use npm, not yarn, so they cannot join the yarn matrices above. The dedicated `squid-audit` job in the same workflow covers them: `node scripts/audit.mjs --npm`, which runs `npm audit --omit=dev --json` and applies the same gate and the same allowlist as §5 (fails on high/critical advisories in production dependencies unless allowlisted; `npm audit` has no suppression mechanism of its own, and npm's advisory `source` id is the same numeric id `yarn audit` reports), plus `lockfile-lint --type npm` on `package-lock.json` with the same host/https rules. The job is wired into the `All checks passed` aggregator like every other gate.
 
 ## 7. Install-hook gate
 
