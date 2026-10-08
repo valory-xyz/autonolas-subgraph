@@ -28,7 +28,7 @@ import { spawn } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseAdvisories, parseNpmAdvisories, evaluateAdvisories } from './audit.lib.mjs';
+import { parseAdvisories, parseNpmAdvisories, decideExit } from './audit.lib.mjs';
 
 // Allowlist is anchored to this script's location, NOT cwd, so the same
 // file governs every matrix entry across root + subgraphs.
@@ -102,23 +102,22 @@ if (!stdout) {
   process.exit(2);
 }
 
-const { advisories, sawAuditRow, problem } = NPM_MODE ? parseNpmAdvisories(stdout) : parseAdvisories(stdout);
+const parsed = NPM_MODE ? parseNpmAdvisories(stdout) : parseAdvisories(stdout);
+const today = new Date().toISOString().slice(0, 10);
+const { code: exitCode, blocking, suppressed, expired } = decideExit(parsed, allowed, today);
 
 // A successful `yarn audit` always emits at least an `auditSummary` row;
 // a successful `npm audit` always emits a report with `vulnerabilities`.
 // If we got output but couldn't recognize any audit-shaped JSON, the
 // stream was likely truncated by a registry / network failure — fail loudly
 // rather than silently passing.
-if (!sawAuditRow) {
+if (exitCode === 2) {
   console.error(`::error::\`${TOOL}\` produced output but no recognizable advisory or summary rows.`);
   console.error('This typically indicates a registry outage or truncated stream.');
-  if (problem) console.error(`Parser: ${problem}.`);
+  if (parsed.problem) console.error(`Parser: ${parsed.problem}.`);
   if (stderr) console.error(stderr);
   process.exit(2);
 }
-
-const today = new Date().toISOString().slice(0, 10);
-const { blocking, suppressed, expired } = evaluateAdvisories(advisories, allowed, today);
 
 // `stale` (allowlist entry no longer suppressing anything) intentionally
 // NOT computed here: in a per-subgraph matrix, a transitive advisory may
@@ -143,7 +142,7 @@ for (const { advisory, entry } of expired) {
   );
 }
 
-if (blocking.length > 0) {
+if (exitCode === 1) {
   console.error('');
   console.error(`::error::${blocking.length} HIGH/CRITICAL advisory/advisories in the production tree are not allowlisted:`);
   for (const { advisory, paths } of blocking) {

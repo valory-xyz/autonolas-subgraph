@@ -15,19 +15,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseNpmAdvisories, evaluateAdvisories } from './audit.lib.mjs';
+import { parseAdvisories, parseNpmAdvisories, decideExit } from './audit.lib.mjs';
 
 const TODAY = '2026-10-08';
 
-// Same decision as audit.mjs: unparseable → exit 2, unlisted high/critical →
-// exit 1, otherwise 0.
-function gate(report, allowlistEntries = []) {
+// Parse like `audit.mjs --npm` (or plain `audit.mjs` with `yarn: true`),
+// then take the exit decision from the same decideExit() the script uses.
+function gate(report, allowlistEntries = [], { yarn = false } = {}) {
   const stdout = typeof report === 'string' ? report : JSON.stringify(report);
-  const parsed = parseNpmAdvisories(stdout);
-  if (!parsed.sawAuditRow) return { code: 2, parsed };
+  const parsed = yarn ? parseAdvisories(stdout) : parseNpmAdvisories(stdout);
   const allowed = new Map(allowlistEntries.map((e) => [e.id, e]));
-  const result = evaluateAdvisories(parsed.advisories, allowed, TODAY);
-  return { code: result.blocking.length > 0 ? 1 : 0, parsed, ...result };
+  return { parsed, ...decideExit(parsed, allowed, TODAY) };
 }
 
 function advisory({ source, name, severity, range = '<1.0.0' }) {
@@ -187,3 +185,21 @@ for (const [name, input] of Object.entries(MALFORMED)) {
     assert.equal(typeof r.parsed.problem, 'string', 'expected a problem description');
   });
 }
+
+// --- yarn mode: same decision, yarn-audit JSON lines ---
+
+const YARN_HIGH = [
+  { type: 'auditAdvisory', data: { resolution: { path: 'parent>proxy-addr' }, advisory: { id: 1241210, severity: 'high', module_name: 'proxy-addr' } } },
+  { type: 'auditSummary', data: {} },
+]
+  .map((row) => JSON.stringify(row))
+  .join('\n');
+
+test('yarn: unlisted high advisory fails the gate, allowlisted passes', () => {
+  assert.equal(gate(YARN_HIGH, [], { yarn: true }).code, 1);
+  assert.equal(gate(YARN_HIGH, [ALLOW_HIGH], { yarn: true }).code, 0);
+});
+
+test('yarn: output with no audit rows fails loudly', () => {
+  assert.equal(gate('{"type":"info","data":"fetching"}\nnot json', [], { yarn: true }).code, 2);
+});

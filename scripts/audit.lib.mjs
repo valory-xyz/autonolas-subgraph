@@ -133,3 +133,12 @@ export function evaluateAdvisories(advisories, allowed, today) {
   }
   return { blocking, suppressed, expired };
 }
+
+// The gate's exit-code decision, shared by audit.mjs and the tests: output
+// that could not be parsed → 2, unlisted high/critical advisories → 1, else 0.
+// `parsed` is the result of parseAdvisories / parseNpmAdvisories.
+export function decideExit(parsed, allowed, today) {
+  if (!parsed.sawAuditRow) return { code: 2, blocking: [], suppressed: [], expired: [] };
+  const result = evaluateAdvisories(parsed.advisories, allowed, today);
+  return { code: result.blocking.length > 0 ? 1 : 0, ...result };
+}
