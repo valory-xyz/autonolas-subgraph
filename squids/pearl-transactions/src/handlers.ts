@@ -1018,6 +1018,9 @@ export async function handleSafeReceived(
   meta: EventMeta,
   e: { sender: string; value: bigint }
 ): Promise<void> {
+  // Topic-only subscription; the subgraph only sees Master/Agent Safes.
+  const emitter = await ctx.cache.tracked(meta.address);
+  if (emitter?.role !== ROLE_MASTER && emitter?.role !== ROLE_AGENT) return;
   await handleTransfer(ctx, meta, e.sender, meta.address, e.value, null);
 }
 
