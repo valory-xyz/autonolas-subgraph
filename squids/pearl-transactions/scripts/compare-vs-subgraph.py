@@ -26,6 +26,10 @@ Sections:
 The comparison height is min(squid head, subgraph head), so a squid that
 has only synced a sample of the chain (from START_BLOCK) compares cleanly.
 
+A section with no rows on either side prints [EMPTY], not OK: an empty
+window verifies nothing. Exit status: 0 all match, 1 any DIFF, 2 no DIFF
+but at least one section EMPTY.
+
 Usage:
   python3 scripts/compare-vs-subgraph.py <subgraph-graphql-url> [--window N]
 
@@ -139,10 +143,17 @@ print(f"subgraph head : {sub_head:,}")
 print(f"window        : {floor:,} .. {cutoff:,}  ({WINDOW:,} blocks)\n")
 
 failures = 0
+empties = 0
 
 
 def compare(name, squid_set, sub_set):
-    global failures
+    global failures, empties
+    if not (squid_set or sub_set):
+        # Nothing on either side proves nothing: the window may have shrunk
+        # to zero (squid just past START_BLOCK, cutoff before the first row).
+        empties += 1
+        print(f"[EMPTY] {name}: nothing in window, not verified")
+        return
     only_squid = squid_set - sub_set
     only_sub = sub_set - squid_set
     if only_squid or only_sub:
@@ -291,4 +302,8 @@ if failures:
     print(f"{failures} section(s) differ — see MIGRATION.md "
           f"'Deliberate differences from the subgraph' before filing a bug.")
     sys.exit(1)
+if empties:
+    print(f"{empties} section(s) empty — not verified. Widen --window or "
+          f"let the squid sync further.")
+    sys.exit(2)
 print("all sections match")
