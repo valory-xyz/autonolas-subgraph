@@ -461,5 +461,16 @@ describe("fallback RPC", () => {
       expect(seen.every((x) => x.url.startsWith(BASE_DEFAULT))).toBe(true);
       expect(hit(seen, BASE_DEFAULT)).toHaveLength(2);
     });
+
+    it("names the default RPC, not RPC_HTTP, in startup errors", async () => {
+      vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+      for (const v of ["RPC_HTTP", "RPC_POLYGON_HTTP", "RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK"]) {
+        vi.stubEnv(v, "");
+      }
+      vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+      const { assertArchiveRpc } = await import("../src/rpc");
+      const err = await assertArchiveRpc(SERVICE_REGISTRY_L2, 10_827_380).catch((e) => e);
+      expect(err.message).toMatch(/^default public RPC \(https:\/\/mainnet\.base\.org\) cannot read state/);
+    });
   });
 });

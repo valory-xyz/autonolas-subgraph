@@ -52,7 +52,7 @@ export function rpcFromEnv(
 
 const primaryRpc = rpcFromEnv("RPC_HTTP", "RPC_POLYGON_HTTP") ?? {
   url: CHAIN.defaultRpc,
-  envName: "RPC_HTTP",
+  envName: `default public RPC (${CHAIN.defaultRpc})`,
 };
 const primary = clientFor(primaryRpc.url);
 
