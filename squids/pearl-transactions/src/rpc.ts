@@ -18,15 +18,28 @@ const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 const clientFor = (url: string): PublicClient =>
   createPublicClient({ transport: http(url, { batch: true }) });
 
-/** First non-empty of `generic`, then its legacy `alias`, with the var name it came from. */
+/**
+ * First non-empty of `generic`, then its legacy Polygon `alias`, with the
+ * var name it came from. The alias is honoured only on matic: on any other
+ * chain a set alias throws, since it is almost certainly a copied Polygon
+ * secret (same rule as the SQD_PORTAL_URL check).
+ */
 export function rpcFromEnv(
   generic: string,
-  alias: string
+  alias: string,
+  chainName: string = CHAIN.name
 ): { url: string; envName: string } | null {
-  for (const envName of [generic, alias]) {
-    const url = process.env[envName];
-    if (url) return { url, envName };
+  const genericUrl = process.env[generic];
+  const aliasUrl = process.env[alias];
+  if (aliasUrl && chainName !== "matic") {
+    throw new Error(
+      `${alias} is set, but it is a Polygon-only legacy alias and ` +
+        `PEARL_TRANSACTIONS_CHAIN="${chainName}". Unset ${alias} and set ` +
+        `${generic} to a ${chainName} archive RPC.`
+    );
   }
+  if (genericUrl) return { url: genericUrl, envName: generic };
+  if (aliasUrl) return { url: aliasUrl, envName: alias };
   return null;
 }
 

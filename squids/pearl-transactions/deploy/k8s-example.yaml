@@ -23,7 +23,8 @@
 #       primary fails with a non-revert error (archive providers can have
 #       holes). Sees a handful of calls, so a public endpoint is fine.
 #     (RPC_POLYGON_HTTP / RPC_POLYGON_HTTP_FALLBACK are still read as
-#     aliases when the RPC_HTTP* vars are unset.)
+#     aliases on matic when the RPC_HTTP* vars are unset; on any other
+#     chain, setting one fails at startup.)
 #
 # Postgres: any small instance (1 vCPU / 2 GB / 20 GB). Own instance —
 # do NOT share the graph-node database server.

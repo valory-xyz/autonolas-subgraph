@@ -56,7 +56,7 @@ Key files:
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
 | `RPC_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
-| `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only when `RPC_HTTP*` is unset, so existing Polygon deployments keep working |
+| `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only on `matic` when `RPC_HTTP*` is unset, so existing Polygon deployments keep working. On any other chain, setting one fails at startup |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 

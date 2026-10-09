@@ -375,6 +375,54 @@ describe("fallback RPC", () => {
       expect(hit(seen, FALLBACK)).toHaveLength(2);
       expect(String(warn.mock.calls[0][0])).toMatch(/RPC_POLYGON_HTTP_FALLBACK/);
     });
+
+    describe("is honoured only on matic", () => {
+      it("fails at startup on Base when RPC_POLYGON_HTTP is set, naming the var", async () => {
+        vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+        vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+        stub({}, {});
+        await expect(import("../src/rpc")).rejects.toThrow(
+          /^RPC_POLYGON_HTTP is set, but it is a Polygon-only legacy alias and PEARL_TRANSACTIONS_CHAIN="base"/
+        );
+      });
+
+      it("fails at startup on Base when RPC_POLYGON_HTTP_FALLBACK is set, naming the var", async () => {
+        vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+        vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+        stub({}, {});
+        await expect(import("../src/rpc")).rejects.toThrow(/^RPC_POLYGON_HTTP_FALLBACK is set/);
+      });
+
+      it("fails on Base even when the alias equals RPC_HTTP", async () => {
+        vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+        vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+        stub({}, {});
+        await expect(import("../src/rpc")).rejects.toThrow(/^RPC_POLYGON_HTTP is set/);
+      });
+
+      it("works on an explicit matic with only the aliases set", async () => {
+        vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "matic");
+        vi.stubEnv("RPC_HTTP", "");
+        vi.stubEnv("RPC_HTTP_FALLBACK", "");
+        vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+        vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+        const seen = stub({ error: STATE_MISSING }, {});
+        const { getSafeConfig } = await import("../src/rpc");
+        expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+        expect(hit(seen, PRIMARY)).toHaveLength(2);
+        expect(hit(seen, FALLBACK)).toHaveLength(2);
+      });
+
+      it("works on Base with RPC_HTTP / RPC_HTTP_FALLBACK and the aliases unset", async () => {
+        vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+        const seen = stub({ error: STATE_MISSING }, {});
+        const { getSafeConfig, assertArchiveRpc } = await import("../src/rpc");
+        expect(await getSafeConfig(SAFE, 30_000_000)).toEqual({ owners: [OWNER], threshold: 1n });
+        expect(hit(seen, PRIMARY)).toHaveLength(2);
+        expect(hit(seen, FALLBACK)).toHaveLength(2);
+        await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 10_827_380)).rejects.toThrow(/^RPC_HTTP /);
+      });
+    });
   });
 
   describe("no RPC vars set", () => {
