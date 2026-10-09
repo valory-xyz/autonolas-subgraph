@@ -127,7 +127,8 @@ export function selectChain<T extends { name: string }>(
   table: Record<string, T>,
   defaultName: string
 ): T {
-  const name = (process.env[envVar] ?? defaultName).trim();
+  // Empty / whitespace-only counts as unset, like rpcFromEnv.
+  const name = process.env[envVar]?.trim() || defaultName;
   const chain = Object.prototype.hasOwnProperty.call(table, name)
     ? table[name]
     : undefined;

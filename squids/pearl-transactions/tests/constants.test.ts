@@ -36,6 +36,14 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
     expect((await load()).CHAIN.name).toBe("base");
   });
 
+  it.each(["", "  \n"])(
+    "treats an empty / whitespace-only value (%j) as unset, like rpcFromEnv",
+    async (value) => {
+      vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", value);
+      expect((await load()).CHAIN.name).toBe("matic");
+    }
+  );
+
   it("fails at startup on an unknown name, listing the known chains", async () => {
     vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "polygon");
     await expect(load()).rejects.toThrow(
