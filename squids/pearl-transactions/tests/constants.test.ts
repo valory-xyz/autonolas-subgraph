@@ -9,8 +9,7 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("defaults to matic when unset, so Polygon deployments need no new env", async () => {
-    vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", undefined as unknown as string);
-    delete process.env.PEARL_TRANSACTIONS_CHAIN;
+    vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", undefined);
     const c = await load();
     expect(c.CHAIN.name).toBe("matic");
     expect(c.START_BLOCK).toBe(80_360_433);
