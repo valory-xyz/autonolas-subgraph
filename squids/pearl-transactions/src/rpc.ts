@@ -18,12 +18,7 @@ const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 const clientFor = (url: string): PublicClient =>
   createPublicClient({ transport: http(url, { batch: true }) });
 
-/**
- * An RPC URL from the chain-neutral env var, else its legacy Polygon alias
- * (`RPC_POLYGON_HTTP*`, kept so existing Polygon deployments need no env
- * change). Empty counts as unset. `envName` is the var actually read, so
- * error messages point at the one the operator set.
- */
+/** First non-empty of `generic`, then its legacy `alias`, with the var name it came from. */
 export function rpcFromEnv(
   generic: string,
   alias: string
@@ -237,26 +232,11 @@ export async function getSafeConfig(
 }
 
 /**
- * Fail fast if an endpoint cannot serve historical state.
- *
- * Every Safe is probed at its first-sighting block, and a pruned node
- * answers those with empty code — indistinguishable from "not a Safe", so
- * the failure mode is silent, permanent data loss rather than an error.
- * Assert it once at startup instead: the registry is deployed at or before
- * START_BLOCK by definition, so it must have code there, and it must answer
- * a real eth_call of the same shape the Safe probes use (getCode alone
- * sends no `from` and cannot surface eth_call-only quirks).
- *
- * Checks the primary DIRECTLY, not via historicalRead — otherwise a broken
- * primary would pass on the strength of the fallback and every probe would
- * silently shift to the rate-limited endpoint. Then checks the fallback
- * too, if configured, and that is fatal as well — deliberately, like the
- * primary's. Per call, `hasStateAt` already stops a pruned fallback from
- * mislabelling a Safe, so a bad fallback no longer loses data; it just
- * cannot cover a hole in the primary, and the backfill stalls there,
- * possibly days in. Refusing to start says so while someone is watching
- * the deploy. The cost: an unreachable fallback crash-loops the pod; unset
- * the fallback var to start on the primary alone.
+ * Fail fast if an endpoint cannot serve historical state: a pruned node
+ * reads every Safe as "not a Safe". The registry must have code at
+ * START_BLOCK and answer an eth_call shaped like the Safe probes (same
+ * `from`). Checks the primary directly (not via the fallback, which would
+ * mask it), then the fallback if set; either failing is fatal.
  */
 export async function assertArchiveRpc(
   registryAddress: string,
