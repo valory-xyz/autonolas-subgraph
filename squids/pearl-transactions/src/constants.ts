@@ -149,6 +149,33 @@ export const CHAIN: ChainConfig = selectChain(
   "matic"
 );
 
+/** The `.../datasets/<name>` segment of an SQD Portal URL, lowercased. */
+function portalDatasetName(url: string): string | null {
+  return /\/datasets\/([^/?#]+)/.exec(url)?.[1]?.toLowerCase() ?? null;
+}
+
+/**
+ * `SQD_PORTAL_URL` (empty counts as unset), else `chain.portalDataset`.
+ * Throws if its dataset is not the chain's: a Polygon URL on a Base
+ * deployment would stream Polygon, match no Base address, and index nothing.
+ */
+export function portalUrlFor(
+  chain: ChainConfig,
+  override = process.env.SQD_PORTAL_URL
+): string {
+  const url = override?.trim() || chain.portalDataset;
+  const want = portalDatasetName(chain.portalDataset);
+  const got = portalDatasetName(url);
+  if (got !== want) {
+    throw new Error(
+      `SQD_PORTAL_URL="${url}" serves dataset "${got ?? "(none)"}", but ` +
+        `PEARL_TRANSACTIONS_CHAIN="${chain.name}" needs "${want}". Point ` +
+        `SQD_PORTAL_URL at .../datasets/${want}, or fix PEARL_TRANSACTIONS_CHAIN.`
+    );
+  }
+  return url;
+}
+
 export const START_BLOCK = CHAIN.startBlock;
 export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2;
 export const SRTU = CHAIN.serviceRegistryTokenUtility;

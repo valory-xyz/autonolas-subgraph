@@ -57,6 +57,52 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
   });
 });
 
+describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
+  beforeEach(() => vi.resetModules());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("defaults to the chain's public dataset when unset or empty", async () => {
+    const { CHAINS, portalUrlFor } = await load();
+    expect(portalUrlFor(CHAINS.base, undefined)).toBe(CHAINS.base.portalDataset);
+    expect(portalUrlFor(CHAINS.base, " ")).toBe(CHAINS.base.portalDataset);
+  });
+
+  it.each([
+    "https://portal.sqd.dev/datasets/base-mainnet",
+    "https://shared.portal.sqd.dev/datasets/base-mainnet",
+    "https://shared.portal.sqd.dev/datasets/base-mainnet/",
+  ])("accepts a matching dataset on either host: %s", async (url) => {
+    const { CHAINS, portalUrlFor } = await load();
+    expect(portalUrlFor(CHAINS.base, url)).toBe(url);
+  });
+
+  it("fails on another chain's dataset, naming both env vars", async () => {
+    const { CHAINS, portalUrlFor } = await load();
+    expect(() =>
+      portalUrlFor(CHAINS.base, "https://shared.portal.sqd.dev/datasets/polygon-mainnet")
+    ).toThrow(
+      /^SQD_PORTAL_URL=".*polygon-mainnet" serves dataset "polygon-mainnet", but PEARL_TRANSACTIONS_CHAIN="base" needs "base-mainnet"/
+    );
+  });
+
+  it("fails on a URL with no dataset segment", async () => {
+    const { CHAINS, portalUrlFor } = await load();
+    expect(() => portalUrlFor(CHAINS.matic, "https://portal.sqd.dev/")).toThrow(
+      /serves dataset "\(none\)"/
+    );
+  });
+
+  it("is enforced when the processor loads, i.e. at startup", async () => {
+    vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+    vi.stubEnv("SQD_PORTAL_URL", "https://portal.sqd.dev/datasets/polygon-mainnet");
+    await expect(import("../src/processor")).rejects.toThrow(/SQD_PORTAL_URL=/);
+
+    vi.resetModules();
+    vi.stubEnv("SQD_PORTAL_URL", "https://shared.portal.sqd.dev/datasets/base-mainnet");
+    await expect(import("../src/processor")).resolves.toBeDefined();
+  });
+});
+
 describe("CHAINS table", () => {
   it("keeps every address lowercase (handlers compare with ===)", async () => {
     vi.resetModules();

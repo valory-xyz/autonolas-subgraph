@@ -52,7 +52,7 @@ Key files:
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`. An unknown name fails at startup |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL. Its `/datasets/<name>` must be the selected chain's (e.g. `base-mainnet`), or startup fails |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
 | `RPC_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
