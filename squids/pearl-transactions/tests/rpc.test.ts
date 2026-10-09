@@ -349,6 +349,28 @@ describe("fallback RPC", () => {
       expect(seen.filter((x) => x.url.startsWith(ALIAS))).toHaveLength(0);
     });
 
+    it("warns once per pair when generic and alias differ, naming the vars but not the URLs", async () => {
+      const ALIAS = "https://alias.invalid/?key=secret";
+      vi.stubEnv("RPC_POLYGON_HTTP", ALIAS);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", ALIAS);
+      stub({}, {});
+      await import("../src/rpc");
+      const lines = warn.mock.calls.map((c) => String(c[0]));
+      expect(lines).toEqual([
+        expect.stringMatching(/Both RPC_HTTP and RPC_POLYGON_HTTP are set with different values; using RPC_HTTP\./),
+        expect.stringMatching(/Both RPC_HTTP_FALLBACK and RPC_POLYGON_HTTP_FALLBACK are set with different values; using RPC_HTTP_FALLBACK\./),
+      ]);
+      for (const l of lines) expect(l).not.toMatch(/invalid|secret/);
+    });
+
+    it("does not warn when generic and alias hold the same value", async () => {
+      vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+      stub({}, {});
+      await import("../src/rpc");
+      expect(warn).not.toHaveBeenCalled();
+    });
+
     it("mixes: alias primary (RPC_POLYGON_HTTP) with chain-neutral fallback (RPC_HTTP_FALLBACK)", async () => {
       vi.stubEnv("RPC_HTTP", "");
       vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);

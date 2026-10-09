@@ -38,6 +38,13 @@ export function rpcFromEnv(
         `${generic} to a ${chainName} archive RPC.`
     );
   }
+  if (genericUrl && aliasUrl && genericUrl !== aliasUrl) {
+    // Names only: the URLs may carry API keys.
+    console.warn(
+      `[rpc] Both ${generic} and ${alias} are set with different values; ` +
+        `using ${generic}. Unset ${alias} to silence this.`
+    );
+  }
   if (genericUrl) return { url: genericUrl, envName: generic };
   if (aliasUrl) return { url: aliasUrl, envName: alias };
   return null;
