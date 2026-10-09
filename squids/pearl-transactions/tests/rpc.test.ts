@@ -348,5 +348,48 @@ describe("fallback RPC", () => {
       expect(hit(seen, PRIMARY)).toHaveLength(2);
       expect(seen.filter((x) => x.url.startsWith(ALIAS))).toHaveLength(0);
     });
+
+    it("mixes: alias primary (RPC_POLYGON_HTTP) with chain-neutral fallback (RPC_HTTP_FALLBACK)", async () => {
+      vi.stubEnv("RPC_HTTP", "");
+      vi.stubEnv("RPC_POLYGON_HTTP", PRIMARY);
+      vi.stubEnv("RPC_HTTP_FALLBACK", FALLBACK);
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", "");
+      const seen = stub({ error: STATE_MISSING }, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(hit(seen, PRIMARY)).toHaveLength(2);
+      expect(hit(seen, FALLBACK)).toHaveLength(2);
+      expect(String(warn.mock.calls[0][0])).toMatch(/RPC_HTTP_FALLBACK/);
+      expect(String(warn.mock.calls[0][0])).not.toMatch(/RPC_POLYGON_HTTP_FALLBACK/);
+    });
+
+    it("mixes: chain-neutral primary (RPC_HTTP) with alias fallback (RPC_POLYGON_HTTP_FALLBACK)", async () => {
+      vi.stubEnv("RPC_HTTP", PRIMARY);
+      vi.stubEnv("RPC_POLYGON_HTTP", "");
+      vi.stubEnv("RPC_HTTP_FALLBACK", "");
+      vi.stubEnv("RPC_POLYGON_HTTP_FALLBACK", FALLBACK);
+      const seen = stub({ error: STATE_MISSING }, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(hit(seen, PRIMARY)).toHaveLength(2);
+      expect(hit(seen, FALLBACK)).toHaveLength(2);
+      expect(String(warn.mock.calls[0][0])).toMatch(/RPC_POLYGON_HTTP_FALLBACK/);
+    });
+  });
+
+  describe("no RPC vars set", () => {
+    it("uses the selected chain's defaultRpc (Base: mainnet.base.org)", async () => {
+      const BASE_DEFAULT = "https://mainnet.base.org";
+      vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "base");
+      for (const v of ["RPC_HTTP", "RPC_POLYGON_HTTP", "RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK"]) {
+        vi.stubEnv(v, "");
+      }
+      const seen = stub({}, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 30_000_000)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every((x) => x.url.startsWith(BASE_DEFAULT))).toBe(true);
+      expect(hit(seen, BASE_DEFAULT)).toHaveLength(2);
+    });
   });
 });
