@@ -125,7 +125,9 @@ const safeMemo = new Map<string, SafeConfig>();
 // viem keeps the node's own text in `details`; `shortMessage` is generic.
 const firstLine = (e: unknown): string => {
   const err = e as { details?: string; shortMessage?: string; message?: string };
-  return String(err?.details || err?.shortMessage || err?.message || e).split("\n")[0];
+  const text = String(err?.details || err?.shortMessage || err?.message || e);
+  // Some gateways prefix `details` with a newline; skip blank lines.
+  return text.split("\n").find((l) => l.trim())?.trim() ?? text;
 };
 
 /** One historical read against one client; always pinned, always with `from`. */

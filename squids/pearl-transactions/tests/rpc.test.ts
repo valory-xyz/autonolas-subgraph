@@ -270,6 +270,14 @@ describe("fallback RPC", () => {
       );
     });
 
+    it("skips a leading blank line in the node's error text", async () => {
+      stub({ codeError: { ...NO_HISTORY, message: `\n${NO_HISTORY.message}` } }, {});
+      const { assertArchiveRpc } = await import("../src/rpc");
+      await expect(assertArchiveRpc(SERVICE_REGISTRY_L2, 80_360_433)).rejects.toThrow(
+        /^RPC_HTTP cannot read state at block 80360433: historical state 0xabc is not available\./
+      );
+    });
+
     it("fails when the fallback's getCode throws, naming the fallback env var", async () => {
       stub({}, { codeError: NO_HISTORY });
       const { assertArchiveRpc } = await import("../src/rpc");
