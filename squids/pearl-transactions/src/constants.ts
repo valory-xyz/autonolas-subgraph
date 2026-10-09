@@ -17,7 +17,7 @@ export interface ChainConfig {
   name: ChainName;
   /** SQD Portal dataset for this chain. */
   portalDataset: string;
-  /** Public RPC used when `RPC_HTTP` is unset. Fine for a smoke test only. */
+  /** Public RPC used when `RPC_HTTP` is unset. */
   defaultRpc: string;
   /** Earliest block any tracked contract was deployed at. */
   startBlock: number;
@@ -116,12 +116,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   },
 };
 
-/**
- * One deployment indexes ONE chain, picked by `envVar`. Unknown names fail
- * at startup with the list of configured chains, so a typo can never index
- * the default chain by accident. Mirrors `selectChain` in squids/_shared —
- * this squid does not depend on @olas/squid-shared.
- */
+/** The chain named by `envVar` (default `defaultName`); throws on an unknown name. */
 export function selectChain<T extends { name: string }>(
   envVar: string,
   table: Record<string, T>,
@@ -140,9 +135,6 @@ export function selectChain<T extends { name: string }>(
   return chain;
 }
 
-// This deployment's chain. Defaults to Polygon (`matic`), the deployment
-// graph-node could not keep up with (~5 blk/s through the USDC.e-dense
-// range), so existing deployments need no new env.
 export const CHAIN: ChainConfig = selectChain(
   "PEARL_TRANSACTIONS_CHAIN",
   CHAINS,
