@@ -20,7 +20,9 @@ Sections:
   2. BondMovement   — (txHash, category, token, amount, bondType,
                        service, agentSafe)
   3. MasterSafe     — (id, masterEoa, historyFloorBlock)
-  4. Service        — (serviceId, agentIds), registered by the comparison height
+  4. Service        — serviceIds registered by the comparison height; their
+                      agentIds strictly where not updated after it, the rest
+                      reported as [KNOWN] (current state, see section 4)
   5. DailyServiceFunds for days fully elapsed on both sides
 
 The comparison height is min(squid head, subgraph head), so a squid that
@@ -252,22 +254,47 @@ compare("MasterSafe (id, masterEoa, historyFloorBlock)", sq, sub)
 # --- 4. Service -------------------------------------------------------
 # No block column to window on; services are few enough to compare whole,
 # up to the comparison height so a partially synced squid compares cleanly.
+#
+# agentIds is CURRENT state: later RegisterInstance events grow it after
+# registeredTimestamp, so the side that is further ahead can carry extra ids.
+# Neither store keeps a per-agent registration time, but every agentIds
+# write (RegisterInstance, the CreateMultisigWithAgents drain) bumps
+# updatedTimestamp on both sides. So agentIds are compared strictly only for
+# services not updated after the cutoff on either side; the rest are
+# reported as KNOWN current-state differences and do not fail the run.
 
-sq = {
-    (sid, agent_ids.strip("{}"))
-    for sid, agent_ids in sql(
-        f"""select service_id::text, agent_ids::text from service
+sq_svc = {
+    sid: (agent_ids.strip("{}"), int(updated))
+    for sid, agent_ids, updated in sql(
+        f"""select service_id::text, agent_ids::text,
+                   updated_timestamp::text from service
             where registered_timestamp <= {cutoff_ts} order by service_id"""
     )
 }
-sub = {
-    (r["serviceId"], ",".join(str(a) for a in r["agentIds"]))
+sub_svc = {
+    r["serviceId"]: (",".join(str(a) for a in r["agentIds"]),
+                     int(r["updatedTimestamp"]))
     for r in gql_paginate(
-        "services", "id serviceId agentIds",
+        "services", "id serviceId agentIds updatedTimestamp",
         f"registeredTimestamp_lte: {cutoff_ts}",
     )
 }
-compare("Service (serviceId, agentIds)", sq, sub)
+compare("Service (serviceId)", set(sq_svc), set(sub_svc))
+
+both = sq_svc.keys() & sub_svc.keys()
+moved = {s for s in both
+         if max(sq_svc[s][1], sub_svc[s][1]) > cutoff_ts}
+compare("Service agentIds (not updated after cutoff)",
+        {(s, sq_svc[s][0]) for s in both - moved},
+        {(s, sub_svc[s][0]) for s in both - moved})
+known = sorted((s, sq_svc[s][0], sub_svc[s][0]) for s in moved
+               if sq_svc[s][0] != sub_svc[s][0])
+print(f"[KNOWN] Service agentIds (updated after cutoff, current state, "
+      f"not counted): {len(moved)} services, {len(known)} differ")
+for s, a, b in known[:5]:
+    print(f"         service {s}: squid {{{a}}} vs subgraph {{{b}}}")
+if len(known) > 5:
+    print(f"         ... and {len(known) - 5} more")
 
 # --- 5. DailyServiceFunds --------------------------------------------
 # Only days fully elapsed on both sides; the current day is still moving.
