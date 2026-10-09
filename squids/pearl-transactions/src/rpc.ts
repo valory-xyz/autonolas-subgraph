@@ -9,7 +9,7 @@
 // lifetime. Both are one-shot per Master Safe at first sighting.
 
 import { createPublicClient, http, type PublicClient } from "viem";
-import { SERVICE_REGISTRY_L2 } from "./constants";
+import { CHAIN, SERVICE_REGISTRY_L2 } from "./constants";
 
 // Erigon archive nodes reject a historical eth_call whose `from` has no
 // state at that block; the zero-address default has none.
@@ -18,17 +18,52 @@ const CALL_FROM = SERVICE_REGISTRY_L2 as `0x${string}`;
 const clientFor = (url: string): PublicClient =>
   createPublicClient({ transport: http(url, { batch: true }) });
 
-const primary = clientFor(
-  process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com"
-);
+/**
+ * First non-empty of `generic`, then its legacy Polygon `alias`, with the
+ * var name it came from. The alias is honoured only on matic: on any other
+ * chain a set alias throws, since it is almost certainly a copied Polygon
+ * secret (same rule as the SQD_PORTAL_URL check).
+ */
+export function rpcFromEnv(
+  generic: string,
+  alias: string,
+  chainName: string = CHAIN.name
+): { url: string; envName: string } | null {
+  const genericUrl = process.env[generic];
+  const aliasUrl = process.env[alias];
+  if (aliasUrl && chainName !== "matic") {
+    throw new Error(
+      `${alias} is set, but it is a Polygon-only legacy alias and ` +
+        `PEARL_TRANSACTIONS_CHAIN="${chainName}". Unset ${alias} and set ` +
+        `${generic} to a ${chainName} archive RPC.`
+    );
+  }
+  if (genericUrl && aliasUrl && genericUrl !== aliasUrl) {
+    // Names only: the URLs may carry API keys.
+    console.warn(
+      `[rpc] Both ${generic} and ${alias} are set with different values; ` +
+        `using ${generic}. Unset ${alias} to silence this.`
+    );
+  }
+  if (genericUrl) return { url: genericUrl, envName: generic };
+  if (aliasUrl) return { url: aliasUrl, envName: alias };
+  return null;
+}
+
+const primaryRpc = rpcFromEnv("RPC_HTTP", "RPC_POLYGON_HTTP") ?? {
+  url: CHAIN.defaultRpc,
+  envName: `default public RPC (${CHAIN.defaultRpc})`,
+};
+const primary = clientFor(primaryRpc.url);
 
 /**
  * Optional second archive endpoint, tried only when the primary fails with
  * something that is NOT a revert (e.g. a hole in its archive). Sees only
  * the calls the primary could not serve, so a rate-limited endpoint is fine.
  */
-const fallback: PublicClient | null = process.env.RPC_POLYGON_HTTP_FALLBACK
-  ? clientFor(process.env.RPC_POLYGON_HTTP_FALLBACK)
+const fallbackRpc = rpcFromEnv("RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK");
+const fallback: PublicClient | null = fallbackRpc
+  ? clientFor(fallbackRpc.url)
   : null;
 
 const SAFE_ABI = [
@@ -87,10 +122,13 @@ export interface SafeConfig {
  */
 const safeMemo = new Map<string, SafeConfig>();
 
-// First line of an error message, for the fallback log.
-const firstLine = (e: unknown): string =>
-  (e as { shortMessage?: string })?.shortMessage ??
-  String((e as Error)?.message ?? e).split("\n")[0];
+// viem keeps the node's own text in `details`; `shortMessage` is generic.
+const firstLine = (e: unknown): string => {
+  const err = e as { details?: string; shortMessage?: string; message?: string };
+  const text = String(err?.details || err?.shortMessage || err?.message || e);
+  // Some gateways prefix `details` with a newline; skip blank lines.
+  return text.split("\n").find((l) => l.trim())?.trim() ?? text;
+};
 
 /** One historical read against one client; always pinned, always with `from`. */
 function readAt<const abi extends readonly unknown[], fn extends string>(
@@ -126,13 +164,8 @@ async function hasStateAt(
 }
 
 /**
- * Every historical read goes through here so `blockNumber` and `account`
- * can never be set on one call site and forgotten on another — the startup
- * check and the Safe probes must send the exact same shape, or the check
- * gives false confidence.
- *
- * Primary first; on a non-revert failure, the identical call on the
- * fallback. A revert from the fallback is only trusted if the fallback
+ * A Safe probe read. Primary first; on a non-revert failure, the identical
+ * call on the fallback. A revert from the fallback is only trusted if the fallback
  * actually holds state at that block — a pruned node answers `0x`, which
  * viem reports as a revert, and that would silently mislabel a real Safe.
  * If the fallback is pruned there too, the PRIMARY's error is rethrown so
@@ -148,7 +181,7 @@ async function historicalRead<
     if (isRevert(err) || fallback == null) throw err;
     console.warn(
       `[rpc] primary failed for ${functionName}(${address}) at block ` +
-        `${blockNumber} — ${firstLine(err)} — retrying on RPC_POLYGON_HTTP_FALLBACK`
+        `${blockNumber} — ${firstLine(err)} — retrying on ${fallbackRpc?.envName}`
     );
     try {
       return await readAt(fallback, address, abi, functionName, blockNumber);
@@ -170,7 +203,7 @@ async function historicalRead<
  * would produce a wrong owner set and, worse, a wrong `masterEoa`. Reading
  * at the first-sighting block reproduces what the subgraph saw.
  *
- * This makes RPC_POLYGON_HTTP an ARCHIVE endpoint requirement for backfill.
+ * This makes RPC_HTTP an ARCHIVE endpoint requirement for backfill.
  *
  * Returns null when the address is not a Safe: `getOwners` reverts on
  * anything else, which is how the subgraph distinguishes a Master Safe from
@@ -221,33 +254,31 @@ export async function getSafeConfig(
 }
 
 /**
- * Fail fast if an endpoint cannot serve historical state.
- *
- * Every Safe is probed at its first-sighting block, and a pruned node
- * answers those with empty code — indistinguishable from "not a Safe", so
- * the failure mode is silent, permanent data loss rather than an error.
- * Assert it once at startup instead: the registry is deployed at or before
- * START_BLOCK by definition, so it must have code there, and it must answer
- * a real eth_call of the same shape the Safe probes use (getCode alone
- * sends no `from` and cannot surface eth_call-only quirks).
- *
- * Checks the primary DIRECTLY, not via historicalRead — otherwise a broken
- * primary would pass on the strength of the fallback and every probe would
- * silently shift to the rate-limited endpoint. Then checks the fallback
- * too, if configured: a pruned fallback is worse than none, because its
- * `0x` reads as a revert and mislabels a real Safe.
+ * Fail fast if an endpoint cannot serve historical state: a pruned node
+ * reads every Safe as "not a Safe". The registry must have code at
+ * START_BLOCK and answer an eth_call shaped like the Safe probes (same
+ * `from`). Checks the primary directly (not via the fallback, which would
+ * mask it), then the fallback if set; either failing is fatal.
  */
 export async function assertArchiveRpc(
   registryAddress: string,
   startBlock: number
 ): Promise<void> {
-  await assertClientArchive(primary, "RPC_POLYGON_HTTP", registryAddress, startBlock);
-  if (fallback != null) {
+  await assertClientArchive(primary, primaryRpc.envName, registryAddress, startBlock, {
+    noCode: `every Safe probe would be silently misread as "not a Safe"`,
+    noCall: "the backfill would stall on the first Master Safe",
+  });
+  if (fallback != null && fallbackRpc != null) {
+    const fbImpact =
+      "the fallback could not cover a hole in the primary's archive, so " +
+      "the backfill would stall there. Fix it, or unset it to run on the " +
+      "primary alone";
     await assertClientArchive(
       fallback,
-      "RPC_POLYGON_HTTP_FALLBACK",
+      fallbackRpc.envName,
       registryAddress,
-      startBlock
+      startBlock,
+      { noCode: fbImpact, noCall: fbImpact }
     );
   }
 }
@@ -256,7 +287,8 @@ async function assertClientArchive(
   client: PublicClient,
   envName: string,
   registryAddress: string,
-  startBlock: number
+  startBlock: number,
+  impact: { noCode: string; noCall: string }
 ): Promise<void> {
   let code: string;
   try {
@@ -276,8 +308,7 @@ async function assertClientArchive(
     throw new Error(
       `${envName} returned no code for the service registry ` +
         `${registryAddress} at block ${startBlock}, where it is known to be ` +
-        `deployed. The endpoint is not archive-capable; every Safe probe ` +
-        `would be silently misread as "not a Safe".`
+        `deployed. The endpoint is not archive-capable; ${impact.noCode}.`
     );
   }
   try {
@@ -286,7 +317,7 @@ async function assertClientArchive(
     throw new Error(
       `${envName} cannot serve a historical eth_call at block ${startBlock}: ` +
         `${firstLine(err)}. The Safe owner probes use this exact call shape, ` +
-        `so the backfill would stall on the first Master Safe.`
+        `so ${impact.noCall}.`
     );
   }
 }

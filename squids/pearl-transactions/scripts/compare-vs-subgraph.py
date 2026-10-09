@@ -20,8 +20,17 @@ Sections:
   2. BondMovement   — (txHash, category, token, amount, bondType,
                        service, agentSafe)
   3. MasterSafe     — (id, masterEoa, historyFloorBlock)
-  4. Service        — (serviceId, agentIds)
+  4. Service        — serviceIds registered by the comparison height; their
+                      agentIds strictly where not updated after it, the rest
+                      reported as [KNOWN] (current state, see section 4)
   5. DailyServiceFunds for days fully elapsed on both sides
+
+The comparison height is min(squid head, subgraph head), so a squid that
+has only synced a sample of the chain (from START_BLOCK) compares cleanly.
+
+A section with no rows on either side prints [EMPTY], not OK: an empty
+window verifies nothing. Exit status: 0 all match, 1 any DIFF, 2 no DIFF
+but at least one section EMPTY.
 
 Usage:
   python3 scripts/compare-vs-subgraph.py <subgraph-graphql-url> [--window N]
@@ -73,7 +82,9 @@ def sql(query):
     )
     if out.returncode != 0:
         sys.exit(f"psql failed: {out.stderr.strip()}")
-    return [tuple(l.split("\x1f")) for l in out.stdout.strip().splitlines() if l]
+    # No .strip() on the output: Python counts \x1f as whitespace, so it
+    # would drop the last row's trailing empty fields.
+    return [tuple(l.split("\x1f")) for l in out.stdout.splitlines() if l]
 
 
 def gql(query):
@@ -116,12 +127,17 @@ def rel(obj, key="id"):
 
 # --- heights ----------------------------------------------------------
 
-squid_rows = sql("select block_number from indexer_status where id = '1'")
+squid_rows = sql(
+    "select block_number, block_timestamp from indexer_status where id = '1'"
+)
 if not squid_rows:
     sys.exit("squid has no IndexerStatus row — has the processor run?")
-squid_head = int(squid_rows[0][0])
-sub_head = int(gql("{ _meta { block { number } } }")["_meta"]["block"]["number"])
+squid_head, squid_ts = int(squid_rows[0][0]), int(squid_rows[0][1])
+sub_meta = gql("{ _meta { block { number timestamp } } }")["_meta"]["block"]
+sub_head, sub_ts = int(sub_meta["number"]), int(sub_meta["timestamp"])
 cutoff = min(squid_head, sub_head)
+# Timestamp of the comparison height, for the sections with no block column.
+cutoff_ts = min(squid_ts, sub_ts)
 floor = max(0, cutoff - WINDOW)
 
 print(f"squid head    : {squid_head:,}")
@@ -129,10 +145,17 @@ print(f"subgraph head : {sub_head:,}")
 print(f"window        : {floor:,} .. {cutoff:,}  ({WINDOW:,} blocks)\n")
 
 failures = 0
+empties = 0
 
 
 def compare(name, squid_set, sub_set):
-    global failures
+    global failures, empties
+    if not (squid_set or sub_set):
+        # Nothing on either side proves nothing: the window may have shrunk
+        # to zero (squid just past START_BLOCK, cutoff before the first row).
+        empties += 1
+        print(f"[EMPTY] {name}: nothing in window, not verified")
+        return
     only_squid = squid_set - sub_set
     only_sub = sub_set - squid_set
     if only_squid or only_sub:
@@ -229,26 +252,54 @@ sub = {
 compare("MasterSafe (id, masterEoa, historyFloorBlock)", sq, sub)
 
 # --- 4. Service -------------------------------------------------------
-# No block column to window on; services are few enough to compare whole.
+# No block column to window on; services are few enough to compare whole,
+# up to the comparison height so a partially synced squid compares cleanly.
+#
+# agentIds is CURRENT state: later RegisterInstance events grow it after
+# registeredTimestamp, so the side that is further ahead can carry extra ids.
+# Neither store keeps a per-agent registration time, but every agentIds
+# write (RegisterInstance, the CreateMultisigWithAgents drain) bumps
+# updatedTimestamp on both sides. So agentIds are compared strictly only for
+# services not updated after the cutoff on either side; the rest are
+# reported as KNOWN current-state differences and do not fail the run.
 
-sq = {
-    (sid, agent_ids.strip("{}"))
-    for sid, agent_ids in sql(
-        "select service_id::text, agent_ids::text from service order by service_id"
+sq_svc = {
+    sid: (agent_ids.strip("{}"), int(updated))
+    for sid, agent_ids, updated in sql(
+        f"""select service_id::text, agent_ids::text,
+                   updated_timestamp::text from service
+            where registered_timestamp <= {cutoff_ts} order by service_id"""
     )
 }
-sub = {
-    (r["serviceId"], ",".join(str(a) for a in r["agentIds"]))
-    for r in gql_paginate("services", "id serviceId agentIds")
+sub_svc = {
+    r["serviceId"]: (",".join(str(a) for a in r["agentIds"]),
+                     int(r["updatedTimestamp"]))
+    for r in gql_paginate(
+        "services", "id serviceId agentIds updatedTimestamp",
+        f"registeredTimestamp_lte: {cutoff_ts}",
+    )
 }
-compare("Service (serviceId, agentIds)", sq, sub)
+compare("Service (serviceId)", set(sq_svc), set(sub_svc))
+
+both = sq_svc.keys() & sub_svc.keys()
+moved = {s for s in both
+         if max(sq_svc[s][1], sub_svc[s][1]) > cutoff_ts}
+compare("Service agentIds (not updated after cutoff)",
+        {(s, sq_svc[s][0]) for s in both - moved},
+        {(s, sub_svc[s][0]) for s in both - moved})
+known = sorted((s, sq_svc[s][0], sub_svc[s][0]) for s in moved
+               if sq_svc[s][0] != sub_svc[s][0])
+print(f"[KNOWN] Service agentIds (updated after cutoff, current state, "
+      f"not counted): {len(moved)} services, {len(known)} differ")
+for s, a, b in known[:5]:
+    print(f"         service {s}: squid {{{a}}} vs subgraph {{{b}}}")
+if len(known) > 5:
+    print(f"         ... and {len(known) - 5} more")
 
 # --- 5. DailyServiceFunds --------------------------------------------
 # Only days fully elapsed on both sides; the current day is still moving.
 
-day_cutoff = int(
-    gql("{ _meta { block { timestamp } } }")["_meta"]["block"]["timestamp"]
-) // 86400 * 86400
+day_cutoff = cutoff_ts // 86400 * 86400
 
 sq = {
     (sid, day, claimed)
@@ -278,4 +329,8 @@ if failures:
     print(f"{failures} section(s) differ — see MIGRATION.md "
           f"'Deliberate differences from the subgraph' before filing a bug.")
     sys.exit(1)
+if empties:
+    print(f"{empties} section(s) empty — not verified. Widen --window or "
+          f"let the squid sync further.")
+    sys.exit(2)
 print("all sections match")
