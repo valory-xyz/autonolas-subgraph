@@ -21,8 +21,7 @@ const clientFor = (url: string): PublicClient =>
 /**
  * First non-empty of `generic`, then its legacy Polygon `alias`, with the
  * var name it came from. The alias is honoured only on matic: on any other
- * chain a set alias throws, since it is almost certainly a copied Polygon
- * secret (same rule as the SQD_PORTAL_URL check).
+ * chain a set alias throws.
  */
 export function rpcFromEnv(
   generic: string,

@@ -254,14 +254,7 @@ compare("MasterSafe (id, masterEoa, historyFloorBlock)", sq, sub)
 # --- 4. Service -------------------------------------------------------
 # No block column to window on; services are few enough to compare whole,
 # up to the comparison height so a partially synced squid compares cleanly.
-#
-# agentIds is CURRENT state: later RegisterInstance events grow it after
-# registeredTimestamp, so the side that is further ahead can carry extra ids.
-# Neither store keeps a per-agent registration time, but every agentIds
-# write (RegisterInstance, the CreateMultisigWithAgents drain) bumps
-# updatedTimestamp on both sides. So agentIds are compared strictly only for
-# services not updated after the cutoff on either side; the rest are
-# reported as KNOWN current-state differences and do not fail the run.
+# agentIds is current state: strict only if not updated after the cutoff.
 
 sq_svc = {
     sid: (agent_ids.strip("{}"), int(updated))
