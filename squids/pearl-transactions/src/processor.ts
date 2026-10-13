@@ -13,6 +13,7 @@ import {
   STAKING_FACTORY,
   ERC20_TOKENS,
   START_BLOCK,
+  portalUrlFor,
 } from "./constants";
 
 // SQD Portal endpoint. The public portal needs no key but is aggressively
@@ -20,7 +21,7 @@ import {
 // HTTP 529 ("Service is overloaded") backoffs. Production must set both
 // vars to the private portal; the key goes in the x-api-key header. Keep
 // the private URL out of the repo — infra sets it via env.
-const portalUrl = process.env.SQD_PORTAL_URL ?? CHAIN.portalDataset;
+const portalUrl = portalUrlFor(CHAIN);
 const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
   ? {
       url: portalUrl,

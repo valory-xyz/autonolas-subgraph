@@ -3,3 +3,4 @@ lib/
 .env
 *.log
 db_data/
+__pycache__/
