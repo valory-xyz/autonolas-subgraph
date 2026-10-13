@@ -18,7 +18,7 @@ const reader = new StakingReader(rpc, (message) => log.warn(message));
 let archiveChecked: Promise<void> | undefined;
 run(
   dataSource,
-  new TypeormDatabase({ supportHotBlocks: true }),
+  new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }),
   async (ctx) => {
     archiveChecked ??= assertArchiveRpc(
       rpc,
