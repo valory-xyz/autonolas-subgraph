@@ -25,7 +25,7 @@ const logger = createLogger("sqd:processor:mapping");
 
 run(
   dataSource,
-  new TypeormDatabase({ supportHotBlocks: true }),
+  new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }),
   async (ctx) => {
     const cache = new EntityCache(ctx.store);
     cache.log = logger;

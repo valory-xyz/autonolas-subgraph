@@ -39,7 +39,7 @@ const probed = probeRpc();
 
 run(
   dataSource,
-  new TypeormDatabase({ supportHotBlocks: true }),
+  new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }),
   async (ctx) => {
     await probed;
     const cache = new EntityCache(ctx.store);

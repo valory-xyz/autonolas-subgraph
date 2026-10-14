@@ -43,7 +43,7 @@ const archiveChecked = assertArchiveRpc(SERVICE_REGISTRY_L2, START_BLOCK);
 
 run(
   dataSource,
-  new TypeormDatabase({ supportHotBlocks: true }),
+  new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }),
   async (ctx) => {
     await archiveChecked;
     const cache = new EntityCache(

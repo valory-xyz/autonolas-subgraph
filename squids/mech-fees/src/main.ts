@@ -27,7 +27,7 @@ const probed =
     ? Promise.resolve()
     : rpc.probeArchive(CHAIN.nativeUsdFeed, BigInt(START_BLOCK));
 
-run(dataSource, new TypeormDatabase({ supportHotBlocks: true }), async (sqd) => {
+run(dataSource, new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }), async (sqd) => {
   await probed;
   const cache = new EntityCache(sqd.store, FLUSH_ORDER);
   cache.log = logger;

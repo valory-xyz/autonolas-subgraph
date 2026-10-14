@@ -11,7 +11,7 @@ import { dispatch } from "./dispatch";
 const logger = createLogger("sqd:tokenomics");
 run(
   dataSource,
-  new TypeormDatabase({ supportHotBlocks: true }),
+  new TypeormDatabase({ supportHotBlocks: true, isolationLevel: 'READ COMMITTED' }),
   async (ctx) => {
     // Fresh per batch: retries and hot-block rollback reload canonical balances.
     const cache = new EntityCache(ctx.store);
