@@ -386,11 +386,20 @@ describe("late Master Safe recognition (Base prod: probe missed the mint)", () =
       meta({ blockNumber: 1000n, txHash: "0xms" }),
       { serviceId: 7n, multisig: AGENT }
     );
+    // A reward before the link: written with the unlinked category.
+    await h.handleErc20Transfer(
+      b1,
+      meta({ blockNumber: 1000n, txHash: "0xprelink", logIndex: 9, address: OLAS }),
+      { from: PROXY, to: AGENT, value: 5n }
+    );
     await b1.cache.flush();
     expect(store.raw("AgentSafe", AGENT).masterSafeId).toBeNull();
     expect(store.raw("TrackedAddress", AGENT)).toBeUndefined();
     OWNERS.set(MASTER, [MASTER_EOA]); // the probe works from here on
   }
+
+  const preLink = () =>
+    store.all("FundsMovement").find((r) => r.transactionHash === "0xprelink");
 
   function expectLinked() {
     expect(store.raw("Service", "7").masterSafeId).toBe(MASTER);
@@ -412,8 +421,13 @@ describe("late Master Safe recognition (Base prod: probe missed the mint)", () =
       meta({ blockNumber: 1048n, txHash: "0xstake", address: PROXY }),
       { serviceId: 7n, owner: MASTER, multisig: AGENT }
     );
+    expect(preLink(), "pre-link row written").toBeDefined();
+    const before = { ...preLink() };
+    expect(before.category).not.toBe(FundsCategory.STAKING_REWARD_CLAIM);
     await b2.cache.flush();
     expectLinked();
+    // Rows written before the link stay as they are; a re-index rewrites them.
+    expect(preLink()).toEqual(before);
 
     // Going forward: a reward transfer and an OLAS sweep on the Agent Safe
     // get their real categories, not OTHER / MASTER_FUNDING_IN.
@@ -472,6 +486,41 @@ describe("late Master Safe recognition (Base prod: probe missed the mint)", () =
     );
     await b2.cache.flush();
     expect(store.raw("TrackedAddress", AGENT)).toEqual(before);
+  });
+
+  it("does not relink an Agent Safe already tracked under a different Master Safe", async () => {
+    const NEW_MASTER = "0xnewmaster";
+    OWNERS.set(NEW_MASTER, ["0xneweoa"]);
+    const b1 = newBatch(store, 1000, 1000);
+    await registerProxy(b1, PROXY);
+    await h.handleRegisterInstance(
+      b1,
+      meta({ blockNumber: 1000n, txHash: "0xreg" }),
+      { serviceId: 7n, agentId: 40n, operator: OPERATOR }
+    );
+    await mintTo(b1, 7n, MASTER);
+    await h.handleCreateMultisigWithAgents(
+      b1,
+      meta({ blockNumber: 1000n, txHash: "0xms" }),
+      { serviceId: 7n, multisig: AGENT }
+    );
+    await b1.cache.flush();
+    const tracked = store.raw("TrackedAddress", AGENT);
+    const operator = store.raw("TrackedAddress", OPERATOR);
+    expect(tracked?.masterSafeId).toBe(MASTER);
+
+    // The NFT moved to a new owner, who stakes with the same Agent Safe.
+    const b2 = newBatch(store, 1048, 1048);
+    await h.handleServiceStaked(
+      b2,
+      meta({ blockNumber: 1048n, txHash: "0xstake", address: PROXY }),
+      { serviceId: 7n, owner: NEW_MASTER, multisig: AGENT }
+    );
+    await b2.cache.flush();
+    expect(store.raw("Service", "7").masterSafeId).toBe(NEW_MASTER);
+    expect(store.raw("AgentSafe", AGENT).masterSafeId).toBe(MASTER);
+    expect(store.raw("TrackedAddress", AGENT)).toEqual(tracked);
+    expect(store.raw("TrackedAddress", OPERATOR)).toEqual(operator);
   });
 });
 

@@ -2,6 +2,8 @@ import { EntityCache } from "../src/entityCache";
 import { BondQueue } from "../src/logic";
 import type { Ctx } from "../src/handlers";
 
+type EntityCls = { name: string; prototype: object };
+
 /**
  * Minimal stand-in for @subsquid/typeorm-store's Store, faithful in the one
  * respect that matters for these tests: `get()` does NOT load relations and
@@ -13,8 +15,6 @@ import type { Ctx } from "../src/handlers";
  * `findOneBy`. A fake that returned fully-linked objects from `get()` would
  * make the two-batch regression test pass while the bug was present.
  */
-type EntityCls = { name: string; prototype?: object };
-
 export class InMemoryStore {
   /** entity name -> id -> flat row */
   private tables = new Map<string, Map<string, any>>();
@@ -57,16 +57,11 @@ export class InMemoryStore {
     return row;
   }
 
-  /**
-   * Rebuild an entity. `relations` names which links to populate. Returns an
-   * instance of the entity class, as TypeORM does: `upsert` routes rows by
-   * constructor name, so a plain object would be filed under "Object" and a
-   * cross-batch update would silently never reach its table.
-   */
+  /** Rebuild an entity instance; upsert routes rows by constructor name. */
   private hydrate(cls: EntityCls, row: any, relations: string[] = []) {
     const name = cls.name;
     const rels = InMemoryStore.RELATIONS[name] ?? [];
-    const out: any = Object.create(cls.prototype ?? Object.prototype);
+    const out: any = Object.create(cls.prototype);
     for (const [k, v] of Object.entries(row)) {
       if (k.endsWith("Id") && rels.includes(k.slice(0, -2))) continue;
       out[k] = v;

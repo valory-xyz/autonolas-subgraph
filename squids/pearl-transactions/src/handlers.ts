@@ -217,18 +217,7 @@ async function getOrCreateAgentSafe(
   return agentSafe;
 }
 
-/**
- * Late recognition: the Agent Safe was created while its service had no
- * Master Safe yet (the probe said "not a Safe" at an earlier sighting), and
- * the Master Safe has resolved since. Without this the Agent Safe keeps
- * `masterSafe = null` and is never tracked, so every later reward, sweep
- * and funding transfer on it is categorised as if it were a stranger's.
- * The subgraph has the same gap but never hits it, because its probe
- * resolves at the mint. Rows already written stay as they are.
- *
- * An Agent Safe that is already tracked is linked (or deliberately not, by
- * write-once TrackedAddress), so it is left alone.
- */
+/** Link an Agent Safe created before its service's Master Safe resolved. */
 async function linkLateAgentSafe(
   ctx: Ctx,
   agentSafe: AgentSafe,
@@ -237,8 +226,7 @@ async function linkLateAgentSafe(
 ): Promise<void> {
   if (service.masterSafe == null) return;
   if ((await ctx.cache.tracked(agentSafe.id)) != null) return;
-  // Only masterSafe is set: on a row from an earlier batch `service` is
-  // undefined, and the upsert then leaves that column untouched.
+  // Only masterSafe: an earlier-batch row has no service, and upsert skips undefined.
   agentSafe.masterSafe = service.masterSafe;
   ctx.cache.set(AgentSafe, agentSafe);
   await trackAgentSafe(ctx, agentSafe.id, service, meta);
@@ -527,13 +515,9 @@ export async function handleServiceNftTransfer(
   if (masterSafe != null) {
     service.masterSafe = masterSafe;
     ctx.cache.set(Service, service);
-    // A late resolution (e.g. the NFT returning on unstake) may find the
-    // service's Agent Safe already created without a link.
-    const agentSafeId = service.agentSafe?.id;
-    const agentSafe =
-      agentSafeId != null ? await ctx.cache.get(AgentSafe, agentSafeId) : null;
-    if (agentSafe != null) {
-      await linkLateAgentSafe(ctx, agentSafe, service, meta);
+    if (service.agentSafe != null) {
+      const a = await ctx.cache.get(AgentSafe, service.agentSafe.id);
+      if (a != null) await linkLateAgentSafe(ctx, a, service, meta);
     }
   }
 }
