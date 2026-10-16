@@ -201,7 +201,10 @@ async function getOrCreateAgentSafe(
   meta: EventMeta
 ): Promise<AgentSafe> {
   const existing = await ctx.cache.get(AgentSafe, address);
-  if (existing != null) return existing;
+  if (existing != null) {
+    await linkLateAgentSafe(ctx, existing, service, meta);
+    return existing;
+  }
 
   const agentSafe = new AgentSafe({
     id: address,
@@ -210,7 +213,44 @@ async function getOrCreateAgentSafe(
     createdTimestamp: meta.blockTimestamp,
   });
   ctx.cache.set(AgentSafe, agentSafe);
+  await trackAgentSafe(ctx, address, service, meta);
+  return agentSafe;
+}
 
+/**
+ * Late recognition: the Agent Safe was created while its service had no
+ * Master Safe yet (the probe said "not a Safe" at an earlier sighting), and
+ * the Master Safe has resolved since. Without this the Agent Safe keeps
+ * `masterSafe = null` and is never tracked, so every later reward, sweep
+ * and funding transfer on it is categorised as if it were a stranger's.
+ * The subgraph has the same gap but never hits it, because its probe
+ * resolves at the mint. Rows already written stay as they are.
+ *
+ * An Agent Safe that is already tracked is linked (or deliberately not, by
+ * write-once TrackedAddress), so it is left alone.
+ */
+async function linkLateAgentSafe(
+  ctx: Ctx,
+  agentSafe: AgentSafe,
+  service: Service,
+  meta: EventMeta
+): Promise<void> {
+  if (service.masterSafe == null) return;
+  if ((await ctx.cache.tracked(agentSafe.id)) != null) return;
+  // Only masterSafe is set: on a row from an earlier batch `service` is
+  // undefined, and the upsert then leaves that column untouched.
+  agentSafe.masterSafe = service.masterSafe;
+  ctx.cache.set(AgentSafe, agentSafe);
+  await trackAgentSafe(ctx, agentSafe.id, service, meta);
+}
+
+/** Track a Pearl-linked Agent Safe and its operators; no-op if unlinked. */
+async function trackAgentSafe(
+  ctx: Ctx,
+  address: string,
+  service: Service,
+  meta: EventMeta
+): Promise<void> {
   const masterSafeId = service.masterSafe?.id ?? null;
   if (masterSafeId != null) {
     await ctx.cache.upsertTracked(
@@ -238,7 +278,6 @@ async function getOrCreateAgentSafe(
       );
     }
   }
-  return agentSafe;
 }
 
 /**
@@ -488,6 +527,14 @@ export async function handleServiceNftTransfer(
   if (masterSafe != null) {
     service.masterSafe = masterSafe;
     ctx.cache.set(Service, service);
+    // A late resolution (e.g. the NFT returning on unstake) may find the
+    // service's Agent Safe already created without a link.
+    const agentSafeId = service.agentSafe?.id;
+    const agentSafe =
+      agentSafeId != null ? await ctx.cache.get(AgentSafe, agentSafeId) : null;
+    if (agentSafe != null) {
+      await linkLateAgentSafe(ctx, agentSafe, service, meta);
+    }
   }
 }
 
