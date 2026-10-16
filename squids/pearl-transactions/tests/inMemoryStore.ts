@@ -2,6 +2,8 @@ import { EntityCache } from "../src/entityCache";
 import { BondQueue } from "../src/logic";
 import type { Ctx } from "../src/handlers";
 
+type EntityCls = { name: string; prototype: object };
+
 /**
  * Minimal stand-in for @subsquid/typeorm-store's Store, faithful in the one
  * respect that matters for these tests: `get()` does NOT load relations and
@@ -55,10 +57,11 @@ export class InMemoryStore {
     return row;
   }
 
-  /** Rebuild an entity. `relations` names which links to populate. */
-  private hydrate(name: string, row: any, relations: string[] = []) {
+  /** Rebuild an entity instance; upsert routes rows by constructor name. */
+  private hydrate(cls: EntityCls, row: any, relations: string[] = []) {
+    const name = cls.name;
     const rels = InMemoryStore.RELATIONS[name] ?? [];
-    const out: any = {};
+    const out: any = Object.create(cls.prototype);
     for (const [k, v] of Object.entries(row)) {
       if (k.endsWith("Id") && rels.includes(k.slice(0, -2))) continue;
       out[k] = v;
@@ -72,13 +75,13 @@ export class InMemoryStore {
     return out;
   }
 
-  async get(cls: { name: string }, id: string): Promise<any | undefined> {
+  async get(cls: EntityCls, id: string): Promise<any | undefined> {
     const row = this.table(cls.name).get(id);
-    return row == null ? undefined : this.hydrate(cls.name, row, []);
+    return row == null ? undefined : this.hydrate(cls, row, []);
   }
 
   async findOne(
-    cls: { name: string },
+    cls: EntityCls,
     opts: { where: { id: string }; relations?: Record<string, boolean> }
   ): Promise<any | undefined> {
     const row = this.table(cls.name).get(opts.where.id);
@@ -86,18 +89,18 @@ export class InMemoryStore {
     const rels = Object.keys(opts.relations ?? {}).filter(
       (k) => (opts.relations as any)[k]
     );
-    return this.hydrate(cls.name, row, rels);
+    return this.hydrate(cls, row, rels);
   }
 
   async find(
-    cls: { name: string },
+    cls: EntityCls,
     opts?: { relations?: Record<string, boolean> }
   ): Promise<any[]> {
     const rels = Object.keys(opts?.relations ?? {}).filter(
       (k) => (opts!.relations as any)[k]
     );
     return [...this.table(cls.name).values()].map((r) =>
-      this.hydrate(cls.name, r, rels)
+      this.hydrate(cls, r, rels)
     );
   }
 
@@ -116,6 +119,9 @@ export class InMemoryStore {
     const list = Array.isArray(entities) ? entities : [entities];
     for (const e of list) {
       const name = e.constructor?.name ?? "Unknown";
+      if (name === "Object" || name === "Unknown") {
+        throw new Error(`upsert of a non-entity object (id ${e.id})`);
+      }
       const incoming = this.flatten(name, e);
       for (const [k, v] of Object.entries(incoming)) {
         if (!k.endsWith("Id") || v == null) continue;

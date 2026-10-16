@@ -197,6 +197,65 @@ describe("fallback RPC", () => {
     const { getSafeConfig } = await import("../src/rpc");
     expect(await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361)).toBeNull();
     expect(hit(seen, FALLBACK)).toHaveLength(0);
+    // The revert was trusted only after the primary proved it has the block.
+    expect(hit(seen, PRIMARY, "eth_getCode").length).toBeGreaterThan(0);
+  });
+
+  describe("primary says 'not a Safe' at a block it holds no state for", () => {
+    // The Base prod failure: real Master Safes answered `0x` from the
+    // primary at their mint block and were recorded as "not a Safe".
+    it("is not classified without a fallback: throws a non-revert so the batch retries", async () => {
+      vi.stubEnv("RPC_HTTP_FALLBACK", "");
+      stub({ zeroData: true, noCode: true }, {});
+      const { getSafeConfig, isRevert } = await import("../src/rpc");
+      const err = await getSafeConfig(SAFE, 86_150_361).then(
+        () => null,
+        (e) => e
+      );
+      expect(err, "must reject, not resolve to null").toBeInstanceOf(Error);
+      expect(isRevert(err)).toBe(false);
+      expect(String(err.message)).toContain("not trusted");
+    });
+
+    it("falls through to the fallback, which resolves the real Safe", async () => {
+      const seen = stub({ zeroData: true, codeError: NO_HISTORY }, {});
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(hit(seen, FALLBACK)).toHaveLength(2);
+    });
+
+    it("still retries when the fallback is pruned there too", async () => {
+      const seen = stub({ zeroData: true, noCode: true }, { zeroData: true, noCode: true });
+      const { getSafeConfig, isRevert } = await import("../src/rpc");
+      const probe = () => getSafeConfig(SAFE, 86_150_361).then(() => null, (e) => e);
+      const err = await probe();
+      expect(err, "must reject, not resolve to null").toBeInstanceOf(Error);
+      expect(isRevert(err)).toBe(false);
+      expect(String(err.message)).toContain("not trusted");
+
+      // Nothing was cached: a second probe asks the RPC again.
+      const calls = hit(seen, PRIMARY).length;
+      expect(isRevert(await probe())).toBe(false);
+      expect(hit(seen, PRIMARY).length).toBeGreaterThan(calls);
+    });
+
+    it("surfaces a failed state check as itself, not as missing state", async () => {
+      vi.stubEnv("RPC_HTTP_FALLBACK", "");
+      const RATE_LIMITED = { code: -32000, message: "getCode rate limited" };
+      stub({ zeroData: true, codeError: RATE_LIMITED }, {});
+      const { getSafeConfig, isRevert } = await import("../src/rpc");
+      const err = await getSafeConfig(SAFE, 86_150_361).then(() => null, (e) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect(isRevert(err)).toBe(false);
+      expect(String(err.details ?? err.message)).toContain(RATE_LIMITED.message);
+      expect(String(err.message)).not.toContain("not trusted");
+    });
+
+    it("accepts the fallback's revert when the fallback holds state", async () => {
+      stub({ zeroData: true, noCode: true }, { zeroData: true });
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361)).toBeNull();
+    });
   });
 
   it("trusts a fallback revert only if the fallback holds state at that block", async () => {

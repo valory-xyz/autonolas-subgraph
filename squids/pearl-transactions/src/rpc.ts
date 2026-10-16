@@ -146,50 +146,76 @@ function readAt<const abi extends readonly unknown[], fn extends string>(
   } as any);
 }
 
-/** Does `client` hold state for the registry at `blockNumber`? */
+/**
+ * Does `client` hold state for the registry at `blockNumber`? False only
+ * for empty code; any other error (rate limit, timeout, pruned-history
+ * error) is rethrown so the caller can surface the real cause.
+ */
 async function hasStateAt(
   client: PublicClient,
   blockNumber: number
 ): Promise<boolean> {
-  try {
-    const code = await client.getCode({
-      address: SERVICE_REGISTRY_L2 as `0x${string}`,
-      blockNumber: BigInt(blockNumber),
-    });
-    return code != null && code !== "0x";
-  } catch {
-    return false;
+  const code = await client.getCode({
+    address: SERVICE_REGISTRY_L2 as `0x${string}`,
+    blockNumber: BigInt(blockNumber),
+  });
+  return code != null && code !== "0x";
+}
+
+/** Deliberately not a revert (no cause chain to one), so isRevert rejects it. */
+class UnprovenRevertError extends Error {
+  name = "UnprovenRevertError";
+  constructor(envName: string, blockNumber: number, err: unknown) {
+    super(
+      `${envName} reverted at block ${blockNumber} (${firstLine(err)}) but ` +
+        `holds no state for the service registry there, so the revert is ` +
+        `not trusted`
+    );
   }
 }
 
 /**
- * A Safe probe read. Primary first; on a non-revert failure, the identical
- * call on the fallback. A revert from the fallback is only trusted if the fallback
- * actually holds state at that block — a pruned node answers `0x`, which
+ * A Safe probe read. Primary first; on a failure, the identical call on the
+ * fallback. A revert from EITHER endpoint is only trusted if that endpoint
+ * holds state at the block: a pruned or lagging node answers `0x`, which
  * viem reports as a revert, and that would silently mislabel a real Safe.
- * If the fallback is pruned there too, the PRIMARY's error is rethrown so
- * the batch retries rather than committing a wrong verdict.
+ * An unproven primary revert, or a failed state check, goes to the
+ * fallback like any other failure; with no usable fallback, a non-revert
+ * error is thrown so the batch retries instead of recording "not a Safe".
  */
 async function historicalRead<
   const abi extends readonly unknown[],
   fn extends string,
 >(address: string, abi: abi, functionName: fn, blockNumber: number) {
+  let primaryErr: unknown;
   try {
     return await readAt(primary, address, abi, functionName, blockNumber);
   } catch (err) {
-    if (isRevert(err) || fallback == null) throw err;
-    console.warn(
-      `[rpc] primary failed for ${functionName}(${address}) at block ` +
-        `${blockNumber} — ${firstLine(err)} — retrying on ${fallbackRpc?.envName}`
-    );
-    try {
-      return await readAt(fallback, address, abi, functionName, blockNumber);
-    } catch (fbErr) {
-      if (isRevert(fbErr) && !(await hasStateAt(fallback, blockNumber))) {
-        throw err;
+    if (!isRevert(err)) primaryErr = err;
+    else {
+      let proven = false;
+      try {
+        proven = await hasStateAt(primary, blockNumber);
+      } catch (codeErr) {
+        primaryErr = codeErr;
       }
-      throw fbErr;
+      if (proven) throw err;
+      primaryErr ??= new UnprovenRevertError(primaryRpc.envName, blockNumber, err);
     }
+  }
+  if (fallback == null) throw primaryErr;
+  console.warn(
+    `[rpc] primary failed for ${functionName}(${address}) at block ` +
+      `${blockNumber} — ${firstLine(primaryErr)} — retrying on ${fallbackRpc?.envName}`
+  );
+  try {
+    return await readAt(fallback, address, abi, functionName, blockNumber);
+  } catch (fbErr) {
+    if (isRevert(fbErr)) {
+      const proven = await hasStateAt(fallback, blockNumber).catch(() => false);
+      if (!proven) throw primaryErr;
+    }
+    throw fbErr;
   }
 }
 

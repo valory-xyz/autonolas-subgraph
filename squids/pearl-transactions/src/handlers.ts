@@ -201,7 +201,10 @@ async function getOrCreateAgentSafe(
   meta: EventMeta
 ): Promise<AgentSafe> {
   const existing = await ctx.cache.get(AgentSafe, address);
-  if (existing != null) return existing;
+  if (existing != null) {
+    await linkLateAgentSafe(ctx, existing, service, meta);
+    return existing;
+  }
 
   const agentSafe = new AgentSafe({
     id: address,
@@ -210,7 +213,32 @@ async function getOrCreateAgentSafe(
     createdTimestamp: meta.blockTimestamp,
   });
   ctx.cache.set(AgentSafe, agentSafe);
+  await trackAgentSafe(ctx, address, service, meta);
+  return agentSafe;
+}
 
+/** Link an Agent Safe created before its service's Master Safe resolved. */
+async function linkLateAgentSafe(
+  ctx: Ctx,
+  agentSafe: AgentSafe,
+  service: Service,
+  meta: EventMeta
+): Promise<void> {
+  if (service.masterSafe == null) return;
+  if ((await ctx.cache.tracked(agentSafe.id)) != null) return;
+  // Only masterSafe: an earlier-batch row has no service, and upsert skips undefined.
+  agentSafe.masterSafe = service.masterSafe;
+  ctx.cache.set(AgentSafe, agentSafe);
+  await trackAgentSafe(ctx, agentSafe.id, service, meta);
+}
+
+/** Track a Pearl-linked Agent Safe and its operators; no-op if unlinked. */
+async function trackAgentSafe(
+  ctx: Ctx,
+  address: string,
+  service: Service,
+  meta: EventMeta
+): Promise<void> {
   const masterSafeId = service.masterSafe?.id ?? null;
   if (masterSafeId != null) {
     await ctx.cache.upsertTracked(
@@ -238,7 +266,6 @@ async function getOrCreateAgentSafe(
       );
     }
   }
-  return agentSafe;
 }
 
 /**
@@ -488,6 +515,10 @@ export async function handleServiceNftTransfer(
   if (masterSafe != null) {
     service.masterSafe = masterSafe;
     ctx.cache.set(Service, service);
+    if (service.agentSafe != null) {
+      const a = await ctx.cache.get(AgentSafe, service.agentSafe.id);
+      if (a != null) await linkLateAgentSafe(ctx, a, service, meta);
+    }
   }
 }
 
