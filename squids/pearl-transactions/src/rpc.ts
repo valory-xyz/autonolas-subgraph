@@ -163,33 +163,54 @@ async function hasStateAt(
 }
 
 /**
- * A Safe probe read. Primary first; on a non-revert failure, the identical
- * call on the fallback. A revert from the fallback is only trusted if the fallback
- * actually holds state at that block — a pruned node answers `0x`, which
- * viem reports as a revert, and that would silently mislabel a real Safe.
- * If the fallback is pruned there too, the PRIMARY's error is rethrown so
- * the batch retries rather than committing a wrong verdict.
+ * A revert from an endpoint that could not prove it holds state at the
+ * block. Deliberately NOT a revert (no cause chain to one), so isRevert
+ * rejects it and the batch retries instead of recording "not a Safe".
+ */
+class UnprovenRevertError extends Error {
+  name = "UnprovenRevertError";
+  constructor(envName: string, blockNumber: number, err: unknown) {
+    super(
+      `${envName} reverted at block ${blockNumber} (${firstLine(err)}) but ` +
+        `holds no state for the service registry there, so the revert is ` +
+        `not trusted`
+    );
+  }
+}
+
+/**
+ * A Safe probe read. Primary first; on a failure, the identical call on the
+ * fallback. A revert from EITHER endpoint is only trusted if that endpoint
+ * holds state at the block: a pruned or lagging node answers `0x`, which
+ * viem reports as a revert, and that would silently mislabel a real Safe
+ * (14 of 474 Base Master Safes were lost this way from the primary). An
+ * unproven primary revert goes to the fallback like any other failure; with
+ * no usable fallback, a non-revert error is thrown so the batch retries.
  */
 async function historicalRead<
   const abi extends readonly unknown[],
   fn extends string,
 >(address: string, abi: abi, functionName: fn, blockNumber: number) {
+  let primaryErr: unknown;
   try {
     return await readAt(primary, address, abi, functionName, blockNumber);
   } catch (err) {
-    if (isRevert(err) || fallback == null) throw err;
-    console.warn(
-      `[rpc] primary failed for ${functionName}(${address}) at block ` +
-        `${blockNumber} — ${firstLine(err)} — retrying on ${fallbackRpc?.envName}`
-    );
-    try {
-      return await readAt(fallback, address, abi, functionName, blockNumber);
-    } catch (fbErr) {
-      if (isRevert(fbErr) && !(await hasStateAt(fallback, blockNumber))) {
-        throw err;
-      }
-      throw fbErr;
+    if (!isRevert(err)) primaryErr = err;
+    else if (await hasStateAt(primary, blockNumber)) throw err;
+    else primaryErr = new UnprovenRevertError(primaryRpc.envName, blockNumber, err);
+  }
+  if (fallback == null) throw primaryErr;
+  console.warn(
+    `[rpc] primary failed for ${functionName}(${address}) at block ` +
+      `${blockNumber} — ${firstLine(primaryErr)} — retrying on ${fallbackRpc?.envName}`
+  );
+  try {
+    return await readAt(fallback, address, abi, functionName, blockNumber);
+  } catch (fbErr) {
+    if (isRevert(fbErr) && !(await hasStateAt(fallback, blockNumber))) {
+      throw primaryErr;
     }
+    throw fbErr;
   }
 }
 
