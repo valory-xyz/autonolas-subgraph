@@ -56,9 +56,10 @@ const primaryRpc = rpcFromEnv("RPC_HTTP", "RPC_POLYGON_HTTP") ?? {
 const primary = clientFor(primaryRpc.url);
 
 /**
- * Optional second archive endpoint, tried only when the primary fails with
- * something that is NOT a revert (e.g. a hole in its archive). Sees only
- * the calls the primary could not serve, so a rate-limited endpoint is fine.
+ * Optional second archive endpoint, tried when the primary fails with
+ * something that is NOT a trusted revert (e.g. a hole in its archive), and
+ * as the second check on every "not a Safe" verdict. Sees only those calls,
+ * so a rate-limited endpoint is fine.
  */
 const fallbackRpc = rpcFromEnv("RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK");
 const fallback: PublicClient | null = fallbackRpc
@@ -219,6 +220,50 @@ async function historicalRead<
   }
 }
 
+/** Wait before re-probing a "not a Safe" on the primary (no fallback set). */
+export const NEGATIVE_RECHECK_MS = 500;
+
+/**
+ * One read on one client, with a revert trusted only if that client holds
+ * state at the block; otherwise a non-revert is thrown so the batch retries.
+ */
+async function provenRead(
+  client: PublicClient,
+  envName: string,
+  address: string,
+  functionName: "getOwners" | "getThreshold",
+  blockNumber: number
+) {
+  try {
+    return await readAt(client, address, SAFE_ABI, functionName, blockNumber);
+  } catch (err) {
+    if (isRevert(err) && !(await hasStateAt(client, blockNumber))) {
+      throw new UnprovenRevertError(envName, blockNumber, err);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Both Safe reads through `read`: the config, or null for a revert or empty
+ * owners ("not a Safe", as in the subgraph). Anything else is rethrown.
+ */
+async function probeSafe(
+  read: (functionName: "getOwners" | "getThreshold") => Promise<unknown>
+): Promise<SafeConfig | null> {
+  try {
+    const [owners, threshold] = (await Promise.all([
+      read("getOwners"),
+      read("getThreshold"),
+    ])) as [readonly `0x${string}`[], bigint];
+    if (owners.length === 0) return null;
+    return { owners: owners.map((o) => o.toLowerCase()), threshold };
+  } catch (err) {
+    if (isRevert(err)) return null;
+    throw err;
+  }
+}
+
 /**
  * Owners + threshold for a Safe, read AT `blockNumber`.
  *
@@ -233,6 +278,16 @@ async function historicalRead<
  * Returns null when the address is not a Safe: `getOwners` reverts on
  * anything else, which is how the subgraph distinguishes a Master Safe from
  * the other things a service NFT can land on (a staking proxy, an EOA).
+ *
+ * "Not a Safe" needs two agreeing checks; a positive from either wins. A
+ * single check is not enough: viem reports ANY JSON-RPC -32603 (a
+ * provider's internal/upstream error) as ContractFunctionRevertedError, and
+ * the state check passes because the node does hold the block, so one
+ * provider blip would drop a real Master Safe. The second check re-runs
+ * both reads on the fallback when one is set (a revert there trusted only
+ * if the fallback holds state), otherwise on the primary after
+ * NEGATIVE_RECHECK_MS.
+ *
  * A negative verdict is NOT cached — see safeMemo for why. Transport errors
  * are rethrown rather than swallowed, so SQD retries the batch.
  */
@@ -244,22 +299,30 @@ export async function getSafeConfig(
   const hit = safeMemo.get(memoKey);
   if (hit != null) return hit;
 
-  let cfg: SafeConfig | null;
-  try {
-    const [owners, threshold] = (await Promise.all([
-      historicalRead(address, SAFE_ABI, "getOwners", blockNumber),
-      historicalRead(address, SAFE_ABI, "getThreshold", blockNumber),
-    ])) as [readonly `0x${string}`[], bigint];
-    cfg =
-      owners.length === 0
-        ? null // empty owners is treated as "not a Safe", as in the subgraph
-        : {
-            owners: owners.map((o) => o.toLowerCase()),
-            threshold: threshold as bigint,
-          };
-  } catch (err) {
-    if (isRevert(err)) cfg = null;
-    else throw err;
+  let cfg = await probeSafe((fn) =>
+    historicalRead(address, SAFE_ABI, fn, blockNumber)
+  );
+
+  if (cfg == null) {
+    const recheck = fallbackRpc?.envName ?? `${primaryRpc.envName} (re-probe)`;
+    if (fallback != null && fallbackRpc != null) {
+      const fb = fallback;
+      const envName = fallbackRpc.envName;
+      cfg = await probeSafe((fn) =>
+        provenRead(fb, envName, address, fn, blockNumber)
+      );
+    } else {
+      await new Promise((r) => setTimeout(r, NEGATIVE_RECHECK_MS));
+      cfg = await probeSafe((fn) =>
+        historicalRead(address, SAFE_ABI, fn, blockNumber)
+      );
+    }
+    if (cfg != null) {
+      console.warn(
+        `[rpc] ${address} read as NOT-a-Safe at block ${blockNumber} on the ` +
+          `first check, but ${recheck} resolved it as a Safe; using that.`
+      );
+    }
   }
 
   if (cfg == null) {
@@ -269,8 +332,9 @@ export async function getSafeConfig(
     // sighting re-probes.
     console.warn(
       `[rpc] ${address} classified NOT-a-Safe at block ${blockNumber} ` +
-        `(getOwners reverted or returned no code). If this address is a ` +
-        `real Master Safe, the RPC is wrong — check it is archive-capable.`
+        `(getOwners reverted, returned no code or no owners, on both ` +
+        `checks). If this address is a real Master Safe, the RPC is wrong — ` +
+        `check it is archive-capable.`
     );
   }
   // Negative results are NOT cached — see safeMemo.
