@@ -267,6 +267,14 @@ describe("fallback RPC", () => {
       expect(String(err.message)).toContain("not trusted");
     });
 
+    it("a transient error on the second check rejects (batch retries), never null", async () => {
+      stub({ error: REVERT }, { error: NO_HISTORY });
+      const { getSafeConfig, isRevert } = await import("../src/rpc");
+      const err = await getSafeConfig(SAFE, 86_150_361).then(() => null, (e) => e);
+      expect(err, "must reject, not resolve to null").toBeInstanceOf(Error);
+      expect(isRevert(err)).toBe(false);
+    });
+
     describe("no fallback configured", () => {
       beforeEach(() => vi.stubEnv("RPC_HTTP_FALLBACK", ""));
 

@@ -55,7 +55,7 @@ Key files:
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL. Its `/datasets/<name>` must be the selected chain's (e.g. `base-mainnet`), or startup fails |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
-| `RPC_HTTP_FALLBACK` | second archive endpoint, tried only when the primary fails with a non-revert error. **Always set it in production** — see below |
+| `RPC_HTTP_FALLBACK` | second archive endpoint, tried when the primary fails with a non-revert error and as the second check before any "not a Safe" verdict. **Always set it in production** — see below |
 | `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only on `matic` when `RPC_HTTP*` is unset, so existing Polygon deployments keep working. On any other chain, setting one fails at startup |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
@@ -88,10 +88,12 @@ stalls the backfill forever: the error is deterministic and not a revert,
 so the batch retries the same block indefinitely. With a fallback, that
 call is retried on the second endpoint and the backfill continues. The
 fallback sees only the calls the primary could not serve — a handful, not
-the ~700 of a full backfill — so a rate-limited public endpoint is fine.
-Both endpoints are checked for archive capability at startup; a genuine
-revert is never retried, and a revert from the fallback is only trusted if
-the fallback holds state at that block.
+the ~700 of a full backfill, plus a re-check of each "not a Safe" — so a
+rate-limited public endpoint is fine. Both endpoints are checked for archive
+capability at startup. "Not a Safe" needs two agreeing checks: the fallback
+(or, with none set, the primary again after 500ms) must also revert or
+return no owners, and a positive from either check wins. A revert from the
+fallback is only trusted if the fallback holds state at that block.
 
 ## Run it locally
 
