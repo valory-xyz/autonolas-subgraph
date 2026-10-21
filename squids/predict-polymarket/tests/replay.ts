@@ -1,8 +1,9 @@
 // Shared helpers for the log-replay tests: recorded Polygon logs (see
-// tests/fixtures/) are fed through src/dispatch.ts exactly as the processor
-// would feed them, and the resulting store is reduced to a plain snapshot.
+// tests/fixtures/) are fed as SQD batches to src/main.ts's batch handler,
+// over an in-memory store, and the store is reduced to a plain snapshot.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { vi } from "vitest";
 import { InMemoryCache } from "./inMemoryCache";
 import {
   Bet,
@@ -27,9 +28,54 @@ export function loadFixture<T>(name: string): T {
   return JSON.parse(readFileSync(join(__dirname, "fixtures", name), "utf8")) as T;
 }
 
-/** The block header dispatch gets: SQD's evm-stream timestamps are MILLISECONDS. */
-export function sqdBlock(b: RecordedBlock): RecordedBlock {
-  return { number: b.number, timestamp: b.timestamp * 1000 };
+/** The TypeORM store surface EntityCache reads and writes. */
+export class FakeStore extends InMemoryCache {
+  async upsert(rows: { id: string; constructor: { name: string } }[]) {
+    for (const r of rows) this.set(r.constructor as never, r);
+  }
+  async findOne(cls: { name: string }, opts: { where: { id: string } }) {
+    return this.get(cls as never, opts.where.id);
+  }
+  async find() {
+    return [];
+  }
+}
+
+type BatchHandler = (ctx: { blocks: unknown[]; store: FakeStore; isHead: boolean }) => Promise<void>;
+let mainHandler: Promise<BatchHandler> | undefined;
+
+/** Imports src/main.ts with SQD's run() mocked, and returns the handler it registers. */
+function captureMainHandler(): Promise<BatchHandler> {
+  mainHandler ??= (async () => {
+    let handler: BatchHandler | undefined;
+    vi.doMock("@subsquid/batch-processor", () => ({
+      run: (_source: unknown, _db: unknown, h: BatchHandler) => {
+        handler = h;
+      },
+    }));
+    await import("../src/main");
+    if (handler == null) throw new Error("main.ts must register its batch handler with run()");
+    return handler;
+  })();
+  return mainHandler;
+}
+
+/** Feeds the blocks to main.ts's batch handler as one SQD batch. */
+export async function runBatch(store: FakeStore, blocks: { block: RecordedBlock; logs: RawLog[] }[]) {
+  const hash = (n: number) => `0x${n.toString(16).padStart(64, "0")}`;
+  const handler = await captureMainHandler();
+  await handler({
+    blocks: blocks.map(({ block, logs }) => ({
+      // evm-stream: timestamps in milliseconds
+      header: { number: block.number, hash: hash(block.number), parentHash: hash(block.number - 1), timestamp: block.timestamp * 1000 },
+      transactions: [],
+      logs: logs.map((l) => ({ ...l, transactionIndex: 0 })),
+      traces: [],
+      stateDiffs: [],
+    })),
+    store,
+    isHead: false,
+  });
 }
 
 const s = (v: bigint | null | undefined) => (v == null ? null : v.toString());

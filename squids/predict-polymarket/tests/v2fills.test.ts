@@ -1,6 +1,6 @@
 // Protocol V2 bets: a recorded Polygon trade (ExchangeV3 OrderFilled +
 // PositionManager TransferSingle, tests/fixtures/v2-trades.json) goes through
-// src/dispatch.ts, the entry the processor uses, into the existing entities.
+// src/main.ts's batch handler into the existing entities.
 // No Olas agent has traded on ExchangeV3 yet, so each test makes one real
 // maker the agent's DepositWallet. Expected amounts come from the Data API
 // /v2/trades rows recorded with the logs.
@@ -15,9 +15,7 @@ vi.mock("../src/tokenDerivation", () => ({
   }),
 }));
 
-import { InMemoryCache } from "./inMemoryCache";
-import { loadFixture, RawLog, RecordedBlock, snapshot, sqdBlock } from "./replay";
-import { dispatchLog } from "../src/dispatch";
+import { FakeStore, loadFixture, RawLog, RecordedBlock, runBatch, snapshot } from "./replay";
 import * as handlers from "../src/handlers";
 import * as exchangeV3 from "../src/abi/ExchangeV3/events";
 import * as positionManager from "../src/abi/PositionManager/events";
@@ -43,29 +41,29 @@ const DW = "0xfc26c4758c104d62a6a54a7e36dfd0ee64c0bc5b";
 const YES = 863358210533918701740174954868484610826072786730813595626095950865979408384n;
 const CONDITION = "0x01e8a4b7d8fb97379337bb29380b28df56000000000000000000000000000000";
 
-let cache: InMemoryCache;
+let store: FakeStore;
 beforeEach(() => {
-  cache = new InMemoryCache();
+  store = new FakeStore();
   derivation.calls = 0;
 });
 
 /** Agent 86 service with SAFE as multisig and `depositWallet` deployed for its instance. */
 async function registerAgent(depositWallet: string) {
   const meta = (logIndex: number) => ({ blockNumber: 1n, blockTimestamp: 1n, transactionHash: "0x01", logIndex });
-  await handlers.handleRegisterInstance(cache, meta(0), { agentInstance: AGENT_EOA, serviceId: 297n, agentId: 86n });
-  await handlers.handleCreateMultisigWithAgents(cache, meta(1), { serviceId: 297n, multisig: SAFE });
-  await handlers.handleWalletDeployed(cache, meta(2), { wallet: depositWallet, owner: AGENT_EOA });
+  await handlers.handleRegisterInstance(store, meta(0), { agentInstance: AGENT_EOA, serviceId: 297n, agentId: 86n });
+  await handlers.handleCreateMultisigWithAgents(store, meta(1), { serviceId: 297n, multisig: SAFE });
+  await handlers.handleWalletDeployed(store, meta(2), { wallet: depositWallet, owner: AGENT_EOA });
 }
 
 async function replay(tx: string) {
-  for (const log of trades[tx]!.logs) await dispatchLog(cache, sqdBlock(trades[tx]!.block), log);
+  await runBatch(store, [trades[tx]!]);
 }
 
 let n = 0;
-async function dispatchSynthetic(address: string, rec: { topics: string[]; data: string }) {
+async function runSynthetic(address: string, rec: { topics: string[]; data: string }) {
   n += 1;
-  const block = { number: 96_000_000 + n, timestamp: 1_792_600_000_000 };
-  await dispatchLog(cache, block, { address, ...rec, transactionHash: `0x${n.toString(16).padStart(64, "0")}`, logIndex: 0 });
+  const block = { number: 96_000_000 + n, timestamp: 1_792_600_000 };
+  await runBatch(store, [{ block, logs: [{ address, ...rec, transactionHash: `0x${n.toString(16).padStart(64, "0")}`, logIndex: 0 }] }]);
 }
 
 it.each([
@@ -75,7 +73,7 @@ it.each([
   const tx = MINT_TX;
   const api = trades[tx]!.dataApiTrades.find((r) => r.proxy_wallet === maker)!;
   // a market known under the padded condition ID Gamma and the Data API use
-  cache.set(Question, new Question({ id: api.condition_id }));
+  store.set(Question, new Question({ id: api.condition_id }));
   await registerAgent(maker);
   await replay(tx);
 
@@ -83,7 +81,7 @@ it.each([
   const shares = BigInt(Math.round(api.size * 1e6));
   const fill = trades[tx]!.logs.find((l) => l.logIndex === logIndex)!;
 
-  const bets = cache.all(Bet);
+  const bets = store.all(Bet);
   expect(bets.map((b) => b.id)).toEqual([`${tx}_${logIndex}`]);
   const bet = bets[0]!;
   expect(bet.bettor.id).toBe(SAFE);
@@ -95,11 +93,11 @@ it.each([
   expect(bet.blockTimestamp).toBe(BigInt(trades[tx]!.block.timestamp));
   // keyed by the padded condition ID; the PositionManager share legs in the
   // same tx do not count a second time
-  const participant = await cache.get(MarketParticipant, `${SAFE}_${api.condition_id}`);
+  const participant = await store.get(MarketParticipant, `${SAFE}_${api.condition_id}`);
   expect([bet.marketParticipant?.id, bet.question?.id, participant?.question?.id]).toEqual([participant?.id, api.condition_id, api.condition_id]);
   expect([participant?.outcomeShares0, participant?.outcomeShares1]).toEqual(api.outcome_index ? [0n, shares] : [shares, 0n]);
-  expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(amount);
-  expect((await cache.get(Global, ""))?.totalTraded).toBe(amount);
+  expect((await store.get(TraderAgent, SAFE))?.totalTraded).toBe(amount);
+  expect((await store.get(Global, ""))?.totalTraded).toBe(amount);
   // V2 position IDs are decoded, never derived from USDC.e
   expect(derivation.calls).toBe(0);
 });
@@ -112,15 +110,15 @@ it("persists Bet.collateral", () => {
 it("keeps the position on the agent when it moves from the DepositWallet to the Safe", async () => {
   await registerAgent(DW);
   await replay(MINT_TX);
-  const before = snapshot(cache);
+  const before = snapshot(store);
 
   const move = { operator: DW, from: DW, to: SAFE };
-  await dispatchSynthetic(POSITION_MANAGER, positionManager.TransferSingle.encode({ ...move, id: YES, amount: 1_052_620n }));
-  await dispatchSynthetic(POSITION_MANAGER, positionManager.TransferBatch.encode({ ...move, ids: [YES, YES + 1n], amounts: [1n, 1n] }));
-  expect(snapshot(cache)).toEqual(before);
+  await runSynthetic(POSITION_MANAGER, positionManager.TransferSingle.encode({ ...move, id: YES, amount: 1_052_620n }));
+  await runSynthetic(POSITION_MANAGER, positionManager.TransferBatch.encode({ ...move, ids: [YES, YES + 1n], amounts: [1n, 1n] }));
+  expect(snapshot(store)).toEqual(before);
 
   // the Safe sells what the DepositWallet bought: same agent, position closed
-  await dispatchSynthetic(
+  await runSynthetic(
     EXCHANGE_V3,
     exchangeV3.OrderFilled.encode({
       orderHash: `0x${"0d".repeat(32)}`,
@@ -135,7 +133,7 @@ it("keeps the position on the agent when it moves from the DepositWallet to the 
       metadata: `0x${"00".repeat(32)}`,
     }),
   );
-  const participants = cache.all(MarketParticipant);
+  const participants = store.all(MarketParticipant);
   expect(participants.map((p) => [p.id, p.totalBets, p.outcomeShares0])).toEqual([[`${SAFE}_${CONDITION}`, 2, 0n]]);
-  expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(999_989n - 900_000n);
+  expect((await store.get(TraderAgent, SAFE))?.totalTraded).toBe(999_989n - 900_000n);
 });
