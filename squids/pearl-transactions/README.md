@@ -87,13 +87,20 @@ can have holes, and a hole that contains any Safe's first-sighting block
 stalls the backfill forever: the error is deterministic and not a revert,
 so the batch retries the same block indefinitely. With a fallback, that
 call is retried on the second endpoint and the backfill continues. The
-fallback sees only the calls the primary could not serve — a handful, not
-the ~700 of a full backfill, plus a re-check of each "not a Safe" — so a
-rate-limited public endpoint is fine. Both endpoints are checked for archive
-capability at startup. "Not a Safe" needs two agreeing checks: the fallback
-(or, with none set, the primary again after 500ms) must also revert or
-return no owners, and a positive from either check wins. A revert from the
-fallback is only trusted if the fallback holds state at that block.
+fallback sees the calls the primary could not serve — a handful, not the
+~700 of a full backfill — plus two reads for every "not a Safe" re-check.
+Negatives are not cached, so that is every EOA sighting, not just the first;
+still small, so a rate-limited public endpoint is fine. Both endpoints are
+checked for archive capability at startup.
+
+"Not a Safe" needs two agreeing checks, and a positive from either wins.
+The second check runs on the endpoint that did not give the first verdict
+(with no fallback set, the primary again after 500ms; if the primary can't
+serve the block at all, the fallback again after 500ms). A revert from the
+fallback is only trusted if the fallback holds state at that block. viem
+reports any JSON-RPC -32603 (a provider's internal error) as a revert, so a
+-32603 counts as one only with revert data or "revert" in its message;
+otherwise the batch retries.
 
 ## Run it locally
 

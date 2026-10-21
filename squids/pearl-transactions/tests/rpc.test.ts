@@ -112,8 +112,10 @@ describe("fallback RPC", () => {
   const NO_HISTORY = { code: -32000, message: "historical state 0xabc is not available" };
 
   // A provider's internal/upstream error. viem maps ANY -32603 to
-  // ContractFunctionRevertedError, so it reads as a genuine revert.
+  // ContractFunctionRevertedError; isRevert must not trust a bare one.
   const INTERNAL = { code: -32603, message: "internal error" };
+  // Some nodes report a real revert as -32603 with revert text.
+  const INTERNAL_REVERT = { code: -32603, message: "execution reverted" };
 
   type Behaviour = {
     error?: object;
@@ -121,6 +123,9 @@ describe("fallback RPC", () => {
     noCode?: boolean;
     codeError?: object;
     emptyOwners?: boolean;
+    /** Per-read errors, overriding `error` for that read only. */
+    ownersError?: object;
+    thresholdError?: object;
   };
 
   /**
@@ -142,7 +147,14 @@ describe("fallback RPC", () => {
             if (b.codeError) return { jsonrpc: "2.0", id: r.id, error: b.codeError };
             return { jsonrpc: "2.0", id: r.id, result: b.noCode ? "0x" : "0x6080" };
           }
-          if (b.error) return { jsonrpc: "2.0", id: r.id, error: b.error };
+          const sel: string = r.params?.[0]?.data ?? "";
+          const perRead = sel.startsWith("0xa0e67e2b")
+            ? b.ownersError
+            : sel.startsWith("0xe75235b8")
+              ? b.thresholdError
+              : undefined;
+          const error = perRead ?? b.error;
+          if (error) return { jsonrpc: "2.0", id: r.id, error };
           // result "0x" on eth_call -> ContractFunctionZeroDataError: the
           // pruned-node shape, indistinguishable from a real revert.
           if (b.zeroData) return { jsonrpc: "2.0", id: r.id, result: "0x" };
@@ -220,7 +232,8 @@ describe("fallback RPC", () => {
     it("-32603 on the primary: the fallback resolves the Safe", async () => {
       const seen = stub({ error: INTERNAL }, {});
       const { getSafeConfig, isRevert } = await import("../src/rpc");
-      // Guard the premise: viem really does report -32603 as a revert.
+      // viem reports -32603 as ContractFunctionRevertedError; isRevert must
+      // still reject a bare one (no revert data, no "revert" text).
       const primaryOnly = await import("viem").then(({ createPublicClient, http }) =>
         createPublicClient({ transport: http(PRIMARY) })
           .readContract({
@@ -230,7 +243,7 @@ describe("fallback RPC", () => {
           })
           .catch((e) => e)
       );
-      expect(isRevert(primaryOnly)).toBe(true);
+      expect(isRevert(primaryOnly)).toBe(false);
 
       expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
       expect(hit(seen, FALLBACK, "eth_call").length).toBeGreaterThanOrEqual(2);
@@ -275,6 +288,34 @@ describe("fallback RPC", () => {
       expect(isRevert(err)).toBe(false);
     });
 
+    it("a -32603 that says 'execution reverted' is still a revert", async () => {
+      const seen = stub({ error: INTERNAL_REVERT }, { error: REVERT });
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig("0x000000000000000000000000000000000000dead", 86_150_361)).toBeNull();
+      expect(hit(seen, FALLBACK)).toHaveLength(2); // the second check only
+    });
+
+    it("first verdict from the fallback: the second check runs on the primary", async () => {
+      // The primary misses the first check (non-revert), so the fallback
+      // answers it with a revert; the primary then answers the Safe.
+      const seen: { url: string; req: Rpc }[] = stub(
+        () => (hit(seen, PRIMARY).length < 2 ? { error: NO_HISTORY } : {}),
+        { error: REVERT }
+      );
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(SAFE, 86_150_361)).toEqual({ owners: [OWNER], threshold: 1n });
+      expect(hit(seen, PRIMARY)).toHaveLength(4);
+      expect(hit(seen, FALLBACK)).toHaveLength(2); // not asked twice
+    });
+
+    it("primary archive hole + EOA: re-probes the fallback instead of stalling", async () => {
+      const EOA = "0x000000000000000000000000000000000000dead";
+      const seen = stub({ error: NO_HISTORY }, { error: REVERT });
+      const { getSafeConfig } = await import("../src/rpc");
+      expect(await getSafeConfig(EOA, 86_150_361)).toBeNull();
+      expect(hit(seen, FALLBACK)).toHaveLength(4);
+    });
+
     describe("no fallback configured", () => {
       beforeEach(() => vi.stubEnv("RPC_HTTP_FALLBACK", ""));
 
@@ -293,6 +334,22 @@ describe("fallback RPC", () => {
         expect(ethCalls).toHaveLength(4); // 2 reads x 2 checks, no more
         // The retry waited: last request at least ~500ms after the first.
         expect(times[times.length - 1] - times[0]).toBeGreaterThanOrEqual(450);
+      });
+
+      it("a bare -32603 rejects (batch retries), never null", async () => {
+        stub({ error: INTERNAL }, {});
+        const { getSafeConfig, isRevert } = await import("../src/rpc");
+        const err = await getSafeConfig(SAFE, 86_150_361).then(() => null, (e) => e);
+        expect(err, "must reject, not resolve to null").toBeInstanceOf(Error);
+        expect(isRevert(err)).toBe(false);
+      });
+
+      it("one read reverts while the other fails transiently: rejects, never null", async () => {
+        stub({ ownersError: REVERT, thresholdError: INTERNAL }, {});
+        const { getSafeConfig, isRevert } = await import("../src/rpc");
+        const err = await getSafeConfig(SAFE, 86_150_361).then(() => null, (e) => e);
+        expect(err, "must reject, not resolve to null").toBeInstanceOf(Error);
+        expect(isRevert(err)).toBe(false);
       });
 
       it("a true EOA: null after the re-probe also reverts, and not cached", async () => {
