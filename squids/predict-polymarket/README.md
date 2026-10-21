@@ -29,10 +29,30 @@ Key files:
 | `src/model/` | TypeScript classes generated from `schema.graphql` (do not edit by hand) |
 | `src/abi/` | event decoders generated from the shared [`abis/`](../../abis) (do not edit by hand) |
 | `src/processor.ts` | which contracts and events to index, from which blocks |
-| `src/main.ts` | decode-and-dispatch: routes each event to its handler |
+| `src/main.ts` | the batch loop: hands every log to `src/dispatch.ts` |
+| `src/dispatch.ts` | decode-and-dispatch: routes each event to its handler |
 | `src/handlers.ts` + `src/logic.ts` | the handler code — what each event does to the data |
 | `db/migrations/` | generated SQL that creates the database tables |
 | `squid.yaml` | SQD deployment description |
+
+## Polymarket Protocol V2
+
+Protocol V2 bets are ExchangeV3 `OrderFilled` events on PositionManager
+position IDs, paid in pUSD (6 decimals). They land in the same entities as
+CTF exchange bets, so readers need no changes:
+
+- The maker resolves to the agent the same way: its Safe, or a
+  DepositWallet linked to it.
+- The position ID carries the condition and the outcome
+  (`src/positionId.ts`), so there is no `TokenRegistry` lookup and no token
+  derivation. Conditions are stored in the 32-byte right-padded form that
+  Gamma, the CLOB and the Data API use. Positions with an outcome index
+  above 1 are skipped.
+- `Bet.collateral` is pUSD for these bets and null for bets on CTF outcome
+  tokens.
+- PositionManager transfers do not change bets or positions: a fill's share
+  movement is counted once, by its `OrderFilled`, and a transfer between an
+  agent's DepositWallet and its Safe stays on the same agent.
 
 ## Environment variables
 
@@ -147,7 +167,7 @@ Never edit the checkpoint in `squid_processor.status` by hand.
 2. Add the file to the `typegen` script list in `package.json`, then
    `npm run typegen` — regenerates `src/abi/`.
 3. Add the contract address + event to `src/processor.ts` (`addLog`).
-4. Write the handler in `src/main.ts`.
+4. Route the event to its handler in `src/dispatch.ts`.
 5. Old blocks contain events of the new contract too — so this normally
    ends with a blue-green re-index.
 

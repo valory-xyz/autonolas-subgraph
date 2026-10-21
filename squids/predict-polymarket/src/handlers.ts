@@ -378,13 +378,13 @@ async function resolveMakerAgent(
   if (agent != null) return agent;
 
   const dw = await cache.getDepositWallet(maker);
-  // unknown maker: silent by design — this is ~all of Polymarket's order
+  // unknown maker: silent by design - this is ~all of Polymarket's order
   // flow; a warn here would emit millions of lines
   if (dw == null) return undefined;
   const owner = await cache.get(TraderAgent, dw.traderAgent.id);
   if (owner == null) {
     // a KNOWN deposit wallet pointing at a missing agent is a corrupted
-    // link — rare and alarming, unlike the unknown-maker case above
+    // link - rare and alarming, unlike the unknown-maker case above
     cache.log.warn(
       `DepositWallet ${maker} links to missing TraderAgent ${dw.traderAgent.id} in tx ${meta.transactionHash}`,
     );
