@@ -36,8 +36,8 @@ export class FakeStore extends InMemoryCache {
   async findOne(cls: { name: string }, opts: { where: { id: string } }) {
     return this.get(cls as never, opts.where.id);
   }
-  async find() {
-    return [];
+  async find(): Promise<never> {
+    throw new Error("FakeStore.find is not implemented; this replay reached a store query the fake does not support");
   }
 }
 
