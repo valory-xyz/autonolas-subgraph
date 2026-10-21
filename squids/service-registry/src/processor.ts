@@ -1,34 +1,18 @@
 import { DataSourceBuilder, FieldSelection } from "@subsquid/evm-stream";
-import type { PortalClientOptions } from "@subsquid/portal-client";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as bridger from "./abi/IdentityRegistryBridge/events";
 import * as safe from "./abi/GnosisSafe/events";
 import {
   CHAIN,
   IDENTITY_REGISTRY_BRIDGER,
+  IDENTITY_REGISTRY_BRIDGER_START_BLOCK,
   SERVICE_REGISTRY_L2,
   START_BLOCK,
+  portalFor,
 } from "./constants";
 
-// SQD Portal endpoint. robinhood-mainnet is a private dataset, so the key
-// is required and goes in the x-api-key header. The URL defaults to the
-// chain's dataset; an override must still name the same dataset, or the
-// processor would stream another chain, match nothing, and report healthy.
-const portalUrl = process.env.SQD_PORTAL_URL || CHAIN.portalDataset;
-const apiKey = process.env.SQD_PORTAL_API_KEY;
-const dataset = CHAIN.portalDataset.split("/").pop()!;
-if (!portalUrl.includes(dataset)) {
-  throw new Error(
-    `SQD_PORTAL_URL "${portalUrl}" does not point at the ${dataset} dataset`,
-  );
-}
-if (!apiKey) {
-  throw new Error(`SQD_PORTAL_API_KEY is required for the private ${dataset} dataset`);
-}
-const portal: PortalClientOptions = {
-  url: portalUrl,
-  http: { headers: { "x-api-key": apiKey } },
-};
+// SQD Portal endpoint for this chain; see portalFor in constants.ts.
+const portal = portalFor(CHAIN);
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here, or the property does not exist at runtime.
@@ -74,6 +58,7 @@ export const dataSource = new DataSourceBuilder()
         bridger.MetadataSet.topic,
       ],
     },
+    range: { from: IDENTITY_REGISTRY_BRIDGER_START_BLOCK },
   })
 
   // --- Safe execution events (replaces the GnosisSafe template) -------
@@ -87,9 +72,12 @@ export const dataSource = new DataSourceBuilder()
   //
   // Measured on Robinhood before committing to it: 11 ExecutionSuccess and
   // 0 ExecutionFromModuleSuccess logs over 20,000 blocks (~34 min), from 7
-  // Safes — about 470 logs a day chain-wide. If that ever grows to Polygon
-  // levels, split this into an address-filtered range up to a checkpoint
-  // plus a topic-only tail (the "factory contracts" pattern in SQD's docs).
+  // Safes — about 470 logs a day chain-wide. On Base (SQD portal sample,
+  // BDMARK-2310): 0.02 logs/block at 15M, 0.9 at 46M, ~10.7 at head — about
+  // 45M logs over the whole backfill, ~1% of pearl-transactions' load. If
+  // that ever grows to Polygon levels, split this into an address-filtered
+  // range up to a checkpoint plus a topic-only tail (the "factory
+  // contracts" pattern in SQD's docs).
   .addLog({
     where: {
       topic0: [
