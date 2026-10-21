@@ -1,7 +1,7 @@
 manifestVersion: subsquid.io/v0.1
 name: tokenomics
 version: 1
-description: Olas token holders on Robinhood Chain
+description: Olas token holders (Robinhood Chain, Base)
 build:
 deploy:
   addons:
