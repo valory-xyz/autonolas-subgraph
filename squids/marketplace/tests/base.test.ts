@@ -78,6 +78,25 @@ describe("Base chain table", () => {
   });
 });
 
+describe("portal dataset guard", () => {
+  it("accepts the chain's dataset on any host and rejects another chain's", async () => {
+    const { assertPortalDataset } = await import("../src/constants");
+    assertPortalDataset("https://portal.sqd.dev/datasets/base-mainnet", BASE);
+    assertPortalDataset("https://shared.portal.sqd.dev/datasets/base-mainnet/", BASE);
+    expect(() => assertPortalDataset("https://portal.sqd.dev/datasets/robinhood-mainnet", BASE)).toThrow(
+      /serves dataset "robinhood-mainnet", but MARKETPLACE_CHAIN="base" needs "base-mainnet"/
+    );
+    expect(() => assertPortalDataset("", BASE)).toThrow(/"\(none\)"/);
+  });
+
+  it("refuses to build the portal source for a mismatched URL", async () => {
+    vi.stubEnv("MARKETPLACE_CHAIN", "base");
+    vi.stubEnv("INGEST_SOURCE", "portal");
+    vi.stubEnv("SQD_PORTAL_URL", "https://portal.sqd.dev/datasets/robinhood-mainnet");
+    await expect(import("../src/processor")).rejects.toThrow(/needs "base-mainnet"/);
+  }, 60_000);
+});
+
 describe("Base subscriptions (processor.ts)", () => {
   it("V1 topics up to 33,907,400, V2 from 33,907,401, five factory topics, no MaxDeliveryRateUpdated", async () => {
     vi.stubEnv("MARKETPLACE_CHAIN", "base");

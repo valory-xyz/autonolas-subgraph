@@ -259,6 +259,28 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   },
 };
 
+/** `<name>` of a `.../datasets/<name>` portal URL, or null. */
+function portalDatasetName(url: string): string | null {
+  const m = /\/datasets\/([^/?#]+)/.exec(url);
+  return m == null ? null : m[1];
+}
+
+/**
+ * In portal mode the URL must serve this chain's dataset. A Robinhood URL
+ * left in place with MARKETPLACE_CHAIN=base would stream the wrong chain,
+ * match no address, and report healthy at an empty head.
+ */
+export function assertPortalDataset(url: string, chain: ChainConfig): void {
+  const want = portalDatasetName(chain.portalDataset);
+  const got = portalDatasetName(url);
+  if (got !== want) {
+    throw new Error(
+      `SQD_PORTAL_URL="${url}" serves dataset "${got ?? "(none)"}", but ` +
+        `MARKETPLACE_CHAIN="${chain.name}" needs "${want}".`
+    );
+  }
+}
+
 // This deployment's chain.
 export const CHAIN: ChainConfig = selectChain("MARKETPLACE_CHAIN", CHAINS, "robinhood");
 

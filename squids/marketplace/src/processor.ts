@@ -15,11 +15,18 @@ import {
   MECH_MARKETPLACE,
   SERVICE_REGISTRY_L2,
   START_BLOCK,
+  assertPortalDataset,
 } from "./constants";
 
 export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
 
 const ingestion = getIngestionConfig(CHAIN);
+if (ingestion.source === "portal") {
+  assertPortalDataset(
+    typeof ingestion.portal === "string" ? ingestion.portal : ingestion.portal.url,
+    CHAIN
+  );
+}
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here, or the property does not exist at runtime.
