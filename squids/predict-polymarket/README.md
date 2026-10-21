@@ -49,6 +49,9 @@ CTF exchange bets, so readers need no changes:
   above 1 are skipped.
 - `Bet.collateral` is pUSD for these bets and null for bets on CTF outcome
   tokens.
+- `Bet.amount` is the pUSD the maker moved, so it includes the ExchangeV3
+  fee: a buy pays `makerAmountFilled + fee`, and a sell receives
+  `takerAmountFilled - fee`. Shares are the filled amounts, with no fee.
 - PositionManager transfers do not change bets or positions: a fill's share
   movement is counted once, by its `OrderFilled`, and a transfer between an
   agent's DepositWallet and its Safe stays on the same agent.

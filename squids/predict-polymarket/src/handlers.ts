@@ -298,6 +298,8 @@ export type OrderFill = {
   outcomeTokenId: bigint;
   makerAmountFilled: bigint;
   takerAmountFilled: bigint;
+  /** ExchangeV3 maker fee in pUSD; CTF exchange fills leave it unset (0). */
+  fee?: bigint;
   builder: string | null;
   metadata: string | null;
 };
@@ -338,7 +340,8 @@ export async function handleOrderFill(
  * Protocol V2 fill on ExchangeV3: the PositionManager position ID carries the
  * condition and outcome, so nothing is looked up or derived. The condition is
  * stored in its padded bytes32 form, the id Gamma, the CLOB and the Data API
- * use. Amounts are pUSD base units (6 decimals).
+ * use. Amounts are pUSD base units (6 decimals) and include the maker fee:
+ * a BUY pays makerAmountFilled + fee, a SELL receives takerAmountFilled - fee.
  */
 export async function handlePositionFill(
   cache: IEntityCache,
@@ -402,7 +405,10 @@ async function recordBet(
   collateral: string | null,
 ) {
   // Sells use NEGATIVE amounts/shares (omen convention)
-  const usdcAmount = p.isBuying ? p.makerAmountFilled : -p.takerAmountFilled;
+  const fee = p.fee ?? 0n;
+  const usdcAmount = p.isBuying
+    ? p.makerAmountFilled + fee
+    : -(p.takerAmountFilled - fee);
   const sharesAmount = p.isBuying ? p.takerAmountFilled : -p.makerAmountFilled;
 
   // 1. Update Daily Stats
