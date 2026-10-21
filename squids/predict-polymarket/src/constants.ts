@@ -7,7 +7,7 @@ export const PROBABILITY_SCALE = 10n ** 18n;
 export const HALF_PROBABILITY_SCALE = PROBABILITY_SCALE / 2n;
 
 // All addresses lowercase — SQD log addresses and decoded address params are
-// normalized to lowercase at the dispatch boundary in dispatch.ts.
+// normalized to lowercase at the dispatch boundary in main.ts.
 export const SERVICE_REGISTRY_L2 = "0xe3607b00e75f6405248323a9417ff6b39b244b50";
 export const CONDITIONAL_TOKENS = "0x4d97dcd97ec945f40cf65f87097ace5ea0476045";
 export const OPTIMISTIC_ORACLE_V3 = "0x65070be91477460d8a7aeeb94ef92fe056c2f2a7";
