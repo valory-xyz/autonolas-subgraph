@@ -85,6 +85,25 @@ particular:
   1:1). `TOKEN` and `CREDITS` do not occur on this chain and would convert
   to $0.
 
+## Base: cutting over from the subgraph
+
+Base has a live marketplace subgraph, so here the squid must give every
+consumer the numbers it gets today. Same addresses, start blocks, V1/V2
+split, fee formulas and graph-node rounding (README, "Base"). What a Base
+consumer can still see differ:
+
+- The dropped entities above. On Base at block 52.89M: legacy counters are
+  0 (`Global.totalLegacyRequests`), `Global.totalPredictRequests` is 1, and
+  `ParsedRequest` is read only by Predict on Gnosis/Polygon.
+- `Request.parsedRequest` / `Deliver.parsedDelivery` are gone (IPFS).
+- Query dialect and `Bytes` → lowercase strings, as everywhere.
+
+The marketplace subgraph prunes history (`indexerHints.prune: 300`), so a
+parity diff must pin both sides to the same block within the last 300.
+Mech-analytics' Base fee totals ("accrual") come from the new-mech-fees
+subgraph, whose squid is `squids/mech-fees` (`MECH_FEES_CHAIN=base`), not
+from this one.
+
 ## Validating a deployment
 
 No subgraph to diff against, so validate against the chain:

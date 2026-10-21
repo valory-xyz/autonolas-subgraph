@@ -1,8 +1,8 @@
 # marketplace-squid
 
 Indexer for the Olas **Mech Marketplace** on chains graph-node does not
-serve, built with the [SQD Squid SDK](https://docs.sqd.dev). First
-deployment: **Robinhood Chain** (chain id 4663). It reads marketplace,
+serve or is being retired on, built with the [SQD Squid SDK](https://docs.sqd.dev).
+Chains: **Robinhood Chain** (4663) and **Base** (8453). It reads marketplace,
 mech, registry and karma events, tracks mechs, requests, deliveries,
 service activity and fees, stores them in PostgreSQL and serves them over a
 GraphQL API.
@@ -85,14 +85,53 @@ Three chain facts that shape the config:
 - **The official RPC is pruned** (state for roughly the last few minutes).
   See `RPC_HTTP` below.
 
+## Base (8453)
+
+Replaces the Base marketplace subgraph (`../../subgraphs/marketplace/subgraph.base.yaml`),
+so every address, start block and conversion is that manifest's and
+`src/marketplace/{constants,fee-utils}.ts`'s. Consumers must get the same
+numbers from both; the parity check is in the quest's `parity-plan.md`.
+
+| Contract | Address | From block |
+|---|---|---|
+| ServiceRegistryL2 | `0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE` | 10 827 380 (= start block) |
+| MechMarketplace (proxy) | `0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020` | 26 642 705; **V1 ABI to 33 907 400, V2 from 33 907 401** |
+| Karma | `0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A` | 26 642 705 |
+| ComplementaryServiceMetadata | `0x28C1edC7CEd549F7f80B732fDC19f0370160707d` | 31 728 383 |
+| 5 mech factories (FixedPrice Native / Token / TokenUSDC, NvmSubscription Native / TokenUSDC) | see `src/constants.ts` | 26 642 705 |
+| Chainlink ETH / USD | `0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70` | 8 decimals |
+
+What differs from Robinhood:
+
+- **Two marketplace ABIs.** V1 `MarketplaceRequest` has no `requestDatas`
+  and V1 `Deliver` has one `data` field (both different topic0s); V1
+  `MarketplaceDelivery` indexes `requesters`, which keeps V2's topic0 but
+  adds a topic. The subscription and the decoder (`decode.ts`) both switch
+  at the block, like the subgraph's two data sources.
+- **All four fee units.** `NATIVE` via Chainlink; `USDC` 1:1; `CREDITS`
+  (both NVM factories) = credits × 0.99 / 1e6
+  (`calculateBaseNvmCreditsToUsd`); `TOKEN` (OLAS) from the
+  OLAS/USDC Balancer pool `0x5332…7E69` at the event's block.
+- **No `MaxDeliveryRateUpdated`.** The Base templates do not handle it, so
+  neither does the squid there; an observed `deliveryRate` still refreshes
+  `Mech.maxDeliveryRate`, as in the subgraph.
+- **Graph-node arithmetic.** Every USD step and running total is rounded to
+  34 significant digits, half-up, as graph-node's `BigDecimal` is, so USD
+  values are equal to the subgraph's rather than merely close.
+- **Ingest from the portal** (`INGEST_SOURCE=portal`; `base-mainnet` is
+  public, production uses the private portal + key). RPC ingestion cannot
+  serve the address-less mech subscription on public Base RPCs.
+  `RPC_HTTP` must be **archive** (`https://mainnet.base.org` is): a price read
+  that falls back to `latest` no longer matches the subgraph.
+
 ## Environment variables
 
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `MARKETPLACE_CHAIN` | which `CHAINS` entry to index. Default `robinhood` |
+| `MARKETPLACE_CHAIN` | which `CHAINS` entry to index: `robinhood` (default) or `base` |
 | `INGEST_SOURCE` | `portal` or `rpc` — where blocks come from. Unset: `portal` when `SQD_PORTAL_API_KEY` is set, `rpc` otherwise. See below |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. **`robinhood-mainnet` is a private portal dataset** — the public portal answers 404 for it, so this and the key below come from the infra secret |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL; in portal mode it must name the chain's dataset or the processor refuses to start. **`robinhood-mainnet` is a private portal dataset** — the public portal answers 404 for it, so this and the key below come from the infra secret |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header) |
 | `RPC_HTTP` | JSON-RPC endpoint. Always used for the Chainlink read behind fee → USD conversion (a handful of calls per mech request); also the ingestion source when `INGEST_SOURCE=rpc`. Archive-capable preferred, see below |
 | `RPC_HTTP_FALLBACK` | optional second endpoint for the Chainlink read, tried when the primary fails with a non-revert error |
@@ -264,9 +303,9 @@ different topic count; the raw decoder throws on those and kills the batch.
 Add a `CHAINS` entry in `src/constants.ts` (addresses lowercase, deployment
 blocks, factories, the Chainlink feed or `null`), set `MARKETPLACE_CHAIN`
 and deploy against a fresh database. A squid deployment is one chain.
-Nothing else in the code is Robinhood-specific. If the chain has an OLAS
-factory, `src/fee.ts` needs a TOKEN price source before the entry goes
-live — today TOKEN converts to $0 with a warning.
+Nothing else in the code is chain-specific. TOKEN (OLAS) needs an
+`olasPool` and CREDITS an `nvmCredits` entry, or they convert to $0 with a
+warning; a chain with a V1 marketplace range sets `mechMarketplaceV1EndBlock`.
 
 ### Re-indexing from a specific block
 
@@ -312,11 +351,15 @@ runs the real `EntityCache` against a store fake that, like TypeORM, returns
 rows without relations. `tests/rpc.test.ts` covers the Chainlink fallback
 chain with viem stubbed. `tests/schema.test.ts` asserts no scalar shares a
 column with a relation. `tests/fee.test.ts`, `tests/logic.test.ts` and
-`tests/decode.test.ts` cover the pure parts.
+`tests/decode.test.ts` cover the pure parts. `tests/base.test.ts` covers
+Base: chain table, V1/V2 split, subscriptions, the four fee units in
+graph-node arithmetic (against live Base subgraph values) and an NVM-USDC
+request end to end.
 
 ## Migration from the subgraph
 
 There is no marketplace subgraph on Robinhood to cut over from — this is
-the first indexer for the chain. Consumers coming from the subgraph on
+the first indexer for the chain. On Base, consumers switch only after the
+parity check against the Base subgraph passes. Consumers coming from the subgraph on
 other chains: [MIGRATION.md](MIGRATION.md) lists the schema deltas, the id
 scheme and the OpenReader query dialect.
