@@ -4,10 +4,10 @@ import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as metadata from "./abi/ComplementaryServiceMetadata/events";
 import * as karma from "./abi/Karma/events";
-import * as marketplace from "./abi/MechMarketplaceV2/events";
-import * as factoryNative from "./abi/MechFactoryFixedPriceNative/events";
-import * as factoryToken from "./abi/MechFactoryFixedPriceToken/events";
+import * as marketplaceV1 from "./abi/MechMarketplaceV1/events";
+import * as marketplaceV2 from "./abi/MechMarketplaceV2/events";
 import * as mech from "./abi/MechFixedPriceNative/events";
+import { factoryEvent, marketplaceTopics } from "./decode";
 import {
   CHAIN,
   KARMA,
@@ -37,6 +37,9 @@ const fields = {
 export type Fields = typeof fields;
 
 const factoryStart = Math.min(...CHAIN.mechFactories.map((f) => f.startBlock));
+const factoryTopics = [...new Set(CHAIN.mechFactories.map((f) => factoryEvent(f.event).topic))];
+const v1End = CHAIN.mechMarketplaceV1EndBlock;
+const marketplaceStart = CHAIN.mechMarketplace.startBlock;
 
 type LogQuery = LogRequest & { range?: { from: number; to?: number } };
 
@@ -66,36 +69,36 @@ export const LOG_QUERIES: LogQuery[] = [
 
   // --- MechMarketplace (proxy) ----------------------------------------
   //
-  // V2 ABI only: the chain launched on the current marketplace, there is no
-  // V1 event range to bridge (the subgraph's dual V1/V2 data sources).
+  // Two ABI generations, as the subgraph's MechMarketplaceV1 / V2 data
+  // sources: V1 topics up to and including mechMarketplaceV1EndBlock, V2
+  // topics after. A chain that launched on V2 (Robinhood) has only the V2
+  // query. main.ts decodes by the same block boundary (decode.ts).
+  ...(v1End == null
+    ? []
+    : [
+        {
+          where: { address: [MECH_MARKETPLACE], topic0: marketplaceTopics(marketplaceV1) },
+          include: { transaction: true },
+          range: { from: marketplaceStart, to: v1End },
+        } satisfies LogQuery,
+      ]),
   {
-    where: {
-      address: [MECH_MARKETPLACE],
-      topic0: [
-        marketplace.CreateMech.topic,
-        marketplace.MarketplaceRequest.topic,
-        marketplace.MarketplaceDelivery.topic,
-        marketplace.MarketplaceDeliveryWithSignatures.topic,
-        marketplace.Deliver.topic, // signed (off-chain) per-request delivery
-      ],
-    },
+    where: { address: [MECH_MARKETPLACE], topic0: marketplaceTopics(marketplaceV2) },
     include: { transaction: true },
-    range: { from: CHAIN.mechMarketplace.startBlock },
+    range: { from: v1End == null ? marketplaceStart : Math.max(marketplaceStart, v1End + 1) },
   },
 
   // --- Mech factories: the maxDeliveryRate hand-off --------------------
   //
   // Each factory emits its own `CreateMech<Kind>` right before the
-  // marketplace's `CreateMech` in the same tx. Both topics are listed for
-  // every factory address because the deployed USDC factory emits the
-  // `CreateMechFixedPriceToken` name (see constants.ts).
+  // marketplace's `CreateMech` in the same tx. Every configured event name is
+  // listed for every factory address, because a deployment's event name does
+  // not always match its kind (Robinhood's USDC factory emits
+  // `CreateMechFixedPriceToken`, see constants.ts).
   {
     where: {
       address: MECH_FACTORY_ADDRESSES,
-      topic0: [
-        factoryNative.CreateMechFixedPriceNative.topic,
-        factoryToken.CreateMechFixedPriceToken.topic,
-      ],
+      topic0: factoryTopics,
     },
     range: { from: factoryStart },
   },
@@ -108,12 +111,15 @@ export const LOG_QUERIES: LogQuery[] = [
   // These three signatures are OlasMech-specific and the marketplace's own
   // `Deliver` has a different arity (hence a different topic0), so the
   // unfiltered volume is the mechs' own traffic plus nothing measurable.
+  //
+  // MaxDeliveryRateUpdated only where the subgraph's templates handle it
+  // (not on Base).
   {
     where: {
       topic0: [
         mech.Request.topic,
         mech.Deliver.topic,
-        mech.MaxDeliveryRateUpdated.topic,
+        ...(CHAIN.handlesMaxDeliveryRateUpdated ? [mech.MaxDeliveryRateUpdated.topic] : []),
       ],
     },
     include: { transaction: true },

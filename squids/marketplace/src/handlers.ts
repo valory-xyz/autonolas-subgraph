@@ -31,7 +31,7 @@ import {
   UpdateService,
 } from "./model";
 import { CacheLogger, IEntityCache } from "./entityCache";
-import { NativePriceSource, ZERO_USD, convertFeeToUsd } from "./fee";
+import { NativePriceSource, OlasPoolSource, ZERO_USD, convertFeeToUsd, gnPlus } from "./fee";
 import {
   EventMeta,
   FEE_UNIT_FALLBACK,
@@ -50,6 +50,8 @@ export interface Ctx {
   cache: IEntityCache;
   log: CacheLogger;
   price: NativePriceSource;
+  /** OLAS pool reads for the TOKEN fee unit; absent = no OLAS pricing ($0). */
+  olasPool?: OlasPoolSource;
   /** Per batch (the subgraph's PendingMechData table): mech address -> maxDeliveryRate
    *  from the factory log, consumed by the marketplace CreateMech in the same tx. */
   pendingMechRates: Map<string, bigint>;
@@ -260,7 +262,7 @@ async function calculateMaxDeliveryRateUSD(
     );
     feeUnit = FEE_UNIT_FALLBACK;
   }
-  return convertFeeToUsd(maxDeliveryRate, feeUnit, blockNumber, ctx.price, ctx.log);
+  return convertFeeToUsd(maxDeliveryRate, feeUnit, blockNumber, ctx.price, ctx.log, ctx.olasPool);
 }
 
 /**
@@ -284,7 +286,8 @@ async function updateFeesOnDelivery(
     request.feeUnit,
     blockNumber,
     ctx.price,
-    ctx.log
+    ctx.log,
+    ctx.olasPool
   );
   request.finalFeeUSD = finalFeeUSD;
 
@@ -293,12 +296,12 @@ async function updateFeesOnDelivery(
       ? await ctx.cache.get(Sender, request.sender.id)
       : undefined;
   if (sender != null) {
-    sender.totalFeesPaidUSD = sender.totalFeesPaidUSD.plus(finalFeeUSD);
+    sender.totalFeesPaidUSD = gnPlus(sender.totalFeesPaidUSD, finalFeeUSD);
     ctx.cache.set(Sender, sender);
   }
 
   const global = await getGlobal(ctx);
-  global.totalFeesPaidUSD = global.totalFeesPaidUSD.plus(finalFeeUSD);
+  global.totalFeesPaidUSD = gnPlus(global.totalFeesPaidUSD, finalFeeUSD);
   ctx.cache.set(Global, global);
 }
 
@@ -713,7 +716,8 @@ export async function handleMarketplaceRequest(
           unit,
           meta.blockNumber,
           ctx.price,
-          ctx.log
+          ctx.log,
+          ctx.olasPool
         );
       }
     }
