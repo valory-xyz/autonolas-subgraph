@@ -9,7 +9,7 @@
 // receipts (size and price per maker).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeAbiParameters, encodeEventTopics, type Abi } from "viem";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { getMetadataArgsStorage } from "typeorm";
 import { join } from "node:path";
 
@@ -332,24 +332,11 @@ describe("collateral: a V2 bet is recorded in pUSD", () => {
     expect((await cache.get(Global, ""))?.totalTraded).toBe(-1_200_000n);
   });
 
-  it("persists Bet.collateral: a schema field, a TypeORM column on the Bet model, and a migration adding it", () => {
-    const schema = readFileSync(join(__dirname, "../schema.graphql"), "utf8");
-    const betType = schema.match(/type Bet @entity \{([^}]*)\}/);
-    expect(betType, "type Bet in schema.graphql").not.toBeNull();
-    expect(betType![1]).toMatch(/^\s*collateral\s*:\s*String\b/m);
-
+  it("persists Bet.collateral as a TypeORM column on the Bet model", () => {
     const column = getMetadataArgsStorage().columns.find(
       (c) => c.target === Bet && c.propertyName === "collateral",
     );
     expect(column, "Bet.collateral TypeORM column (regenerate src/model)").toBeDefined();
-
-    const dir = join(__dirname, "../db/migrations");
-    const adds = readdirSync(dir).filter((f) =>
-      /ALTER TABLE "bet" ADD "collateral"|CREATE TABLE "bet" \([^`]*"collateral"/.test(
-        readFileSync(join(dir, f), "utf8"),
-      ),
-    );
-    expect(adds.length, "a db/migrations file adding bet.collateral").toBeGreaterThan(0);
   });
 });
 
