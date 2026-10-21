@@ -1,6 +1,6 @@
 // Event handlers, decoupled from SQD's runtime types: each takes the cache
 // interface, plain EventMeta, and already-decoded parameters (addresses
-// lowercased at the decode boundary in main.ts). This keeps them unit-testable
+// lowercased at the decode boundary in dispatch.ts). This keeps them unit-testable
 // without a database or network — see tests/lifecycle.test.ts.
 import {
   AgentInstance,
