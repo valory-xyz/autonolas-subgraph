@@ -12,6 +12,7 @@ import * as registry from "./abi/ServiceRegistryL2/events";
 import * as bridger from "./abi/IdentityRegistryBridge/events";
 import * as safe from "./abi/GnosisSafe/events";
 import * as h from "./handlers";
+import { BlockSafeLogs } from "./safeLogs";
 import { blockTimestampSeconds, type EventMeta } from "./logic";
 import { IDENTITY_REGISTRY_BRIDGER, SERVICE_REGISTRY_L2 } from "./constants";
 
@@ -29,6 +30,7 @@ run(
   async (ctx) => {
     const cache = new EntityCache(ctx.store);
     cache.log = logger;
+    const safeLogs = new BlockSafeLogs(cache);
 
     for (const block of ctx.blocks.map(augmentBlock)) {
       const blockNumber = BigInt(block.header.number);
@@ -75,11 +77,14 @@ run(
                 `CreateMultisigWithAgents at ${log.transactionHash} has no transaction.from`,
               );
             }
-            await h.handleCreateMultisig(cache, meta, {
-              serviceId: e.serviceId,
-              multisig: lc(e.multisig),
-              txFrom: lc(from),
-            });
+            const multisig = lc(e.multisig);
+            await safeLogs.createMultisig(multisig, () =>
+              h.handleCreateMultisig(cache, meta, {
+                serviceId: e.serviceId,
+                multisig,
+                txFrom: lc(from),
+              }),
+            );
           } else if (topic0 === registry.TerminateService.topic) {
             const e = registry.TerminateService.decode(log);
             await h.handleTerminateService(cache, meta, {
@@ -119,17 +124,18 @@ run(
         }
 
         // --- Safe execution, chain-wide by topic ----------------------
-        // The subscription has no address filter (see processor.ts). This
-        // one lookup keeps our service multisigs and drops every other
-        // Safe on the chain without decoding or storing anything.
+        // The subscription has no address filter (see processor.ts).
+        // BlockSafeLogs keeps our service multisigs (with graph-node's
+        // same-block template semantics) and drops every other Safe on the
+        // chain without decoding or storing anything.
         if (
           topic0 === safe.ExecutionSuccess.topic ||
           topic0 === safe.ExecutionFromModuleSuccess.topic
         ) {
-          if (!(await cache.isKnownMultisig(address))) continue;
-          await h.handleSafeExecution(cache, meta, { address });
+          await safeLogs.safeLog(address, meta);
         }
       }
+      await safeLogs.endBlock();
     }
 
     await cache.flush();
