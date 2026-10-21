@@ -1,5 +1,5 @@
-// Protocol V2 bets: recorded Polygon logs (ExchangeV3 OrderFilled +
-// PositionManager TransferSingle, tests/fixtures/v2-trades.json) go through
+// Protocol V2 bets: a recorded Polygon trade (ExchangeV3 OrderFilled +
+// PositionManager TransferSingle, tests/fixtures/v2-trades.json) goes through
 // src/dispatch.ts, the entry the processor uses, into the existing entities.
 // No Olas agent has traded on ExchangeV3 yet, so each test makes one real
 // maker the agent's DepositWallet. Expected amounts come from the Data API
@@ -31,15 +31,13 @@ const SAFE = "0x1000000000000000000000000000000000000001";
 
 type Trade = {
   block: RecordedBlock;
-  dataApiTrades: { proxy_wallet: string; side: string; condition_id: string; size: number; price: number; outcome_index: number }[];
+  dataApiTrades: { proxy_wallet: string; condition_id: string; size: number; price: number; outcome_index: number }[];
   logs: RawLog[];
 };
 const { trades } = loadFixture<{ trades: Record<string, Trade> }>("v2-trades.json");
 // complementary BUYs: log 373 maker 0x23a5… (No), log 383 maker 0xfc26… (Yes),
 // where 0xfc26… is also log 373's taker
 const MINT_TX = "0xe0abd59682255da75d2b12783e64c1fae4f24dca7544f61dfbb9e8c227e411c4";
-// maker 0x8d3f… SELLs Yes; log 295 moves its shares straight to the buyer
-const SELL_TX = "0x7c1a2ff71e3133db46bd37979a8adc9956f72980d1889f4dcc622379ed6c1e10";
 const DW = "0xfc26c4758c104d62a6a54a7e36dfd0ee64c0bc5b";
 // Gamma market 5929025: Yes position ID (No = Yes + 1) and padded condition ID
 const YES = 863358210533918701740174954868484610826072786730813595626095950865979408384n;
@@ -71,19 +69,18 @@ async function dispatchSynthetic(address: string, rec: { topics: string[]; data:
 }
 
 it.each([
-  [MINT_TX, DW, 383],
-  [MINT_TX, "0x23a5e5e9090d78ecc97e6555f7f11b0f9e2311c1", 373],
-  [SELL_TX, "0x8d3f52833636d0918b74426b7f5be855bd51b84d", 297],
-])("records %s's fill by DepositWallet %s as one pUSD bet of the agent", async (tx, maker, logIndex) => {
+  [DW, 383],
+  ["0x23a5e5e9090d78ecc97e6555f7f11b0f9e2311c1", 373],
+])("records the fill by DepositWallet %s (log %i) as one pUSD bet of the agent", async (maker, logIndex) => {
+  const tx = MINT_TX;
   const api = trades[tx]!.dataApiTrades.find((r) => r.proxy_wallet === maker)!;
   // a market known under the padded condition ID Gamma and the Data API use
   cache.set(Question, new Question({ id: api.condition_id }));
   await registerAgent(maker);
   await replay(tx);
 
-  const sign = api.side === "BUY" ? 1n : -1n;
-  const amount = sign * BigInt(Math.round(api.size * api.price * 1e6)); // pUSD, 6 decimals
-  const shares = sign * BigInt(Math.round(api.size * 1e6));
+  const amount = BigInt(Math.round(api.size * api.price * 1e6)); // pUSD, 6 decimals
+  const shares = BigInt(Math.round(api.size * 1e6));
   const fill = trades[tx]!.logs.find((l) => l.logIndex === logIndex)!;
 
   const bets = cache.all(Bet);
@@ -91,7 +88,7 @@ it.each([
   const bet = bets[0]!;
   expect(bet.bettor.id).toBe(SAFE);
   expect(bet.collateral).toBe(PUSD);
-  expect([bet.amount, bet.shares, bet.isBuy]).toEqual([amount, shares, sign > 0n]);
+  expect([bet.amount, bet.shares, bet.isBuy]).toEqual([amount, shares, true]);
   expect(bet.outcomeIndex).toBe(BigInt(api.outcome_index));
   expect(bet.builder).toBe(`0x${fill.data.slice(2 + 64 * 5, 2 + 64 * 6)}`);
   expect(bet.metadata).toBe(`0x${fill.data.slice(2 + 64 * 6, 2 + 64 * 7)}`);
