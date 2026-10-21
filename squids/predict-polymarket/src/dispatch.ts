@@ -193,9 +193,10 @@ export async function dispatchLog(
     // share legs (mint -> exchange -> maker, seller -> buyer) are counted
     // once, by its ExchangeV3 OrderFilled, and positions are kept per agent
     // (keyed by its Safe), so a move between the agent's DepositWallet and
-    // its Safe leaves the position on the same agent. Split, merge and
-    // redemption mints and burns are not bets (CTF splits and merges are not
-    // tracked either); payouts come from the redemption events.
+    // its Safe leaves the position on the same agent. Split and merge mints
+    // and burns are not bets (CTF splits and merges are not tracked either).
+    // V2 redemption burns and V2 payouts are not indexed yet: these logs are
+    // dropped, so V2 positions record no payout.
   } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {
     if (topic0 === adapterEvents.PositionsRedeemed.topic) {
       const e = adapterEvents.PositionsRedeemed.decode(log);
