@@ -7,10 +7,8 @@ import { InMemoryCache } from "./inMemoryCache";
 import {
   Bet,
   DailyProfitStatistic,
-  DepositWallet,
   Global,
   MarketParticipant,
-  TokenRegistry,
   TraderAgent,
 } from "../src/model";
 
@@ -26,37 +24,29 @@ export type RawLog = {
 export type RecordedBlock = { number: number; timestamp: number };
 
 export function loadFixture<T>(name: string): T {
-  return JSON.parse(
-    readFileSync(join(__dirname, "fixtures", name), "utf8"),
-  ) as T;
+  return JSON.parse(readFileSync(join(__dirname, "fixtures", name), "utf8")) as T;
 }
 
-/**
- * The block header shape the processor hands to dispatch: SQD's evm-stream
- * reports block timestamps in MILLISECONDS (see src/decode.ts eventMeta).
- */
-export function sqdBlock(b: RecordedBlock): { number: number; timestamp: number } {
+/** The block header dispatch gets: SQD's evm-stream timestamps are MILLISECONDS. */
+export function sqdBlock(b: RecordedBlock): RecordedBlock {
   return { number: b.number, timestamp: b.timestamp * 1000 };
 }
 
 const s = (v: bigint | null | undefined) => (v == null ? null : v.toString());
 
-/** Order-independent, JSON-safe reduction of everything a reader queries. */
+/** Order-independent, JSON-safe reduction of the bet totals readers query. */
 export function snapshot(cache: InMemoryCache) {
   const byId = <T extends { id: string }>(xs: T[]) =>
     [...xs].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const global = cache.store.get(Global.name)?.get("") as Global | undefined;
   return {
-    global:
-      global == null
-        ? null
-        : {
-            totalTraderAgents: global.totalTraderAgents,
-            totalActiveTraderAgents: global.totalActiveTraderAgents,
-            totalBets: global.totalBets,
-            totalTraded: s(global.totalTraded),
-            totalMarketsParticipated: global.totalMarketsParticipated,
-          },
+    global: global && {
+      totalTraderAgents: global.totalTraderAgents,
+      totalActiveTraderAgents: global.totalActiveTraderAgents,
+      totalBets: global.totalBets,
+      totalTraded: s(global.totalTraded),
+      totalMarketsParticipated: global.totalMarketsParticipated,
+    },
     traderAgents: byId(cache.all(TraderAgent)).map((a) => ({
       id: a.id,
       serviceId: s(a.serviceId),
@@ -93,15 +83,6 @@ export function snapshot(cache: InMemoryCache) {
       id: d.id,
       totalBets: d.totalBets,
       totalTraded: s(d.totalTraded),
-    })),
-    depositWallets: byId(cache.all(DepositWallet)).map((w) => ({
-      id: w.id,
-      traderAgent: w.traderAgent.id,
-    })),
-    tokenRegistry: byId(cache.all(TokenRegistry)).map((t) => ({
-      id: t.id,
-      conditionId: t.conditionId,
-      outcomeIndex: s(t.outcomeIndex),
     })),
   };
 }
