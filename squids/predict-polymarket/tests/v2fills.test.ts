@@ -2,8 +2,10 @@
 // PositionManager TransferSingle, tests/fixtures/v2-trades.json) goes through
 // src/main.ts's batch handler into the existing entities.
 // No Olas agent has traded on ExchangeV3 yet, so each test makes one real
-// maker the agent's DepositWallet. Expected amounts come from the Data API
-// /v2/trades rows recorded with the logs.
+// maker the agent's DepositWallet. Expected shares come from the Data API
+// /v2/trades rows recorded with the logs; expected amounts are the pUSD the
+// maker moved in the transaction, so they include the ExchangeV3 fee (BUY:
+// makerAmountFilled + fee, SELL: takerAmountFilled - fee).
 import { beforeEach, expect, it, vi } from "vitest";
 import { getMetadataArgsStorage } from "typeorm";
 
@@ -19,7 +21,7 @@ import { FakeStore, loadFixture, RawLog, RecordedBlock, runBatch, snapshot } fro
 import * as handlers from "../src/handlers";
 import * as exchangeV3 from "../src/abi/ExchangeV3/events";
 import * as positionManager from "../src/abi/PositionManager/events";
-import { Bet, Global, MarketParticipant, Question, TraderAgent } from "../src/model";
+import { Bet, DailyProfitStatistic, Global, MarketParticipant, Question, TraderAgent } from "../src/model";
 
 const PUSD = "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb";
 const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
@@ -66,10 +68,12 @@ async function runSynthetic(address: string, rec: { topics: string[]; data: stri
   await runBatch(store, [{ block, logs: [{ address, ...rec, transactionHash: `0x${n.toString(16).padStart(64, "0")}`, logIndex: 0 }] }]);
 }
 
+// amount: the maker's pUSD Transfer to ExchangeV3 in the tx (logs 371, 372);
+// log 383 pays makerAmountFilled 999,989 + fee 22,480, log 373 has no fee
 it.each([
-  [DW, 383],
-  ["0x23a5e5e9090d78ecc97e6555f7f11b0f9e2311c1", 373],
-])("records the fill by DepositWallet %s (log %i) as one pUSD bet of the agent", async (maker, logIndex) => {
+  [DW, 383, 1_022_469n],
+  ["0x23a5e5e9090d78ecc97e6555f7f11b0f9e2311c1", 373, 52_631n],
+])("records the fill by DepositWallet %s (log %i) as one pUSD bet of the agent", async (maker, logIndex, amount) => {
   const tx = MINT_TX;
   const api = trades[tx]!.dataApiTrades.find((r) => r.proxy_wallet === maker)!;
   // a market known under the padded condition ID Gamma and the Data API use
@@ -77,7 +81,6 @@ it.each([
   await registerAgent(maker);
   await replay(tx);
 
-  const amount = BigInt(Math.round(api.size * api.price * 1e6)); // pUSD, 6 decimals
   const shares = BigInt(Math.round(api.size * 1e6));
   const fill = trades[tx]!.logs.find((l) => l.logIndex === logIndex)!;
 
@@ -96,6 +99,8 @@ it.each([
   const participant = await store.get(MarketParticipant, `${SAFE}_${api.condition_id}`);
   expect([bet.marketParticipant?.id, bet.question?.id, participant?.question?.id]).toEqual([participant?.id, api.condition_id, api.condition_id]);
   expect([participant?.outcomeShares0, participant?.outcomeShares1]).toEqual(api.outcome_index ? [0n, shares] : [shares, 0n]);
+  expect(participant?.totalTraded).toBe(amount);
+  expect(store.all(DailyProfitStatistic).map((d) => d.totalTraded)).toEqual([amount]);
   expect((await store.get(TraderAgent, SAFE))?.totalTraded).toBe(amount);
   expect((await store.get(Global, ""))?.totalTraded).toBe(amount);
   // V2 position IDs are decoded, never derived from USDC.e
@@ -128,12 +133,13 @@ it("keeps the position on the agent when it moves from the DepositWallet to the 
       tokenId: YES,
       makerAmountFilled: 1_052_620n,
       takerAmountFilled: 900_000n,
-      fee: 0n,
+      fee: 4_000n,
       builder: `0x${"00".repeat(32)}`,
       metadata: `0x${"00".repeat(32)}`,
     }),
   );
   const participants = store.all(MarketParticipant);
   expect(participants.map((p) => [p.id, p.totalBets, p.outcomeShares0])).toEqual([[`${SAFE}_${CONDITION}`, 2, 0n]]);
-  expect((await store.get(TraderAgent, SAFE))?.totalTraded).toBe(999_989n - 900_000n);
+  // BUY paid 999,989 + fee 22,480; SELL receives 900,000 - fee 4,000
+  expect((await store.get(TraderAgent, SAFE))?.totalTraded).toBe(1_022_469n - 896_000n);
 });
