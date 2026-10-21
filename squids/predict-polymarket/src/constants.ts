@@ -27,8 +27,13 @@ export const CTF_COLLATERAL_ADAPTERS = [
 ];
 export const DEPOSIT_WALLET_FACTORY =
   "0x00000000000fb5c9adea0298d729a0cb3823cc07";
+// Polymarket Protocol V2: order book and position ledger (ERC-1155), proxies
+export const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
+export const POSITION_MANAGER = "0x006f54f7f9a22e0000cc2ab60031000000ae9fef";
 
 export const USDC_E_ADDRESS = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
+// Protocol V2 collateral (6 decimals)
+export const PUSD_ADDRESS = "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb";
 
 export const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -38,3 +43,6 @@ export const START_BLOCK = 78_425_180;
 export const SERVICE_REGISTRY_START = 80_360_433;
 export const V2_CUTOVER_START = 85_952_819;
 export const ADAPTERS_START = 86_219_367;
+// Protocol V2 proxy deployment blocks
+export const POSITION_MANAGER_START = 87_479_409;
+export const EXCHANGE_V3_START = 87_479_471;
