@@ -123,6 +123,16 @@ describe("decodePositionId", () => {
     );
     expect(upper.conditionId).toBe(`0x${"af".repeat(31)}`);
   });
+
+  it("reads the whole 8-bit outcome byte, not just its low bit", () => {
+    const conditionId = `0x02${"c3".repeat(29)}01`;
+    for (const outcomeIndex of [2, 3, 0x80, 0xff]) {
+      const d = decodePositionId(encodePositionId(conditionId, outcomeIndex));
+      expect(Number(d.outcomeIndex), `outcome byte ${outcomeIndex}`).toBe(outcomeIndex);
+      expect(d.conditionId).toBe(conditionId);
+      expect(Number(d.moduleId)).toBe(2);
+    }
+  });
 });
 
 describe("padConditionId", () => {

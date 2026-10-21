@@ -9,7 +9,8 @@
 // receipts (size and price per maker).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeAbiParameters, encodeEventTopics, type Abi } from "viem";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { getMetadataArgsStorage } from "typeorm";
 import { join } from "node:path";
 
 const derivation = vi.hoisted(() => ({ calls: [] as unknown[][] }));
@@ -305,6 +306,50 @@ describe("collateral: a V2 bet is recorded in pUSD", () => {
     expect(participant?.totalBets).toBe(1);
 
     expectNoUsdcEDerivation({ [SELL_YES.toString()]: SELL_CONDITION, [(SELL_YES + 1n).toString()]: SELL_CONDITION });
+  });
+  it("records an agent SELL that pays a fee at the full pUSD fill amount: fees are not netted out", async () => {
+    await registerAgent(MINT_YES_MAKER);
+    await dispatchLog(
+      cache,
+      synthBlock(),
+      orderFilled({
+        maker: MINT_YES_MAKER,
+        taker: EXCHANGE_V3,
+        side: 1,
+        tokenId: MINT_NO,
+        makerAmountFilled: 3_000_000n, // shares given
+        takerAmountFilled: 1_200_000n, // pUSD received
+        fee: 36_000n,
+      }),
+    );
+    const bets = cache.all(Bet);
+    expect(bets).toHaveLength(1);
+    expect(bets[0]!.isBuy).toBe(false);
+    expect(bets[0]!.amount).toBe(-1_200_000n);
+    expect(bets[0]!.shares).toBe(-3_000_000n);
+    expect(bets[0]!.outcomeIndex).toBe(1n);
+    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(-1_200_000n);
+    expect((await cache.get(Global, ""))?.totalTraded).toBe(-1_200_000n);
+  });
+
+  it("persists Bet.collateral: a schema field, a TypeORM column on the Bet model, and a migration adding it", () => {
+    const schema = readFileSync(join(__dirname, "../schema.graphql"), "utf8");
+    const betType = schema.match(/type Bet @entity \{([^}]*)\}/);
+    expect(betType, "type Bet in schema.graphql").not.toBeNull();
+    expect(betType![1]).toMatch(/^\s*collateral\s*:\s*String\b/m);
+
+    const column = getMetadataArgsStorage().columns.find(
+      (c) => c.target === Bet && c.propertyName === "collateral",
+    );
+    expect(column, "Bet.collateral TypeORM column (regenerate src/model)").toBeDefined();
+
+    const dir = join(__dirname, "../db/migrations");
+    const adds = readdirSync(dir).filter((f) =>
+      /ALTER TABLE "bet" ADD "collateral"|CREATE TABLE "bet" \([^`]*"collateral"/.test(
+        readFileSync(join(dir, f), "utf8"),
+      ),
+    );
+    expect(adds.length, "a db/migrations file adding bet.collateral").toBeGreaterThan(0);
   });
 });
 

@@ -33,6 +33,7 @@ vi.mock("../src/tokenDerivation", () => ({
 import { InMemoryCache } from "./inMemoryCache";
 import { loadFixture, RawLog, RecordedBlock, snapshot, sqdBlock } from "./replay";
 import { dispatchLog } from "../src/dispatch";
+import { Bet } from "../src/model";
 
 type ReplayFixture = {
   derivedTokenIds: Record<string, string[]>;
@@ -91,6 +92,18 @@ describe("V1 regression", () => {
     expect(derivation.calls.length).toBe(24); // 12 ConditionPreparation x 2 index sets
     expect(derivation.calls.every(([, collateral]) => collateral === USDC_E)).toBe(true);
     expect(derivation.calls.some(([, collateral]) => collateral === PUSD)).toBe(false);
+  });
+
+  it("does not tag the USDC.e-era V1 bets with pUSD collateral", async () => {
+    await replayV1();
+    // service 66 traded on CTFExchange / NegRiskCtfExchange, before the
+    // CLOB v2 cutover: USDC.e collateral, never pUSD
+    const v1Bets = cache.all(Bet).filter((b) => b.bettor.id === AGENT_66_SAFE);
+    expect(v1Bets.length).toBeGreaterThan(0);
+    for (const b of v1Bets) {
+      const collateral = (b as Bet & { collateral?: string | null }).collateral ?? null;
+      expect(collateral, `collateral of ${b.id}`).not.toBe(PUSD);
+    }
   });
 
   it("recorded V2 trades replayed after the V1 range add only their own bet and leave every V1 total unchanged", async () => {
