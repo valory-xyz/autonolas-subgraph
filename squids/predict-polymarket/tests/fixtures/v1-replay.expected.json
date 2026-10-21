@@ -1,0 +1,887 @@
+{
+ "global": {
+  "totalTraderAgents": 2,
+  "totalActiveTraderAgents": 2,
+  "totalBets": 24,
+  "totalTraded": "54589970",
+  "totalMarketsParticipated": 24
+ },
+ "traderAgents": [
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "serviceId": "297",
+   "totalBets": 12,
+   "totalTraded": "27049989",
+   "firstParticipation": "1781927827",
+   "lastActive": "1782559127"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "serviceId": "66",
+   "totalBets": 12,
+   "totalTraded": "27539981",
+   "firstParticipation": "1770792817",
+   "lastActive": "1770798699"
+  }
+ ],
+ "bets": [
+  {
+   "id": "0x0177c9ae5ba14e5597cf6b98e0e472175a9ba2bdd49231be044bfcdd496e9997_1442",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2339999",
+   "shares": "9223702",
+   "isBuy": true,
+   "impliedProbability": "253694124116325527",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x3debb910b45ae8dad34630e7a9f4cebe04a598cf9527b930c58127903f68d2ac",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782524129",
+   "transactionHash": "0x0177c9ae5ba14e5597cf6b98e0e472175a9ba2bdd49231be044bfcdd496e9997"
+  },
+  {
+   "id": "0x0de89cee6c08266a7b7b6444c426a37cc465b3f3dc0fdc7d9f576edfcb05c249_887",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "1799999",
+   "shares": "4864863",
+   "isBuy": true,
+   "impliedProbability": "369999936277753350",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2b2bf99b7d165779ddc6e0759334d73238f9f5397d64234fdbb3463de35a9ac2",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1781913600",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1781951393",
+   "transactionHash": "0x0de89cee6c08266a7b7b6444c426a37cc465b3f3dc0fdc7d9f576edfcb05c249"
+  },
+  {
+   "id": "0x1328ae7fe34c47e3b665dcc1fa5512ad66486ee561f28ef70742e30e90794d9e_653",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2199999",
+   "shares": "4888887",
+   "isBuy": true,
+   "impliedProbability": "449999969318169963",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xf936ea6fe18ca038a78adb2c957a2dac07b1d8fd043f07f6b6df499e52b47ec7",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782259200",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782300241",
+   "transactionHash": "0x1328ae7fe34c47e3b665dcc1fa5512ad66486ee561f28ef70742e30e90794d9e"
+  },
+  {
+   "id": "0x2183d9ca8a615dcafe94f73e0f8e5759dac9a8e3a8dc9d3217e7ade81ca08328_509",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "0",
+   "amount": "2499999",
+   "shares": "7352940",
+   "isBuy": true,
+   "impliedProbability": "339999918399986943",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x6cc841466bca13b518a79c4b13c15c29e6e1d9c5c4c46d8a1875a1443c6f38df",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770796977",
+   "transactionHash": "0x2183d9ca8a615dcafe94f73e0f8e5759dac9a8e3a8dc9d3217e7ade81ca08328"
+  },
+  {
+   "id": "0x27a5b782f986d644075ff1402e97a94baf8abce8fed062b0ea1e22c1b2a59ee5_1878",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "0",
+   "amount": "2059999",
+   "shares": "3433332",
+   "isBuy": true,
+   "impliedProbability": "599999941747550193",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x4ca59637ebf1767fac09f8374d6a5beb6f2ca6819a6f081050f35f63bf3a2634",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770793397",
+   "transactionHash": "0x27a5b782f986d644075ff1402e97a94baf8abce8fed062b0ea1e22c1b2a59ee5"
+  },
+  {
+   "id": "0x2942a2b7452b2abb127fea093c589e82aa8605af1caf6b921ccbf683c8c88de9_355",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2389999",
+   "shares": "5431817",
+   "isBuy": true,
+   "impliedProbability": "439999911631779936",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2e627b039e20420b37405299bcc5fcf1609380ac8479ba067196069d754dc651",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782558127",
+   "transactionHash": "0x2942a2b7452b2abb127fea093c589e82aa8605af1caf6b921ccbf683c8c88de9"
+  },
+  {
+   "id": "0x324a5c591c88f6f519206aff2d1f51091339b5921f4054ccc2afd19c45c5bd13_1297",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499998",
+   "shares": "3086418",
+   "isBuy": true,
+   "impliedProbability": "809999812079893261",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x076f26e04eca98b30a9af27590d48c565d14fea30e34c557b4a2c59433817489",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770792817",
+   "transactionHash": "0x324a5c591c88f6f519206aff2d1f51091339b5921f4054ccc2afd19c45c5bd13"
+  },
+  {
+   "id": "0x3d3aa5f8376d58ee4da483a3f0950b7cb15f839dea9c89fad96617d2693a79d0_648",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "1979999",
+   "shares": "3735848",
+   "isBuy": true,
+   "impliedProbability": "529999882222188911",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x517bed3de0d0c85cffeee0f2febe5f93e9fa56e277f014212760103ad426d04e",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770798101",
+   "transactionHash": "0x3d3aa5f8376d58ee4da483a3f0950b7cb15f839dea9c89fad96617d2693a79d0"
+  },
+  {
+   "id": "0x4c9619d1683ff6e2c196d55f4c82b253fd851487ac2dfd5334b9ce628493238e_729",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499996",
+   "shares": "3086415",
+   "isBuy": true,
+   "impliedProbability": "809999951399925155",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xfb206ef5bd481fa80d79a4e13bcf5f78c6f9bd6805c9f0abafa8f8016b2d1f39",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770797867",
+   "transactionHash": "0x4c9619d1683ff6e2c196d55f4c82b253fd851487ac2dfd5334b9ce628493238e"
+  },
+  {
+   "id": "0x4d2af8d8ca4ff742e6d34786a53b8d07dbbacf17c98b9396ded07b8ee4e1528c_359",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2339999",
+   "shares": "5318180",
+   "isBuy": true,
+   "impliedProbability": "439999962393149536",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x21d705e5149853a31ee7eb5e1256149513c975d7e9f506500d5d0d37a55e6283",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782558835",
+   "transactionHash": "0x4d2af8d8ca4ff742e6d34786a53b8d07dbbacf17c98b9396ded07b8ee4e1528c"
+  },
+  {
+   "id": "0x4e26c0956f1bdf09d2b778e62f38ef7317e14c1505f0b328c8371add647ed867_840",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "0",
+   "amount": "2499999",
+   "shares": "4464284",
+   "isBuy": true,
+   "impliedProbability": "559999991039996559",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xda61229c89925553f0e25807dc0d808b7a12f232e1ea1147efd158a40342483c",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770795455",
+   "transactionHash": "0x4e26c0956f1bdf09d2b778e62f38ef7317e14c1505f0b328c8371add647ed867"
+  },
+  {
+   "id": "0x4fac02b7951203e935515e77feca5f3dedea0e1e9a9ba25e44ebe182d9a27770_1658",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "0",
+   "amount": "999999",
+   "shares": "3846152",
+   "isBuy": true,
+   "impliedProbability": "259999864799935103",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xbf7069a49fd9dd31f8d1bd95f66f3de8b91574729ba69bb1d6be5733df45ccea",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770793165",
+   "transactionHash": "0x4fac02b7951203e935515e77feca5f3dedea0e1e9a9ba25e44ebe182d9a27770"
+  },
+  {
+   "id": "0x50f83dda5748721b2524ae23e6b4faa1b1f37830613712775bd2de60649db930_1801",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "1",
+   "amount": "2170000",
+   "shares": "7000000",
+   "isBuy": true,
+   "impliedProbability": "310000000000000000",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xa1360f11b32741d684f4987a760efe76d5d27fd1115aff29809640db82568378",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782086400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782088243",
+   "transactionHash": "0x50f83dda5748721b2524ae23e6b4faa1b1f37830613712775bd2de60649db930"
+  },
+  {
+   "id": "0x5ebc02d363363f5c3a284335d1c2716378f68aa25efc590ba7d7e398ed24be13_1037",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499999",
+   "shares": "9615383",
+   "isBuy": true,
+   "impliedProbability": "259999939679989866",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x2399ac8d1aedc49528301672f855942d22939de2ea52c5d9b2e81cfc90997227",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770798699",
+   "transactionHash": "0x5ebc02d363363f5c3a284335d1c2716378f68aa25efc590ba7d7e398ed24be13"
+  },
+  {
+   "id": "0x6570608e7cbaa79c2b997364eade5e6829592926a1511d8a62d7689993514763_771",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2400000",
+   "shares": "6000000",
+   "isBuy": true,
+   "impliedProbability": "400000000000000000",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xa9a86f35634e304be126eef1e16a31dd6e35bcf42185650f991e78430f674bbd",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782345600",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782385910",
+   "transactionHash": "0x6570608e7cbaa79c2b997364eade5e6829592926a1511d8a62d7689993514763"
+  },
+  {
+   "id": "0x6c3039c4b0c29779331050766fa3ebc3dcd93eaec2fb5185e50533f14a429867_674",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2349999",
+   "shares": "7580644",
+   "isBuy": true,
+   "impliedProbability": "309999915574455151",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xecca02f2cf8af5c83e14ef4fcd3d41e8d6f7c7602aa0245d16956a2404081ac8",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782523697",
+   "transactionHash": "0x6c3039c4b0c29779331050766fa3ebc3dcd93eaec2fb5185e50533f14a429867"
+  },
+  {
+   "id": "0xa5b132dfadea6578a03c6ac322c992995d453f472774c2391365714d8d1801a4_958",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2339999",
+   "shares": "6882351",
+   "isBuy": true,
+   "impliedProbability": "339999950598276664",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x8b08f0f9f302e2c4f54e4eb238b2954df5fd33218cc713ff83808d47687e5ba2",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782523459",
+   "transactionHash": "0xa5b132dfadea6578a03c6ac322c992995d453f472774c2391365714d8d1801a4"
+  },
+  {
+   "id": "0xce91345949384c1ad895168af6ed0ca249df62317e0626c47630a18bab8d4746_1256",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499998",
+   "shares": "3048779",
+   "isBuy": true,
+   "impliedProbability": "819999744159875150",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x7f666ac3fec6e0b122141d2615f102d3d988efd226c6c238c4a68ea25f8a7cd3",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770794825",
+   "transactionHash": "0xce91345949384c1ad895168af6ed0ca249df62317e0626c47630a18bab8d4746"
+  },
+  {
+   "id": "0xd44716474978b2c0e48140692fc64c26caed36f83111db2850f50edcd0e19d07_371",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2129999",
+   "shares": "4953487",
+   "isBuy": true,
+   "impliedProbability": "429999917230024021",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x33533de70f94b422000bca977204b2f8b5620accd5ec94d5cc58448b66aa7e21",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1781913600",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1781927827",
+   "transactionHash": "0xd44716474978b2c0e48140692fc64c26caed36f83111db2850f50edcd0e19d07"
+  },
+  {
+   "id": "0xdab1dbc9628c90ed9d23d6d30eda747ca64a458d5ff497bd83c39ba4f2b87537_1296",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "0",
+   "amount": "2499999",
+   "shares": "4629628",
+   "isBuy": true,
+   "impliedProbability": "539999974079990876",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x129079c6f09b11e0c6d57162f3d396251baec4a01d38a94ccf04506fda7b604b",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770797227",
+   "transactionHash": "0xdab1dbc9628c90ed9d23d6d30eda747ca64a458d5ff497bd83c39ba4f2b87537"
+  },
+  {
+   "id": "0xf7ee70dbd38d8e45f6b1c08dcc5bbbe31f2a25418fcbf2ed179c5ee76ccf2d97_911",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499998",
+   "shares": "3742512",
+   "isBuy": true,
+   "impliedProbability": "667999995724796607",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xcff9c75de1f98b7f62079acaefde95cac735c575873a0cb5725102d94044a16b",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770794235",
+   "transactionHash": "0xf7ee70dbd38d8e45f6b1c08dcc5bbbe31f2a25418fcbf2ed179c5ee76ccf2d97"
+  },
+  {
+   "id": "0xfb8f6c2bde407e5134e6e203f295cd154aef19841fafe37b7641a22c7323d7be_676",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2389998",
+   "shares": "4425924",
+   "isBuy": true,
+   "impliedProbability": "539999783096139924",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2486e88d3d3966a42bdf242fb5af39cde42e728a55eb79ed0abeb5f6694300bd",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782559127",
+   "transactionHash": "0xfb8f6c2bde407e5134e6e203f295cd154aef19841fafe37b7641a22c7323d7be"
+  },
+  {
+   "id": "0xfee270e085a0253ea4ef1b973f0330ed603987b5c187932bab142fd27626f8e3_416",
+   "bettor": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "outcomeIndex": "0",
+   "amount": "2199999",
+   "shares": "4888887",
+   "isBuy": true,
+   "impliedProbability": "449999969318169963",
+   "question": null,
+   "marketParticipant": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x5f12c0026f8243bafbf3dc5b1d73f7bb9640a76fdfbe090b8dd1b2b86bd62c9d",
+   "dailyStatistic": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782259200",
+   "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+   "blockTimestamp": "1782300478",
+   "transactionHash": "0xfee270e085a0253ea4ef1b973f0330ed603987b5c187932bab142fd27626f8e3"
+  },
+  {
+   "id": "0xffc70a3ba87a59c3d7865e4b94fa4bf928230dfadf477d65e4b2dab0f7773bda_1688",
+   "bettor": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "outcomeIndex": "1",
+   "amount": "2499998",
+   "shares": "3571426",
+   "isBuy": true,
+   "impliedProbability": "699999943999959679",
+   "question": null,
+   "marketParticipant": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x0a808da49133031a568764010d1347560d8b275b9253c77715b6f5bd1ad72666",
+   "dailyStatistic": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "builder": null,
+   "metadata": null,
+   "blockTimestamp": "1770793969",
+   "transactionHash": "0xffc70a3ba87a59c3d7865e4b94fa4bf928230dfadf477d65e4b2dab0f7773bda"
+  }
+ ],
+ "marketParticipants": [
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x21d705e5149853a31ee7eb5e1256149513c975d7e9f506500d5d0d37a55e6283",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2339999",
+   "outcomeShares0": "5318180",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2486e88d3d3966a42bdf242fb5af39cde42e728a55eb79ed0abeb5f6694300bd",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2389998",
+   "outcomeShares0": "4425924",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2b2bf99b7d165779ddc6e0759334d73238f9f5397d64234fdbb3463de35a9ac2",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "1799999",
+   "outcomeShares0": "4864863",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x2e627b039e20420b37405299bcc5fcf1609380ac8479ba067196069d754dc651",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2389999",
+   "outcomeShares0": "5431817",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x33533de70f94b422000bca977204b2f8b5620accd5ec94d5cc58448b66aa7e21",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2129999",
+   "outcomeShares0": "4953487",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x3debb910b45ae8dad34630e7a9f4cebe04a598cf9527b930c58127903f68d2ac",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2339999",
+   "outcomeShares0": "9223702",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x5f12c0026f8243bafbf3dc5b1d73f7bb9640a76fdfbe090b8dd1b2b86bd62c9d",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2199999",
+   "outcomeShares0": "4888887",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0x8b08f0f9f302e2c4f54e4eb238b2954df5fd33218cc713ff83808d47687e5ba2",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2339999",
+   "outcomeShares0": "6882351",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xa1360f11b32741d684f4987a760efe76d5d27fd1115aff29809640db82568378",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2170000",
+   "outcomeShares0": "0",
+   "outcomeShares1": "7000000"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xa9a86f35634e304be126eef1e16a31dd6e35bcf42185650f991e78430f674bbd",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2400000",
+   "outcomeShares0": "6000000",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xecca02f2cf8af5c83e14ef4fcd3d41e8d6f7c7602aa0245d16956a2404081ac8",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2349999",
+   "outcomeShares0": "7580644",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_0xf936ea6fe18ca038a78adb2c957a2dac07b1d8fd043f07f6b6df499e52b47ec7",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9",
+   "totalBets": 1,
+   "totalTraded": "2199999",
+   "outcomeShares0": "4888887",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x076f26e04eca98b30a9af27590d48c565d14fea30e34c557b4a2c59433817489",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499998",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3086418"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x0a808da49133031a568764010d1347560d8b275b9253c77715b6f5bd1ad72666",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499998",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3571426"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x129079c6f09b11e0c6d57162f3d396251baec4a01d38a94ccf04506fda7b604b",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499999",
+   "outcomeShares0": "4629628",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x2399ac8d1aedc49528301672f855942d22939de2ea52c5d9b2e81cfc90997227",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499999",
+   "outcomeShares0": "0",
+   "outcomeShares1": "9615383"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x4ca59637ebf1767fac09f8374d6a5beb6f2ca6819a6f081050f35f63bf3a2634",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2059999",
+   "outcomeShares0": "3433332",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x517bed3de0d0c85cffeee0f2febe5f93e9fa56e277f014212760103ad426d04e",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "1979999",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3735848"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x6cc841466bca13b518a79c4b13c15c29e6e1d9c5c4c46d8a1875a1443c6f38df",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499999",
+   "outcomeShares0": "7352940",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0x7f666ac3fec6e0b122141d2615f102d3d988efd226c6c238c4a68ea25f8a7cd3",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499998",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3048779"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xbf7069a49fd9dd31f8d1bd95f66f3de8b91574729ba69bb1d6be5733df45ccea",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "999999",
+   "outcomeShares0": "3846152",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xcff9c75de1f98b7f62079acaefde95cac735c575873a0cb5725102d94044a16b",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499998",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3742512"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xda61229c89925553f0e25807dc0d808b7a12f232e1ea1147efd158a40342483c",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499999",
+   "outcomeShares0": "4464284",
+   "outcomeShares1": "0"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_0xfb206ef5bd481fa80d79a4e13bcf5f78c6f9bd6805c9f0abafa8f8016b2d1f39",
+   "traderAgent": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8",
+   "totalBets": 1,
+   "totalTraded": "2499996",
+   "outcomeShares0": "0",
+   "outcomeShares1": "3086415"
+  }
+ ],
+ "dailyProfitStatistics": [
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1781913600",
+   "totalBets": 2,
+   "totalTraded": "3929998"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782086400",
+   "totalBets": 1,
+   "totalTraded": "2170000"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782259200",
+   "totalBets": 2,
+   "totalTraded": "4399998"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782345600",
+   "totalBets": 1,
+   "totalTraded": "2400000"
+  },
+  {
+   "id": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9_1782518400",
+   "totalBets": 6,
+   "totalTraded": "14149993"
+  },
+  {
+   "id": "0xdf242e5bded8fe15a98ffd60ec4b8747368575a8_1770768000",
+   "totalBets": 12,
+   "totalTraded": "27539981"
+  }
+ ],
+ "depositWallets": [
+  {
+   "id": "0xfc44573392de3b50fd48b76890aa4ba4a79934c2",
+   "traderAgent": "0x0f5937fb14b8a52ee3d9356b068de1a48bc4d6d9"
+  }
+ ],
+ "tokenRegistry": [
+  {
+   "id": "105038283946597258609699256404637370706731691794441181754066014464795278151914",
+   "conditionId": "0x6cc841466bca13b518a79c4b13c15c29e6e1d9c5c4c46d8a1875a1443c6f38df",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "107758487788609803384608332385617790180820187459753297302331890004195184758064",
+   "conditionId": "0xfb206ef5bd481fa80d79a4e13bcf5f78c6f9bd6805c9f0abafa8f8016b2d1f39",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "109769823159703211207701481760605802051288707151061375307397777154688512090679",
+   "conditionId": "0x4ca59637ebf1767fac09f8374d6a5beb6f2ca6819a6f081050f35f63bf3a2634",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "110497699584092981271645275659518009509426434681323672798794261900579552307405",
+   "conditionId": "0x8b08f0f9f302e2c4f54e4eb238b2954df5fd33218cc713ff83808d47687e5ba2",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "113085887145073182152358092391961393121171601041517313038538537489941367926167",
+   "conditionId": "0x3debb910b45ae8dad34630e7a9f4cebe04a598cf9527b930c58127903f68d2ac",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "113446618475328521792215365101713007964069140493177009360488910852108057818699",
+   "conditionId": "0x2486e88d3d3966a42bdf242fb5af39cde42e728a55eb79ed0abeb5f6694300bd",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "114951122256378254781341477010451797643031616371088396785815442638683642035872",
+   "conditionId": "0x0a808da49133031a568764010d1347560d8b275b9253c77715b6f5bd1ad72666",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "115348866998881659865115025554005236444630502002503491891927077358802648949175",
+   "conditionId": "0x4ca59637ebf1767fac09f8374d6a5beb6f2ca6819a6f081050f35f63bf3a2634",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "11662151745688485089375326465945765705064795876601753347206541579701659880259",
+   "conditionId": "0x2486e88d3d3966a42bdf242fb5af39cde42e728a55eb79ed0abeb5f6694300bd",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "1173479406005961765024083483180872207200748470927188236707197708811669885646",
+   "conditionId": "0xf936ea6fe18ca038a78adb2c957a2dac07b1d8fd043f07f6b6df499e52b47ec7",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "13626344849375463893401850718758383781160227107415674240972921711827599619982",
+   "conditionId": "0xa9a86f35634e304be126eef1e16a31dd6e35bcf42185650f991e78430f674bbd",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "17025219069430590874305588762420482950212107873493288317764484159738576091636",
+   "conditionId": "0x5f12c0026f8243bafbf3dc5b1d73f7bb9640a76fdfbe090b8dd1b2b86bd62c9d",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "18361065822450427685668969553742768412964061749357882664943270131071733492280",
+   "conditionId": "0xda61229c89925553f0e25807dc0d808b7a12f232e1ea1147efd158a40342483c",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "18563308171696429306540522613545831651579681390353030584370035840019748538624",
+   "conditionId": "0x21d705e5149853a31ee7eb5e1256149513c975d7e9f506500d5d0d37a55e6283",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "27710966759019635202533265601776264855028110104502104015116437481129117415225",
+   "conditionId": "0x076f26e04eca98b30a9af27590d48c565d14fea30e34c557b4a2c59433817489",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "27798191307468069024420561439503172173527407221759790544220331335251467378238",
+   "conditionId": "0x2e627b039e20420b37405299bcc5fcf1609380ac8479ba067196069d754dc651",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "33117228922665915219626609371106555109590402270436991749166608485019796164906",
+   "conditionId": "0x2b2bf99b7d165779ddc6e0759334d73238f9f5397d64234fdbb3463de35a9ac2",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "35055049266414642689461575474477761827945872759713296483551922190938480910993",
+   "conditionId": "0x2399ac8d1aedc49528301672f855942d22939de2ea52c5d9b2e81cfc90997227",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "35321087001674201918235970340885774653663606997822205393990842890122912674328",
+   "conditionId": "0x129079c6f09b11e0c6d57162f3d396251baec4a01d38a94ccf04506fda7b604b",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "35947332457047996316567420959480113629634383210017656106076532123886203161660",
+   "conditionId": "0x129079c6f09b11e0c6d57162f3d396251baec4a01d38a94ccf04506fda7b604b",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "36313030481003513837233477035756607073096460375960783099313195689629427002293",
+   "conditionId": "0xa1360f11b32741d684f4987a760efe76d5d27fd1115aff29809640db82568378",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "37042478178786736061989602983081327864552640414275425677739813945413365531805",
+   "conditionId": "0xbf7069a49fd9dd31f8d1bd95f66f3de8b91574729ba69bb1d6be5733df45ccea",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "37693097416221785422470368063952143205397717043066251735481107737521938588849",
+   "conditionId": "0x3debb910b45ae8dad34630e7a9f4cebe04a598cf9527b930c58127903f68d2ac",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "38219990616090018828341370528708534240293997743362624273376446392876380397477",
+   "conditionId": "0x7f666ac3fec6e0b122141d2615f102d3d988efd226c6c238c4a68ea25f8a7cd3",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "41091655441484986509023834724108288774139272181554178736370219263838569873111",
+   "conditionId": "0x2399ac8d1aedc49528301672f855942d22939de2ea52c5d9b2e81cfc90997227",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "45818696145368430414300151614533033115312490417923533699718202053297820175239",
+   "conditionId": "0x2e627b039e20420b37405299bcc5fcf1609380ac8479ba067196069d754dc651",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "52679262749599566651796850868878815163162323649996711040665363331971484848209",
+   "conditionId": "0xecca02f2cf8af5c83e14ef4fcd3d41e8d6f7c7602aa0245d16956a2404081ac8",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "57300713876774969271720770581600495229688801370333229986601132184050555999643",
+   "conditionId": "0xa1360f11b32741d684f4987a760efe76d5d27fd1115aff29809640db82568378",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "58625230132761288347094904500789545432669779402598555798523422576493088040316",
+   "conditionId": "0x2b2bf99b7d165779ddc6e0759334d73238f9f5397d64234fdbb3463de35a9ac2",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "59486515505172770194759986480248623982470384665110499187156810204073586163823",
+   "conditionId": "0x8b08f0f9f302e2c4f54e4eb238b2954df5fd33218cc713ff83808d47687e5ba2",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "59588157610968233409888370543560746604185966071039541167668916002844060616593",
+   "conditionId": "0xda61229c89925553f0e25807dc0d808b7a12f232e1ea1147efd158a40342483c",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "63380336014783363188333016289956681267396059506579002942639561123420052969087",
+   "conditionId": "0x7f666ac3fec6e0b122141d2615f102d3d988efd226c6c238c4a68ea25f8a7cd3",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "63502130015276108018725458326669203435043136013821256154267535405221150821064",
+   "conditionId": "0xa9a86f35634e304be126eef1e16a31dd6e35bcf42185650f991e78430f674bbd",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "68889514473836778465687305895648236592993321140815343126928196548925115104385",
+   "conditionId": "0xcff9c75de1f98b7f62079acaefde95cac735c575873a0cb5725102d94044a16b",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "71513728469025329680181335519577164422087652179170739646680118910604205448584",
+   "conditionId": "0x33533de70f94b422000bca977204b2f8b5620accd5ec94d5cc58448b66aa7e21",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "72539413788778329822454439644656342996473591075795061458655987564948205348135",
+   "conditionId": "0x0a808da49133031a568764010d1347560d8b275b9253c77715b6f5bd1ad72666",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "76426921017681851512853935574475546264722099679714439821568395410600124254890",
+   "conditionId": "0xf936ea6fe18ca038a78adb2c957a2dac07b1d8fd043f07f6b6df499e52b47ec7",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "80292180784516098011336111583982483452386599350660156524533025590112170334519",
+   "conditionId": "0x5f12c0026f8243bafbf3dc5b1d73f7bb9640a76fdfbe090b8dd1b2b86bd62c9d",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "80616719107822086507039479150457385502169932504665962787238726381988316295684",
+   "conditionId": "0xbf7069a49fd9dd31f8d1bd95f66f3de8b91574729ba69bb1d6be5733df45ccea",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "80644833973405708359680577728346375535205349425195347310574349687454349067336",
+   "conditionId": "0xcff9c75de1f98b7f62079acaefde95cac735c575873a0cb5725102d94044a16b",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "80953768682754744809925282542883387427483487926816596090193441441307495212330",
+   "conditionId": "0x517bed3de0d0c85cffeee0f2febe5f93e9fa56e277f014212760103ad426d04e",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "81156277786774639675237422094150164307488326005270286851729294044483719846570",
+   "conditionId": "0x517bed3de0d0c85cffeee0f2febe5f93e9fa56e277f014212760103ad426d04e",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "85458705948436852382327019448307219192888102397739845392883465787824805988448",
+   "conditionId": "0x076f26e04eca98b30a9af27590d48c565d14fea30e34c557b4a2c59433817489",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "91955352185802774291264400258488721858533035154606246768224707656751999259521",
+   "conditionId": "0xecca02f2cf8af5c83e14ef4fcd3d41e8d6f7c7602aa0245d16956a2404081ac8",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "92347464413925478276829061935654897331751454573921946463762571797569957765051",
+   "conditionId": "0x6cc841466bca13b518a79c4b13c15c29e6e1d9c5c4c46d8a1875a1443c6f38df",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "93574426742576442673123426511416563765622442192484568471064811843036873426611",
+   "conditionId": "0xfb206ef5bd481fa80d79a4e13bcf5f78c6f9bd6805c9f0abafa8f8016b2d1f39",
+   "outcomeIndex": "0"
+  },
+  {
+   "id": "96604680085356445950087779882024016491349118772268088831125179675286479323589",
+   "conditionId": "0x21d705e5149853a31ee7eb5e1256149513c975d7e9f506500d5d0d37a55e6283",
+   "outcomeIndex": "1"
+  },
+  {
+   "id": "9801557736292658995163091700144020519221214526298349731804708782281865649071",
+   "conditionId": "0x33533de70f94b422000bca977204b2f8b5620accd5ec94d5cc58448b66aa7e21",
+   "outcomeIndex": "0"
+  }
+ ]
+}

@@ -1,0 +1,1911 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_positionManager",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_combinatorialModule",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_feeReceiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_maxFeeRate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_proxyFactory",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_safeFactory",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_proxyBytecodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_safeBytecodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "AlreadyInitialized",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "AssetAccountingMismatch",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ComplementaryFillExceedsTakerFill",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ExceedsMaxPauseInterval",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "FeeExceedsMaxRate",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "FeeExceedsProceeds",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidComplement",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidInitialization",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidSignature",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidTokenId",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "MakingGtRemaining",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "MaxFeeRateExceedsCeiling",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "MismatchedArrayLengths",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "MismatchedTokenIds",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NewOwnerIsZeroAddress",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NoHandoverRequest",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NoMakerOrders",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NotCrossing",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NotInitializing",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NotOperator",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "OrderAlreadyFilled",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "Paused",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "TakerFillMismatch",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "Unauthorized",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "UnauthorizedCallContext",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "UpgradeFailed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "UserAlreadyPaused",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "UserIsPaused",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ZeroMakerAmount",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ZeroTakerAmount",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "FeeCharged",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "Initialized",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OrderFilled",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "maker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "taker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Side"
+      },
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "PositionId"
+      },
+      {
+        "name": "makerAmountFilled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "takerAmountFilled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "builder",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadata",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OrderPreapprovalInvalidated",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OrderPreapproved",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OrdersMatched",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "takerOrderHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "takerOrderMaker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Side"
+      },
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "PositionId"
+      },
+      {
+        "name": "makerAmountFilled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "takerAmountFilled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OwnershipHandoverCanceled",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "pendingOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OwnershipHandoverRequested",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "pendingOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OwnershipTransferred",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "oldOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "RolesUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "roles",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "TradingPaused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "pauser",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "TradingUnpaused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "pauser",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "Upgraded",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "implementation",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "UserPauseBlockIntervalUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "oldInterval",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newInterval",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "UserPaused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "effectivePauseBlock",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "UserUnpaused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "COLLATERAL_TOKEN",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "COMBINATORIAL_MODULE",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "FEE_RECEIVER",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "MAX_FEE_RATE",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "POSITION_MANAGER",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract PositionManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "addAdmin",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "addOperator",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "cancelOwnershipHandover",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "completeOwnershipHandover",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "pendingOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "domainSeparator",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "eip712Domain",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "fields",
+        "type": "bytes1",
+        "internalType": "bytes1"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "verifyingContract",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "extensions",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getOrderStatus",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "status",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "filled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "remaining",
+            "type": "uint248",
+            "internalType": "uint248"
+          }
+        ],
+        "internalType": "struct OrderStatus"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getProxyWalletAddress",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_signer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getSafeWalletAddress",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_signer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "grantRoles",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "hasAllRoles",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "hasAnyRole",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "hashOrder",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "initialize",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "invalidatePreapprovedOrder",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "isAdmin",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_usr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "isOperator",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_usr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "isUserPaused",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_user",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "matchOrders",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "takerOrder",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order"
+      },
+      {
+        "name": "makerOrders",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order[]"
+      },
+      {
+        "name": "makerFillAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "makerFeeAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "takerAmounts",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "takerFillAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerReceiveAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerFeeAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ],
+        "internalType": "struct TakerAmounts"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "matchOrdersAndPrepareCombinatorial",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "takerOrder",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order"
+      },
+      {
+        "name": "makerOrders",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order[]"
+      },
+      {
+        "name": "makerFillAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "makerFeeAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "takerAmounts",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "takerFillAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerReceiveAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerFeeAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ],
+        "internalType": "struct TakerAmounts"
+      },
+      {
+        "name": "combinatorialLegs",
+        "type": "uint256[]",
+        "internalType": "PositionId[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "onERC1155BatchReceived",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "onERC1155Received",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "orderStatus",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filled",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "remaining",
+        "type": "uint248",
+        "internalType": "uint248"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "owner",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "ownershipHandoverExpiresAt",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "pendingOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "pauseTrading",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "pauseUser",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "paused",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "preapproveOrder",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "preapproved",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "proxiableUUID",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "removeAdmin",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "removeOperator",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "renounceOperatorRole",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "renounceOwnership",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "renounceRoles",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "requestOwnershipHandover",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "revokeRoles",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "rolesOf",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "roles",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "setUserPauseBlockInterval",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "_interval",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "supportsInterface",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "name": "transferOwnership",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "unpauseTrading",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "unpauseUser",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "upgradeToAndCall",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "userPauseBlockInterval",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "userPausedBlockAt",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "validateFee",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cashValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "name": "validateOrder",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "salt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "signer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenId",
+            "type": "uint256",
+            "internalType": "PositionId"
+          },
+          {
+            "name": "makerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "takerAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "enum Side"
+          },
+          {
+            "name": "signatureType",
+            "type": "uint8",
+            "internalType": "enum SignatureType"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "metadata",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct Order"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  }
+]
