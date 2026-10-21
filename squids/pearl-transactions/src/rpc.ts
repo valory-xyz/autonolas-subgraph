@@ -56,9 +56,11 @@ const primaryRpc = rpcFromEnv("RPC_HTTP", "RPC_POLYGON_HTTP") ?? {
 const primary = clientFor(primaryRpc.url);
 
 /**
- * Optional second archive endpoint, tried only when the primary fails with
- * something that is NOT a revert (e.g. a hole in its archive). Sees only
- * the calls the primary could not serve, so a rate-limited endpoint is fine.
+ * Optional second archive endpoint, tried when the primary fails with
+ * something that is NOT a trusted revert (e.g. a hole in its archive), and
+ * as the second check on every "not a Safe" verdict. Negatives are not
+ * cached, so that is two extra reads on EVERY EOA sighting, not just the
+ * first; still small, but size a rate-limited endpoint for it.
  */
 const fallbackRpc = rpcFromEnv("RPC_HTTP_FALLBACK", "RPC_POLYGON_HTTP_FALLBACK");
 const fallback: PublicClient | null = fallbackRpc
@@ -186,10 +188,18 @@ class UnprovenRevertError extends Error {
 async function historicalRead<
   const abi extends readonly unknown[],
   fn extends string,
->(address: string, abi: abi, functionName: fn, blockNumber: number) {
+>(
+  address: string,
+  abi: abi,
+  functionName: fn,
+  blockNumber: number,
+  used?: Set<"primary" | "fallback">
+) {
   let primaryErr: unknown;
   try {
-    return await readAt(primary, address, abi, functionName, blockNumber);
+    const value = await readAt(primary, address, abi, functionName, blockNumber);
+    used?.add("primary");
+    return value;
   } catch (err) {
     if (!isRevert(err)) primaryErr = err;
     else {
@@ -199,11 +209,15 @@ async function historicalRead<
       } catch (codeErr) {
         primaryErr = codeErr;
       }
-      if (proven) throw err;
+      if (proven) {
+        used?.add("primary");
+        throw err;
+      }
       primaryErr ??= new UnprovenRevertError(primaryRpc.envName, blockNumber, err);
     }
   }
   if (fallback == null) throw primaryErr;
+  used?.add("fallback");
   console.warn(
     `[rpc] primary failed for ${functionName}(${address}) at block ` +
       `${blockNumber} — ${firstLine(primaryErr)} — retrying on ${fallbackRpc?.envName}`
@@ -219,6 +233,58 @@ async function historicalRead<
   }
 }
 
+/** Wait before re-probing a "not a Safe" on the primary (no fallback set). */
+export const NEGATIVE_RECHECK_MS = 500;
+
+/**
+ * One read on one client, with a revert trusted only if that client holds
+ * state at the block; otherwise a non-revert is thrown so the batch retries.
+ */
+async function provenRead(
+  client: PublicClient,
+  envName: string,
+  address: string,
+  functionName: "getOwners" | "getThreshold",
+  blockNumber: number
+) {
+  try {
+    return await readAt(client, address, SAFE_ABI, functionName, blockNumber);
+  } catch (err) {
+    if (isRevert(err) && !(await hasStateAt(client, blockNumber))) {
+      throw new UnprovenRevertError(envName, blockNumber, err);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Both Safe reads through `read`: the config, or null for a revert or empty
+ * owners ("not a Safe", as in the subgraph). Waits for both reads, so a
+ * non-revert failure in either is rethrown even if the other reverted.
+ */
+async function probeSafe(
+  read: (functionName: "getOwners" | "getThreshold") => Promise<unknown>
+): Promise<SafeConfig | null> {
+  const [ownersRes, thresholdRes] = await Promise.allSettled([
+    read("getOwners"),
+    read("getThreshold"),
+  ]);
+  const failures = [ownersRes, thresholdRes].flatMap((r) =>
+    r.status === "rejected" ? [r.reason] : []
+  );
+  const transient = failures.find((e) => !isRevert(e));
+  if (transient !== undefined) throw transient;
+  if (failures.length > 0) return null;
+  const owners = (ownersRes as PromiseFulfilledResult<unknown>)
+    .value as readonly `0x${string}`[];
+  const threshold = (thresholdRes as PromiseFulfilledResult<unknown>)
+    .value as bigint;
+  if (owners.length === 0) return null;
+  return { owners: owners.map((o) => o.toLowerCase()), threshold };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Owners + threshold for a Safe, read AT `blockNumber`.
  *
@@ -233,6 +299,10 @@ async function historicalRead<
  * Returns null when the address is not a Safe: `getOwners` reverts on
  * anything else, which is how the subgraph distinguishes a Master Safe from
  * the other things a service NFT can land on (a staking proxy, an EOA).
+ *
+ * "Not a Safe" needs two agreeing checks, on different endpoints where
+ * possible; see "Two endpoint requirements" in the README.
+ *
  * A negative verdict is NOT cached — see safeMemo for why. Transport errors
  * are rethrown rather than swallowed, so SQD retries the batch.
  */
@@ -244,22 +314,46 @@ export async function getSafeConfig(
   const hit = safeMemo.get(memoKey);
   if (hit != null) return hit;
 
-  let cfg: SafeConfig | null;
-  try {
-    const [owners, threshold] = (await Promise.all([
-      historicalRead(address, SAFE_ABI, "getOwners", blockNumber),
-      historicalRead(address, SAFE_ABI, "getThreshold", blockNumber),
-    ])) as [readonly `0x${string}`[], bigint];
-    cfg =
-      owners.length === 0
-        ? null // empty owners is treated as "not a Safe", as in the subgraph
-        : {
-            owners: owners.map((o) => o.toLowerCase()),
-            threshold: threshold as bigint,
-          };
-  } catch (err) {
-    if (isRevert(err)) cfg = null;
-    else throw err;
+  const used = new Set<"primary" | "fallback">();
+  let cfg = await probeSafe((fn) =>
+    historicalRead(address, SAFE_ABI, fn, blockNumber, used)
+  );
+
+  if (cfg == null) {
+    let recheck: string;
+    if (fallback == null || fallbackRpc == null) {
+      // No other endpoint: the same one, after a pause.
+      recheck = `${primaryRpc.envName} (re-probe)`;
+      await sleep(NEGATIVE_RECHECK_MS);
+      cfg = await probeSafe((fn) =>
+        historicalRead(address, SAFE_ABI, fn, blockNumber)
+      );
+    } else if (!used.has("fallback")) {
+      recheck = fallbackRpc.envName;
+      cfg = await probeSafe((fn) =>
+        provenRead(fallback, fallbackRpc.envName, address, fn, blockNumber)
+      );
+    } else {
+      // The fallback gave (part of) the first verdict, so re-check on the
+      // primary. If the primary still can't serve this block (an archive
+      // hole), re-probe the fallback after a pause rather than stall.
+      recheck = primaryRpc.envName;
+      cfg = await probeSafe(async (fn) => {
+        try {
+          return await provenRead(primary, primaryRpc.envName, address, fn, blockNumber);
+        } catch (err) {
+          if (isRevert(err)) throw err;
+          await sleep(NEGATIVE_RECHECK_MS);
+          return provenRead(fallback, fallbackRpc.envName, address, fn, blockNumber);
+        }
+      });
+    }
+    if (cfg != null) {
+      console.warn(
+        `[rpc] ${address} read as NOT-a-Safe at block ${blockNumber} on the ` +
+          `first check, but ${recheck} resolved it as a Safe; using that.`
+      );
+    }
   }
 
   if (cfg == null) {
@@ -269,8 +363,9 @@ export async function getSafeConfig(
     // sighting re-probes.
     console.warn(
       `[rpc] ${address} classified NOT-a-Safe at block ${blockNumber} ` +
-        `(getOwners reverted or returned no code). If this address is a ` +
-        `real Master Safe, the RPC is wrong — check it is archive-capable.`
+        `(getOwners reverted, returned no code or no owners, on both ` +
+        `checks). If this address is a real Master Safe, the RPC is wrong — ` +
+        `check it is archive-capable.`
     );
   }
   // Negative results are NOT cached — see safeMemo.
@@ -364,19 +459,38 @@ async function assertClientArchive(
  *
  * So walk the cause chain and look for the two errors that actually mean
  * "the call itself failed on-chain".
+ *
+ * One exception: viem also maps ANY JSON-RPC -32603 (a provider's
+ * internal/upstream error) to ContractFunctionRevertedError. That is only a
+ * revert if it carries revert data or says "revert"; a bare -32603 is a
+ * provider failure and must retry like any other.
  */
 export function isRevert(err: unknown): boolean {
   let e: unknown = err;
   // Bounded, in case a cause chain ever loops.
   for (let depth = 0; e != null && depth < 16; depth++) {
     const name = (e as { name?: string }).name;
-    if (
-      name === "ContractFunctionRevertedError" ||
-      name === "ContractFunctionZeroDataError"
-    ) {
-      return true;
+    if (name === "ContractFunctionZeroDataError") return true;
+    if (name === "ContractFunctionRevertedError") {
+      return !isBareInternalError(e as RevertedLike);
     }
     e = (e as { cause?: unknown }).cause;
   }
   return false;
+}
+
+const INTERNAL_RPC_ERROR = -32603;
+type RevertedLike = { raw?: string; reason?: string; cause?: unknown };
+
+/** A -32603 with no revert data and no "revert" in its text. */
+function isBareInternalError(reverted: RevertedLike): boolean {
+  let code: unknown;
+  let e: unknown = reverted.cause;
+  for (let depth = 0; e != null && depth < 16 && code === undefined; depth++) {
+    code = (e as { code?: unknown }).code;
+    e = (e as { cause?: unknown }).cause;
+  }
+  if (code !== INTERNAL_RPC_ERROR) return false;
+  const hasData = reverted.raw != null && reverted.raw !== "0x";
+  return !hasData && !/revert/i.test(reverted.reason ?? "");
 }
