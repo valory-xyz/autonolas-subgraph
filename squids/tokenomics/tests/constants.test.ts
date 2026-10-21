@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // CHAIN is resolved at import time, so each case stubs the env and imports
-// fresh modules.
+// fresh modules. A cold import of the processor (SDK RPC adapter) can pass
+// vitest's 5 s default, hence the longer timeout on those cases.
+const COLD_IMPORT = 30_000;
 const load = () => import("../src/constants");
 
 beforeEach(() => vi.resetModules());
@@ -37,7 +39,7 @@ describe("TOKENOMICS_CHAIN", () => {
     expect(LOG_QUERIES[0].where?.address).toEqual([
       "0x54330d28ca3357f294334bdc454a032e7f353416",
     ]);
-  });
+  }, COLD_IMPORT);
 
   it("refuses an unknown chain and lists the known ones", async () => {
     vi.stubEnv("TOKENOMICS_CHAIN", "gnosis");
@@ -79,5 +81,5 @@ describe("assertPortalDataset", () => {
     vi.stubEnv("TOKENOMICS_CHAIN", "base");
     vi.stubEnv("SQD_PORTAL_URL", "https://portal.sqd.dev/datasets/robinhood-mainnet");
     await expect(import("../src/processor")).rejects.toThrow(/base-mainnet/);
-  });
+  }, COLD_IMPORT);
 });
