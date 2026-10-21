@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // CHAIN is resolved at import time, so each case stubs the env and imports
 // fresh modules. A cold import of the processor (SDK RPC adapter) can pass
-// vitest's 5 s default, hence the longer timeout on those cases.
+// vitest's 5 s default (first run after npm ci), so every case here gets 30 s.
 const COLD_IMPORT = 30_000;
+vi.setConfig({ testTimeout: COLD_IMPORT });
 const load = () => import("../src/constants");
 
 beforeEach(() => vi.resetModules());
@@ -64,6 +65,11 @@ describe("assertPortalDataset", () => {
     expect(() =>
       assertPortalDataset(CHAINS.base, {
         SQD_PORTAL_URL: "https://shared.portal.sqd.dev/datasets/base-mainnet/",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertPortalDataset(CHAINS.base, {
+        SQD_PORTAL_URL: "https://private.example/v1/datasets/Base-Mainnet/stream?x=1",
       }),
     ).not.toThrow();
   });

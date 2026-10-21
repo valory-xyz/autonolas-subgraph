@@ -59,7 +59,10 @@ export function assertPortalDataset(
   const url = env.SQD_PORTAL_URL?.trim();
   if (!url) return;
   const dataset = chain.portalDataset.split("/").pop()!;
-  if (!url.replace(/\/+$/, "").endsWith(`/datasets/${dataset}`)) {
+  // Same rule as pearl-transactions: compare the .../datasets/<name> segment,
+  // so a trailing slash, sub-path or query string on a private host passes.
+  const got = /\/datasets\/([^/?#]+)/.exec(url)?.[1]?.toLowerCase();
+  if (got !== dataset) {
     throw new Error(
       `SQD_PORTAL_URL "${url}" is not the ${dataset} dataset for TOKENOMICS_CHAIN=${chain.name}`,
     );
