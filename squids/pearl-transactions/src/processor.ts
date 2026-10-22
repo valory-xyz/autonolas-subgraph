@@ -111,11 +111,12 @@ export const dataSource = new DataSourceBuilder()
   // 4.23 logs/block, versus 133 logs/block for the address-filtered ERC-20
   // sources below — the templates were never the expensive half.
   //
-  // ExecutionSuccess is ~97% of Safe log volume (0.12 -> ~4.23
-  // logs/block, with its transaction). That cost is accepted: it is the
-  // only way to see an Agent Safe's native top-up of its own Agent Signer,
-  // decoded from the outer execTransaction calldata. ExecutionFromModuleSuccess
-  // stays unsubscribed: a module call carries no decodable outer tx.
+  // ExecutionSuccess and ExecutionFromModuleSuccess together are ~97% of
+  // Safe log volume (4.23 vs 0.12 logs/block without them). ExecutionSuccess
+  // is subscribed anyway, with its transaction: it is the only way to see an
+  // Agent Safe's native top-up of its own Agent Signer, decoded from the
+  // outer execTransaction calldata. ExecutionFromModuleSuccess stays
+  // unsubscribed: a module call carries no decodable outer tx.
   .addLog({
     where: {
       topic0: [
