@@ -38,10 +38,9 @@ Key files:
 
 Protocol V2 bets are ExchangeV3 `OrderFilled` events on PositionManager
 position IDs, paid in pUSD (6 decimals). They land in the same entities as
-CTF exchange bets. V2 markets get a `Question`, settlement, and payouts only
-with the follow-up V2 results change, so readers that need a question or
-resolution (prediction history, accuracy, achievements) see V2 bets only once
-both changes are deployed together.
+CTF exchange bets, and V2 markets get a `Question` and settlement here, so
+readers that need a question or resolution (prediction history, accuracy,
+achievements) need no changes:
 
 - The maker resolves to the agent the same way: its Safe, or a
   DepositWallet linked to it.
@@ -61,6 +60,13 @@ both changes are deployed together.
   and V2 amounts differ by that fee.
 - Positions are keyed per agent (by its Safe), so moving shares between an
   agent's DepositWallet and its Safe needs no handling.
+- An agent's first fill on a BinaryModule condition creates its `Question`,
+  keyed by the padded condition ID.
+- BinaryModule `ConditionResolved` settles the market through the same
+  resolution path as V1. Its result vector is in parts per million: the
+  entry with the full 1,000,000 is the winning outcome, and any other result
+  has winning index -1 and settles each share at its outcome's part of the
+  vector. A resolved bet with no payout shows as lost.
 
 ## Environment variables
 

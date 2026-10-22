@@ -28,8 +28,11 @@ import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
 import { getOutcomeTokenId } from "./tokenDerivation";
 import { decodePositionId, padConditionId } from "./positionId";
 import { computeImpliedProbability } from "./brier";
+import { RESULT_DENOMINATOR, winningOutcomeFromResult } from "./resolution";
 import {
   PREDICT_AGENT_ID,
+  PROBABILITY_SCALE,
+  BINARY_MODULE_ID,
   NEG_RISK_ADAPTER,
   PUSD_ADDRESS,
   USDC_E_ADDRESS,
@@ -362,7 +365,7 @@ export async function handlePositionFill(
   const { moduleId, conditionId, outcomeIndex } = decodePositionId(
     p.outcomeTokenId,
   );
-  if (moduleId !== 1 || outcomeIndex > 1) {
+  if (moduleId !== BINARY_MODULE_ID || outcomeIndex > 1) {
     // entities track binary positions only (outcomeShares0 / outcomeShares1):
     // BinaryModule (1) positions; NegRisk (2) and combinatorial (3) are skipped
     if (!warnedSkippedPositions.has(p.outcomeTokenId)) {
@@ -374,14 +377,72 @@ export async function handlePositionFill(
     return;
   }
 
+  const condition = padConditionId(conditionId);
+  await ensureBinaryQuestion(cache, meta, condition);
   await recordBet(
     cache,
     meta,
     agent,
     p,
-    padConditionId(conditionId),
+    condition,
     BigInt(outcomeIndex),
     PUSD_ADDRESS,
+  );
+}
+
+/**
+ * Question of a BinaryModule condition, created at an agent's first fill on
+ * it so its participants and bets settle at ConditionResolved. Keyed by the
+ * padded condition ID.
+ */
+async function ensureBinaryQuestion(
+  cache: IEntityCache,
+  meta: EventMeta,
+  conditionId: string,
+) {
+  if ((await cache.get(Question, conditionId)) != null) return;
+
+  const metadata = new MarketMetadata({
+    id: conditionId,
+    title: "",
+    outcomes: [],
+    rawAncillaryData: "",
+  });
+  cache.set(MarketMetadata, metadata);
+
+  cache.set(
+    Question,
+    new Question({
+      id: conditionId,
+      questionId: conditionId,
+      metadata,
+      isNegRisk: false,
+      marketId: null,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      transactionHash: meta.transactionHash,
+    }),
+  );
+}
+
+/**
+ * Protocol V2 result of a binary market: BinaryModule ConditionResolved's
+ * payout vector (parts per million) settles the market through the V1
+ * resolution path. settledPrice is outcome 0's payout scaled to 1e18, the
+ * scale UMA reports it in.
+ */
+export async function handleConditionResolved(
+  cache: IEntityCache,
+  meta: EventMeta,
+  p: { conditionId: string; result: bigint[] },
+) {
+  await processMarketResolution(
+    cache,
+    padConditionId(p.conditionId),
+    winningOutcomeFromResult(p.result),
+    ((p.result[0] ?? 0n) * PROBABILITY_SCALE) / RESULT_DENOMINATOR,
+    p.result,
+    meta,
   );
 }
 
@@ -468,8 +529,6 @@ async function recordBet(
     outcomeIndex,
     sharesAmount,
     meta,
-    // V2 markets have no Question yet, so a missing one is expected there
-    collateral == null,
   );
 
   // Bet.marketParticipant is set after processTradeActivity guarantees the

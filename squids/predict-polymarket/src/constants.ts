@@ -29,6 +29,9 @@ export const DEPOSIT_WALLET_FACTORY =
   "0x00000000000fb5c9adea0298d729a0cb3823cc07";
 // Polymarket Protocol V2 order book (proxy)
 export const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
+// Protocol V2 binary markets: results and redemptions of module 1 positions
+export const BINARY_MODULE = "0x1000008dd9001b968442c1000017eae6e0da00ba";
+export const BINARY_MODULE_ID = 1;
 
 export const USDC_E_ADDRESS = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
 // Protocol V2 collateral (6 decimals)
@@ -42,5 +45,6 @@ export const START_BLOCK = 78_425_180;
 export const SERVICE_REGISTRY_START = 80_360_433;
 export const V2_CUTOVER_START = 85_952_819;
 export const ADAPTERS_START = 86_219_367;
-// Protocol V2 proxy deployment block
+// Protocol V2 proxy deployment blocks
 export const EXCHANGE_V3_START = 87_479_471;
+export const BINARY_MODULE_START = 87_479_502;

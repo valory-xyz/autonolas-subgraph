@@ -16,6 +16,7 @@ import * as ctfExchangeV2Events from "./abi/CTFExchangeV2/events";
 import * as adapterEvents from "./abi/CtfCollateralAdapter/events";
 import * as factoryEvents from "./abi/DepositWalletFactory/events";
 import * as exchangeV3Events from "./abi/ExchangeV3/events";
+import * as binaryModuleEvents from "./abi/BinaryModule/events";
 import { processRedemption } from "./logic";
 import { eventMeta, inferV1Direction, inferV2Direction } from "./decode";
 import * as handlers from "./handlers";
@@ -32,6 +33,7 @@ import {
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
   EXCHANGE_V3,
+  BINARY_MODULE,
 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
@@ -188,6 +190,14 @@ run(
               fee: e.fee,
               builder: e.builder,
               metadata: e.metadata,
+            });
+          }
+        } else if (address === BINARY_MODULE) {
+          if (topic0 === binaryModuleEvents.ConditionResolved.topic) {
+            const e = binaryModuleEvents.ConditionResolved.decode(log);
+            await handlers.handleConditionResolved(cache, meta(), {
+              conditionId: e.conditionId,
+              result: [...e.result],
             });
           }
         } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {
