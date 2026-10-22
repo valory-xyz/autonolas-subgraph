@@ -1,7 +1,7 @@
 # service-registry-squid
 
-Indexer for the Olas **Service Registry on Robinhood Chain** (chain id 4663),
-built with the [SQD Squid SDK](https://docs.sqd.dev). It reads registry
+Indexer for the Olas **Service Registry on Robinhood Chain** (chain id 4663)
+and **Base** (8453), built with the [SQD Squid SDK](https://docs.sqd.dev). It reads registry
 events from the chain, tracks services, their multisigs, ERC-8004 identity
 links and daily agent activity, stores the result in PostgreSQL, and serves
 it over a GraphQL API.
@@ -9,7 +9,9 @@ it over a GraphQL API.
 SQD port of
 [`subgraphs/service-registry`](https://github.com/valory-xyz/autonolas-subgraph-studio)
 in the `autonolas-subgraph-studio` repo. The subgraph keeps serving the
-seven graph-node chains; Robinhood is squid-only from day one.
+graph-node chains; Robinhood is squid-only from day one, and Base moves off
+graph-node once each consumer passes a parity check against the Base
+subgraph (`subgraph.base.yaml`, same start blocks and addresses).
 
 ## How it works
 
@@ -50,8 +52,17 @@ address**, and drops every log whose address is not in the in-memory set
 of known service multisigs (`EntityCache.isKnownMultisig`). Nothing about
 foreign Safes is stored.
 
+`src/safeLogs.ts` reproduces the template's timing: when a Safe is first
+registered in a block, graph-node re-runs every Safe log of that block for
+the new template — including logs *before* `CreateMultisigWithAgents`
+(e.g. the reuse module's `execTransaction`) — after the block's other
+events. A Safe registered again later gets no second template (graph-node
+drops duplicate data sources), so its executions count once.
+
 Measured on Robinhood before committing to it: 11 such logs over 20,000
-blocks (~34 minutes), from 7 Safes — about 470 logs a day chain-wide. If
+blocks (~34 minutes), from 7 Safes — about 470 logs a day chain-wide. On
+Base: 0.02 logs/block at 15M, 0.9 at 46M, ~10.7 at head (~460k a day), about
+45M logs over the whole backfill. If
 that ever grows to Polygon levels, split the subscription into an
 address-filtered range up to a checkpoint plus a topic-only tail, the
 "factory contracts" pattern in
@@ -74,11 +85,10 @@ Entity for entity the same. Forced by the store:
   lands before its `ServiceAgentLinked` creates the `ERC8004Agent` row here,
   where the subgraph left a dangling reference and no row.
 
-Not forced, but different: a Safe reused across service redeployments is
-counted once per execution. graph-node spawned a new template per
-`CreateMultisigWithAgents` and counted every later execution once per
-template, so `txCount` metrics for redeployed services are not comparable
-with the Gnosis / Mode subgraphs.
+A Safe reused across service redeployments is counted once per execution,
+as in the subgraph: graph-node ignores a template whose address, name and
+context duplicate an existing one (`is_duplicate_of` in graph-node's
+`chain/ethereum/src/data_source.rs`).
 
 Query syntax is squid GraphQL, not subgraph GraphQL: `limit` / `offset`
 instead of `first` / `skip`, `orderBy: field_ASC` instead of
@@ -91,9 +101,9 @@ Consumers written against the subgraph need those three changes.
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `SERVICE_REGISTRY_CHAIN` | Which `CHAINS` entry in `src/constants.ts` this deployment indexes. Default `robinhood`; an unknown name refuses to start |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the chain's dataset; an override must name the same dataset or the processor refuses to start |
-| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required**: the processor refuses to start without it |
+| `SERVICE_REGISTRY_CHAIN` | Which `CHAINS` entry in `src/constants.ts` this deployment indexes: `robinhood` (default) or `base`; an unknown name refuses to start |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the chain's dataset; an override must name exactly the same dataset (last path segment) or the processor refuses to start |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required on Robinhood** (private dataset). Optional on Base with the default public dataset, but set it in production: the public portal rate-limits a backfill. Required whenever `SQD_PORTAL_URL` overrides the default |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
@@ -111,8 +121,8 @@ node lib/main.js           # start the processor
 npx squid-graphql-server   # start the API on :4350 (separate terminal)
 ```
 
-The chain is two days old at the time of writing, so the backfill is
-minutes, not days. Stopping the processor (Ctrl-C, crash, reboot) is always
+On Robinhood the backfill is minutes. On Base it is bound by the
+chain-wide Safe stream (~45M logs), so use the private portal. Stopping the processor (Ctrl-C, crash, reboot) is always
 safe — restart it and it continues from the checkpoint.
 
 ## Production
