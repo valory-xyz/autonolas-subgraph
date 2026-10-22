@@ -380,17 +380,20 @@ it.each([
   { name: "Chainlink Up or Down market", rules: [], condition: "0x0116e3aba99821c598c616cffdce40806b000000000000000000000000000000", title: "", outcomes: [], calls: 1 },
 ])("titles the agent's V2 market from its first fill ($name)", async (c) => {
   await registerAgent(undefined, SAFE);
-  const metadata = new MarketMetadata(V1_METADATA_D);
-  store.set(MarketMetadata, metadata);
-  store.set(Question, new Question({ id: LEGACY_D, questionId: V1_QUESTION_D, metadata, isNegRisk: false, marketId: null, blockNumber: 90_243_386n, blockTimestamp: 1_784_070_074n, transactionHash: "0x0f47392c300bc1745cf5fddaa1937ba82ee72154d60d00c63a376c1eb7a95eea" }));
+  store.set(MarketMetadata, new MarketMetadata(V1_METADATA_D));
+  // as a database read returns it: TypeORM loads no relations, so no `metadata`
+  store.set(Question, new Question({ id: LEGACY_D, questionId: V1_QUESTION_D, isNegRisk: false, marketId: null, blockNumber: 90_243_386n, blockTimestamp: 1_784_070_074n, transactionHash: "0x0f47392c300bc1745cf5fddaa1937ba82ee72154d60d00c63a376c1eb7a95eea" }));
   derivation.legacy.set(SPLIT.condition.slice(0, 64), LEGACY_D);
 
   await runBatch(store, [...c.rules, NEG_RISK_RULES]);
   for (const _ of [1, 2]) await runSynthetic(EXCHANGE_V3, orderFilled(SAFE, 0, BigInt(c.condition), 500_000n, 1_000_000n));
+  // a fill by a maker that is not an agent's creates no Question and makes no eth_call
+  await runSynthetic(EXCHANGE_V3, orderFilled(DW, 0, YES, 500_000n, 1_000_000n));
 
   const question = await store.get(Question, c.condition);
   const v2Metadata = question && (await store.get(MarketMetadata, question.metadata.id));
   expect([question?.isNegRisk, v2Metadata?.title, v2Metadata?.outcomes]).toEqual([false, c.title, c.outcomes]);
+  expect(store.all(Question).map((q) => q.id)).not.toContain(CONDITION);
   // one legacyConditionId call per market without registered rules, none otherwise
   expect(derivation.legacyCalls).toEqual(Array(c.calls).fill(c.condition.slice(0, 64)));
   // the NegRisk registration leaves nothing behind
