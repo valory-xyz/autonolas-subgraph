@@ -170,6 +170,7 @@ run(
               outcomeTokenId: e.tokenId,
               makerAmountFilled: e.makerAmountFilled,
               takerAmountFilled: e.takerAmountFilled,
+              fee: e.fee,
               builder: e.builder,
               metadata: e.metadata,
             });

@@ -585,6 +585,69 @@ describe("deposit wallet factory linking + v2 orders", () => {
     expect(participant?.outcomeShares1).toBe(-USDC(50));
   });
 
+  // Polygon tx 0xd44716474978b2c0e48140692fc64c26caed36f83111db2850f50edcd0e19d07,
+  // log 371: the DW pays 2,178,559 pUSD (log 354) = makerAmountFilled + fee.
+  it("includes the CLOB v2 fee in a buy's cost and profit", async () => {
+    await handlers.handleWalletDeployed(cache, meta(1_760_000_000n), {
+      wallet: DW,
+      owner: AGENT_EOA,
+    });
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: DW,
+      isBuying: true,
+      outcomeTokenId: TOKEN_YES,
+      makerAmountFilled: 2_129_999n,
+      takerAmountFilled: 4_953_487n,
+      fee: 48_560n,
+      builder: `0x${"00".repeat(32)}`,
+      metadata: `0x${"00".repeat(32)}`,
+    });
+
+    const bet = cache.all(Bet)[0]!;
+    expect(bet.amount).toBe(2_178_559n);
+    expect(bet.shares).toBe(4_953_487n);
+    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(2_178_559n);
+    expect(
+      (await cache.get(MarketParticipant, `${SAFE}_${CONDITION_ID}`))
+        ?.totalTraded,
+    ).toBe(2_178_559n);
+
+    // YES wins: profit = shares - pUSD paid, fee included
+    await handlers.handleQuestionResolution(cache, meta(RESOLUTION_TS), {
+      questionID: QUESTION_ID,
+      settledPrice: 10n ** 18n,
+      payouts: [0n, 1n],
+    });
+    const resolutionDay = cache
+      .all(DailyProfitStatistic)
+      .find((s) => s.date === RESOLUTION_DAY);
+    expect(resolutionDay?.dailyProfit).toBe(4_953_487n - 2_178_559n);
+  });
+
+  // Polygon tx 0xd6965862dd60f7faf29c2fae94750397657c32be3e954709d39f74f3544478fe,
+  // log 539: the maker receives 7,021,650 pUSD (log 538) = takerAmountFilled - fee.
+  it("nets the CLOB v2 fee from a sell's proceeds", async () => {
+    await handlers.handleWalletDeployed(cache, meta(1_760_000_000n), {
+      wallet: DW,
+      owner: AGENT_EOA,
+    });
+    await handlers.handleOrderFill(cache, meta(BET_TS), {
+      maker: DW,
+      isBuying: false,
+      outcomeTokenId: TOKEN_YES,
+      makerAmountFilled: 23_800_000n,
+      takerAmountFilled: 7_378_000n,
+      fee: 356_350n,
+      builder: `0x${"00".repeat(32)}`,
+      metadata: `0x${"00".repeat(32)}`,
+    });
+
+    const bet = cache.all(Bet)[0]!;
+    expect(bet.amount).toBe(-7_021_650n);
+    expect(bet.shares).toBe(-23_800_000n);
+    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(-7_021_650n);
+  });
+
   it("warns and drops a trade on an unknown token", async () => {
     await handlers.handleOrderFill(cache, meta(BET_TS), {
       maker: SAFE,
