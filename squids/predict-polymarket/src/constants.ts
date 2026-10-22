@@ -32,6 +32,8 @@ export const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
 // Protocol V2 binary markets: results and redemptions of module 1 positions
 export const BINARY_MODULE = "0x1000008dd9001b968442c1000017eae6e0da00ba";
 export const BINARY_MODULE_ID = 1;
+// Protocol V2 Router: agents claim winnings through it
+export const ROUTER = "0x12121212006e4cd160d18e3f00711da5c3372600";
 
 export const USDC_E_ADDRESS = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
 // Protocol V2 collateral (6 decimals)

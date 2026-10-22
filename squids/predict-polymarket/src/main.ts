@@ -199,6 +199,14 @@ run(
               conditionId: e.conditionId,
               result: [...e.result],
             });
+          } else if (topic0 === binaryModuleEvents.PositionRedeemed.topic) {
+            const e = binaryModuleEvents.PositionRedeemed.decode(log);
+            await handlers.handlePositionRedeemed(cache, meta(), {
+              initiator: lc(e.initiator),
+              positionId: e.positionId,
+              recipient: lc(e.recipient),
+              payout: e.payout,
+            });
           }
         } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {
           if (topic0 === adapterEvents.PositionsRedeemed.topic) {

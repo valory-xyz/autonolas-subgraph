@@ -144,11 +144,14 @@ export const dataSource = new DataSourceBuilder()
     },
     range: { from: EXCHANGE_V3_START },
   })
-  // Protocol V2 results of binary markets
+  // Protocol V2 results of binary markets and the redemptions that pay them
   .addLog({
     where: {
       address: [BINARY_MODULE],
-      topic0: [binaryModule.ConditionResolved.topic],
+      topic0: [
+        binaryModule.ConditionResolved.topic,
+        binaryModule.PositionRedeemed.topic,
+      ],
     },
     range: { from: BINARY_MODULE_START },
   })

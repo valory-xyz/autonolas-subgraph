@@ -38,9 +38,9 @@ Key files:
 
 Protocol V2 bets are ExchangeV3 `OrderFilled` events on PositionManager
 position IDs, paid in pUSD (6 decimals). They land in the same entities as
-CTF exchange bets, and V2 markets get a `Question` and settlement here, so
-readers that need a question or resolution (prediction history, accuracy,
-achievements) need no changes:
+CTF exchange bets, and V2 markets get a `Question`, settlement, and payouts
+here, so readers that need a question, resolution, or payout (prediction
+history, accuracy, achievements) need no changes:
 
 - The maker resolves to the agent the same way: its Safe, or a
   DepositWallet linked to it.
@@ -67,6 +67,11 @@ achievements) need no changes:
   entry with the full 1,000,000 is the winning outcome, and any other result
   has winning index -1 and settles each share at its outcome's part of the
   vector. A resolved bet with no payout shows as lost.
+- Agents claim winnings through the Router, which redeems each position on
+  BinaryModule. A BinaryModule `PositionRedeemed` whose initiator is the
+  Router and whose recipient is an agent's Safe credits its `payout` (the
+  pUSD sent to the Safe) through the same entities as V1 redemptions, once
+  the market's result is recorded.
 
 ## Environment variables
 

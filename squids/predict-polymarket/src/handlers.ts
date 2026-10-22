@@ -12,6 +12,7 @@ import {
   MarketParticipant,
   Question,
   QuestionIdToConditionId,
+  QuestionResolution,
   TokenRegistry,
   TraderAgent,
   TraderService,
@@ -22,6 +23,7 @@ import {
   getDailyProfitStatistic,
   getGlobal,
   processMarketResolution,
+  processRedemption,
   processTradeActivity,
 } from "./logic";
 import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
@@ -35,6 +37,7 @@ import {
   BINARY_MODULE_ID,
   NEG_RISK_ADAPTER,
   PUSD_ADDRESS,
+  ROUTER,
   USDC_E_ADDRESS,
 } from "./constants";
 
@@ -444,6 +447,31 @@ export async function handleConditionResolved(
     p.result,
     meta,
   );
+}
+
+/**
+ * Protocol V2 claim: a BinaryModule PositionRedeemed initiated by the Router
+ * pays `payout` pUSD to `recipient`. It is credited like a V1
+ * PayoutRedemption when the recipient is an agent's Safe and the market's
+ * result is recorded.
+ */
+export async function handlePositionRedeemed(
+  cache: IEntityCache,
+  meta: EventMeta,
+  p: {
+    initiator: string;
+    positionId: bigint;
+    recipient: string;
+    payout: bigint;
+  },
+) {
+  if (p.initiator !== ROUTER) return;
+  if ((await cache.get(TraderAgent, p.recipient)) == null) return;
+
+  const condition = padConditionId(decodePositionId(p.positionId).conditionId);
+  if ((await cache.get(QuestionResolution, condition)) == null) return;
+
+  await processRedemption(cache, p.recipient, condition, p.payout, meta);
 }
 
 /** The TraderAgent behind an order maker: its Safe, or a DepositWallet it owns. */
