@@ -52,6 +52,10 @@ CTF exchange bets, so readers need no changes:
 - `Bet.amount` is the pUSD the maker moved, so it includes the ExchangeV3
   fee: a buy pays `makerAmountFilled + fee`, and a sell receives
   `takerAmountFilled - fee`. Shares are the filled amounts, with no fee.
+  `Bet.impliedProbability` is therefore the fee-inclusive price. CTF
+  exchange fills, including those on the CLOB v2 CTF exchange whose
+  `OrderFilled` also carries a fee, record amounts without the fee, so V1
+  and V2 amounts differ by that fee.
 - PositionManager transfers do not change bets or positions: a fill's share
   movement is counted once, by its `OrderFilled`, and a transfer between an
   agent's DepositWallet and its Safe stays on the same agent.
