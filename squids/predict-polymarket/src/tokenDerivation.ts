@@ -94,3 +94,15 @@ export async function getOutcomeTokenId(
   memo.set(key, result);
   return result;
 }
+
+/**
+ * BinaryModule.legacyConditionId(bytes31) eth_call: the CTF condition ID
+ * (bytes32, lowercase 0x-hex) a migrated V1 market had, or ZERO_BYTES32 when
+ * the V2 condition was not migrated. `conditionId` is the bytes31 V2
+ * condition ID, as decodePositionId returns it.
+ */
+export async function getLegacyConditionId(
+  conditionId: string,
+): Promise<string> {
+  throw new Error("not implemented");
+}

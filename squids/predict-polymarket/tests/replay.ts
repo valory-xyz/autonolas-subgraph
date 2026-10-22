@@ -36,8 +36,14 @@ export class FakeStore extends InMemoryCache {
   async findOne(cls: { name: string }, opts: { where: { id: string } }) {
     return this.get(cls as never, opts.where.id);
   }
-  async find(): Promise<never> {
-    throw new Error("FakeStore.find is not implemented; this replay reached a store query the fake does not support");
+  /** Only the two settlement queries EntityCache makes: participants by question, bets by participant. */
+  async find(cls: { name: string }, opts: { where: Record<string, { id: string }> }) {
+    const [[field, ref], ...rest] = Object.entries(opts.where);
+    const supported = { [MarketParticipant.name]: "question", [Bet.name]: "marketParticipant" };
+    if (rest.length > 0 || supported[cls.name] !== field || ref?.id == null) {
+      throw new Error(`FakeStore.find does not support ${cls.name} ${JSON.stringify(opts.where)}`);
+    }
+    return this.all(cls as never).filter((row) => (row as Record<string, { id: string } | null>)[field]?.id === ref.id);
   }
 }
 
