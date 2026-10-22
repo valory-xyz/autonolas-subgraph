@@ -355,9 +355,12 @@ export async function handlePositionFill(
   const agent = await resolveMakerAgent(cache, meta, p.maker);
   if (agent == null) return;
 
-  const { conditionId, outcomeIndex } = decodePositionId(p.outcomeTokenId);
-  if (outcomeIndex > 1) {
-    // entities track binary positions only (outcomeShares0 / outcomeShares1)
+  const { moduleId, conditionId, outcomeIndex } = decodePositionId(
+    p.outcomeTokenId,
+  );
+  if (moduleId !== 1 || outcomeIndex > 1) {
+    // entities track binary positions only (outcomeShares0 / outcomeShares1):
+    // BinaryModule (1) positions; NegRisk (2) and combinatorial (3) are skipped
     cache.log.warn(
       `Non-binary position ${p.outcomeTokenId} in tx ${meta.transactionHash}`,
     );

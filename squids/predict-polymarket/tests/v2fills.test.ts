@@ -112,6 +112,15 @@ it("persists Bet.collateral", () => {
   expect(columns.map((c) => c.propertyName)).toContain("collateral");
 });
 
+// a CombinatorialModule (module 3) position: its last byte is 0x00, but the
+// Data API reports outcome_index 999, so it is not a binary outcome
+it("records no bet for a fill on a combinatorial position", async () => {
+  await registerAgent("0x13a5c2b4f8696de4db9748581ccc4ca856cf67a6");
+  await replay("0x859bffc95b57d30762bb729d8747e33eb62ff56fbc2e6083e8aabc7807cc8064");
+  expect(store.all(Bet)).toEqual([]);
+  expect(store.all(MarketParticipant)).toEqual([]);
+});
+
 it("keeps the position on the agent when it moves from the DepositWallet to the Safe", async () => {
   await registerAgent(DW);
   await replay(MINT_TX);

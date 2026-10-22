@@ -45,8 +45,8 @@ CTF exchange bets, so readers need no changes:
 - The position ID carries the condition and the outcome
   (`src/positionId.ts`), so there is no `TokenRegistry` lookup and no token
   derivation. Conditions are stored in the 32-byte right-padded form that
-  Gamma, the CLOB and the Data API use. Positions with an outcome index
-  above 1 are skipped.
+  Gamma, the CLOB and the Data API use. Only BinaryModule positions are
+  recorded; NegRisk and combinatorial V2 positions are skipped.
 - `Bet.collateral` is pUSD for these bets and null for bets on CTF outcome
   tokens.
 - `Bet.amount` is the pUSD the maker moved, so it includes the ExchangeV3
