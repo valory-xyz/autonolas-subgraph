@@ -7,7 +7,7 @@ import {
   ContractFunctionRevertedError,
   ContractFunctionExecutionError,
 } from "viem";
-import { CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
+import { BINARY_MODULE, CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
 
 // v2 exchanges do not emit TokenRegistered, so outcome tokenIds are derived at
 // ConditionPreparation time (same as the subgraph and Envio ports):
@@ -33,6 +33,16 @@ const CTF_ABI = [
       { name: "conditionId", type: "bytes32" },
       { name: "indexSet", type: "uint256" },
     ],
+    outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
+const BINARY_MODULE_ABI = [
+  {
+    type: "function",
+    name: "legacyConditionId",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "bytes31" }],
     outputs: [{ type: "bytes32" }],
   },
 ] as const;
@@ -104,5 +114,12 @@ export async function getOutcomeTokenId(
 export async function getLegacyConditionId(
   conditionId: string,
 ): Promise<string> {
-  throw new Error("not implemented");
+  // transport errors propagate: the SQD batch retry re-runs the handler
+  const legacy = await client.readContract({
+    address: BINARY_MODULE as `0x${string}`,
+    abi: BINARY_MODULE_ABI,
+    functionName: "legacyConditionId",
+    args: [conditionId as `0x${string}`],
+  });
+  return legacy.toLowerCase();
 }

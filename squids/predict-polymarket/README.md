@@ -61,7 +61,13 @@ history, accuracy, achievements) need no changes:
 - Positions are keyed per agent (by its Safe), so moving shares between an
   agent's DepositWallet and its Safe needs no handling.
 - An agent's first fill on a BinaryModule condition creates its `Question`,
-  keyed by the padded condition ID.
+  keyed by the padded condition ID. Its title and outcome names come from
+  the rules the market registered with the PolymarketOOReporter
+  (`RequestRegistered`, keyed by the same ID). A migrated V1 market without
+  registered rules reuses the metadata of its V1 condition, found with one
+  `BinaryModule.legacyConditionId` call. Other markets, such as Chainlink
+  Up or Down markets, have no text on chain and keep an empty title and no
+  outcomes, as do markets whose rules do not parse.
 - BinaryModule `ConditionResolved` settles the market through the same
   resolution path as V1. Its result vector is in parts per million: the
   entry with the full 1,000,000 is the winning outcome, and any other result
@@ -80,7 +86,7 @@ history, accuracy, achievements) need no changes:
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal, which needs no key. Production uses the private portal URL |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
-| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. Used only for two contract calls per new market — not for event ingestion |
+| `RPC_POLYGON_HTTP` | a Polygon RPC endpoint. Used only for two contract calls per new market, and one per Protocol V2 market an agent trades that has no registered rules. Not used for event ingestion |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 

@@ -133,6 +133,53 @@ export function extractBinaryOutcomes(rawData: string): string[] {
   return ["Yes", "No"];
 }
 
+/**
+ * Title and outcome names of a Protocol V2 market from its rules
+ * (PolymarketOOReporter requestRules, a JSON object). res_data is either an
+ * array of [value, label] pairs or the V1-style "p1 corresponds to X, p2 to
+ * Y" string. Outcome 0 is the label for value 1 (p2) and outcome 1 the label
+ * for value 0 (p1). Rules that do not parse give an empty title and no
+ * outcomes.
+ */
+export function parseRequestRules(rules: string): {
+  title: string;
+  outcomes: string[];
+} {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rules);
+  } catch {
+    return { title: "", outcomes: [] };
+  }
+  const { title, res_data: resData } =
+    parsed != null && typeof parsed === "object"
+      ? (parsed as { title?: unknown; res_data?: unknown })
+      : {};
+  return {
+    title: typeof title === "string" ? title : "",
+    outcomes: rulesOutcomes(resData),
+  };
+}
+
+function rulesOutcomes(resData: unknown): string[] {
+  if (Array.isArray(resData)) {
+    const label = (value: number): unknown =>
+      resData.find((e) => Array.isArray(e) && e[0] === value)?.[1];
+    const [yes, no] = [label(1), label(0)];
+    return typeof yes === "string" && typeof no === "string" ? [yes, no] : [];
+  }
+  // only the p1/p2 mapping, not extractBinaryOutcomes' fallbacks
+  if (
+    typeof resData !== "string" ||
+    !resData.includes("p1 corresponds to ") ||
+    !resData.includes("p2 to ")
+  ) {
+    return [];
+  }
+  const [p1, p2] = extractBinaryOutcomes(resData);
+  return p1 != null && p2 != null ? [p2, p1] : [];
+}
+
 /** Decode an ABI `bytes` hex string to UTF-8 (graph-ts Bytes.toString()). */
 export function bytesToUtf8(hex: string): string {
   // Postgres text columns reject NUL (0x00), which occasionally appears in

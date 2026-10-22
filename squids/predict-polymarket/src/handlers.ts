@@ -26,8 +26,13 @@ import {
   processRedemption,
   processTradeActivity,
 } from "./logic";
-import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
-import { getOutcomeTokenId } from "./tokenDerivation";
+import {
+  bytesToUtf8,
+  extractBinaryOutcomes,
+  extractTitle,
+  parseRequestRules,
+} from "./ancillary";
+import { getLegacyConditionId, getOutcomeTokenId } from "./tokenDerivation";
 import { decodePositionId, padConditionId } from "./positionId";
 import { computeImpliedProbability } from "./brier";
 import { RESULT_DENOMINATOR, winningOutcomeFromResult } from "./resolution";
@@ -39,6 +44,7 @@ import {
   PUSD_ADDRESS,
   ROUTER,
   USDC_E_ADDRESS,
+  ZERO_BYTES32,
 } from "./constants";
 
 export async function handleRegisterInstance(
@@ -380,50 +386,94 @@ export async function handlePositionFill(
     return;
   }
 
-  const condition = padConditionId(conditionId);
-  await ensureBinaryQuestion(cache, meta, condition);
+  await ensureBinaryQuestion(cache, meta, conditionId);
   await recordBet(
     cache,
     meta,
     agent,
     p,
-    condition,
+    padConditionId(conditionId),
     BigInt(outcomeIndex),
     PUSD_ADDRESS,
   );
 }
 
 /**
- * Question of a BinaryModule condition, created at an agent's first fill on
- * it so its participants and bets settle at ConditionResolved. Keyed by the
- * padded condition ID.
+ * Question of a BinaryModule condition (bytes31 `conditionId`), created at an
+ * agent's first fill on it so its participants and bets settle at
+ * ConditionResolved. Keyed by the padded condition ID. Its metadata is the
+ * market's registered UMA rules, else the V1 metadata of the market it was
+ * migrated from, else an empty title and no outcomes (Chainlink markets have
+ * no text on chain).
  */
 async function ensureBinaryQuestion(
   cache: IEntityCache,
   meta: EventMeta,
   conditionId: string,
 ) {
-  if ((await cache.get(Question, conditionId)) != null) return;
+  const id = padConditionId(conditionId);
+  if ((await cache.get(Question, id)) != null) return;
 
-  const metadata = new MarketMetadata({
-    id: conditionId,
-    title: "",
-    outcomes: [],
-    rawAncillaryData: "",
-  });
-  cache.set(MarketMetadata, metadata);
+  let metadata =
+    (await cache.get(MarketMetadata, id)) ??
+    (await migratedMarketMetadata(cache, conditionId));
+  if (metadata == null) {
+    metadata = new MarketMetadata({
+      id,
+      title: "",
+      outcomes: [],
+      rawAncillaryData: "",
+    });
+    cache.set(MarketMetadata, metadata);
+  }
 
   cache.set(
     Question,
     new Question({
-      id: conditionId,
-      questionId: conditionId,
+      id,
+      questionId: id,
       metadata,
       isNegRisk: false,
       marketId: null,
       blockNumber: meta.blockNumber,
       blockTimestamp: meta.blockTimestamp,
       transactionHash: meta.transactionHash,
+    }),
+  );
+}
+
+/** MarketMetadata of the V1 market a V2 condition was migrated from, if indexed. */
+async function migratedMarketMetadata(
+  cache: IEntityCache,
+  conditionId: string,
+): Promise<MarketMetadata | undefined> {
+  const legacy = await getLegacyConditionId(conditionId);
+  if (legacy === ZERO_BYTES32) return undefined;
+  // by ID: a Question read from the store has no relations loaded
+  const question = await cache.get(Question, legacy);
+  return question && cache.get(MarketMetadata, question.questionId);
+}
+
+/**
+ * UMA rules a Protocol V2 market registers with the PolymarketOOReporter at
+ * creation. A binary market's (module 1) request ID is its padded condition
+ * ID, so its title and outcomes are stored under that ID for the Question an
+ * agent's first fill creates. Other modules are skipped.
+ */
+export async function handleRequestRegistered(
+  cache: IEntityCache,
+  p: { requestId: string; requestRules: string },
+) {
+  if (decodePositionId(BigInt(p.requestId)).moduleId !== BINARY_MODULE_ID) {
+    return;
+  }
+  const rawRules = bytesToUtf8(p.requestRules);
+  cache.set(
+    MarketMetadata,
+    new MarketMetadata({
+      id: p.requestId,
+      ...parseRequestRules(rawRules),
+      rawAncillaryData: rawRules,
     }),
   );
 }

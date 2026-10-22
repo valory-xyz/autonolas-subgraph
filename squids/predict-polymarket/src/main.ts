@@ -17,6 +17,7 @@ import * as adapterEvents from "./abi/CtfCollateralAdapter/events";
 import * as factoryEvents from "./abi/DepositWalletFactory/events";
 import * as exchangeV3Events from "./abi/ExchangeV3/events";
 import * as binaryModuleEvents from "./abi/BinaryModule/events";
+import * as ooReporterEvents from "./abi/PolymarketOOReporter/events";
 import { processRedemption } from "./logic";
 import { eventMeta, inferV1Direction, inferV2Direction } from "./decode";
 import * as handlers from "./handlers";
@@ -34,6 +35,7 @@ import {
   DEPOSIT_WALLET_FACTORY,
   EXCHANGE_V3,
   BINARY_MODULE,
+  POLYMARKET_OO_REPORTER,
 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
@@ -206,6 +208,14 @@ run(
               positionId: e.positionId,
               recipient: lc(e.recipient),
               payout: e.payout,
+            });
+          }
+        } else if (address === POLYMARKET_OO_REPORTER) {
+          if (topic0 === ooReporterEvents.RequestRegistered.topic) {
+            const e = ooReporterEvents.RequestRegistered.decode(log);
+            await handlers.handleRequestRegistered(cache, {
+              requestId: e.requestId,
+              requestRules: e.requestRules,
             });
           }
         } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {
