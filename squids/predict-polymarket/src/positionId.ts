@@ -21,5 +21,5 @@ export function decodePositionId(positionId: bigint): DecodedPositionId {
 
 /** bytes31 condition ID -> the right-padded bytes32 form Gamma, the CLOB and the Data API use. */
 export function padConditionId(conditionId: string): string {
-  return `${conditionId.toLowerCase()}00`;
+  return `${conditionId}00`;
 }

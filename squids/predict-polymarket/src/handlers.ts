@@ -339,6 +339,10 @@ export async function handleOrderFill(
   );
 }
 
+// Skipped V2 positions already warned about, for the life of the process:
+// an agent trading one keeps refilling it, and each fill would warn again.
+const warnedSkippedPositions = new Set<bigint>();
+
 /**
  * Protocol V2 fill on ExchangeV3: the PositionManager position ID carries the
  * condition and outcome, so nothing is looked up or derived. The condition is
@@ -361,9 +365,12 @@ export async function handlePositionFill(
   if (moduleId !== 1 || outcomeIndex > 1) {
     // entities track binary positions only (outcomeShares0 / outcomeShares1):
     // BinaryModule (1) positions; NegRisk (2) and combinatorial (3) are skipped
-    cache.log.warn(
-      `Non-binary position ${p.outcomeTokenId} in tx ${meta.transactionHash}`,
-    );
+    if (!warnedSkippedPositions.has(p.outcomeTokenId)) {
+      warnedSkippedPositions.add(p.outcomeTokenId);
+      cache.log.warn(
+        `Non-binary position ${p.outcomeTokenId} in tx ${meta.transactionHash}`,
+      );
+    }
     return;
   }
 
@@ -461,6 +468,8 @@ async function recordBet(
     outcomeIndex,
     sharesAmount,
     meta,
+    // V2 markets have no Question yet, so a missing one is expected there
+    collateral == null,
   );
 
   // Bet.marketParticipant is set after processTradeActivity guarantees the

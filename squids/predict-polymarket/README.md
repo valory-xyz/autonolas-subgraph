@@ -38,7 +38,10 @@ Key files:
 
 Protocol V2 bets are ExchangeV3 `OrderFilled` events on PositionManager
 position IDs, paid in pUSD (6 decimals). They land in the same entities as
-CTF exchange bets, so readers need no changes:
+CTF exchange bets. V2 markets get a `Question`, settlement, and payouts only
+with the follow-up V2 results change, so readers that need a question or
+resolution (prediction history, accuracy, achievements) see V2 bets only once
+both changes are deployed together.
 
 - The maker resolves to the agent the same way: its Safe, or a
   DepositWallet linked to it.
@@ -56,9 +59,8 @@ CTF exchange bets, so readers need no changes:
   exchange fills, including those on the CLOB v2 CTF exchange whose
   `OrderFilled` also carries a fee, record amounts without the fee, so V1
   and V2 amounts differ by that fee.
-- PositionManager transfers do not change bets or positions: a fill's share
-  movement is counted once, by its `OrderFilled`, and a transfer between an
-  agent's DepositWallet and its Safe stays on the same agent.
+- Positions are keyed per agent (by its Safe), so moving shares between an
+  agent's DepositWallet and its Safe needs no handling.
 
 ## Environment variables
 

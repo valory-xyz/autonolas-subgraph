@@ -10,7 +10,6 @@ import * as ctfExchangeV2 from "./abi/CTFExchangeV2/events";
 import * as collateralAdapter from "./abi/CtfCollateralAdapter/events";
 import * as factory from "./abi/DepositWalletFactory/events";
 import * as exchangeV3 from "./abi/ExchangeV3/events";
-import * as positionManager from "./abi/PositionManager/events";
 import {
   SERVICE_REGISTRY_L2,
   CONDITIONAL_TOKENS,
@@ -24,13 +23,11 @@ import {
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
   EXCHANGE_V3,
-  POSITION_MANAGER,
   START_BLOCK,
   SERVICE_REGISTRY_START,
   V2_CUTOVER_START,
   ADAPTERS_START,
   EXCHANGE_V3_START,
-  POSITION_MANAGER_START,
 } from "./constants";
 
 // SQD Portal endpoint. The public portal needs no key; the paid private
@@ -143,15 +140,5 @@ export const dataSource = new DataSourceBuilder()
       topic0: [exchangeV3.OrderFilled.topic],
     },
     range: { from: EXCHANGE_V3_START },
-  })
-  .addLog({
-    where: {
-      address: [POSITION_MANAGER],
-      topic0: [
-        positionManager.TransferSingle.topic,
-        positionManager.TransferBatch.topic,
-      ],
-    },
-    range: { from: POSITION_MANAGER_START },
   })
   .build();

@@ -32,7 +32,6 @@ import {
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
   EXCHANGE_V3,
-  POSITION_MANAGER,
 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
@@ -191,15 +190,6 @@ run(
               metadata: e.metadata,
             });
           }
-        } else if (address === POSITION_MANAGER) {
-          // TransferSingle / TransferBatch change no bet or position. A fill's
-          // share legs (mint -> exchange -> maker, seller -> buyer) are counted
-          // once, by its ExchangeV3 OrderFilled, and positions are kept per agent
-          // (keyed by its Safe), so a move between the agent's DepositWallet and
-          // its Safe leaves the position on the same agent. Split and merge mints
-          // and burns are not bets (CTF splits and merges are not tracked either).
-          // V2 redemption burns and V2 payouts are not indexed yet: these logs are
-          // dropped, so V2 positions record no payout.
         } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {
           if (topic0 === adapterEvents.PositionsRedeemed.topic) {
             const e = adapterEvents.PositionsRedeemed.decode(log);
