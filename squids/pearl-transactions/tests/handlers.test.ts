@@ -417,6 +417,25 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     expect(lookedUp).toBe(false);
   });
 
+  it("rethrows a decode error that is not a calldata shape mismatch", async () => {
+    // A genuine decoding bug must still crash the batch rather than be
+    // logged as foreign noise and silently drop the row.
+    await discoverAgent();
+    const decode = vi
+      .spyOn(safeFns.execTransaction, "decode")
+      .mockImplementation(() => {
+        throw new TypeError("Cannot read properties of undefined");
+      });
+    try {
+      await expect(execute({})).rejects.toThrow(TypeError);
+    } finally {
+      decode.mockRestore();
+    }
+    expect(
+      store.all("FundsMovement").find((r) => r.transactionHash === "0xtopup")
+    ).toBeUndefined();
+  });
+
   it("writes nothing when the emitter is not tracked", async () => {
     await discoverAgent();
     const { row } = await execute({}, "0xforeignsafe");
