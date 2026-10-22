@@ -92,6 +92,11 @@ so every address, start block and conversion is that manifest's and
 `src/marketplace/{constants,fee-utils}.ts`'s. Consumers must get the same
 numbers from both; the parity check is in the quest's `parity-plan.md`.
 
+Deploying this squid does not switch anything. It runs at its own URL while
+the Base subgraph stays live. Moving the frontend and the other consumers
+onto it is a separate follow-up, done only after the parity check passes and
+the frontend routing is updated.
+
 | Contract | Address | From block |
 |---|---|---|
 | ServiceRegistryL2 | `0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE` | 10 827 380 (= start block) |
