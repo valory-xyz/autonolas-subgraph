@@ -40,6 +40,7 @@ import {
   tokenBalanceId,
 } from "./logic";
 import { getSafeConfig } from "./rpc";
+import { execTransaction } from "./abi/GnosisSafe/functions";
 import {
   CHAIN,
   OLAS,
@@ -1053,6 +1054,70 @@ export async function handleSafeReceived(
   const emitter = await ctx.cache.tracked(meta.address);
   if (emitter?.role !== ROLE_MASTER && emitter?.role !== ROLE_AGENT) return;
   await handleTransfer(ctx, meta, e.sender, meta.address, e.value, null);
+}
+
+/**
+ * Native out: an Agent Safe paying its own Agent Signer through a plain
+ * `execTransaction` the Signer submits itself. ExecutionSuccess carries no
+ * amount or recipient, so both come from the outer tx calldata.
+ *
+ * Runs for every Safe execution on the chain (~4 per block on Polygon), so
+ * every shape check runs before the one tracked lookup. A module or
+ * relayer execution does not call the Safe directly and is not decoded.
+ * Never routed through classifyTransfer, which would label an Agent Safe
+ * -> untracked transfer AGENT_TO_APP.
+ */
+export async function handleSafeExecutionSuccess(
+  ctx: Ctx,
+  meta: EventMeta,
+  tx: { from: string; to: string | undefined; input: string }
+): Promise<void> {
+  if (tx.to?.toLowerCase() !== meta.address) return;
+  if (tx.input.slice(0, 10).toLowerCase() !== execTransaction.selector) return;
+
+  let call;
+  try {
+    call = execTransaction.decode(tx.input);
+  } catch (err) {
+    // Malformed calldata behind a valid selector is foreign noise, not a
+    // bug of ours; anything else must still crash the batch.
+    if ((err as { name?: string })?.name === "FunctionCalldataDecodeError") {
+      return;
+    }
+    throw err;
+  }
+  if (call.operation !== 0) return;
+  if (call.data !== "0x") return;
+  if (call.value <= 0n) return;
+  const signer = tx.from.toLowerCase();
+  if (call.to.toLowerCase() !== signer) return;
+
+  const agent = await ctx.cache.tracked(meta.address);
+  if (agent?.role !== ROLE_AGENT) return;
+
+  ctx.cache.set(
+    FundsMovement,
+    new FundsMovement({
+      id: eventId(meta.txHash, meta.logIndex),
+      service: agent.serviceId ? new Service({ id: agent.serviceId }) : null,
+      masterSafe: agent.masterSafeId
+        ? new MasterSafe({ id: agent.masterSafeId })
+        : null,
+      agentSafe: new AgentSafe({ id: agent.id }),
+      stakingContract: null,
+      epoch: null,
+      category: FundsCategory.AGENT_SAFE_TO_AGENT_EOA,
+      source: FundsSource.SEMANTIC,
+      agentFundingEvent: null,
+      token: null,
+      amount: call.value,
+      from: meta.address,
+      to: signer,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      transactionHash: meta.txHash,
+    })
+  );
 }
 
 // --- Safe owner upkeep ------------------------------------------------

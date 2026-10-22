@@ -36,9 +36,10 @@ const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
 const fields = {
   block: { timestamp: true },
   log: { address: true, topics: true, data: true, transactionHash: true },
-  // `input` is the createStakingInstance calldata; see the StakingFactory
-  // source below.
-  transaction: { input: true },
+  // `input` is the createStakingInstance calldata (StakingFactory source)
+  // and the execTransaction calldata (Safe source); `from` / `to` gate the
+  // latter, see handleSafeExecutionSuccess.
+  transaction: { input: true, from: true, to: true },
 } satisfies FieldSelection;
 
 export type Fields = typeof fields;
@@ -110,13 +111,11 @@ export const dataSource = new DataSourceBuilder()
   // 4.23 logs/block, versus 133 logs/block for the address-filtered ERC-20
   // sources below — the templates were never the expensive half.
   //
-  // ExecutionSuccess and ExecutionFromModuleSuccess are deliberately NOT
-  // subscribed. Their subgraph handlers are documented no-ops (the events
-  // carry no amount or recipient, so native-out needs trace handlers), yet
-  // they are 97% of Safe log volume: dropping them takes the subscription
-  // from 4.23 to 0.12 logs/block, and distinct addresses seen from 39,817
-  // to 168, for zero behaviour change. A graph-node template subscribes
-  // per contract and cannot make that choice; SQD subscribes per topic.
+  // ExecutionSuccess is ~97% of Safe log volume (0.12 -> ~4.23
+  // logs/block, with its transaction). That cost is accepted: it is the
+  // only way to see an Agent Safe's native top-up of its own Agent Signer,
+  // decoded from the outer execTransaction calldata. ExecutionFromModuleSuccess
+  // stays unsubscribed: a module call carries no decodable outer tx.
   .addLog({
     where: {
       topic0: [
@@ -124,8 +123,10 @@ export const dataSource = new DataSourceBuilder()
         safe.AddedOwner.topic,
         safe.RemovedOwner.topic,
         safe.ChangedThreshold.topic,
+        safe.ExecutionSuccess.topic, // native out to the Agent Signer
       ],
     },
+    include: { transaction: true },
   })
 
   // --- ERC-20 transfers -----------------------------------------------
