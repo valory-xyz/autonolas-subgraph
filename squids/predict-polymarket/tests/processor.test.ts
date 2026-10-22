@@ -25,18 +25,12 @@ function activeAt(block: number): string[] {
 
 // keccak256 of the event signatures
 const ORDER_FILLED = "0xd543adfd945773f1a62f74f0ee55a5e3b9b1a28262980ba90b1a89f2ea84d8ee";
-const TRANSFER_SINGLE = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62";
-const TRANSFER_BATCH = "0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb";
 
-// Protocol V2 proxies (docs.polymarket.com/resources/contracts) and their
-// deployment blocks (first block with proxy bytecode on Polygon mainnet).
+// Protocol V2 ExchangeV3 proxy (docs.polymarket.com/resources/contracts) and
+// its deployment block (first block with proxy bytecode on Polygon mainnet).
+// PositionManager transfers are not subscribed: no handler reads them.
 const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
-const POSITION_MANAGER = "0x006f54f7f9a22e0000cc2ab60031000000ae9fef";
-const V2: [string, string, number][] = [
-  [EXCHANGE_V3, ORDER_FILLED, 87_479_471],
-  [POSITION_MANAGER, TRANSFER_SINGLE, 87_479_409],
-  [POSITION_MANAGER, TRANSFER_BATCH, 87_479_409],
-];
+const V2: [string, string, number][] = [[EXCHANGE_V3, ORDER_FILLED, 87_479_471]];
 
 // Every subscription on main, with the block it starts at.
 const OO_INIT = "0xeee0897acd6893adcaf2ba5158191b3601098ab6bece35c5d57874340b64c5b7";
@@ -55,13 +49,13 @@ const MAIN: [string[], string[], number][] = [
   [["0x00000000000fb5c9adea0298d729a0cb3823cc07"], ["0x7441de0ad639fe5d2bf1c22447715a0528b682385736bb40ae8dd92555eb8276"], 85_952_819],
 ];
 
-it("adds ExchangeV3 OrderFilled and PositionManager transfers from their deployment blocks and changes nothing else", () => {
+it("adds only ExchangeV3 OrderFilled, from its deployment block, and changes nothing else", () => {
   const expectedAt = (b: number) =>
     [
       ...MAIN.filter(([, , from]) => from <= b).flatMap(([as, ts]) => as.flatMap((a) => ts.map((t) => `${a} ${t}`))),
       ...V2.filter(([, , from]) => from <= b).map(([a, t]) => `${a} ${t}`),
     ].sort();
-  for (const b of [78_425_180, 80_360_433, 85_952_819, 86_219_367, 87_479_408, 87_479_409, 87_479_470, 87_479_471, 200_000_000]) {
+  for (const b of [78_425_180, 80_360_433, 85_952_819, 86_219_367, 87_479_470, 87_479_471, 200_000_000]) {
     expect(activeAt(b), `subscriptions at block ${b}`).toEqual(expectedAt(b));
   }
 });
