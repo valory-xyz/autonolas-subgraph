@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
 import { resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
-import { FundsCategory, ServiceBondType } from "../src/model";
+import { FundsCategory, FundsSource, ServiceBondType } from "../src/model";
+import * as safeFns from "../src/abi/GnosisSafe/functions";
 import {
   OLAS,
   ROLE_AGENT,
@@ -338,6 +339,105 @@ describe("transfer classification and balances", () => {
     const native = rows.find((r) => r.transactionHash === "0xnative");
     expect(native).toBeDefined();
     expect(native!.token).toBeNull();
+  });
+});
+
+describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
+  const SIGNER = `0x${"11".repeat(20)}`;
+  const ZERO20 = `0x${"00".repeat(20)}`;
+
+  function execCalldata(
+    over: Partial<{ to: string; value: bigint; data: string; operation: number }> = {}
+  ) {
+    return safeFns.execTransaction.encode({
+      to: SIGNER,
+      value: 5n,
+      data: "0x",
+      operation: 0,
+      safeTxGas: 0n,
+      baseGas: 0n,
+      gasPrice: 0n,
+      gasToken: ZERO20,
+      refundReceiver: ZERO20,
+      signatures: `0x${"ab".repeat(65)}`,
+      ...over,
+    });
+  }
+
+  async function discovered() {
+    const ctx = newBatch(store, 1000, 1000);
+    await mintTo(ctx, 7n, MASTER);
+    await h.handleCreateMultisigWithAgents(
+      ctx,
+      meta({ blockNumber: 1000n, txHash: "0xms" }),
+      { serviceId: 7n, multisig: AGENT }
+    );
+    await ctx.cache.flush();
+  }
+
+  async function execute(
+    tx: { from?: string; to?: string | undefined; input?: string },
+    emitter = AGENT
+  ) {
+    const b = newBatch(store, 1100, 1100);
+    const tracked = vi.spyOn(b.cache, "tracked");
+    await h.handleSafeExecutionSuccess(
+      b,
+      meta({ blockNumber: 1100n, txHash: "0xtopup", logIndex: 3, address: emitter }),
+      { from: SIGNER, to: emitter, input: execCalldata(), ...tx }
+    );
+    await b.cache.flush();
+    return {
+      row: store.all("FundsMovement").find((r) => r.transactionHash === "0xtopup"),
+      lookedUp: tracked.mock.calls.length > 0,
+    };
+  }
+
+  it("writes one native AGENT_SAFE_TO_AGENT_EOA row from the Agent Safe to the signer", async () => {
+    await discovered();
+    const { row } = await execute({});
+    expect(row).toBeDefined();
+    expect(row.id).toBe("0xtopup-3");
+    expect(row.category).toBe(FundsCategory.AGENT_SAFE_TO_AGENT_EOA);
+    expect(row.source).toBe(FundsSource.SEMANTIC);
+    expect(row.from).toBe(AGENT);
+    expect(row.to).toBe(SIGNER);
+    expect(row.token).toBeNull();
+    expect(row.amount).toBe(5n);
+    expect(row.agentSafeId).toBe(AGENT);
+    expect(row.serviceId).toBe("7");
+    expect(row.masterSafeId).toBe(MASTER);
+    expect(store.count("TokenBalance")).toBe(0);
+  });
+
+  // Each case fails a shape check, so it must also return before touching
+  // the cache: the handler runs on every Safe execution on the chain.
+  it.each([
+    ["the tx does not call the emitting Safe", { to: "0xrouter" }],
+    ["the tx is a contract creation", { to: undefined }],
+    ["the selector is not execTransaction", { input: `0xdeadbeef${execCalldata().slice(10)}` }],
+    ["the inner call is a DELEGATECALL", { input: execCalldata({ operation: 1 }) }],
+    ["the inner call carries data", { input: execCalldata({ data: "0x1234" }) }],
+    ["the inner call moves no value", { input: execCalldata({ value: 0n }) }],
+    ["the recipient is not the tx sender", { input: execCalldata({ to: `0x${"22".repeat(20)}` }) }],
+    ["the calldata is truncated", { input: execCalldata().slice(0, 50) }],
+  ])("writes nothing when %s", async (_, tx) => {
+    await discovered();
+    const { row, lookedUp } = await execute(tx);
+    expect(row).toBeUndefined();
+    expect(lookedUp).toBe(false);
+  });
+
+  it("writes nothing when the emitter is not tracked", async () => {
+    await discovered();
+    const { row } = await execute({}, "0xforeignsafe");
+    expect(row).toBeUndefined();
+  });
+
+  it("writes nothing when the emitter is a tracked Master Safe", async () => {
+    await discovered();
+    const { row } = await execute({}, MASTER);
+    expect(row).toBeUndefined();
   });
 });
 
