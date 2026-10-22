@@ -9,7 +9,7 @@ import {
   type EntityClass,
 } from "@olas/squid-shared";
 import { Ctx, newBatchState } from "../src/handlers";
-import { NO_PRICE_SOURCE, NativePriceSource } from "../src/fee";
+import { NO_OLAS_POOL, NO_PRICE_SOURCE, NativePriceSource } from "../src/fee";
 import { EventMeta } from "../src/logic";
 
 export class InMemoryCache extends SharedInMemoryCache {
@@ -32,7 +32,7 @@ export function newBatch(
   cache: InMemoryCache,
   price: NativePriceSource = TWO_K_USD
 ): Ctx {
-  return { cache, log: cache.log, price, ...newBatchState() };
+  return { cache, log: cache.log, price, olasPool: NO_OLAS_POOL, ...newBatchState() };
 }
 
 export const MARKETPLACE = "0xa45e64d13a30a51b91ae0eb182e88a40e9b18ed8";
