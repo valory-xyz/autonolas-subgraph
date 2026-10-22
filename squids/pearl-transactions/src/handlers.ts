@@ -1082,6 +1082,9 @@ export async function handleSafeExecutionSuccess(
     // Malformed calldata behind a valid selector is foreign noise, not a
     // bug of ours; anything else must still crash the batch.
     if ((err as { name?: string })?.name === "FunctionCalldataDecodeError") {
+      ctx.log.warn(
+        `Safe ${meta.address} execTransaction calldata not decodable (tx=${meta.txHash}); skipping`
+      );
       return;
     }
     throw err;
