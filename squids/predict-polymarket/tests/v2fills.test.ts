@@ -400,14 +400,18 @@ it.each([
   expect(dump()).not.toContain(NEG_RISK_ID.slice(2));
 });
 
-it("leaves a V2 market untitled when its registered rules are not JSON", async () => {
+it.each([
+  { name: "not JSON, left untitled", text: "title: Bahcesehir Koleji vs. Besiktas", title: "", outcomes: [] },
+  // JSON.parse turns the \u0000 escape into a NUL, which Postgres text rejects
+  { name: "JSON with NUL escapes, NULs dropped", text: String.raw`{"title":"Bahcesehir Koleji\u0000 vs. Besiktas","res_data":[[0,"Besi\u0000ktas"],[1,"Bahcesehir Koleji"]]}`, title: "Bahcesehir Koleji vs. Besiktas", outcomes: ["Bahcesehir Koleji", "Besiktas"] },
+])("stores malformed V2 rules safely ($name)", async (c) => {
   await registerAgent(undefined, SAFE);
   const log = RULES_TEAM.logs[0]!;
-  const rules = { ...ooReporter.RequestRegistered.decode(log), requestRules: `0x${Buffer.from("title: Bahcesehir Koleji vs. Besiktas").toString("hex")}` };
+  const rules = { ...ooReporter.RequestRegistered.decode(log), requestRules: `0x${Buffer.from(c.text).toString("hex")}` };
   await runBatch(store, [{ ...RULES_TEAM, logs: [{ ...log, ...ooReporter.RequestRegistered.encode(rules) }] }]);
   await runSynthetic(EXCHANGE_V3, orderFilled(SAFE, 0, BigInt(registered(RULES_TEAM)), 500_000n, 1_000_000n));
 
   const question = await store.get(Question, registered(RULES_TEAM));
   const metadata = question && (await store.get(MarketMetadata, question.metadata.id));
-  expect([question?.id, metadata?.title, metadata?.outcomes]).toEqual([registered(RULES_TEAM), "", []]);
+  expect([question?.id, metadata?.title, metadata?.outcomes]).toEqual([registered(RULES_TEAM), c.title, c.outcomes]);
 });
