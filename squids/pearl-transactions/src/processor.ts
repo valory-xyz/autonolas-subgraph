@@ -107,9 +107,10 @@ export const dataSource = new DataSourceBuilder()
   // --- Safe events (replaces the Safe template) -----------------------
   //
   // Same trick, and measured before committing to it: over 50k Polygon
-  // blocks from START_BLOCK an unfiltered 6-topic Safe subscription is
-  // 4.23 logs/block, versus 133 logs/block for the address-filtered ERC-20
-  // sources below — the templates were never the expensive half.
+  // blocks from START_BLOCK an unfiltered Safe subscription to the topics
+  // below plus ExecutionFromModuleSuccess is 4.23 logs/block, versus 133
+  // logs/block for the address-filtered ERC-20 sources below — the
+  // templates were never the expensive half.
   //
   // ExecutionSuccess and ExecutionFromModuleSuccess together are ~97% of
   // Safe log volume (4.23 vs 0.12 logs/block without them). ExecutionSuccess
