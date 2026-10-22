@@ -50,8 +50,8 @@ export interface Ctx {
   cache: IEntityCache;
   log: CacheLogger;
   price: NativePriceSource;
-  /** OLAS pool reads for the TOKEN fee unit; absent = no OLAS pricing ($0). */
-  olasPool?: OlasPoolSource;
+  /** OLAS pool reads for the TOKEN fee unit (NO_OLAS_POOL where the chain has none). */
+  olasPool: OlasPoolSource;
   /** Per batch (the subgraph's PendingMechData table): mech address -> maxDeliveryRate
    *  from the factory log, consumed by the marketplace CreateMech in the same tx. */
   pendingMechRates: Map<string, bigint>;
@@ -262,7 +262,7 @@ async function calculateMaxDeliveryRateUSD(
     );
     feeUnit = FEE_UNIT_FALLBACK;
   }
-  return convertFeeToUsd(maxDeliveryRate, feeUnit, blockNumber, ctx.price, ctx.log, ctx.olasPool);
+  return convertFeeToUsd(maxDeliveryRate, feeUnit, blockNumber, ctx);
 }
 
 /**
@@ -285,9 +285,7 @@ async function updateFeesOnDelivery(
     deliveryRate,
     request.feeUnit,
     blockNumber,
-    ctx.price,
-    ctx.log,
-    ctx.olasPool
+    ctx
   );
   request.finalFeeUSD = finalFeeUSD;
 
@@ -715,9 +713,7 @@ export async function handleMarketplaceRequest(
           priorityMech.maxDeliveryRate,
           unit,
           meta.blockNumber,
-          ctx.price,
-          ctx.log,
-          ctx.olasPool
+          ctx
         );
       }
     }

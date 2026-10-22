@@ -53,7 +53,46 @@ export function decodeForeign<T>(
  * `v1EndBlock` (the subgraph's MechMarketplaceV1 `endBlock`), V2 after.
  */
 export function marketplaceAbiAt(blockNumber: number, v1EndBlock: number | null) {
-  return v1EndBlock != null && blockNumber <= v1EndBlock ? marketplaceV1 : marketplaceV2;
+  const eras = marketplaceEras(0, v1EndBlock);
+  return eras.find((e) => blockNumber >= e.from && (e.to == null || blockNumber <= e.to))!.abi;
+}
+
+export interface MarketplaceEra {
+  abi: typeof marketplaceV1 | typeof marketplaceV2;
+  from: number;
+  /** Inclusive; open-ended when absent. */
+  to?: number;
+}
+
+/**
+ * The marketplace's ABI eras: the ONE definition of the V1/V2 cutover. The
+ * subscription (processor.ts, one log query per era) and the decoder
+ * (marketplaceAbiAt) both derive from it. V1 up to and including
+ * `v1EndBlock` (the subgraph's MechMarketplaceV1 `endBlock`), V2 after; a
+ * chain that launched on V2 has a single era.
+ */
+export function marketplaceEras(startBlock: number, v1EndBlock: number | null): MarketplaceEra[] {
+  if (v1EndBlock == null) return [{ abi: marketplaceV2, from: startBlock }];
+  return [
+    { abi: marketplaceV1, from: startBlock, to: v1EndBlock },
+    { abi: marketplaceV2, from: Math.max(startBlock, v1EndBlock + 1) },
+  ];
+}
+
+/**
+ * A marketplace-address log the decoder returned null for. Null is fine for a
+ * topic another subscription brought in (the address-less mech topics), but a
+ * topic this era's marketplace query subscribed to must have a decoder
+ * branch: fail loudly rather than drop it.
+ */
+export function assertDecodedIfSubscribed(
+  topic0: string,
+  blockNumber: number,
+  v1EndBlock: number | null
+): void {
+  if (marketplaceTopics(marketplaceAbiAt(blockNumber, v1EndBlock)).includes(topic0)) {
+    throw new Error(`marketplace topic0 ${topic0} at block ${blockNumber} is subscribed but has no decoder`);
+  }
 }
 
 /** Topics of the marketplace subscription for one ABI generation. */

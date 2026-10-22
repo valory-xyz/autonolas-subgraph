@@ -15,7 +15,13 @@ import * as karma from "./abi/Karma/events";
 import * as mech from "./abi/MechFixedPriceNative/events";
 import * as h from "./handlers";
 import type { Ctx } from "./handlers";
-import { decodeFactoryLog, decodeForeign, decodeMarketplaceLog, eventMeta } from "./decode";
+import {
+  assertDecodedIfSubscribed,
+  decodeFactoryLog,
+  decodeForeign,
+  decodeMarketplaceLog,
+  eventMeta,
+} from "./decode";
 import { probeRpc, rpcOlasPool, rpcPriceSource } from "./rpc";
 import {
   CHAIN,
@@ -75,6 +81,8 @@ run(
             await h.handleMarketplaceDeliveryWithSignatures(hctx, meta, e);
           } else if (e?.kind === "Deliver") {
             await h.handleDeliverWithSignatures(hctx, meta, e);
+          } else {
+            assertDecodedIfSubscribed(topic0, block.header.number, CHAIN.mechMarketplaceV1EndBlock);
           }
           continue;
         }

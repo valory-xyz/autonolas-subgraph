@@ -33,11 +33,14 @@ export function balancerOlasPool(
     async balancesAt(blockNumber) {
       const r = await pool.reservesAt(blockNumber);
       if (r == null) return null;
+      // reservesAt lowercases the pool's tokens; lowercase the config too.
+      const missingTokens: string[] = [];
       const at = (token: string) => {
-        const i = r.tokens.indexOf(token);
+        const i = r.tokens.indexOf(token.toLowerCase());
+        if (i < 0) missingTokens.push(token);
         return i < 0 ? 0n : r.balances[i];
       };
-      return { olas: at(cfg.olas), stable: at(cfg.stable) };
+      return { olas: at(cfg.olas), stable: at(cfg.stable), missingTokens };
     },
   };
 }

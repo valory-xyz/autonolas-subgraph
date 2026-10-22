@@ -281,8 +281,38 @@ export function assertPortalDataset(url: string, chain: ChainConfig): void {
   }
 }
 
+/**
+ * Load-time checks on a chain entry, so a config slip fails startup instead
+ * of silently pricing fees at $0 or matching no log:
+ * - every address is lowercase (SQD lowercases log addresses and the code
+ *   compares with ===; the OLAS pool's token match relies on it too);
+ * - a factory with fee unit TOKEN needs `olasPool`, CREDITS needs `nvmCredits`,
+ *   NATIVE needs `nativeUsdFeed`.
+ */
+export function assertChainConfig(chain: ChainConfig): void {
+  const addrs = JSON.stringify(chain).match(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g) ?? [];
+  const mixed = addrs.filter((a) => a !== a.toLowerCase());
+  if (mixed.length > 0) {
+    throw new Error(`${chain.name}: addresses must be lowercase: ${mixed.join(", ")}`);
+  }
+  const needs: [string, unknown][] = [
+    [FEE_UNIT_TOKEN, chain.olasPool],
+    [FEE_UNIT_CREDITS, chain.nvmCredits],
+    [FEE_UNIT_NATIVE, chain.nativeUsdFeed],
+  ];
+  for (const [unit, source] of needs) {
+    const f = chain.mechFactories.find((x) => x.feeUnit === unit);
+    if (f != null && source == null) {
+      throw new Error(
+        `${chain.name}: factory ${f.address} has fee unit ${unit} but the chain has no source for it`
+      );
+    }
+  }
+}
+
 // This deployment's chain.
 export const CHAIN: ChainConfig = selectChain("MARKETPLACE_CHAIN", CHAINS, "robinhood");
+assertChainConfig(CHAIN);
 
 export const START_BLOCK = CHAIN.startBlock;
 export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2.address;

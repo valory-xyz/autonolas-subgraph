@@ -34,6 +34,12 @@ export type NativePriceSource = UsdPriceSource;
 export interface OlasPoolBalances {
   olas: bigint;
   stable: bigint;
+  /**
+   * Configured tokens the pool does not hold (read as balance 0, like the
+   * subgraph's getPoolTokenBalances). Non-empty means a config error, not an
+   * empty pool.
+   */
+  missingTokens?: string[];
 }
 
 /** Null when the pool cannot be read (the subgraph's reverted getPoolId / getPoolTokens). */
@@ -49,7 +55,19 @@ export { NO_PRICE_SOURCE, ZERO_USD, pow10 };
 
 /** graph-node normalizes every BigDecimal to 34 significant digits. */
 const GN_SIGNIFICANT_DIGITS = 34;
+/**
+ * big.js rounding mode for half-up (big.js `Big.roundHalfUp`; @subsquid/
+ * big-decimal does not re-export the constants). graph-node pins bigdecimal
+ * 0.1.2, whose `with_prec` rounds half-up. Checked at load below, so a
+ * library change fails startup instead of silently changing the last digit.
+ */
 const ROUND_HALF_UP = 1;
+for (const [x, want] of [["0.25", "0.3"], ["0.35", "0.4"], ["0.24", "0.2"], ["-0.25", "-0.3"]]) {
+  const got = BigDecimal(x).prec(1, ROUND_HALF_UP).toFixed();
+  if (got !== want) {
+    throw new Error(`big-decimal rounding mode ${ROUND_HALF_UP} is not half-up: ${x} -> ${got}`);
+  }
+}
 
 /** Round like graph-node's `BigDecimal::normalized()` (34 digits, half-up). */
 export function gn(x: BigDecimal): BigDecimal {
@@ -99,13 +117,18 @@ export function olasToUsd(
 
 // --- dispatcher ---------------------------------------------------------
 
+/** Everything a fee conversion reads besides the chain table. All required. */
+export interface FeeSources {
+  price: NativePriceSource;
+  olasPool: OlasPoolSource;
+  log: { warn(msg: string): void };
+}
+
 export async function convertFeeToUsd(
   feeRaw: bigint,
   feeUnit: FeeUnitName,
   blockNumber: bigint,
-  price: NativePriceSource,
-  log: { warn(msg: string): void },
-  olasPool: OlasPoolSource = NO_OLAS_POOL,
+  { price, olasPool, log }: FeeSources,
   chain: ChainConfig = CHAIN
 ): Promise<BigDecimal> {
   switch (feeUnit) {
@@ -130,13 +153,27 @@ export async function convertFeeToUsd(
         );
         return ZERO_USD;
       }
+      const pool = chain.olasPool.pool;
       const balances = await olasPool.balancesAt(blockNumber);
-      const usd =
-        balances == null ? null : olasToUsd(feeRaw, balances, chain.olasPool.stableDecimals);
+      if (balances == null) {
+        log.warn(
+          `[fee] OLAS pool ${pool} unreadable (call reverted or RPC failed) at block ` +
+            `${blockNumber}; returning $0 for ${feeRaw}`
+        );
+        return ZERO_USD;
+      }
+      if (balances.missingTokens != null && balances.missingTokens.length > 0) {
+        log.warn(
+          `[fee] OLAS pool ${pool} does not hold configured token(s) ` +
+            `${balances.missingTokens.join(", ")}; check olasPool in constants.ts. ` +
+            `Returning $0 for ${feeRaw}`
+        );
+        return ZERO_USD;
+      }
+      const usd = olasToUsd(feeRaw, balances, chain.olasPool.stableDecimals);
       if (usd == null) {
         log.warn(
-          `[fee] OLAS pool ${chain.olasPool.pool} unreadable or empty at block ` +
-            `${blockNumber}; returning $0 for ${feeRaw}`
+          `[fee] OLAS pool ${pool} is empty at block ${blockNumber}; returning $0 for ${feeRaw}`
         );
         return ZERO_USD;
       }
