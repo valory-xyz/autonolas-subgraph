@@ -1,11 +1,11 @@
 {
   "name": "marketplace-squid",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "build": "rm -rf lib && tsc",
     "codegen": "squid-typeorm-codegen",
-    "typegen": "squid-evm-typegen src/abi ../../abis/ServiceRegistryL2.json ../../abis/ComplementaryServiceMetadata.json ../../abis/Karma.json ../../abis/MechMarketplaceV2.json ../../abis/MechFactoryFixedPriceNative.json ../../abis/MechFactoryFixedPriceToken.json ../../abis/MechFixedPriceNative.json",
+    "typegen": "squid-evm-typegen src/abi ../../abis/ServiceRegistryL2.json ../../abis/ComplementaryServiceMetadata.json ../../abis/Karma.json ../../abis/MechMarketplaceV1.json ../../abis/MechMarketplaceV2.json ../../abis/MechFactoryFixedPriceNative.json ../../abis/MechFactoryFixedPriceToken.json ../../abis/MechFactoryFixedPriceTokenUSDC.json ../../abis/MechFactoryNvmSubscriptionNative.json ../../abis/MechFactoryNvmSubscriptionTokenUSDC.json ../../abis/MechFixedPriceNative.json",
     "migration:generate": "squid-typeorm-migration generate",
     "migration:apply": "squid-typeorm-migration apply",
     "process": "node lib/main.js",

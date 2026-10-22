@@ -6,10 +6,10 @@
 #   Secret service-registry-squid-db   (all three workloads):
 #     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
 #   Secret service-registry-squid-data (processor ONLY):
-#     SERVICE_REGISTRY_CHAIN -> "robinhood" (key into src/constants.ts CHAINS)
-#     SQD_PORTAL_URL     -> private SQD Portal dataset URL (robinhood-mainnet)
-#     SQD_PORTAL_API_KEY -> private portal key (x-api-key header). Required:
-#       robinhood-mainnet is not on the public portal at all.
+#     SERVICE_REGISTRY_CHAIN -> "robinhood" or "base" (key into src/constants.ts CHAINS)
+#     SQD_PORTAL_URL     -> private SQD Portal dataset URL (robinhood-mainnet / base-mainnet)
+#     SQD_PORTAL_API_KEY -> private portal key (x-api-key header). Required on
+#       robinhood (not on the public portal at all); set it on Base too.
 #
 # No RPC: this squid reads event logs only.
 #
