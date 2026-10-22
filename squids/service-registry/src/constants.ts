@@ -64,19 +64,34 @@ export const IDENTITY_REGISTRY_BRIDGER =
 export const IDENTITY_REGISTRY_BRIDGER_START_BLOCK =
   CHAIN.identityRegistryBridgerStartBlock;
 
+/** `<name>` of a `.../datasets/<name>` portal URL (exact path segment), or null. */
+export function portalDatasetName(url: string): string | null {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const m = /\/datasets\/([^/]+)\/?$/.exec(path);
+  return m == null ? null : m[1];
+}
+
 /**
  * Portal options for `chain`. SQD_PORTAL_URL (blank = unset) overrides the
- * chain's dataset but must name the same dataset, or the processor would
- * stream another chain, match nothing, and report healthy. The key is sent
- * as x-api-key when set, and is mandatory for private datasets.
+ * chain's dataset but must name exactly the same dataset, or the processor
+ * would stream another chain, match nothing, and report healthy. The key is
+ * sent as x-api-key when set. It is mandatory for private datasets, and for
+ * any overridden URL: an override is the private portal in production, which
+ * rate-limits a keyless client instead of refusing it.
  */
 export function portalFor(
   chain: ChainConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): string | { url: string; http: { headers: { "x-api-key": string } } } {
-  const url = env.SQD_PORTAL_URL?.trim() || chain.portalDataset;
-  const dataset = chain.portalDataset.split("/").pop()!;
-  if (!url.includes(dataset)) {
+  const override = env.SQD_PORTAL_URL?.trim();
+  const url = override || chain.portalDataset;
+  const dataset = portalDatasetName(chain.portalDataset)!;
+  if (portalDatasetName(url) !== dataset) {
     throw new Error(
       `SQD_PORTAL_URL "${url}" does not point at the ${dataset} dataset`,
     );
@@ -86,6 +101,12 @@ export function portalFor(
     if (chain.portalRequiresApiKey) {
       throw new Error(
         `SQD_PORTAL_API_KEY is required for the private ${dataset} dataset`,
+      );
+    }
+    if (override && override !== chain.portalDataset) {
+      throw new Error(
+        `SQD_PORTAL_API_KEY is required with a SQD_PORTAL_URL override ("${override}"); ` +
+          `unset SQD_PORTAL_URL to use the public ${dataset} dataset keyless`,
       );
     }
     return url;

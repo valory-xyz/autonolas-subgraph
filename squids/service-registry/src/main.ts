@@ -133,6 +133,8 @@ run(
           topic0 === safe.ExecutionFromModuleSuccess.topic
         ) {
           await safeLogs.safeLog(address, meta);
+        } else {
+          throw unhandled(address, topic0);
         }
       }
       await safeLogs.endBlock();

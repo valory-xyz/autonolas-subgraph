@@ -102,8 +102,8 @@ Consumers written against the subgraph need those three changes.
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `SERVICE_REGISTRY_CHAIN` | Which `CHAINS` entry in `src/constants.ts` this deployment indexes: `robinhood` (default) or `base`; an unknown name refuses to start |
-| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the chain's dataset; an override must name the same dataset or the processor refuses to start |
-| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required on Robinhood** (private dataset). Optional on Base, but set it in production: the public portal rate-limits a backfill |
+| `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the chain's dataset; an override must name exactly the same dataset (last path segment) or the processor refuses to start |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). **Required on Robinhood** (private dataset). Optional on Base with the default public dataset, but set it in production: the public portal rate-limits a backfill. Required whenever `SQD_PORTAL_URL` overrides the default |
 | `GQL_PORT` | GraphQL server port. Always set it to 4350 — the server's built-in default is a different port |
 | `PROMETHEUS_PORT` | processor metrics port. If unset, a random port is used |
 
