@@ -1062,8 +1062,10 @@ export async function handleSafeReceived(
  * amount or recipient, so both come from the outer tx calldata.
  *
  * Runs for every Safe execution on the chain (~4 per block on Polygon), so
- * every shape check runs before the one tracked lookup. A module or
- * relayer execution does not call the Safe directly and is not decoded.
+ * every shape check runs before the one tracked lookup. A module execution
+ * emits ExecutionFromModuleSuccess and never reaches here; a relayed
+ * execTransaction is decoded but skipped, because its recipient is not the
+ * tx sender.
  * Never routed through classifyTransfer, which would label an Agent Safe
  * -> untracked transfer AGENT_TO_APP.
  */
