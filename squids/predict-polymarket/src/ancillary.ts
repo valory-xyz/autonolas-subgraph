@@ -155,9 +155,11 @@ export function parseRequestRules(rules: string): {
     parsed != null && typeof parsed === "object"
       ? (parsed as { title?: unknown; res_data?: unknown })
       : {};
+  // JSON.parse turns a \u0000 escape into NUL, which Postgres text rejects
+  const clean = (s: string) => s.replaceAll("\u0000", "");
   return {
-    title: typeof title === "string" ? title : "",
-    outcomes: rulesOutcomes(resData),
+    title: typeof title === "string" ? clean(title) : "",
+    outcomes: rulesOutcomes(resData).map(clean),
   };
 }
 

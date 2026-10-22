@@ -16,6 +16,8 @@ import { BINARY_MODULE, CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
 //   positionId   = keccak256(collateral ++ collectionId)            — local
 // Both functions are pure, so calling at `latest` is exact regardless of the
 // event's block, and a process-lifetime memo cannot go stale.
+// BinaryModule.legacyConditionId reads a link that is written when a market
+// migrates and does not change afterwards, so reading it at `latest` is exact.
 const client = createPublicClient({
   transport: http(
     process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com",
@@ -114,7 +116,9 @@ export async function getOutcomeTokenId(
 export async function getLegacyConditionId(
   conditionId: string,
 ): Promise<string> {
-  // transport errors propagate: the SQD batch retry re-runs the handler
+  // transport errors propagate: viem retries the request, then the processor
+  // exits and resumes from its last checkpoint on restart (same as
+  // getCollectionId)
   const legacy = await client.readContract({
     address: BINARY_MODULE as `0x${string}`,
     abi: BINARY_MODULE_ABI,
