@@ -366,19 +366,27 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
 
   async function execute(
     tx: { from?: string; to?: string | undefined; input?: string },
-    emitter = AGENT
+    emitter = AGENT,
+    logIndexes = [3]
   ) {
     const b = newBatch(store, 1100, 1100);
+    const warn = vi.fn();
+    b.log = { ...b.log, warn };
     const tracked = vi.spyOn(b.cache, "tracked");
-    await h.handleSafeExecutionSuccess(
-      b,
-      meta({ blockNumber: 1100n, txHash: "0xtopup", logIndex: 3, address: emitter }),
-      { from: SIGNER, to: emitter, input: execCalldata(), ...tx }
-    );
+    for (const logIndex of logIndexes) {
+      await h.handleSafeExecutionSuccess(
+        b,
+        meta({ blockNumber: 1100n, txHash: "0xtopup", logIndex, address: emitter }),
+        { from: SIGNER, to: emitter, input: execCalldata(), ...tx }
+      );
+    }
     await b.cache.flush();
+    const rows = store.all("FundsMovement").filter((r) => r.transactionHash === "0xtopup");
     return {
-      row: store.all("FundsMovement").find((r) => r.transactionHash === "0xtopup"),
+      row: rows[0],
+      rows,
       lookedUp: tracked.mock.calls.length > 0,
+      warn,
     };
   }
 
@@ -399,6 +407,44 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     expect(store.count("TokenBalance")).toBe(0);
   });
 
+  // SQD lowercases addresses today; these pin the handler's own
+  // normalisation in case an RPC or codec hands back mixed case.
+  const MIXED_SIGNER = `0x${"Ab".repeat(20)}`;
+  const LOWER_SIGNER = MIXED_SIGNER.toLowerCase();
+  it.each([
+    [
+      "checksummed tx from / to",
+      { from: MIXED_SIGNER, to: `0x${AGENT.slice(2).toUpperCase()}`, input: execCalldata({ to: LOWER_SIGNER }) },
+    ],
+    ["a checksummed recipient in the calldata", { from: LOWER_SIGNER, input: execCalldata({ to: MIXED_SIGNER }) }],
+    [
+      "upper-case calldata hex",
+      { from: LOWER_SIGNER, input: `0x${execCalldata({ to: LOWER_SIGNER }).slice(2).toUpperCase()}` },
+    ],
+  ])("writes the row for %s", async (_, tx) => {
+    await discoverAgent();
+    const { row } = await execute(tx);
+    expect(row).toBeDefined();
+    expect(row.from).toBe(AGENT);
+    expect(row.to).toBe(LOWER_SIGNER);
+  });
+
+  it("writes one row per ExecutionSuccess log in the same tx", async () => {
+    await discoverAgent();
+    const { rows } = await execute({}, AGENT, [3, 4]);
+    expect(rows.map((r) => r.id).sort()).toEqual(["0xtopup-3", "0xtopup-4"]);
+  });
+
+  it("warns and writes nothing when the calldata behind the selector does not decode", async () => {
+    await discoverAgent();
+    const { row, lookedUp, warn } = await execute({ input: execCalldata().slice(0, 50) });
+    expect(row).toBeUndefined();
+    expect(lookedUp).toBe(false);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain("not decodable");
+    expect(warn.mock.calls[0][0]).toContain("0xtopup");
+  });
+
   // Each case fails a shape check, so it must also return before touching
   // the cache: the handler runs on every Safe execution on the chain.
   it.each([
@@ -406,10 +452,10 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     ["the tx is a contract creation", { to: undefined }],
     ["the selector is not execTransaction", { input: `0xdeadbeef${execCalldata().slice(10)}` }],
     ["the inner call is a DELEGATECALL", { input: execCalldata({ operation: 1 }) }],
+    ["the operation is out of range", { input: execCalldata({ operation: 2 }) }],
     ["the inner call carries data", { input: execCalldata({ data: "0x1234" }) }],
     ["the inner call moves no value", { input: execCalldata({ value: 0n }) }],
     ["the recipient is not the tx sender", { input: execCalldata({ to: `0x${"22".repeat(20)}` }) }],
-    ["the calldata is truncated", { input: execCalldata().slice(0, 50) }],
   ])("writes nothing when %s", async (_, tx) => {
     await discoverAgent();
     const { row, lookedUp } = await execute(tx);

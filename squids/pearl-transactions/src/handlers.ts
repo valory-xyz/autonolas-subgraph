@@ -39,6 +39,7 @@ import {
   serviceEntityId,
   tokenBalanceId,
 } from "./logic";
+import { FunctionCalldataDecodeError } from "@subsquid/evm-abi";
 import { getSafeConfig } from "./rpc";
 import { execTransaction } from "./abi/GnosisSafe/functions";
 import {
@@ -1075,17 +1076,19 @@ export async function handleSafeExecutionSuccess(
   tx: { from: string; to: string | undefined; input: string }
 ): Promise<void> {
   if (tx.to?.toLowerCase() !== meta.address) return;
-  if (tx.input.slice(0, 10).toLowerCase() !== execTransaction.selector) return;
+  const input = tx.input.toLowerCase();
+  if (input.slice(0, 10) !== execTransaction.selector) return;
 
   let call;
   try {
-    call = execTransaction.decode(tx.input);
+    call = execTransaction.decode(input);
   } catch (err) {
     // Malformed calldata behind a valid selector is foreign noise, not a
     // bug of ours; anything else must still crash the batch.
-    if ((err as { name?: string })?.name === "FunctionCalldataDecodeError") {
+    if (err instanceof FunctionCalldataDecodeError) {
       ctx.log.warn(
-        `Safe ${meta.address} execTransaction calldata not decodable (tx=${meta.txHash}); skipping`
+        `Safe ${meta.address} execTransaction calldata not decodable ` +
+          `(tx=${meta.txHash}, ${input.length} hex chars); skipping: ${err.message}`
       );
       return;
     }
