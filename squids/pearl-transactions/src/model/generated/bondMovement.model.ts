@@ -27,7 +27,7 @@ export class BondMovement {
     @ManyToOne_(() => AgentSafe, {nullable: true})
     agentSafe!: Relation_<AgentSafe> | undefined | null
 
-    @Column_("varchar", {length: 20, nullable: false})
+    @Column_("varchar", {length: 23, nullable: false})
     category!: FundsCategory
 
     @Column_("varchar", {length: 12, nullable: false})
