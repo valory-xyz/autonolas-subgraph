@@ -13,7 +13,7 @@ import {
   TraderAgent,
 } from "./model";
 import { IEntityCache } from "./entityCache";
-import { ONE_DAY } from "./constants";
+import { ONE_DAY, PROBABILITY_SCALE } from "./constants";
 import { actualForOutcome, brierContribution } from "./brier";
 
 export type EventMeta = {
@@ -287,7 +287,10 @@ export async function processMarketResolution(
       if (bet.isBuy && bet.impliedProbability > 0n) {
         dailyStat.brierSum += brierContribution(
           bet.impliedProbability,
-          actualForOutcome(bet.outcomeIndex, winningOutcome),
+          winningOutcome === -1n && payoutTotal > 0n
+            ? ((payouts[Number(bet.outcomeIndex)] ?? 0n) * PROBABILITY_SCALE) /
+                payoutTotal
+            : actualForOutcome(bet.outcomeIndex, winningOutcome),
         );
         dailyStat.brierCount += 1;
       }

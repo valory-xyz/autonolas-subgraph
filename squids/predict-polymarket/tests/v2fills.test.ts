@@ -283,20 +283,22 @@ it.each([YES_WON, SPLIT])("BinaryModule ConditionResolved ($name) resolves the a
 
 it("settles a partial V2 result by its payout vector, not as a V1 invalid answer", async () => {
   // YES pays 0.7 and NO 0.3 per share: 1,000,000 YES + 500,000 NO shares are
-  // worth 850,000 pUSD (the V1 invalid-answer rule of 1/2 per share would give 750,000)
+  // worth 850,000 pUSD (the V1 invalid-answer rule of 1/2 per share would give 750,000).
+  // Buys at 0.6 (YES) and 0.3 (NO) score (0.6 - 0.7)^2 + (0.3 - 0.3)^2 = 0.01.
   await registerAgent(undefined, SAFE);
   const resolved: Tx = {
     block: { number: 96_000_100, timestamp: 1_792_700_000 },
     logs: [{ address: BINARY_MODULE, ...binaryModule.ConditionResolved.encode({ conditionId: CONDITION.slice(0, 64), result: [700_000n, 300_000n] }), transactionHash: `0x${"c0".repeat(32)}`, logIndex: 0 }],
   };
-  await runBatch(store, [buysBefore(resolved, SAFE, [[YES, 600_000n, 1_000_000n], [YES + 1n, 200_000n, 500_000n]]), resolved]);
+  await runBatch(store, [buysBefore(resolved, SAFE, [[YES, 600_000n, 1_000_000n], [YES + 1n, 150_000n, 500_000n]]), resolved]);
 
   const resolution = await store.get(QuestionResolution, CONDITION);
   expect([resolution?.winningIndex, resolution?.payouts, resolution?.settledPrice]).toEqual([-1n, ["700000", "300000"], 7n * 10n ** 17n]);
   const participant = await store.get(MarketParticipant, `${SAFE}_${CONDITION}`);
   expect([participant?.settled, participant?.expectedPayout]).toEqual([true, 850_000n]);
   expect((await store.get(TraderAgent, SAFE))?.totalExpectedPayout).toBe(850_000n);
-  expect((await store.get(DailyProfitStatistic, `${SAFE}_${day(resolved.block.timestamp)}`))?.dailyProfit).toBe(850_000n - 800_000n);
+  const daily = await store.get(DailyProfitStatistic, `${SAFE}_${day(resolved.block.timestamp)}`);
+  expect([daily?.dailyProfit, daily?.brierSum, daily?.brierCount]).toEqual([850_000n - 750_000n, 10n ** 16n, 2]);
 });
 
 it.each([YES_WON, SPLIT])("credits the payout of each BinaryModule redemption through the Router ($name) to the agent whose Safe is the recipient", async (c) => {
