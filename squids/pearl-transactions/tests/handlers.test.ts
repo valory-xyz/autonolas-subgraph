@@ -68,6 +68,18 @@ async function mintTo(ctx: any, serviceId: bigint, to: string, block = 1000n) {
   );
 }
 
+/** Discover service 7: Master Safe `MASTER` and its Agent Safe `AGENT`. */
+async function discoverAgent() {
+  const ctx = newBatch(store, 1000, 1000);
+  await mintTo(ctx, 7n, MASTER);
+  await h.handleCreateMultisigWithAgents(
+    ctx,
+    meta({ blockNumber: 1000n, txHash: "0xms" }),
+    { serviceId: 7n, multisig: AGENT }
+  );
+  await ctx.cache.flush();
+}
+
 describe("cross-batch relation loading (regression)", () => {
   it("tracks the Agent Safe when CreateMultisigWithAgents lands in a later batch", async () => {
     // Batch 1: the mint discovers the Master Safe and links the Service.
@@ -219,20 +231,8 @@ describe("bond attribution", () => {
 });
 
 describe("transfer classification and balances", () => {
-  async function discovered() {
-    const ctx = newBatch(store, 1000, 1000);
-    await mintTo(ctx, 7n, MASTER);
-    await h.handleCreateMultisigWithAgents(
-      ctx,
-      meta({ blockNumber: 1000n, txHash: "0xms" }),
-      { serviceId: 7n, multisig: AGENT }
-    );
-    await ctx.cache.flush();
-    return ctx;
-  }
-
   it("tags the first Master EOA deposit as setup, later ones as funding", async () => {
-    await discovered();
+    await discoverAgent();
 
     const b = newBatch(store, 1100, 1100);
     await h.handleErc20Transfer(
@@ -258,7 +258,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("moves both balances on Master -> Agent and groups them per tx", async () => {
-    await discovered();
+    await discoverAgent();
 
     const b = newBatch(store, 1200, 1200);
     await h.handleErc20Transfer(
@@ -283,7 +283,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("splits OLAS agent->master into its own category", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1300, 1300);
     await h.handleErc20Transfer(
       b,
@@ -307,7 +307,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("ignores transfers between two untracked addresses", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1400, 1400);
     await h.handleErc20Transfer(
       b,
@@ -321,7 +321,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("ignores native SafeReceived emitted by an untracked Safe, even from a tracked sender", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1500, 1500);
     await h.handleSafeReceived(
       b,
@@ -364,17 +364,6 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     });
   }
 
-  async function discovered() {
-    const ctx = newBatch(store, 1000, 1000);
-    await mintTo(ctx, 7n, MASTER);
-    await h.handleCreateMultisigWithAgents(
-      ctx,
-      meta({ blockNumber: 1000n, txHash: "0xms" }),
-      { serviceId: 7n, multisig: AGENT }
-    );
-    await ctx.cache.flush();
-  }
-
   async function execute(
     tx: { from?: string; to?: string | undefined; input?: string },
     emitter = AGENT
@@ -394,7 +383,7 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
   }
 
   it("writes one native AGENT_SAFE_TO_AGENT_EOA row from the Agent Safe to the signer", async () => {
-    await discovered();
+    await discoverAgent();
     const { row } = await execute({});
     expect(row).toBeDefined();
     expect(row.id).toBe("0xtopup-3");
@@ -422,20 +411,20 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     ["the recipient is not the tx sender", { input: execCalldata({ to: `0x${"22".repeat(20)}` }) }],
     ["the calldata is truncated", { input: execCalldata().slice(0, 50) }],
   ])("writes nothing when %s", async (_, tx) => {
-    await discovered();
+    await discoverAgent();
     const { row, lookedUp } = await execute(tx);
     expect(row).toBeUndefined();
     expect(lookedUp).toBe(false);
   });
 
   it("writes nothing when the emitter is not tracked", async () => {
-    await discovered();
+    await discoverAgent();
     const { row } = await execute({}, "0xforeignsafe");
     expect(row).toBeUndefined();
   });
 
   it("writes nothing when the emitter is a tracked Master Safe", async () => {
-    await discovered();
+    await discoverAgent();
     const { row } = await execute({}, MASTER);
     expect(row).toBeUndefined();
   });
