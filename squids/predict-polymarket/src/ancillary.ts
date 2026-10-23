@@ -138,9 +138,9 @@ export function extractBinaryOutcomes(rawData: string): string[] {
  * (PolymarketOOReporter requestRules, a JSON object). res_data is either an
  * array of [value, label] pairs or the V1-style "p1 corresponds to X, p2 to
  * Y" string. Outcomes are in UMA p1, p2 order (the label for value 0, then
- * for value 1), the same order as V1 MarketMetadata.outcomes and the reverse
- * of outcome index order. Rules that do not parse give an empty title and no
- * outcomes.
+ * for value 1), as extractBinaryOutcomes gives a p1/p2 mapping, which is the
+ * reverse of outcome index order. Rules that do not parse give an empty title
+ * and no outcomes.
  */
 export function parseRequestRules(rules: string): {
   title: string;

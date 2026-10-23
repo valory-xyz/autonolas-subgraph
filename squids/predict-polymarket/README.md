@@ -63,12 +63,12 @@ history, accuracy, achievements) need no changes:
 - An agent's first fill on a BinaryModule condition creates its `Question`,
   keyed by the padded condition ID. Its title and outcome names come from
   the rules the market registered with the PolymarketOOReporter
-  (`RequestRegistered`, keyed by the same ID). A migrated V1 market without
+  (`RequestRegistered`, keyed by the same ID). Outcome names from rules are
+  in UMA p1, p2 order, like V1 UMA metadata with a p1/p2 mapping, which is
+  the reverse of outcome index order. A migrated V1 market without
   registered rules reuses the metadata of its V1 condition, found with one
-  `BinaryModule.legacyConditionId` call. Outcome names are in the same
-  order as V1 metadata (UMA p1, p2), which is the reverse of outcome index
-  order. Other markets, such as Chainlink
-  Up or Down markets, have no text on chain and keep an empty title and no
+  `BinaryModule.legacyConditionId` call. Other markets, such as Chainlink Up
+  or Down markets, have no text on chain and keep an empty title and no
   outcomes, as do markets whose rules do not parse.
 - BinaryModule `ConditionResolved` settles the market through the same
   resolution path as V1. Its result vector is in parts per million: the
