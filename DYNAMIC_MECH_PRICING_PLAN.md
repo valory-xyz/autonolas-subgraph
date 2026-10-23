@@ -1,8 +1,8 @@
 # Dynamic mech pricing: indexing implementation plan
 
-Prepared 22 October 2026 against repository revision `80d09c0`.
+Prepared against repository revision `80d09c0`; schedule updated Friday, 23 October 2026.
 
-Target: have the blocking fix reviewed and ready for deployment by the start of next week (Monday, 26 October), and complete the remaining implementation during 26–30 October. Start indexing corrected versions as soon as they are ready, without waiting for new contracts. Contract deployment is expected next week; the exact day and chains remain to be confirmed. Full data readiness will take longer: allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks for other chains. This is planned work, not an emergency.
+Target: focus on #142 on Friday, 23 October, complete its review at the start of next week, then implement #140 followed by #143 during 26–30 October. This is a sequential schedule for one implementer; no weekend work is assumed. Start indexing corrected versions as soon as they are ready, without waiting for new contracts. Contract deployment is expected next week; the exact day and chains remain to be confirmed. Full data readiness will take longer: allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks for other chains. This is planned work, not an emergency.
 
 The hard deadline is **before a mech starts charging variable amounts**, rather than before the contract upgrade itself. A contract deployment can precede activation. Code merged, indexer deployed, and corrected data fully synced are separate milestones.
 
@@ -10,9 +10,9 @@ The hard deadline is **before a mech starts charging variable amounts**, rather 
 
 | Priority | Issue | Outcome | Timing dependency |
 | --- | --- | --- | --- |
-| First | [#142 — advertised rate overwritten](https://github.com/valory-xyz/autonolas-subgraph/issues/142) | Deliveries cannot change the mech's advertised maximum. | Must be live before variable pricing is enabled on that chain. |
-| Start this week | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Each event contributes once; historical counters are rebuilt correctly. | Independent of the contract upgrade; start early to allow resync time. |
-| Next, alongside deployment | [#143 — cap-and-actual reporting](https://github.com/valory-xyz/autonolas-subgraph/issues/143) | Actual charges drive spend reporting, field meanings are explicit, and cutover is documented. | Implement before activation where possible; live verification follows contract deployment and a real variable-price delivery. |
+| 1 — Friday: #142 | [#142 — advertised rate overwritten](https://github.com/valory-xyz/autonolas-subgraph/issues/142) | Deliveries cannot change the mech's advertised maximum. | Must be live before variable pricing is enabled on that chain. |
+| 2 — Next week: #140 | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Each event contributes once; historical counters are rebuilt correctly. | Independent of the contract upgrade; start after #142 next week, then allow time for full reindexing. |
+| 3 — Next week: #143 | [#143 — cap-and-actual reporting](https://github.com/valory-xyz/autonolas-subgraph/issues/143) | Actual charges drive spend reporting, field meanings are explicit, and cutover is documented. | Implement before activation where possible; live verification follows contract deployment and a real variable-price delivery. |
 
 The reviewed cap-and-actual approach supersedes the scope document's earlier exact-price rule and “no contract changes” premise. Quote endpoints, tool costing, buyer changes and contract implementation remain owned by their respective repositories.
 
@@ -133,16 +133,16 @@ Dates are targets, assuming one implementer plus reviewer/ops availability. Owne
 
 | When | Work | Owner | Deliverable / gate |
 | --- | --- | --- | --- |
-| Thu 22 Oct | Implement #142; implement the verified #140 source-removal approach; audit existing reporting. | Indexer maintainer | Blocking fix ready for review; no new-contract dependency. |
-| Fri 23 Oct | Review/merge #142; implement/test #140; begin #143 and start corrected deployments/replays where ready. | Maintainer + reviewer + ops | First corrected versions indexing, subject to review. |
-| Mon 26 Oct | Target #142 code/release readiness; review #140 and continue #143; measure per-chain sync progress. | Maintainer + ops | Release readiness, not a promise of fully synced production endpoints. |
-| 26–30 Oct | Finish #143 and Robinhood parity; launch remaining corrected versions; prepare consumer documentation. | Maintainer + reviewer + ops | Implementation target; historical indexing continues beyond this week where needed. |
+| Fri 23 Oct | Focus on implementing and testing #142, including missing rate-update subscriptions and squid parity. | Indexer maintainer | Aim for a reviewable fix; no #140/#143 implementation commitment today. |
+| Mon 26 Oct | Finish/review #142 and address feedback; begin #140 once #142 is ready. | Maintainer + reviewer | Blocking code fix ready; start historical-counter correction next. |
+| Tue–Wed 27–28 Oct | Complete #140, including the global counter in Graph and squids, then implement #143's audit and documentation. | Maintainer + reviewer | Sequential implementation; prepare one combined release to avoid duplicate full replays. |
+| Thu–Fri 29–30 Oct | Finish review/validation and start full reindexing of the combined corrected versions. | Maintainer + reviewer + ops | Target release/reindex start; catch-up continues in subsequent weeks. |
 | Once contracts/factories are deployed | Add verified new factory addresses, start blocks and payment mappings; record upgrade blocks. | Maintainer + ops | Configuration covers new deployments; ensure coverage from each new factory’s creation block. |
 | After first variable-price delivery and indexer catch-up | Compare the real charge with indexed raw/USD values and verify the advertised maximum remains unchanged. | Maintainer + mech team | Production validation for that chain. |
 | Approximately 1–1.5 weeks after a Gnosis replay starts | Finish Gnosis catch-up and reconcile counts/fees. | Ops + maintainer | Indicative indexing estimate, followed by validation; Gnosis is not affected by #140's overlap but will be fully reindexed to populate the new historical global off-chain counter and replay the corrected handlers; no new off-chain fee coverage is planned. |
 | Following weeks, per chain | Complete slower replays, validate corrected endpoints and switch consumers individually. | Ops + maintainer + consumer owners | No universal end-of-next-week completion commitment. |
 
-Estimated engineering effort: roughly 2–3.5 working days, excluding review queues, historical replay and waiting for live transactions. Indexing is a separate elapsed-time dependency. For example, a Gnosis replay starting 26 October would provisionally finish around 2–6 November, before any additional validation time; other chains may take several weeks. These are planning estimates, not guaranteed dates. Record each chain's replay start, indexed block, lag, measured throughput and revised ETA.
+Estimated engineering effort: roughly 2–3.5 working days, excluding review queues, historical replay and waiting for live transactions. Indexing is a separate elapsed-time dependency. For example, a Gnosis replay starting 30 October would provisionally finish around 6–10 November, before any additional validation time; other chains may take several weeks. These are planning estimates, not guaranteed dates. Record each chain's replay start, indexed block, lag, measured throughput and revised ETA.
 
 A deployed but catching-up version is not yet the production fix. Consumer cutover and variable-pricing readiness must be assessed per chain once the corrected endpoint has caught up. Existing endpoints and workarounds remain in use during replay.
 
