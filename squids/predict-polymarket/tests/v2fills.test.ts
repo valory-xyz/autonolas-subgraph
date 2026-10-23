@@ -7,7 +7,7 @@
 // pUSD the maker moved in the transaction, so they include the ExchangeV3 fee
 // (BUY: makerAmountFilled + fee, SELL: takerAmountFilled - fee).
 // Results, payouts and market rules (tests/fixtures/v2-results.json) register
-// the recorded Safes as agent Safes.
+// the recorded Safes as agent Safes, or as an agent's DepositWallet.
 import { beforeEach, expect, it, vi } from "vitest";
 import { getMetadataArgsStorage } from "typeorm";
 
@@ -84,8 +84,8 @@ const orderFilled = (maker: string, side: number, tokenId: bigint, makerAmountFi
     metadata: ZERO32,
   });
 
-/** Every stored row, JSON-safe. */
-const dump = () => JSON.stringify([...store.store].map(([name, rows]) => [name, [...rows]]), (_, v) => (typeof v === "bigint" ? `${v}` : v));
+/** Every stored row, JSON-safe; a lookup's empty collection is no row. */
+const dump = () => JSON.stringify([...store.store].filter(([, rows]) => rows.size > 0).map(([name, rows]) => [name, [...rows]]), (_, v) => (typeof v === "bigint" ? `${v}` : v));
 
 async function replay(tx: string) {
   await runBatch(store, [trades[tx]!]);
@@ -206,7 +206,7 @@ it("does not warn about a missing Question for a V2 fill", async () => {
 // Recorded results and claims. A claim through the Router redeems each
 // position on BinaryModule, whose PositionRedeemed carries the position
 // amount and the pUSD payout sent to the recipient: what an agent was paid
-// is the pUSD its Safe received.
+// is the pUSD its Safe or DepositWallet received.
 type Tx = { block: RecordedBlock; logs: RawLog[] };
 const results = loadFixture<{ txs: Record<string, Tx> }>("v2-results.json").txs;
 const tx = (hash: string) => results[hash]!;
@@ -301,15 +301,18 @@ it("settles a partial V2 result by its payout vector, not as a V1 invalid answer
   expect([daily?.dailyProfit, daily?.brierSum, daily?.brierCount]).toEqual([850_000n - 750_000n, 10n ** 16n, 2]);
 });
 
-it.each([YES_WON, SPLIT])("credits the payout of each BinaryModule redemption through the Router ($name) to the agent whose Safe is the recipient", async (c) => {
-  await registerAgent(undefined, c.safe);
+// The recorded recipient (c.safe) is either the agent's Safe or a
+// DepositWallet of the agent whose Safe is SAFE; the fills by the recipient
+// and the payout are credited to that agent.
+it.each([YES_WON, SPLIT].flatMap((c) => [{ ...c, via: "Safe", agent: c.safe }, { ...c, via: "DepositWallet", agent: SAFE }]))("credits the payout of each BinaryModule redemption through the Router ($name) to the agent whose $via is the recipient", async (c) => {
+  await registerAgent(c.via === "DepositWallet" ? c.safe : undefined, c.agent);
   await runBatch(store, c.fills);
-  const credited = async () => [store.all(PayoutRedemptionEntity), (await store.get(TraderAgent, c.safe))?.totalPayout];
+  const credited = async () => [store.all(PayoutRedemptionEntity), (await store.get(TraderAgent, c.agent))?.totalPayout];
   // before the market's result is recorded, the claim credits nothing and raises no error
   await runBatch(store, [c.claim]);
   expect(await credited()).toEqual([[], 0n]);
   await runBatch(store, [c.resolution]);
-  // the same redemptions initiated by the Safe instead of the Router credit nothing
+  // the same redemptions initiated by the recipient instead of the Router credit nothing
   const toSafe = `0x${c.safe.slice(2).padStart(64, "0")}`;
   const direct = redemptions(c.claim).map((l) => ({ ...l, topics: [l.topics[0]!, toSafe, ...l.topics.slice(2)], transactionHash: `0x${"d0".repeat(32)}` }));
   await runBatch(store, [{ block: c.claim.block, logs: direct }]);
@@ -320,12 +323,12 @@ it.each([YES_WON, SPLIT])("credits the payout of each BinaryModule redemption th
     .filter((l) => l.address === PUSD && l.topics[0] === TRANSFER && l.topics[2] === toSafe)
     .reduce((sum, l) => sum + BigInt(l.data), 0n);
   expect(paid).toBe(c.paid);
-  const audit = store.all(PayoutRedemptionEntity).filter((r) => r.redeemer.id === c.safe && r.conditionId === c.condition);
+  const audit = store.all(PayoutRedemptionEntity).filter((r) => r.redeemer.id === c.agent && r.conditionId === c.condition);
   expect([
-    (await store.get(MarketParticipant, `${c.safe}_${c.condition}`))?.totalPayout,
-    (await store.get(TraderAgent, c.safe))?.totalPayout,
+    (await store.get(MarketParticipant, `${c.agent}_${c.condition}`))?.totalPayout,
+    (await store.get(TraderAgent, c.agent))?.totalPayout,
     (await store.get(Global, ""))?.totalPayout,
-    (await store.get(DailyProfitStatistic, `${c.safe}_${day(c.claim.block.timestamp)}`))?.totalPayout,
+    (await store.get(DailyProfitStatistic, `${c.agent}_${day(c.claim.block.timestamp)}`))?.totalPayout,
     audit.reduce((sum, r) => sum + r.payoutAmount, 0n),
   ]).toEqual([paid, paid, paid, paid, paid]);
 });
@@ -360,8 +363,8 @@ it("creates nothing for a redemption whose recipient is not a known agent Safe",
 
 // Market titles. A UMA market registers its rules (JSON with title and
 // res_data) with the PolymarketOOReporter at creation, under its padded
-// condition ID; outcome 0 is the res_data label for value 1, outcome 1 the
-// label for value 0. A migrated V1 market keeps the metadata of its legacy
+// condition ID. Outcomes are stored in V1's p1, p2 order: the res_data label
+// for value 0, then for value 1. A migrated V1 market keeps the metadata of its legacy
 // CTF condition. A Chainlink Up or Down market has no text on chain.
 const RULES_OLD = tx("0xb12ff9d222931e970b33d8c824ff2665ba82acc541a1cc2f9a7b412ecb7383b2"); // "p1 corresponds to No, p2 to Yes"
 const RULES_TEAM = tx("0x95b21b0698954ec226446b6c1d9e47cf6f4f71fde070883070295771432fa083"); // [[0,"Besiktas"],[1,"Bahcesehir Koleji"],[0.5,"cancel"]]
@@ -376,8 +379,8 @@ const V1_QUESTION_D = "0xa8758291359dc3a36947afb9776f00af8eef07e6feaa5399bfe3b65
 const V1_METADATA_D = { id: V1_QUESTION_D, title: "Hercog vs. Vandromme: Match O/U 21.5", outcomes: ["Under", "Over"], rawAncillaryData: "" };
 
 it.each([
-  { name: "old rules schema", rules: [RULES_OLD], condition: registered(RULES_OLD), title: "Will it rain in Central Park on Tuesday September 15th 2026", outcomes: ["Yes", "No"], calls: 0 },
-  { name: "new rules schema, team labels", rules: [RULES_TEAM], condition: registered(RULES_TEAM), title: "Bahcesehir Koleji vs. Besiktas", outcomes: ["Bahcesehir Koleji", "Besiktas"], calls: 0 },
+  { name: "old rules schema", rules: [RULES_OLD], condition: registered(RULES_OLD), title: "Will it rain in Central Park on Tuesday September 15th 2026", outcomes: ["No", "Yes"], calls: 0 },
+  { name: "new rules schema, team labels", rules: [RULES_TEAM], condition: registered(RULES_TEAM), title: "Bahcesehir Koleji vs. Besiktas", outcomes: ["Besiktas", "Bahcesehir Koleji"], calls: 0 },
   { name: "migrated V1 market", rules: [], condition: SPLIT.condition, title: V1_METADATA_D.title, outcomes: V1_METADATA_D.outcomes, calls: 1 },
   { name: "Chainlink Up or Down market", rules: [], condition: "0x0116e3aba99821c598c616cffdce40806b000000000000000000000000000000", title: "", outcomes: [], calls: 1 },
 ])("titles the agent's V2 market from its first fill ($name)", async (c) => {
@@ -405,7 +408,7 @@ it.each([
 it.each([
   { name: "not JSON, left untitled", text: "title: Bahcesehir Koleji vs. Besiktas", title: "", outcomes: [] },
   // JSON.parse turns the \u0000 escape into a NUL, which Postgres text rejects
-  { name: "JSON with NUL escapes, NULs dropped", text: String.raw`{"title":"Bahcesehir Koleji\u0000 vs. Besiktas","res_data":[[0,"Besi\u0000ktas"],[1,"Bahcesehir Koleji"]]}`, title: "Bahcesehir Koleji vs. Besiktas", outcomes: ["Bahcesehir Koleji", "Besiktas"] },
+  { name: "JSON with NUL escapes, NULs dropped", text: String.raw`{"title":"Bahcesehir Koleji\u0000 vs. Besiktas","res_data":[[0,"Besi\u0000ktas"],[1,"Bahcesehir Koleji"]]}`, title: "Bahcesehir Koleji vs. Besiktas", outcomes: ["Besiktas", "Bahcesehir Koleji"] },
 ])("stores malformed V2 rules safely ($name)", async (c) => {
   await registerAgent(undefined, SAFE);
   const log = RULES_TEAM.logs[0]!;
