@@ -240,8 +240,9 @@ run(
         // --- Safe (unfiltered by address) -----------------------------
         //
         // Replaces the subgraph's Safe template. handleSafeReceived exits
-        // unless the emitter is a tracked Master/Agent Safe; the owner
-        // handlers no-op unless the address is a known MasterSafe.
+        // unless the emitter is a tracked Master/Agent Safe,
+        // handleSafeExecutionSuccess unless it is a tracked Agent Safe; the
+        // owner handlers no-op unless the address is a known MasterSafe.
         if (topic0 === safe.SafeReceived.topic) {
           const e = decodeForeignSafe(safe.SafeReceived, log);
           if (e != null) {
@@ -250,6 +251,19 @@ run(
               value: e.value,
             });
           }
+        } else if (topic0 === safe.ExecutionSuccess.topic) {
+          // Only the outer tx is read; the log's own fields are unused.
+          // The Safe source includes the tx, so a missing one is a
+          // processor misconfiguration, not foreign noise.
+          const tx = log.transaction;
+          if (tx == null) {
+            throw new Error(`ExecutionSuccess log without its transaction: ${meta.txHash}`);
+          }
+          await h.handleSafeExecutionSuccess(hctx, meta, {
+            from: tx.from,
+            to: tx.to,
+            input: tx.input,
+          });
         } else if (topic0 === safe.AddedOwner.topic) {
           const e = decodeForeignSafe(safe.AddedOwner, log);
           if (e != null) {

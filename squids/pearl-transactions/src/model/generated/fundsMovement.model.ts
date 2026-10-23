@@ -35,7 +35,7 @@ export class FundsMovement {
     @BigIntColumn_({nullable: true})
     epoch!: bigint | undefined | null
 
-    @Column_("varchar", {length: 20, nullable: false})
+    @Column_("varchar", {length: 23, nullable: false})
     category!: FundsCategory
 
     @Column_("varchar", {length: 12, nullable: false})

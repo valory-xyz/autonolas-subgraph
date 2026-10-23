@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
 import { resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
-import { FundsCategory, ServiceBondType } from "../src/model";
+import { FundsCategory, FundsSource, ServiceBondType } from "../src/model";
+import * as safeFns from "../src/abi/GnosisSafe/functions";
 import {
   OLAS,
   ROLE_AGENT,
@@ -65,6 +66,18 @@ async function mintTo(ctx: any, serviceId: bigint, to: string, block = 1000n) {
     meta({ blockNumber: block, txHash: `0xmint${serviceId}` }),
     { serviceId, from: "0x0000000000000000000000000000000000000000", to }
   );
+}
+
+/** Discover service 7: Master Safe `MASTER` and its Agent Safe `AGENT`. */
+async function discoverAgent() {
+  const ctx = newBatch(store, 1000, 1000);
+  await mintTo(ctx, 7n, MASTER);
+  await h.handleCreateMultisigWithAgents(
+    ctx,
+    meta({ blockNumber: 1000n, txHash: "0xms" }),
+    { serviceId: 7n, multisig: AGENT }
+  );
+  await ctx.cache.flush();
 }
 
 describe("cross-batch relation loading (regression)", () => {
@@ -218,20 +231,8 @@ describe("bond attribution", () => {
 });
 
 describe("transfer classification and balances", () => {
-  async function discovered() {
-    const ctx = newBatch(store, 1000, 1000);
-    await mintTo(ctx, 7n, MASTER);
-    await h.handleCreateMultisigWithAgents(
-      ctx,
-      meta({ blockNumber: 1000n, txHash: "0xms" }),
-      { serviceId: 7n, multisig: AGENT }
-    );
-    await ctx.cache.flush();
-    return ctx;
-  }
-
   it("tags the first Master EOA deposit as setup, later ones as funding", async () => {
-    await discovered();
+    await discoverAgent();
 
     const b = newBatch(store, 1100, 1100);
     await h.handleErc20Transfer(
@@ -257,7 +258,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("moves both balances on Master -> Agent and groups them per tx", async () => {
-    await discovered();
+    await discoverAgent();
 
     const b = newBatch(store, 1200, 1200);
     await h.handleErc20Transfer(
@@ -282,7 +283,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("splits OLAS agent->master into its own category", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1300, 1300);
     await h.handleErc20Transfer(
       b,
@@ -306,7 +307,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("ignores transfers between two untracked addresses", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1400, 1400);
     await h.handleErc20Transfer(
       b,
@@ -320,7 +321,7 @@ describe("transfer classification and balances", () => {
   });
 
   it("ignores native SafeReceived emitted by an untracked Safe, even from a tracked sender", async () => {
-    await discovered();
+    await discoverAgent();
     const b = newBatch(store, 1500, 1500);
     await h.handleSafeReceived(
       b,
@@ -338,6 +339,171 @@ describe("transfer classification and balances", () => {
     const native = rows.find((r) => r.transactionHash === "0xnative");
     expect(native).toBeDefined();
     expect(native!.token).toBeNull();
+  });
+});
+
+describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
+  const SIGNER = `0x${"11".repeat(20)}`;
+  const ZERO20 = `0x${"00".repeat(20)}`;
+
+  function execCalldata(
+    over: Partial<{ to: string; value: bigint; data: string; operation: number }> = {}
+  ) {
+    return safeFns.execTransaction.encode({
+      to: SIGNER,
+      value: 5n,
+      data: "0x",
+      operation: 0,
+      safeTxGas: 0n,
+      baseGas: 0n,
+      gasPrice: 0n,
+      gasToken: ZERO20,
+      refundReceiver: ZERO20,
+      signatures: `0x${"ab".repeat(65)}`,
+      ...over,
+    });
+  }
+
+  async function execute(
+    tx: { from?: string; to?: string | undefined; input?: string },
+    emitter = AGENT,
+    logIndexes = [3]
+  ) {
+    const b = newBatch(store, 1100, 1100);
+    const warn = vi.fn();
+    b.log = { ...b.log, warn };
+    const tracked = vi.spyOn(b.cache, "tracked");
+    for (const logIndex of logIndexes) {
+      await h.handleSafeExecutionSuccess(
+        b,
+        meta({ blockNumber: 1100n, txHash: "0xtopup", logIndex, address: emitter }),
+        { from: SIGNER, to: emitter, input: execCalldata(), ...tx }
+      );
+    }
+    await b.cache.flush();
+    const rows = store.all("FundsMovement").filter((r) => r.transactionHash === "0xtopup");
+    return {
+      row: rows[0],
+      rows,
+      lookedUp: tracked.mock.calls.length > 0,
+      warn,
+    };
+  }
+
+  it("writes one native AGENT_SAFE_TO_AGENT_EOA row from the Agent Safe to the signer", async () => {
+    await discoverAgent();
+    const { row } = await execute({});
+    expect(row).toBeDefined();
+    expect(row.id).toBe("topup-0xtopup");
+    expect(row.category).toBe(FundsCategory.AGENT_SAFE_TO_AGENT_EOA);
+    expect(row.source).toBe(FundsSource.SEMANTIC);
+    expect(row.from).toBe(AGENT);
+    expect(row.to).toBe(SIGNER);
+    expect(row.token).toBeNull();
+    expect(row.amount).toBe(5n);
+    expect(row.agentSafeId).toBe(AGENT);
+    expect(row.serviceId).toBe("7");
+    expect(row.masterSafeId).toBe(MASTER);
+    expect(store.count("TokenBalance")).toBe(0);
+  });
+
+  // SQD lowercases addresses today; these pin the handler's own
+  // normalisation in case an RPC or codec hands back mixed case.
+  const MIXED_SIGNER = `0x${"Ab".repeat(20)}`;
+  const LOWER_SIGNER = MIXED_SIGNER.toLowerCase();
+  it.each([
+    [
+      "checksummed tx from / to",
+      { from: MIXED_SIGNER, to: `0x${AGENT.slice(2).toUpperCase()}`, input: execCalldata({ to: LOWER_SIGNER }) },
+    ],
+    ["a checksummed recipient in the calldata", { from: LOWER_SIGNER, input: execCalldata({ to: MIXED_SIGNER }) }],
+    [
+      "upper-case calldata hex",
+      { from: LOWER_SIGNER, input: `0x${execCalldata({ to: LOWER_SIGNER }).slice(2).toUpperCase()}` },
+    ],
+  ])("writes the row for %s", async (_, tx) => {
+    await discoverAgent();
+    const { row } = await execute(tx);
+    expect(row).toBeDefined();
+    expect(row.from).toBe(AGENT);
+    expect(row.to).toBe(LOWER_SIGNER);
+  });
+
+  // A reentrant execTransaction emits a second ExecutionSuccess from the
+  // same Safe, which reads the same outer input.
+  it("writes one row per tx when the Safe emits ExecutionSuccess twice", async () => {
+    await discoverAgent();
+    const { rows } = await execute({}, AGENT, [3, 4]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("topup-0xtopup");
+    expect(rows[0].amount).toBe(5n);
+  });
+
+  it("skips the tx when its row was written in an earlier batch", async () => {
+    await discoverAgent();
+    await execute({});
+    const { rows } = await execute({ input: execCalldata({ value: 9n }) }, AGENT, [4]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBe(5n);
+  });
+
+  it("warns and writes nothing when the calldata behind the selector does not decode", async () => {
+    await discoverAgent();
+    const { row, lookedUp, warn } = await execute({ input: execCalldata().slice(0, 50) });
+    expect(row).toBeUndefined();
+    expect(lookedUp).toBe(false);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain("not decodable");
+    expect(warn.mock.calls[0][0]).toContain("0xtopup");
+  });
+
+  // Each case fails a shape check, so it must also return before touching
+  // the cache: the handler runs on every Safe execution on the chain.
+  it.each([
+    ["the tx does not call the emitting Safe", { to: "0xrouter" }],
+    ["the tx is a contract creation", { to: undefined }],
+    ["the selector is not execTransaction", { input: `0xdeadbeef${execCalldata().slice(10)}` }],
+    ["the inner call is a DELEGATECALL", { input: execCalldata({ operation: 1 }) }],
+    ["the operation is out of range", { input: execCalldata({ operation: 2 }) }],
+    ["the inner call carries data", { input: execCalldata({ data: "0x1234" }) }],
+    ["the inner call moves no value", { input: execCalldata({ value: 0n }) }],
+    ["the recipient is not the tx sender", { input: execCalldata({ to: `0x${"22".repeat(20)}` }) }],
+  ])("writes nothing when %s", async (_, tx) => {
+    await discoverAgent();
+    const { row, lookedUp } = await execute(tx);
+    expect(row).toBeUndefined();
+    expect(lookedUp).toBe(false);
+  });
+
+  it("rethrows a decode error that is not a calldata shape mismatch", async () => {
+    // A genuine decoding bug must still crash the batch rather than be
+    // logged as foreign noise and silently drop the row.
+    await discoverAgent();
+    const decode = vi
+      .spyOn(safeFns.execTransaction, "decode")
+      .mockImplementation(() => {
+        throw new TypeError("Cannot read properties of undefined");
+      });
+    try {
+      await expect(execute({})).rejects.toThrow(TypeError);
+    } finally {
+      decode.mockRestore();
+    }
+    expect(
+      store.all("FundsMovement").find((r) => r.transactionHash === "0xtopup")
+    ).toBeUndefined();
+  });
+
+  it("writes nothing when the emitter is not tracked", async () => {
+    await discoverAgent();
+    const { row } = await execute({}, "0xforeignsafe");
+    expect(row).toBeUndefined();
+  });
+
+  it("writes nothing when the emitter is a tracked Master Safe", async () => {
+    await discoverAgent();
+    const { row } = await execute({}, MASTER);
+    expect(row).toBeUndefined();
   });
 });
 
