@@ -348,9 +348,9 @@ it("shows a resolved V2 bet with no payout as lost: zero payout, no error", asyn
   expect(daily?.dailyProfit).toBe(-1_069_000n);
 });
 
-it("creates nothing for a redemption whose recipient is not a known agent Safe", async () => {
+it("creates nothing for a redemption whose recipient is neither an agent's Safe nor its DepositWallet", async () => {
   // SAFE is the agent and holds YES of the resolved market; the claim's
-  // recipient 0x378a… is not an agent Safe
+  // recipient 0x378a… is neither an agent's Safe nor its DepositWallet
   const c = YES_WON;
   await registerAgent(undefined, SAFE);
   await runBatch(store, [buysBefore(c.resolution, SAFE, [[claimed(c.claim, 0), 500_000n, 1_000_000n]]), c.resolution]);
