@@ -1035,6 +1035,15 @@
       "reason": "Squid runtime (npm, squids/*; gated via scripts/audit.mjs --npm). Prototype pollution in mergeDeep when a gateway merges results from two subgraphs (stitching/federation). Only 12.0.1 is fixed; @subsquid/graphql-server 4.12.1 and @subsquid/apollo-server-core pin 8.x/9.x/10.x, so forcing 12.x means 2-4 major jumps in the served GraphQL stack. Not reachable here: the squids serve a single schema with no stitching (no @graphql-tools/delegate or stitch installed); graphql-tools mergeDeep is only called via mergeResolvers/mergeExtensions while makeExecutableSchema/mergeSchemas build the schema at startup from static inputs; Apollo mocks are off; there are no custom resolvers. Re-review when @subsquid/graphql-server moves to @graphql-tools/utils >=12.0.1.",
       "added": "2026-10-07",
       "review": "2026-11-06"
+    },
+    {
+      "id": 1242879,
+      "ghsa": "GHSA-c4qx-w738-7hr3",
+      "package": "@graphql-tools/utils",
+      "severity": "high",
+      "reason": "Squid runtime (npm, squids/*; gated via scripts/audit.mjs --npm). Prototype pollution in mergeIncrementalResult when a consumer merges @defer/@stream incremental results from an untrusted upstream. Fixed only in 12.0.2; the 10.11.0 copy that @subsquid/graphql-server 4.12.1 requires (^10.0.11) has no 10.x fix, and predict-polymarket's @graphql-tools/merge/schema need ^11.2.0. Not reachable here: nothing in any squid tree calls mergeIncrementalResult (only its own definition and re-export in @graphql-tools/utils; checked in the liquidity and predict-polymarket installs), the squids have no own GraphQL code and act as a server, never as a client merging upstream incremental results. Re-review when @subsquid/graphql-server moves to @graphql-tools/utils >=12.0.2.",
+      "added": "2026-10-23",
+      "review": "2026-11-22"
     }
   ]
 }
