@@ -96,6 +96,7 @@ export async function processTradeActivity(
   outcomeIndex: bigint,
   sharesAmount: bigint,
   meta: EventMeta,
+  warnMissingQuestion = true,
 ): Promise<void> {
   const global = await getGlobal(cache);
 
@@ -117,7 +118,7 @@ export async function processTradeActivity(
   let participant = await cache.get(MarketParticipant, participantId);
 
   if (participant == null) {
-    if (question == null) {
+    if (question == null && warnMissingQuestion) {
       // FK-constrained (unlike graph-node/Envio): the participant is created
       // without a question link and can never settle. Expected for markets
       // whose metadata was rejected; anything else deserves investigation.
