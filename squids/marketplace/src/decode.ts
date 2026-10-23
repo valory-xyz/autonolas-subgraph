@@ -3,6 +3,14 @@
 // These live outside main.ts because main.ts calls run(...) at module scope:
 // importing it from a test would start the real processor.
 
+import * as marketplaceV1 from "./abi/MechMarketplaceV1/events";
+import * as marketplaceV2 from "./abi/MechMarketplaceV2/events";
+import * as factoryNative from "./abi/MechFactoryFixedPriceNative/events";
+import * as factoryToken from "./abi/MechFactoryFixedPriceToken/events";
+import * as factoryTokenUsdc from "./abi/MechFactoryFixedPriceTokenUSDC/events";
+import * as factoryNvmNative from "./abi/MechFactoryNvmSubscriptionNative/events";
+import * as factoryNvmUsdc from "./abi/MechFactoryNvmSubscriptionTokenUSDC/events";
+
 /**
  * Event metadata is the shared helper's (ms -> s, lowercase addresses,
  * transaction fields when the subscription included the transaction).
@@ -36,4 +44,207 @@ export function decodeForeign<T>(
     if ((err as { name?: string })?.name === "DecodingError") return null;
     throw err;
   }
+}
+
+// --- MechMarketplace V1 / V2 ------------------------------------------------
+
+/**
+ * The marketplace ABI a block was emitted under: V1 up to and including
+ * `v1EndBlock` (the subgraph's MechMarketplaceV1 `endBlock`), V2 after.
+ */
+export function marketplaceAbiAt(blockNumber: number, v1EndBlock: number | null) {
+  const eras = marketplaceEras(0, v1EndBlock);
+  return eras.find((e) => blockNumber >= e.from && (e.to == null || blockNumber <= e.to))!.abi;
+}
+
+export interface MarketplaceEra {
+  abi: typeof marketplaceV1 | typeof marketplaceV2;
+  from: number;
+  /** Inclusive; open-ended when absent. */
+  to?: number;
+}
+
+/**
+ * The marketplace's ABI eras: the ONE definition of the V1/V2 cutover. The
+ * subscription (processor.ts, one log query per era) and the decoder
+ * (marketplaceAbiAt) both derive from it. V1 up to and including
+ * `v1EndBlock` (the subgraph's MechMarketplaceV1 `endBlock`), V2 after; a
+ * chain that launched on V2 has a single era.
+ */
+export function marketplaceEras(startBlock: number, v1EndBlock: number | null): MarketplaceEra[] {
+  if (v1EndBlock == null) return [{ abi: marketplaceV2, from: startBlock }];
+  return [
+    { abi: marketplaceV1, from: startBlock, to: v1EndBlock },
+    { abi: marketplaceV2, from: Math.max(startBlock, v1EndBlock + 1) },
+  ];
+}
+
+/**
+ * A marketplace-address log the decoder returned null for. Null is fine for a
+ * topic another subscription brought in (the address-less mech topics), but a
+ * topic this era's marketplace query subscribed to must have a decoder
+ * branch: fail loudly rather than drop it.
+ */
+export function assertDecodedIfSubscribed(
+  topic0: string,
+  blockNumber: number,
+  v1EndBlock: number | null
+): void {
+  if (marketplaceTopics(marketplaceAbiAt(blockNumber, v1EndBlock)).includes(topic0)) {
+    throw new Error(`marketplace topic0 ${topic0} at block ${blockNumber} is subscribed but has no decoder`);
+  }
+}
+
+/** Topics of the marketplace subscription for one ABI generation. */
+export function marketplaceTopics(abi: typeof marketplaceV1 | typeof marketplaceV2): string[] {
+  return [
+    abi.CreateMech.topic,
+    abi.MarketplaceRequest.topic,
+    abi.MarketplaceDelivery.topic,
+    abi.MarketplaceDeliveryWithSignatures.topic,
+    abi.Deliver.topic, // signed (off-chain) per-request delivery
+  ];
+}
+
+export type MarketplaceEvent =
+  | { kind: "CreateMech"; mech: string; serviceId: bigint; mechFactory: string }
+  | {
+      kind: "MarketplaceRequest";
+      priorityMech: string;
+      requester: string;
+      numRequests: bigint;
+      requestIds: string[];
+    }
+  | {
+      kind: "MarketplaceDelivery";
+      deliveryMech: string;
+      numDeliveries: bigint;
+      requestIds: string[];
+      deliveredRequests: boolean[];
+    }
+  | {
+      kind: "MarketplaceDeliveryWithSignatures";
+      deliveryMech: string;
+      requester: string;
+      numDeliveries: bigint;
+      requestIds: string[];
+    }
+  | {
+      kind: "Deliver";
+      mech: string;
+      mechServiceMultisig: string;
+      requestId: string;
+      deliveryRate: bigint;
+      deliveryData: string;
+    };
+
+const lower = (s: string) => s.toLowerCase();
+
+/**
+ * Decode a MechMarketplace log with the ABI of its block. The two
+ * generations differ in `MarketplaceRequest` (V2 adds `requestDatas`) and
+ * `Deliver` (V1 `data` vs V2 `requestData` + `deliveryData`) — different
+ * topic0s — and in `MarketplaceDelivery`, where V1 indexes `requesters`
+ * under the SAME topic0 (one more topic). None of the differing fields is
+ * read. Null for a topic the subgraph does not handle.
+ */
+export function decodeMarketplaceLog(
+  log: { topics: string[]; data: string },
+  blockNumber: number,
+  v1EndBlock: number | null
+): MarketplaceEvent | null {
+  const abi = marketplaceAbiAt(blockNumber, v1EndBlock);
+  const topic0 = log.topics[0];
+  if (topic0 === abi.CreateMech.topic) {
+    const e = abi.CreateMech.decode(log);
+    return { kind: "CreateMech", mech: lower(e.mech), serviceId: e.serviceId, mechFactory: lower(e.mechFactory) };
+  }
+  if (topic0 === abi.MarketplaceRequest.topic) {
+    const e = abi.MarketplaceRequest.decode(log);
+    return {
+      kind: "MarketplaceRequest",
+      priorityMech: lower(e.priorityMech),
+      requester: lower(e.requester),
+      numRequests: e.numRequests,
+      requestIds: e.requestIds.map(lower),
+    };
+  }
+  if (topic0 === abi.MarketplaceDelivery.topic) {
+    const e = abi.MarketplaceDelivery.decode(log);
+    return {
+      kind: "MarketplaceDelivery",
+      deliveryMech: lower(e.deliveryMech),
+      numDeliveries: e.numDeliveries,
+      requestIds: e.requestIds.map(lower),
+      deliveredRequests: [...e.deliveredRequests],
+    };
+  }
+  if (topic0 === abi.MarketplaceDeliveryWithSignatures.topic) {
+    const e = abi.MarketplaceDeliveryWithSignatures.decode(log);
+    return {
+      kind: "MarketplaceDeliveryWithSignatures",
+      deliveryMech: lower(e.deliveryMech),
+      requester: lower(e.requester),
+      numDeliveries: e.numDeliveries,
+      requestIds: e.requestIds.map(lower),
+    };
+  }
+  if (abi === marketplaceV1 && topic0 === marketplaceV1.Deliver.topic) {
+    const e = marketplaceV1.Deliver.decode(log);
+    return {
+      kind: "Deliver",
+      mech: lower(e.mech),
+      mechServiceMultisig: lower(e.mechServiceMultisig),
+      requestId: lower(e.requestId),
+      deliveryRate: e.deliveryRate,
+      deliveryData: lower(e.data),
+    };
+  }
+  if (abi === marketplaceV2 && topic0 === marketplaceV2.Deliver.topic) {
+    const e = marketplaceV2.Deliver.decode(log);
+    return {
+      kind: "Deliver",
+      mech: lower(e.mech),
+      mechServiceMultisig: lower(e.mechServiceMultisig),
+      requestId: lower(e.requestId),
+      deliveryRate: e.deliveryRate,
+      deliveryData: lower(e.deliveryData),
+    };
+  }
+  return null;
+}
+
+// --- Mech factories ---------------------------------------------------------
+
+/**
+ * Factory creation events by Solidity name. All five carry the same fields
+ * (mech, serviceId, maxDeliveryRate); each name is its own topic0.
+ */
+export const FACTORY_EVENTS = {
+  CreateMechFixedPriceNative: factoryNative.CreateMechFixedPriceNative,
+  CreateMechFixedPriceToken: factoryToken.CreateMechFixedPriceToken,
+  CreateMechFixedPriceTokenUSDC: factoryTokenUsdc.CreateMechFixedPriceTokenUSDC,
+  CreateMechNvmSubscriptionNative: factoryNvmNative.CreateMechNvmSubscriptionNative,
+  CreateMechNvmSubscriptionTokenUSDC: factoryNvmUsdc.CreateMechNvmSubscriptionTokenUSDC,
+} as const;
+
+export type FactoryEventName = keyof typeof FACTORY_EVENTS;
+
+export function factoryEvent(name: string) {
+  const ev = (FACTORY_EVENTS as Record<string, (typeof FACTORY_EVENTS)[FactoryEventName]>)[name];
+  if (ev == null) throw new Error(`Unknown mech factory event ${name}`);
+  return ev;
+}
+
+/** Decode a factory creation log by topic0; null for any other topic. */
+export function decodeFactoryLog(
+  log: { topics: string[]; data: string }
+): { mech: string; serviceId: bigint; maxDeliveryRate: bigint } | null {
+  for (const ev of Object.values(FACTORY_EVENTS)) {
+    if (log.topics[0] === ev.topic) {
+      const e = ev.decode(log);
+      return { mech: lower(e.mech), serviceId: e.serviceId, maxDeliveryRate: e.maxDeliveryRate };
+    }
+  }
+  return null;
 }
