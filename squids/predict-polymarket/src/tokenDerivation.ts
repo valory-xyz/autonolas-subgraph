@@ -7,7 +7,7 @@ import {
   ContractFunctionRevertedError,
   ContractFunctionExecutionError,
 } from "viem";
-import { CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
+import { BINARY_MODULE, CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
 
 // v2 exchanges do not emit TokenRegistered, so outcome tokenIds are derived at
 // ConditionPreparation time (same as the subgraph and Envio ports):
@@ -16,6 +16,8 @@ import { CONDITIONAL_TOKENS, ZERO_BYTES32 } from "./constants";
 //   positionId   = keccak256(collateral ++ collectionId)            — local
 // Both functions are pure, so calling at `latest` is exact regardless of the
 // event's block, and a process-lifetime memo cannot go stale.
+// BinaryModule.legacyConditionId reads a link that is written when a market
+// migrates and does not change afterwards, so reading it at `latest` is exact.
 const client = createPublicClient({
   transport: http(
     process.env.RPC_POLYGON_HTTP ?? "https://polygon-bor-rpc.publicnode.com",
@@ -33,6 +35,16 @@ const CTF_ABI = [
       { name: "conditionId", type: "bytes32" },
       { name: "indexSet", type: "uint256" },
     ],
+    outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
+const BINARY_MODULE_ABI = [
+  {
+    type: "function",
+    name: "legacyConditionId",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "bytes31" }],
     outputs: [{ type: "bytes32" }],
   },
 ] as const;
@@ -93,4 +105,25 @@ export async function getOutcomeTokenId(
   const result = BigInt(positionId).toString();
   memo.set(key, result);
   return result;
+}
+
+/**
+ * BinaryModule.legacyConditionId(bytes31) eth_call: the CTF condition ID
+ * (bytes32, lowercase 0x-hex) a migrated V1 market had, or ZERO_BYTES32 when
+ * the V2 condition was not migrated. `conditionId` is the bytes31 V2
+ * condition ID, as decodePositionId returns it.
+ */
+export async function getLegacyConditionId(
+  conditionId: string,
+): Promise<string> {
+  // transport errors propagate: viem retries the request, then the processor
+  // exits and resumes from its last checkpoint on restart (same as
+  // getCollectionId)
+  const legacy = await client.readContract({
+    address: BINARY_MODULE as `0x${string}`,
+    abi: BINARY_MODULE_ABI,
+    functionName: "legacyConditionId",
+    args: [conditionId as `0x${string}`],
+  });
+  return legacy.toLowerCase();
 }

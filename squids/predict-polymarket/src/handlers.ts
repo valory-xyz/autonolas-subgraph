@@ -12,6 +12,7 @@ import {
   MarketParticipant,
   Question,
   QuestionIdToConditionId,
+  QuestionResolution,
   TokenRegistry,
   TraderAgent,
   TraderService,
@@ -22,17 +23,28 @@ import {
   getDailyProfitStatistic,
   getGlobal,
   processMarketResolution,
+  processRedemption,
   processTradeActivity,
 } from "./logic";
-import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
-import { getOutcomeTokenId } from "./tokenDerivation";
+import {
+  bytesToUtf8,
+  extractBinaryOutcomes,
+  extractTitle,
+  parseRequestRules,
+} from "./ancillary";
+import { getLegacyConditionId, getOutcomeTokenId } from "./tokenDerivation";
 import { decodePositionId, padConditionId } from "./positionId";
 import { computeImpliedProbability } from "./brier";
+import { RESULT_DENOMINATOR, winningOutcomeFromResult } from "./resolution";
 import {
   PREDICT_AGENT_ID,
+  PROBABILITY_SCALE,
+  BINARY_MODULE_ID,
   NEG_RISK_ADAPTER,
   PUSD_ADDRESS,
+  ROUTER,
   USDC_E_ADDRESS,
+  ZERO_BYTES32,
 } from "./constants";
 
 export async function handleRegisterInstance(
@@ -362,7 +374,7 @@ export async function handlePositionFill(
   const { moduleId, conditionId, outcomeIndex } = decodePositionId(
     p.outcomeTokenId,
   );
-  if (moduleId !== 1 || outcomeIndex > 1) {
+  if (moduleId !== BINARY_MODULE_ID || outcomeIndex > 1) {
     // entities track binary positions only (outcomeShares0 / outcomeShares1):
     // BinaryModule (1) positions; NegRisk (2) and combinatorial (3) are skipped
     if (!warnedSkippedPositions.has(p.outcomeTokenId)) {
@@ -374,6 +386,7 @@ export async function handlePositionFill(
     return;
   }
 
+  await ensureBinaryQuestion(cache, meta, conditionId);
   await recordBet(
     cache,
     meta,
@@ -385,7 +398,137 @@ export async function handlePositionFill(
   );
 }
 
-/** The TraderAgent behind an order maker: its Safe, or a DepositWallet it owns. */
+/**
+ * Question of a BinaryModule condition (bytes31 `conditionId`), created at an
+ * agent's first fill on it so its participants and bets settle at
+ * ConditionResolved. Keyed by the padded condition ID. Its metadata is the
+ * market's registered UMA rules, else the V1 metadata of the market it was
+ * migrated from, else an empty title and no outcomes (Chainlink markets have
+ * no text on chain).
+ */
+async function ensureBinaryQuestion(
+  cache: IEntityCache,
+  meta: EventMeta,
+  conditionId: string,
+) {
+  const id = padConditionId(conditionId);
+  if ((await cache.get(Question, id)) != null) return;
+
+  let metadata =
+    (await cache.get(MarketMetadata, id)) ??
+    (await migratedMarketMetadata(cache, conditionId));
+  if (metadata == null) {
+    metadata = new MarketMetadata({
+      id,
+      title: "",
+      outcomes: [],
+      rawAncillaryData: "",
+    });
+    cache.set(MarketMetadata, metadata);
+  }
+
+  cache.set(
+    Question,
+    new Question({
+      id,
+      questionId: id,
+      metadata,
+      isNegRisk: false,
+      marketId: null,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      transactionHash: meta.transactionHash,
+    }),
+  );
+}
+
+/** MarketMetadata of the V1 market a V2 condition was migrated from, if indexed. */
+async function migratedMarketMetadata(
+  cache: IEntityCache,
+  conditionId: string,
+): Promise<MarketMetadata | undefined> {
+  const legacy = await getLegacyConditionId(conditionId);
+  if (legacy === ZERO_BYTES32) return undefined;
+  // by ID: a Question read from the store has no relations loaded
+  const question = await cache.get(Question, legacy);
+  return question && cache.get(MarketMetadata, question.questionId);
+}
+
+/**
+ * UMA rules a Protocol V2 market registers with the PolymarketOOReporter at
+ * creation. A binary market's (module 1) request ID is its padded condition
+ * ID, so its title and outcomes are stored under that ID for the Question an
+ * agent's first fill creates. Other modules are skipped.
+ */
+export async function handleRequestRegistered(
+  cache: IEntityCache,
+  p: { requestId: string; requestRules: string },
+) {
+  if (decodePositionId(BigInt(p.requestId)).moduleId !== BINARY_MODULE_ID) {
+    return;
+  }
+  const rawRules = bytesToUtf8(p.requestRules);
+  cache.set(
+    MarketMetadata,
+    new MarketMetadata({
+      id: p.requestId,
+      ...parseRequestRules(rawRules),
+      rawAncillaryData: rawRules,
+    }),
+  );
+}
+
+/**
+ * Protocol V2 result of a binary market: BinaryModule ConditionResolved's
+ * payout vector (parts per million) settles the market through the V1
+ * resolution path. settledPrice is outcome 0's payout scaled to 1e18, the
+ * scale UMA reports it in.
+ */
+export async function handleConditionResolved(
+  cache: IEntityCache,
+  meta: EventMeta,
+  p: { conditionId: string; result: bigint[] },
+) {
+  await processMarketResolution(
+    cache,
+    padConditionId(p.conditionId),
+    winningOutcomeFromResult(p.result),
+    ((p.result[0] ?? 0n) * PROBABILITY_SCALE) / RESULT_DENOMINATOR,
+    p.result,
+    meta,
+  );
+}
+
+/**
+ * Protocol V2 claim: a BinaryModule PositionRedeemed initiated by the Router
+ * pays `payout` pUSD to `recipient`. It is credited like a V1
+ * PayoutRedemption when the recipient is an agent's Safe or its
+ * DepositWallet and the market's result is recorded.
+ */
+export async function handlePositionRedeemed(
+  cache: IEntityCache,
+  meta: EventMeta,
+  p: {
+    initiator: string;
+    positionId: bigint;
+    recipient: string;
+    payout: bigint;
+  },
+) {
+  if (p.initiator !== ROUTER) return;
+  const agent = await resolveMakerAgent(cache, meta, p.recipient);
+  if (agent == null) return;
+
+  const condition = padConditionId(decodePositionId(p.positionId).conditionId);
+  if ((await cache.get(QuestionResolution, condition)) == null) return;
+
+  await processRedemption(cache, agent.id, condition, p.payout, meta);
+}
+
+/**
+ * The TraderAgent behind an order maker or claim recipient: its Safe, or a
+ * DepositWallet it owns.
+ */
 async function resolveMakerAgent(
   cache: IEntityCache,
   meta: EventMeta,
@@ -468,8 +611,6 @@ async function recordBet(
     outcomeIndex,
     sharesAmount,
     meta,
-    // V2 markets have no Question yet, so a missing one is expected there
-    collateral == null,
   );
 
   // Bet.marketParticipant is set after processTradeActivity guarantees the
