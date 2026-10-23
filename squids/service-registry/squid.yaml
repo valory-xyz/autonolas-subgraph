@@ -2,7 +2,7 @@ manifestVersion: subsquid.io/v0.1
 name: service-registry
 version: 1
 description: >-
-  Olas Service Registry on Robinhood Chain (4663): services, multisigs,
+  Olas Service Registry on Robinhood Chain (4663) and Base (8453): services, multisigs,
   ERC-8004 links and daily agent activity. SQD port of the service-registry
   subgraph in autonolas-subgraph-studio.
 build:
