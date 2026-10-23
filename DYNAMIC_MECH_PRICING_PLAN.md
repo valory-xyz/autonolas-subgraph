@@ -1,0 +1,116 @@
+# Dynamic mech pricing: indexing implementation plan
+
+Prepared against repository revision `80d09c0`; updated following PR #153 review.
+
+Target: implement #140 and #143 during 26–30 October, then start one combined replay per active chain once verified new-factory configuration is included. Contract deployment is expected that week, but exact dates remain external inputs. Allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks elsewhere, measured from each replay's actual start. No weekend work is assumed.
+
+## Scope and priorities
+
+| Priority | Issue | Outcome / dependency |
+| --- | --- | --- |
+| 1 | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Remove duplicate event coverage and rebuild counters. Implementation does not depend on new contracts; combine the release with final factory configuration before replay. |
+| 2 | [#143 — cap-and-actual reporting](https://github.com/valory-xyz/autonolas-subgraph/issues/143) | Audit existing aggregates, clarify fields and document cutover. Final deployment records and a real variable-price settlement complete live validation. |
+| Closed; no fix planned | [#142](https://github.com/valory-xyz/autonolas-subgraph/issues/142) | The signed path does not call `refreshMechDeliveryRate`. The issue author closed it after correcting the call-site interpretation. It is not an activation gate. |
+
+The reviewed cap-and-actual approach supersedes the original scope document's exact-price premise. Contract changes, quote endpoints, tool costing and buyer changes remain in their respective repositories. This plan does not require holding variable-pricing activation for #142 or pausing it during endpoint rollback.
+
+## Deployment and replay scope
+
+| Network | Backend / action |
+| --- | --- |
+| Gnosis, Polygon, Optimism | Active Graph deployments: implement changes and fully reindex. |
+| Base, Robinhood | Active marketplace squids: equivalent schema/model/counter changes and full reindexing. |
+| Ethereum, Celo | Identical relevant Graph source/manifest changes and build checks; remain turned off. |
+| Arbitrum | Source/manifest correction and build coverage because #140 names it; no active production rollout assumed. |
+| Mode | Excluded. |
+
+Full reindexing remains the agreed strategy for all five active deployments, including squids. Trigger one combined replay per chain only after the final factory addresses, creation blocks, event formats and payment/currency mappings are configured and tested. An unregistered factory can leave `Mech.maxDeliveryRate` null, causing mech-interact and trader to skip that mech. Do not start a long replay with incomplete factory configuration merely because the handler changes are ready.
+
+Gnosis has no V1/V2 overlap, so the duplication bug alone would not prohibit grafting. However, this release adds an all-time `Global.totalOffChainRequests` counter that the old state does not contain. A graft alone would not reconstruct it. Full replay is retained as requested; a future graft alternative would need verified historical initialization, schema compatibility and coverage of any other changed historical behavior.
+
+Existing URLs remain supported and consumers switch gradually after validation. New-factory configuration may arrive at different times per chain; each chain can start its combined replay independently.
+
+## Confirmed scope
+
+- **Signed cap stays in the data lake.** The product owner confirmed that the advertised mech maximum stored separately from actual delivery charges is sufficient here. Do not add or infer a signed-cap field.
+- **Keep the existing off-chain architecture.** Off-chain request analytics remain in the data lake/mech-analytics; aggregate settlement fees have the separate mech-fees indexer. Do not create off-chain `Request` entities or broaden marketplace USD aggregation. The existing on-chain-request/fee-unit guard means signed-only deliveries do not universally populate `Request.finalFeeUSD`.
+- **#142 was a call-path misreading.** In Graph, `processOnChainDeliver` calls the rate-refresh helper; `persistSignedDeliver` does not. The squid has the equivalent separation. Do not remove the on-chain helper as a purported signed-pricing fix. The reviewer reports the signed-variable-charge acceptance test already passes; this plan revision did not independently rerun it.
+- **Maximum-update subscriptions are a separate existing limitation.** Only Gnosis registers `MaxDeliveryRateUpdated` in Graph; Base's squid intentionally mirrors its Graph manifest by disabling it ([commit `9dd6cd3`](https://github.com/valory-xyz/autonolas-subgraph/commit/9dd6cd349a8d0a3296e4d47360fc330dbe6e5abe)). This does not make #142 valid. Broader subscription/helper changes require a separately scoped follow-up; preserve current behavior in this release and verify advertised rates initialize from the new factories.
+- **Delivered means settled, not necessarily successful.** Under the new failed-run policy, failed off-chain tool runs can be settled and charged, so they count as deliveries. Consumers must not interpret delivery counters as successful-tool-run counters.
+
+## Implementation sequence
+
+### 1. Repair duplicate processing and historical counters — #140
+
+1. Complete the V1-only log check below before removing sources. Repository deployment history supports V2 from launch, but is not a complete on-chain absence check.
+2. If the check finds no V1-only events, remove redundant V1 marketplace sources from Polygon, Optimism, Ethereum, Arbitrum and Celo, retaining V2 at existing start blocks. Preserve Gnosis/Base boundaries. If V1 events exist, establish actual historical boundaries and preserve that coverage.
+3. Add `Global.totalOffChainRequests`, initialize every Global creation path and increment by `numDeliveries`, not one per batch. Include both marketplace squids, generated models and schema migrations.
+4. Test multi-request signed batches across Global, Sender, RequestsPerAgent and Mech counters. Add manifest coverage checks; calling a handler once does not establish single graph-node dispatch.
+5. Include final factory configuration, deploy the combined version and fully reindex. Do not reuse inflated historical state.
+6. At a common indexed block, reconcile fully paginated signed-event `numDeliveries`, sender off-chain counts and the new global counter. Batch-event counters must equal event counts. Reconcile other shared handlers separately; do not halve all totals mechanically.
+
+### 2. Audit existing actual-charge reporting — #143
+
+1. Update schema descriptions, comments and query examples with this field mapping:
+
+| Field | Meaning |
+| --- | --- |
+| `Mech.maxDeliveryRate` | Advertised mech maximum, separate from the amount a signed delivery charges. |
+| `Request.feeRaw` / `Request.feeUSD` | Advertised-rate snapshot where available; not proof of the signed cap or actual payment. |
+| `DeliverForMarketplace.deliveryRate` | Actual settlement charge in the payment type's raw units. |
+| `Request.finalFeeUSD` | Actual charge converted to USD on existing supported Request paths; not universally present for signed-only requests. |
+| Delivery status / counters | Settlement, including charged failed off-chain runs; not proof of successful tool execution. |
+
+2. Verify signed delivery records preserve actual charges. Keep the existing data-lake and mech-fees reporting responsibilities.
+3. Audit existing fee sums/averages and derived fields. Within their existing coverage, spend must use actual charges rather than advertised-rate estimates. Check Graph and both active squids, including USDC/USDG units.
+4. Test unequal charges, equal-to-maximum charges and a **mixed zero/nonzero batch**. A batch with all charges zero reverts in the balance tracker and is not a valid successful-settlement fixture. Check existing on-chain totals, handler ordering and currency conversion. Preserve raw charges when conversion is unavailable.
+5. Record contract upgrade and first variable-price settlement blocks/transactions separately, per chain. Document any backfills and coverage limits. Historical USD estimates need not equal actual USD charges because conversion timing can differ.
+6. Provide field mapping, endpoint versions and cutover records to `mech-analytics`, `townhall-kpis`, `olas-website`, `trader`, `predict-api`, **`autonolas-frontend-mono`** and **`mech-interact`**. Frontend-mono reads the Request fee fields and `DeliverForMarketplace.deliveryRate`; mech-interact reads `Mech.maxDeliveryRate`, `receivedRequests` and `selfDeliveredFromReceived`. The frontend's existing rendering of all signed charges as 18-decimal native currency misdisplays USDC; record that as a separate consumer-side fix, not an indexer conversion change.
+
+No pricing-event ABI change is expected. Explicit nonces do not require request-ID derivation changes in the indexers, which use emitted IDs. New factory artifacts still require verification and configuration.
+
+## Evidence and remaining validation
+
+### Historical V1/V2 coverage
+
+The investigation compared local V1/V2 ABIs, manifest history, original contract deployment records and contract source at those deployment commits. This is repository/deployment-record evidence, not a claim of a complete independent RPC scan of all historical logs.
+
+| Chain | Retained marketplace coverage | Decision |
+| --- | --- | --- |
+| Polygon | V2 from 81,028,558 | Remove V1 source after the log check. |
+| Optimism | V2 from 145,788,454 | Remove V1 source after the log check. |
+| Ethereum | V2 from 24,427,441 | Remove V1 source after the log check; source/build change only. |
+| Arbitrum | V2 from 430,646,886 | Remove V1 source after the log check; source/build change only unless activated separately. |
+| Celo | V2 from 58,841,368 | Remove V1 source after the log check; source/build change only. |
+| Gnosis | V1 through 41,490,893; V2 from 41,490,894 | Preserve existing split. |
+| Base | V1 through 33,907,400; V2 from 33,907,401 | Preserve existing split in Graph and active squid. |
+| Robinhood | V2 from configured marketplace start 59,578,054 | Preserve existing V2-only squid configuration. |
+
+Evidence for removing redundant V1 sources:
+
+- [Original Polygon/Optimism deployment commit `5068036`](https://github.com/valory-xyz/autonolas-marketplace/commit/5068036d19f05ea598418c8894bf4982d4233c74) introduces the same marketplace proxy addresses used by our manifests. [Contract source at that deployment](https://github.com/valory-xyz/autonolas-marketplace/blob/5068036d19f05ea598418c8894bf4982d4233c74/contracts/MechMarketplace.sol) already declares V2 events: request payload arrays, two delivery byte fields and non-indexed `MarketplaceDelivery.requesters`.
+- [Original Ethereum/Arbitrum/Celo deployment records in `ad71fd4`](https://github.com/valory-xyz/autonolas-marketplace/commit/ad71fd4b9892a4e7b0f76b294c4fde6b18663b34) introduce their current proxy addresses; [source at that commit](https://github.com/valory-xyz/autonolas-marketplace/blob/ad71fd4b9892a4e7b0f76b294c4fde6b18663b34/contracts/MechMarketplace.sol) has the same V2 event shapes. No V1 period is indicated for those proxies by these deployment records.
+- The local ABI comparison confirms identical `CreateMech` and `MarketplaceDeliveryWithSignatures` registrations in both versions. `MarketplaceRequest` and individual `Deliver` differ in parameter types. `MarketplaceDelivery` retains the same event signature but changes which fields are indexed, so retaining an overlapping V1 decoder is not an appropriate compatibility strategy.
+
+### Required on-chain absence check before deleting V1 sources
+
+For Polygon, Optimism, Ethereum, Arbitrum and Celo, query `eth_getLogs` at the marketplace proxy from the retained V2 start block through a recorded finalized block. Use an OR filter in topic0 for the V1-only signatures `MarketplaceRequest(address,address,uint256,bytes32[])` and `Deliver(address,address,bytes32,uint256,bytes)`. Record chain, proxy, range, topic hashes, result counts and provider. One request per chain is sufficient only if the provider accepts the full range; otherwise page the entire range without gaps. A provider error or truncated response is not evidence of zero events.
+
+**Status: not yet executed.** Deployment-record evidence supports the proposed removal, but the prior claim that all investigation was complete was too strong. `MarketplaceDelivery` has the same topic0 across versions despite different indexed fields, so it is not covered by this V1-only filter; retain the deployment/ABI evidence and verify topic counts in representative historical delivery logs as part of the compatibility check.
+
+## Timing and release checks
+
+| When | Work / result |
+| --- | --- |
+| Fri 23 Oct / next available work slot | Address plan review and prepare the on-chain absence check. No #142 implementation. |
+| Mon–Tue 26–27 Oct | Complete log validation and #140 implementation/tests, including the new global counter in Graph and squids. |
+| Wed–Fri 28–30 Oct | Complete #143 audit/documentation, review the combined changes and prepare new-factory configuration. |
+| Once final factory deployment records are available | Configure and test all factories for a chain, then start its single combined full replay. No fixed replay-start promise before that input is available. |
+| Approximately 1–1.5 weeks after Gnosis replay starts | Catch-up and reconciliation, followed by consumer cutover. Other chains can take several weeks. |
+| After a real variable-price settlement is indexed | Verify raw charge, applicable USD conversion and the separate advertised maximum; record cutover evidence. |
+
+Estimated implementation effort: roughly 2–3 working days plus RPC investigation, review and external deployment inputs. Indexing time is separate. Publish per-chain replay start, progress and ETA; do not equate a deployed but lagging version with current corrected data.
+
+Run focused regressions, marketplace tests, codegen/build for affected manifests and corresponding checks for both active squids. Before switching endpoints, require catch-up, no indexing errors and count/fee reconciliation. If contract deployment is delayed, finish code and tests but wait for final factory configuration before the combined replay. Existing endpoints/workarounds remain available during indexing; no #142-based activation or rollback gate applies.
+
+Close #140 after historical reconciliation and #143 after its aggregate audit, documentation and live verification. #142 is already closed. This is a documentation plan; implementation and on-chain log validation have not been performed by this PR.
