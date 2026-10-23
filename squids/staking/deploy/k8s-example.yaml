@@ -3,6 +3,7 @@
 # Secret staking-robinhood-squid-db: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS.
 # Secret staking-robinhood-squid-data: RPC_HTTP (archive REQUIRED), STAKING_CHAIN=robinhood,
 # INGEST_SOURCE=portal|rpc, SQD_PORTAL_URL and SQD_PORTAL_API_KEY for private portal access.
+# For Base, copy with names staking-base-* and STAKING_CHAIN=base, SQD_PORTAL_URL=.../datasets/base-mainnet.
 # Run the migration job successfully before starting the processor/API.
 apiVersion: batch/v1
 kind: Job

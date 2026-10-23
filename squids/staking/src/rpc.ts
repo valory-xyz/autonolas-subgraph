@@ -2,8 +2,23 @@ import * as stakingProxy from "./abi/StakingProxy/functions";
 import * as stakingFactory from "./abi/StakingFactory/functions";
 import * as registry from "./abi/ServiceRegistryL2/functions";
 import * as utility from "./abi/ServiceRegistryTokenUtility/functions";
+import { func } from "./abi/abi.support";
+import { struct } from "@subsquid/evm-codec";
 import { StakingContract } from "./model";
 import { CHAIN } from "./constants";
+
+/**
+ * `getService` returns ONE tuple with a dynamic `agentIds` member, so the
+ * result starts with a 32-byte offset. The generated decoder reads it as a
+ * flat multi-value return (securityDeposit = 0x20, agentIds = []), which
+ * drops every agent bond. Wrapping the struct as a single field decodes it
+ * the way graph-node does.
+ */
+export const getServiceTuple = func(
+  registry.getService.selector,
+  registry.getService.args,
+  struct({ service: registry.getService.returnType! }),
+);
 
 // Every configuration field must be populated before the entity is persisted.
 export type StakingConfig = Omit<
@@ -238,9 +253,9 @@ export class StakingReader {
     );
     if (deposit === null) return null;
     const [service, params] = await Promise.all([
-      this.read(contract.serviceRegistry, block, registry.getService, {
+      this.read(contract.serviceRegistry, block, getServiceTuple, {
         serviceId,
-      }),
+      }).then((r) => r?.service ?? null),
       this.read(contract.serviceRegistry, block, registry.getAgentParams, {
         serviceId,
       }),
