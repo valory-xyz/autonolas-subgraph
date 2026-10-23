@@ -502,8 +502,8 @@ export async function handleConditionResolved(
 /**
  * Protocol V2 claim: a BinaryModule PositionRedeemed initiated by the Router
  * pays `payout` pUSD to `recipient`. It is credited like a V1
- * PayoutRedemption when the recipient is an agent's Safe and the market's
- * result is recorded.
+ * PayoutRedemption when the recipient is an agent's Safe or its
+ * DepositWallet and the market's result is recorded.
  */
 export async function handlePositionRedeemed(
   cache: IEntityCache,
@@ -516,15 +516,19 @@ export async function handlePositionRedeemed(
   },
 ) {
   if (p.initiator !== ROUTER) return;
-  if ((await cache.get(TraderAgent, p.recipient)) == null) return;
+  const agent = await resolveMakerAgent(cache, meta, p.recipient);
+  if (agent == null) return;
 
   const condition = padConditionId(decodePositionId(p.positionId).conditionId);
   if ((await cache.get(QuestionResolution, condition)) == null) return;
 
-  await processRedemption(cache, p.recipient, condition, p.payout, meta);
+  await processRedemption(cache, agent.id, condition, p.payout, meta);
 }
 
-/** The TraderAgent behind an order maker: its Safe, or a DepositWallet it owns. */
+/**
+ * The TraderAgent behind an order maker or claim recipient: its Safe, or a
+ * DepositWallet it owns.
+ */
 async function resolveMakerAgent(
   cache: IEntityCache,
   meta: EventMeta,

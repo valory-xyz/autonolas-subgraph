@@ -65,7 +65,9 @@ history, accuracy, achievements) need no changes:
   the rules the market registered with the PolymarketOOReporter
   (`RequestRegistered`, keyed by the same ID). A migrated V1 market without
   registered rules reuses the metadata of its V1 condition, found with one
-  `BinaryModule.legacyConditionId` call. Other markets, such as Chainlink
+  `BinaryModule.legacyConditionId` call. Outcome names are in the same
+  order as V1 metadata (UMA p1, p2), which is the reverse of outcome index
+  order. Other markets, such as Chainlink
   Up or Down markets, have no text on chain and keep an empty title and no
   outcomes, as do markets whose rules do not parse.
 - BinaryModule `ConditionResolved` settles the market through the same
@@ -75,9 +77,10 @@ history, accuracy, achievements) need no changes:
   vector. A resolved bet with no payout shows as lost.
 - Agents claim winnings through the Router, which redeems each position on
   BinaryModule. A BinaryModule `PositionRedeemed` whose initiator is the
-  Router and whose recipient is an agent's Safe credits its `payout` (the
-  pUSD sent to the Safe) through the same entities as V1 redemptions, once
-  the market's result is recorded.
+  Router and whose recipient is an agent's Safe or its DepositWallet
+  credits its `payout` (the pUSD sent to the recipient) to that agent
+  through the same entities as V1 redemptions, once the market's result is
+  recorded.
 
 ## Environment variables
 

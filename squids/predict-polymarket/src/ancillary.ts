@@ -137,8 +137,9 @@ export function extractBinaryOutcomes(rawData: string): string[] {
  * Title and outcome names of a Protocol V2 market from its rules
  * (PolymarketOOReporter requestRules, a JSON object). res_data is either an
  * array of [value, label] pairs or the V1-style "p1 corresponds to X, p2 to
- * Y" string. Outcome 0 is the label for value 1 (p2) and outcome 1 the label
- * for value 0 (p1). Rules that do not parse give an empty title and no
+ * Y" string. Outcomes are in UMA p1, p2 order (the label for value 0, then
+ * for value 1), the same order as V1 MarketMetadata.outcomes and the reverse
+ * of outcome index order. Rules that do not parse give an empty title and no
  * outcomes.
  */
 export function parseRequestRules(rules: string): {
@@ -167,8 +168,8 @@ function rulesOutcomes(resData: unknown): string[] {
   if (Array.isArray(resData)) {
     const label = (value: number): unknown =>
       resData.find((e) => Array.isArray(e) && e[0] === value)?.[1];
-    const [yes, no] = [label(1), label(0)];
-    return typeof yes === "string" && typeof no === "string" ? [yes, no] : [];
+    const [p1, p2] = [label(0), label(1)];
+    return typeof p1 === "string" && typeof p2 === "string" ? [p1, p2] : [];
   }
   // only the p1/p2 mapping, not extractBinaryOutcomes' fallbacks
   if (
@@ -179,7 +180,7 @@ function rulesOutcomes(resData: unknown): string[] {
     return [];
   }
   const [p1, p2] = extractBinaryOutcomes(resData);
-  return p1 != null && p2 != null ? [p2, p1] : [];
+  return p1 != null && p2 != null ? [p1, p2] : [];
 }
 
 /** Decode an ABI `bytes` hex string to UTF-8 (graph-ts Bytes.toString()). */

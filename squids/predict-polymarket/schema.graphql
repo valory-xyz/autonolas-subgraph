@@ -73,6 +73,7 @@ type Question @entity {
 type MarketMetadata @entity {
   id: ID! # questionId
   title: String!
+  "Outcome names in UMA p1, p2 order for V1 and V2 markets, not outcome index order."
   outcomes: [String!]!
   rawAncillaryData: String!
 }
