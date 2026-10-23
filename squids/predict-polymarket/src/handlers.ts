@@ -299,6 +299,13 @@ export async function handleOrderFill(
     outcomeTokenId: bigint;
     makerAmountFilled: bigint;
     takerAmountFilled: bigint;
+    /**
+     * Fee in collateral that the order's signer (the event's `maker`) paid,
+     * from the CLOB v2 CTF exchange's OrderFilled.fee: a BUY pays
+     * makerAmountFilled + fee, a SELL receives takerAmountFilled - fee.
+     * Legacy CTF exchange fills leave it unset (0).
+     */
+    fee?: bigint;
     builder: string | null;
     metadata: string | null;
   },
@@ -322,7 +329,10 @@ export async function handleOrderFill(
   }
 
   // 2. Sells use NEGATIVE amounts/shares (omen convention)
-  const usdcAmount = p.isBuying ? p.makerAmountFilled : -p.takerAmountFilled;
+  const fee = p.fee ?? 0n;
+  const usdcAmount = p.isBuying
+    ? p.makerAmountFilled + fee
+    : -(p.takerAmountFilled - fee);
   const sharesAmount = p.isBuying ? p.takerAmountFilled : -p.makerAmountFilled;
 
   // 3. Lookup the outcome index
