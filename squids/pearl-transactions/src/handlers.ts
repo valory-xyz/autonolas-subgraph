@@ -28,6 +28,7 @@ import { EntityCache } from "./entityCache";
 import {
   BondQueue,
   agentFundingEventId,
+  agentSafeTopUpId,
   classifyTransfer,
   dailyServiceFundsId,
   dayTimestamp,
@@ -1069,6 +1070,11 @@ export async function handleSafeReceived(
  * tx sender.
  * Never routed through classifyTransfer, which would label an Agent Safe
  * -> untracked transfer AGENT_TO_APP.
+ *
+ * The row ID is one per tx, as in the studio subgraph: a reentrant
+ * execTransaction from the same Safe (e.g. an Agent Signer with EIP-7702
+ * code) emits a second ExecutionSuccess in the same tx, which reads the same
+ * outer input and is skipped.
  */
 export async function handleSafeExecutionSuccess(
   ctx: Ctx,
@@ -1103,10 +1109,13 @@ export async function handleSafeExecutionSuccess(
   const agent = await ctx.cache.tracked(meta.address);
   if (agent?.role !== ROLE_AGENT) return;
 
+  const id = agentSafeTopUpId(meta.txHash);
+  if ((await ctx.cache.get(FundsMovement, id)) != null) return;
+
   ctx.cache.set(
     FundsMovement,
     new FundsMovement({
-      id: eventId(meta.txHash, meta.logIndex),
+      id,
       service: agent.serviceId ? new Service({ id: agent.serviceId }) : null,
       masterSafe: agent.masterSafeId
         ? new MasterSafe({ id: agent.masterSafeId })

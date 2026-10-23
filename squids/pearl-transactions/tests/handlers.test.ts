@@ -394,7 +394,7 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     await discoverAgent();
     const { row } = await execute({});
     expect(row).toBeDefined();
-    expect(row.id).toBe("0xtopup-3");
+    expect(row.id).toBe("topup-0xtopup");
     expect(row.category).toBe(FundsCategory.AGENT_SAFE_TO_AGENT_EOA);
     expect(row.source).toBe(FundsSource.SEMANTIC);
     expect(row.from).toBe(AGENT);
@@ -429,10 +429,22 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     expect(row.to).toBe(LOWER_SIGNER);
   });
 
-  it("writes one row per ExecutionSuccess log in the same tx", async () => {
+  // A reentrant execTransaction emits a second ExecutionSuccess from the
+  // same Safe, which reads the same outer input.
+  it("writes one row per tx when the Safe emits ExecutionSuccess twice", async () => {
     await discoverAgent();
     const { rows } = await execute({}, AGENT, [3, 4]);
-    expect(rows.map((r) => r.id).sort()).toEqual(["0xtopup-3", "0xtopup-4"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("topup-0xtopup");
+    expect(rows[0].amount).toBe(5n);
+  });
+
+  it("skips the tx when its row was written in an earlier batch", async () => {
+    await discoverAgent();
+    await execute({});
+    const { rows } = await execute({ input: execCalldata({ value: 9n }) }, AGENT, [4]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBe(5n);
   });
 
   it("warns and writes nothing when the calldata behind the selector does not decode", async () => {
