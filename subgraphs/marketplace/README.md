@@ -231,6 +231,7 @@ Request/delivery IPFS metadata is fetched by background file data sources (`hand
 | `Sender.totalLegacyTransactions` | Misnomer: all-time request-bearing transactions by this sender (all paths) |
 | `Sender.totalMarketplaceRequests` | Misnomer: +1 per marketplace batch event AND +1 per legacy AgentMech request |
 | `Global.totalMarketplaceRequests` / `totalMarketplaceDeliveries` / `totalMarketplaceDeliveriesWithSignatures` | Count **events** (one per batch), not individual requests |
+| `Global.totalOffChainRequests` | Settled off-chain requests, summed from signed batch sizes; includes charged failed runs |
 | `Global.totalRequests` / `totalDeliveries` | Count individual requests/deliveries across all paths |
 
 > **Note:** `totalRequests` only counts requests where the requester is a registered service multisig. To count all requests received by a service's mech, query requests directly with the service filter.
@@ -334,3 +335,13 @@ Naming convention: `marketplace-{network}-v{version}` (e.g., `marketplace-gnosis
 ## License
 
 MIT
+
+### Corrected signed-delivery counters (#140)
+
+Polygon, Optimism, Ethereum, Arbitrum and Celo use one V2 marketplace source from deployment; redundant V1 sources have been removed. Gnosis and Base retain their non-overlapping historical V1/V2 ranges. See the [V1-event investigation in PR #153](https://github.com/valory-xyz/autonolas-subgraph/pull/153) for the evidence.
+
+`Global.totalOffChainRequests` counts requests in settled signed batches, whereas `totalMarketplaceDeliveriesWithSignatures` counts batch events. The global off-chain count should equal both the sum of `Sender.totalOffChainRequests` and the sum of signed-event `numDeliveries` at the same indexed block. Deliveries represent settlement, not necessarily successful tool execution.
+
+Deploy a fresh version and replay history: changing a manifest does not repair already inflated counters, and the new global field needs all historical batches. Coordinate one replay per active chain after final new-factory configuration is included. Keep existing consumer endpoints until reconciliation completes.
+
+Run `yarn test:manifests` to check event coverage and historical boundaries, alongside the Matchstick handler tests.

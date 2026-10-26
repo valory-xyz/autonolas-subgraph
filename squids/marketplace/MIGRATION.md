@@ -121,3 +121,9 @@ No subgraph to diff against, so validate against the chain:
 5. Processor logs contain no `Unknown mech factory` and no
    `PendingMechData not found` lines (both mean the factory table or a
    start block is wrong).
+
+## Global off-chain request counter (#140)
+
+Both Base and Robinhood expose `Global.totalOffChainRequests`, incremented by the number of requests in each settled signed batch. It includes charged failed runs and excludes on-chain requests. It must equal the sum of signed-batch `numDeliveries` and the sum of sender off-chain counters at the same indexed block.
+
+Migration `1793012400000-OffChainRequests.js` adds the required column. If rows already exist, it initializes the counter from stored signed batch events before enforcing NOT NULL; it does not silently initialize historical totals to zero. Apply migrations with the processor stopped. The coordinated release still uses a fresh database and full replay for each active squid, after final factory configuration is available. The migration is not a substitute for correcting/replaying historical handler behavior.

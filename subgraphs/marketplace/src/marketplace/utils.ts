@@ -90,6 +90,7 @@ export function getGlobal(): Global {
     global.totalMarketplaceRequests = BigInt.fromI32(0);
     global.totalMarketplaceDeliveries = BigInt.fromI32(0);
     global.totalMarketplaceDeliveriesWithSignatures = BigInt.fromI32(0);
+    global.totalOffChainRequests = BigInt.fromI32(0);
     
     // Legacy AgentMech-specific counters
     global.totalLegacyRequests = BigInt.fromI32(0);

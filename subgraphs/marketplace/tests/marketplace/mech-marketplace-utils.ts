@@ -8,7 +8,7 @@ import {
   OwnerUpdated,
   Deliver as DeliverWithSignaturesV2,
 } from "../../generated/MechMarketplaceV2/MechMarketplaceV2"
-import { Deliver as DeliverWithSignaturesV1 } from "../../generated/MechMarketplaceV1/MechMarketplaceV1"
+import { Deliver as DeliverWithSignaturesV1 } from "../../generated/MechMarketplaceV2/MechMarketplaceV1"
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 import {
   mockMarketplaceDeliverIpfs,

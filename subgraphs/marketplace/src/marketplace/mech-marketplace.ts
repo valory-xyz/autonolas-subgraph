@@ -8,7 +8,7 @@ import {
   MarketplaceRequest as MarketplaceRequestEvent,
   OwnerUpdated as OwnerUpdatedEvent,
 } from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
-import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
+import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV2/MechMarketplaceV1';
 import {
   MarketplaceDelivery,
   MarketplaceDeliveryWithSignatures,
@@ -289,6 +289,7 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // For this event, total number of deliveries is the same as total number of requests
   global.totalRequests = global.totalRequests.plus(numDeliveries);
+  global.totalOffChainRequests = global.totalOffChainRequests.plus(numDeliveries);
 
   global.totalDeliveries = global.totalDeliveries.plus(numDeliveries);
   global.totalMarketplaceDeliveriesWithSignatures =

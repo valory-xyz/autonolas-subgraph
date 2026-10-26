@@ -30,6 +30,8 @@ type Global @entity {
   totalMarketplaceDeliveries: BigInt!
   totalMarketplaceDeliveriesWithSignatures: BigInt!
   # Aggregate counters (one per individual request / delivery)
+  """Settled off-chain requests, summed by signed batch size; includes charged failed runs."""
+  totalOffChainRequests: BigInt!
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   totalTransactions: BigInt!

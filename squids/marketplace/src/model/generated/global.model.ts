@@ -22,6 +22,12 @@ export class Global {
     @BigIntColumn_({nullable: false})
     totalMarketplaceDeliveriesWithSignatures!: bigint
 
+    /**
+     * Settled off-chain requests, summed by signed batch size; includes charged failed runs.
+     */
+    @BigIntColumn_({nullable: false})
+    totalOffChainRequests!: bigint
+
     @BigIntColumn_({nullable: false})
     totalRequests!: bigint
 
