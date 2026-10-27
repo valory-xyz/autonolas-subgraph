@@ -138,6 +138,11 @@ run(
           address === NEG_RISK_CTF_EXCHANGE_V1
         ) {
           if (topic0 === ctfExchangeEvents.OrderFilled.topic) {
+            // OrderFilled.fee is not passed: the legacy exchanges stopped
+            // trading at the CLOB v2 cutover, and their fee is taken from the
+            // proceeds the maker receives (outcome tokens on a buy) rather
+            // than paid in collateral, so it does not fit the collateral fee
+            // rule in recordBet.
             const e = ctfExchangeEvents.OrderFilled.decode(log);
             const { isBuying, outcomeTokenId } = inferV1Direction(
               e.makerAssetId,

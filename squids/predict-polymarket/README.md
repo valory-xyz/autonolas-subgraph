@@ -55,9 +55,13 @@ both changes are deployed together.
 - `Bet.amount` is the pUSD the maker moved, so it includes the ExchangeV3
   fee: a buy pays `makerAmountFilled + fee`, and a sell receives
   `takerAmountFilled - fee`. Shares are the filled amounts, with no fee.
-  `Bet.impliedProbability` is therefore the fee-inclusive price. Fills on
-  the CLOB v2 CTF exchange include its `OrderFilled` fee the same way;
-  legacy CTF exchange fills carry no fee.
+  `Bet.impliedProbability` is therefore the fee-inclusive price, capped at
+  1e18 (a price of 1). A sell's fee is capped at its proceeds, so a sell
+  amount is never positive. Fills on the CLOB v2 CTF exchanges include their
+  `OrderFilled` fee the same way. Legacy CTF exchange fills record no fee:
+  those exchanges stopped trading at the CLOB v2 cutover, and they take
+  their fee from the proceeds the maker receives (outcome tokens on a buy)
+  rather than in collateral, so it does not fit this collateral fee rule.
 - Positions are keyed per agent (by its Safe), so moving shares between an
   agent's DepositWallet and its Safe needs no handling.
 
@@ -137,6 +141,17 @@ them. Do a **blue-green re-index**:
 The old squid keeps serving queries the whole time, so users see no
 downtime. Only for very small, fully understood mistakes: repairing the
 affected rows directly with SQL is acceptable — the database is ours.
+
+### Upgrading to v0.5.0
+
+v0.5.0 includes the CLOB v2 CTF exchange fee in bet amounts. That changes
+`Bet.amount`, `Bet.impliedProbability`, `totalTraded`, profit, and the
+Brier score for those fills. A database written by an earlier version
+keeps its fee-excluded bets, and an in-place upgrade would add
+fee-included bets next to them. Deploy v0.5.0 only with a blue-green
+re-index, as described in the preceding section: a fresh database indexed
+from zero, then switch the API to it.
+Don't upgrade the running processor in place.
 
 ### Adding or changing a field / entity
 

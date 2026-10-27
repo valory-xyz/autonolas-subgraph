@@ -56,7 +56,18 @@ The squid includes the CLOB v2 CTF exchange `OrderFilled.fee` in bet amounts
 subgraph does not. So `totalTraded` differs on agent-days with fee-paying
 CLOB v2 fills, and `dailyProfit` and `dailyTradedSettled` differ on the days
 those markets resolve. These differences are expected, not missing subgraph
-data.
+data. Legacy CTF exchange fills record no fee on either side.
+
+The compare script reports these as expected fee differences, apart from
+the field mismatches it counts as discrepancies. A difference counts as a
+fee difference when it has the fee's shape: `totalTraded` and
+`dailyTradedSettled` are higher in the squid, `dailyProfit` is lower by
+exactly the `dailyTradedSettled` difference on the same row, and the
+difference is at most `FEE_BOUND` (10%) of the subgraph value. The largest
+fee in the recorded fills is 4.8% of the collateral moved, so the bound
+leaves a margin of two. `totalBets` has no fee and is still compared
+exactly. A day whose sells nearly cancel its buys can exceed the bound and
+shows up as a mismatch to check by hand.
 
 Always compare against the newest deployed version of the subgraph.
 
