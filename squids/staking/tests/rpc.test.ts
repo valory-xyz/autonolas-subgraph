@@ -4,6 +4,7 @@ import {
   StakingReader,
   ContractRevert,
   supportsEvents,
+  getServiceTuple,
 } from "../src/rpc";
 import * as stakingProxy from "../src/abi/StakingProxy/functions";
 import { StakingContract } from "../src/model";
@@ -123,7 +124,7 @@ it("rejects a mismatch between service agent IDs and agent parameters", async ()
   vi.spyOn(reader, "read").mockImplementation(async (_address, _block, fn): Promise<any> => {
     if (fn === utility.mapServiceIdTokenDeposit)
       return { token: "0x" + "44".repeat(20), securityDeposit: 100n };
-    if (fn === registry.getService) return { agentIds: [7, 8] };
+    if (fn === getServiceTuple) return { service: { agentIds: [7, 8] } };
     if (fn === registry.getAgentParams) return { agentParams: [{ slots: 2, bond: 0n }] };
     throw new Error("unexpected getter");
   });
@@ -156,7 +157,7 @@ it("reads actual deposit plus each agent bond times its slots at the stake block
         expect(block).toBe(123n);
         if (fn === utility.mapServiceIdTokenDeposit)
           return { token: "0x" + "44".repeat(20), securityDeposit: 100n };
-        if (fn === registry.getService) return { agentIds: [7, 8] };
+        if (fn === getServiceTuple) return { service: { agentIds: [7, 8] } };
         if (fn === registry.getAgentParams)
           return {
             agentParams: [
@@ -170,4 +171,43 @@ it("reads actual deposit plus each agent bond times its slots at the stake block
     );
   expect(await reader.lockedOlas(contract, 1n, 123n)).toBe(410n);
   expect(read).toHaveBeenCalledTimes(5);
+});
+
+// Real mainnet.base.org eth_call results at block 22,142,430 for Base service 17
+// on 0x9514…ba1f (the first Base stake whose bond the flat decoder dropped).
+const BASE_SERVICE_17: Record<string, string> = {
+  "0x3cebfa4f0000000000000000000000000000000000000000000000000000000000000011":
+    "0x00000000000000000000000054330d28ca3357f294334bdc454a032e7f353416000000000000000000000000000000000000000000000002b5e3af16b1880000",
+  "0xef0e239b0000000000000000000000000000000000000000000000000000000000000011":
+    "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000371974ed5bf6e56d918b4345ce35dc30c9ae1ffbd984ec4ebedd513d8132366f2525aa2258eaddb1cf5abdafb0d0fb7dd87ce1a10000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000029",
+  "0x1de286ba0000000000000000000000000000000000000000000000000000000000000011":
+    "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",
+  "0x75c1f93400000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000029":
+    "0x000000000000000000000000000000000000000000000002b5e3af16b1880000",
+};
+
+it("decodes getService as one dynamic tuple, like graph-node (real Base response)", async () => {
+  const raw = BASE_SERVICE_17["0xef0e239b" + "0".repeat(62) + "11"];
+  const { service } = getServiceTuple.decodeResult(raw);
+  expect(service.agentIds).toEqual([41]);
+  expect(service.securityDeposit).toBe(1n);
+  expect(service.multisig).toBe("0x371974ed5bf6e56d918b4345ce35dc30c9ae1ffb");
+});
+
+it("locks the security deposit plus the agent bond for Base service 17 (= the subgraph's 100 OLAS)", async () => {
+  const contract = new StakingContract({
+    id: "0x95146adf659f455f300d7521b3b62a3b6c4aba1f",
+    isOlasStaking: true,
+    minStakingDeposit: 50n * 10n ** 18n,
+    numAgentInstances: 1n,
+    serviceRegistry: "0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe",
+    serviceRegistryTokenUtility: "0x34c895f302d0b5cf52ec0edd3945321eb0f83dd5",
+  });
+  const reader = new StakingReader(async (_method, params: any[]) => {
+    expect(params[1]).toBe("0x151ddde");
+    const result = BASE_SERVICE_17[params[0].data];
+    if (result === undefined) throw new Error(`unexpected call ${params[0].data}`);
+    return result;
+  });
+  expect(await reader.lockedOlas(contract, 17n, 22_142_430n)).toBe(100n * 10n ** 18n);
 });

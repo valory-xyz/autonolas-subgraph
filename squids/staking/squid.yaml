@@ -1,7 +1,7 @@
 manifestVersion: subsquid.io/v0.1
 name: staking
 version: 1
-description: Olas staking on Robinhood Chain
+description: Olas staking (Robinhood Chain, Base)
 build:
 deploy:
   addons:

@@ -1,6 +1,6 @@
 # Tokenomics squid
 
-OLAS holder tracking on Robinhood Chain, ported from
+OLAS holder tracking on Robinhood Chain and Base, ported from
 `autonolas-subgraph-studio/subgraphs/tokenomics-l2` at verified main commit
 `ab3ac860ada32aa16121c3637816cba3f8075f1b`.
 
@@ -18,6 +18,23 @@ remain queryable, but do not count toward `holderCount`. All amounts retain full
 integer precision; divide OLAS raw units by 10^18 for display.
 
 ## Chain and source
+
+`TOKENOMICS_CHAIN` picks one chain per deployment (default `robinhood`; unknown
+names fail at startup). `SQD_PORTAL_URL`, when set, must name that chain's
+dataset.
+
+| | Robinhood | Base |
+|---|---|---|
+| `TOKENOMICS_CHAIN` | `robinhood` | `base` |
+| Chain ID | 4663 | 8453 |
+| OLAS | `0x092963938debd8013a2e545b3549f8a5ec0d2286` | `0x54330d28ca3357f294334bdc454a032e7f353416` |
+| Start block | 56,201,065 | 10,622,421 |
+| Portal dataset | `robinhood-mainnet` (private, key required) | `base-mainnet` (public; key optional) |
+
+Base mirrors studio `subgraphs/tokenomics-l2/subgraph.base.yaml` (no bytecode at
+10,622,420). It replaces the Base tokenomics-l2 subgraph on The Graph network.
+
+### Robinhood
 
 `TOKENOMICS_CHAIN=robinhood` selects chain **4663**. The token address is
 `0x092963938debd8013a2e545b3549f8a5ec0d2286`, from the

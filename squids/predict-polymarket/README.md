@@ -34,6 +34,34 @@ Key files:
 | `db/migrations/` | generated SQL that creates the database tables |
 | `squid.yaml` | SQD deployment description |
 
+## Polymarket Protocol V2
+
+Protocol V2 bets are ExchangeV3 `OrderFilled` events on PositionManager
+position IDs, paid in pUSD (6 decimals). They land in the same entities as
+CTF exchange bets. V2 markets get a `Question`, settlement, and payouts only
+with the follow-up V2 results change, so readers that need a question or
+resolution (prediction history, accuracy, achievements) see V2 bets only once
+both changes are deployed together.
+
+- The maker resolves to the agent the same way: its Safe, or a
+  DepositWallet linked to it.
+- The position ID carries the condition and the outcome
+  (`src/positionId.ts`), so there is no `TokenRegistry` lookup and no token
+  derivation. Conditions are stored in the 32-byte right-padded form that
+  Gamma, the CLOB and the Data API use. Only BinaryModule positions are
+  recorded; NegRisk and combinatorial V2 positions are skipped.
+- `Bet.collateral` is pUSD for these bets and null for bets on CTF outcome
+  tokens.
+- `Bet.amount` is the pUSD the maker moved, so it includes the ExchangeV3
+  fee: a buy pays `makerAmountFilled + fee`, and a sell receives
+  `takerAmountFilled - fee`. Shares are the filled amounts, with no fee.
+  `Bet.impliedProbability` is therefore the fee-inclusive price. CTF
+  exchange fills, including those on the CLOB v2 CTF exchange whose
+  `OrderFilled` also carries a fee, record amounts without the fee, so V1
+  and V2 amounts differ by that fee.
+- Positions are keyed per agent (by its Safe), so moving shares between an
+  agent's DepositWallet and its Safe needs no handling.
+
 ## Environment variables
 
 | Var | What |

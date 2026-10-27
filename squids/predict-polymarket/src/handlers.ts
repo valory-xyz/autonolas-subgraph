@@ -26,10 +26,12 @@ import {
 } from "./logic";
 import { bytesToUtf8, extractBinaryOutcomes, extractTitle } from "./ancillary";
 import { getOutcomeTokenId } from "./tokenDerivation";
+import { decodePositionId, padConditionId } from "./positionId";
 import { computeImpliedProbability } from "./brier";
 import {
   PREDICT_AGENT_ID,
   NEG_RISK_ADAPTER,
+  PUSD_ADDRESS,
   USDC_E_ADDRESS,
 } from "./constants";
 
@@ -290,42 +292,30 @@ export async function handleOutcomeReported(
   );
 }
 
+export type OrderFill = {
+  maker: string;
+  isBuying: boolean;
+  outcomeTokenId: bigint;
+  makerAmountFilled: bigint;
+  takerAmountFilled: bigint;
+  /**
+   * Fee in pUSD that the order's signer (the event's `maker`) paid, from
+   * OrderFilled.fee; CTF exchange fills leave it unset (0).
+   */
+  fee?: bigint;
+  builder: string | null;
+  metadata: string | null;
+};
+
+/** Fill on a CTF exchange: the CTF outcome token is looked up in TokenRegistry. */
 export async function handleOrderFill(
   cache: IEntityCache,
   meta: EventMeta,
-  p: {
-    maker: string;
-    isBuying: boolean;
-    outcomeTokenId: bigint;
-    makerAmountFilled: bigint;
-    takerAmountFilled: bigint;
-    builder: string | null;
-    metadata: string | null;
-  },
+  p: OrderFill,
 ) {
-  // 1. Resolve the TraderAgent behind the maker (v2 may route via a DW)
-  let agent = await cache.get(TraderAgent, p.maker);
-  if (agent == null) {
-    const dw = await cache.getDepositWallet(p.maker);
-    // unknown maker: silent by design — this is ~all of Polymarket's order
-    // flow; a warn here would emit millions of lines
-    if (dw == null) return;
-    agent = await cache.get(TraderAgent, dw.traderAgent.id);
-    if (agent == null) {
-      // a KNOWN deposit wallet pointing at a missing agent is a corrupted
-      // link — rare and alarming, unlike the unknown-maker case above
-      cache.log.warn(
-        `DepositWallet ${p.maker} links to missing TraderAgent ${dw.traderAgent.id} in tx ${meta.transactionHash}`,
-      );
-      return;
-    }
-  }
+  const agent = await resolveMakerAgent(cache, meta, p.maker);
+  if (agent == null) return;
 
-  // 2. Sells use NEGATIVE amounts/shares (omen convention)
-  const usdcAmount = p.isBuying ? p.makerAmountFilled : -p.takerAmountFilled;
-  const sharesAmount = p.isBuying ? p.takerAmountFilled : -p.makerAmountFilled;
-
-  // 3. Lookup the outcome index
   const tokenRegistry = await cache.get(
     TokenRegistry,
     p.outcomeTokenId.toString(),
@@ -338,7 +328,104 @@ export async function handleOrderFill(
     return;
   }
 
-  // 4. Update Daily Stats
+  await recordBet(
+    cache,
+    meta,
+    agent,
+    p,
+    tokenRegistry.conditionId,
+    tokenRegistry.outcomeIndex,
+    null,
+  );
+}
+
+// Skipped V2 positions already warned about, for the life of the process:
+// an agent trading one keeps refilling it, and each fill would warn again.
+const warnedSkippedPositions = new Set<bigint>();
+
+/**
+ * Protocol V2 fill on ExchangeV3: the PositionManager position ID carries the
+ * condition and outcome, so nothing is looked up or derived. The condition is
+ * stored in its padded bytes32 form, the id Gamma, the CLOB and the Data API
+ * use. Amounts are pUSD base units (6 decimals) and include the fee the
+ * order's signer paid (OrderFilled.fee):
+ * a BUY pays makerAmountFilled + fee, a SELL receives takerAmountFilled - fee.
+ */
+export async function handlePositionFill(
+  cache: IEntityCache,
+  meta: EventMeta,
+  p: OrderFill,
+) {
+  const agent = await resolveMakerAgent(cache, meta, p.maker);
+  if (agent == null) return;
+
+  const { moduleId, conditionId, outcomeIndex } = decodePositionId(
+    p.outcomeTokenId,
+  );
+  if (moduleId !== 1 || outcomeIndex > 1) {
+    // entities track binary positions only (outcomeShares0 / outcomeShares1):
+    // BinaryModule (1) positions; NegRisk (2) and combinatorial (3) are skipped
+    if (!warnedSkippedPositions.has(p.outcomeTokenId)) {
+      warnedSkippedPositions.add(p.outcomeTokenId);
+      cache.log.warn(
+        `Non-binary position ${p.outcomeTokenId} in tx ${meta.transactionHash}`,
+      );
+    }
+    return;
+  }
+
+  await recordBet(
+    cache,
+    meta,
+    agent,
+    p,
+    padConditionId(conditionId),
+    BigInt(outcomeIndex),
+    PUSD_ADDRESS,
+  );
+}
+
+/** The TraderAgent behind an order maker: its Safe, or a DepositWallet it owns. */
+async function resolveMakerAgent(
+  cache: IEntityCache,
+  meta: EventMeta,
+  maker: string,
+): Promise<TraderAgent | undefined> {
+  const agent = await cache.get(TraderAgent, maker);
+  if (agent != null) return agent;
+
+  const dw = await cache.getDepositWallet(maker);
+  // unknown maker: silent by design - this is ~all of Polymarket's order
+  // flow; a warn here would emit millions of lines
+  if (dw == null) return undefined;
+  const owner = await cache.get(TraderAgent, dw.traderAgent.id);
+  if (owner == null) {
+    // a KNOWN deposit wallet pointing at a missing agent is a corrupted
+    // link - rare and alarming, unlike the unknown-maker case above
+    cache.log.warn(
+      `DepositWallet ${maker} links to missing TraderAgent ${dw.traderAgent.id} in tx ${meta.transactionHash}`,
+    );
+  }
+  return owner;
+}
+
+async function recordBet(
+  cache: IEntityCache,
+  meta: EventMeta,
+  agent: TraderAgent,
+  p: OrderFill,
+  conditionId: string,
+  outcomeIndex: bigint,
+  collateral: string | null,
+) {
+  // Sells use NEGATIVE amounts/shares (omen convention)
+  const fee = p.fee ?? 0n;
+  const usdcAmount = p.isBuying
+    ? p.makerAmountFilled + fee
+    : -(p.takerAmountFilled - fee);
+  const sharesAmount = p.isBuying ? p.takerAmountFilled : -p.makerAmountFilled;
+
+  // 1. Update Daily Stats
   const dailyStat = await getDailyProfitStatistic(
     cache,
     agent,
@@ -348,13 +435,13 @@ export async function handleOrderFill(
   dailyStat.totalTraded += usdcAmount;
   cache.set(DailyProfitStatistic, dailyStat);
 
-  // 5. Create Bet
-  const question = await cache.get(Question, tokenRegistry.conditionId);
-  const participantId = `${agent.id}_${tokenRegistry.conditionId}`;
+  // 2. Create Bet
+  const question = await cache.get(Question, conditionId);
+  const participantId = `${agent.id}_${conditionId}`;
   const bet = new Bet({
       id: `${meta.transactionHash}_${meta.logIndex}`,
       bettor: agent,
-      outcomeIndex: tokenRegistry.outcomeIndex,
+      outcomeIndex,
       amount: usdcAmount,
       shares: sharesAmount,
       isBuy: p.isBuying,
@@ -365,21 +452,24 @@ export async function handleOrderFill(
       dailyStatistic: dailyStat,
       builder: p.builder,
       metadata: p.metadata,
+      collateral,
       blockTimestamp: meta.blockTimestamp,
       transactionHash: meta.transactionHash,
     });
   cache.set(Bet, bet);
 
-  // 6. Process Agent, Participant, and Global atomically
+  // 3. Process Agent, Participant, and Global atomically
   await processTradeActivity(
     cache,
     agent,
-    tokenRegistry.conditionId,
+    conditionId,
     question,
     usdcAmount,
-    tokenRegistry.outcomeIndex,
+    outcomeIndex,
     sharesAmount,
     meta,
+    // V2 markets have no Question yet, so a missing one is expected there
+    collateral == null,
   );
 
   // Bet.marketParticipant is set after processTradeActivity guarantees the
