@@ -27,6 +27,19 @@ for (const chain of ['gnosis', 'base', 'polygon', 'optimism', 'mainnet', 'arbitr
   test(`${chain}: no overlapping subscriptions for the same marketplace event`, () => {
     assert.deepEqual(overlaps(read(chain)), []);
   });
+  test(`${chain}: every mech template subscribes to advertised-maximum updates`, () => {
+    const manifest = read(chain);
+    const mechTemplates = manifest.templates.filter((t) => t.kind === 'ethereum');
+    assert(mechTemplates.length > 0);
+    for (const template of mechTemplates) {
+      assert(
+        template.mapping.eventHandlers.some(
+          (h) => h.event === 'MaxDeliveryRateUpdated(uint256)' && h.handler === 'handleMaxDeliveryRateUpdated'
+        ),
+        `${chain}/${template.name} is missing MaxDeliveryRateUpdated`
+      );
+    }
+  });
 }
 const v2Starts = {
   gnosis: 41490894,

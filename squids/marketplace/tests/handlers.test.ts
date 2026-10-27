@@ -624,6 +624,23 @@ describe("off-chain signed deliveries", () => {
     expect(cache.count(MarketplaceDeliveryWithSignatures)).toBe(1);
   });
 
+  it("signed-only settlement preserves the latest advertised maximum and records the actual rate", async () => {
+    const updatedMaximum = 100n * 10n ** 18n;
+    await h.handleMaxDeliveryRateUpdated(ctx, meta({ address: MECH_A }), {
+      maxDeliveryRate: updatedMaximum,
+    });
+
+    await signedBatch(MULTISIG_1, [rid(20)]);
+
+    const mech = (await cache.get(Mech, "2"))!;
+    const delivery = (await cache.get(DeliverForMarketplace, rid(20)))!;
+    expect(mech.maxDeliveryRate).toBe(updatedMaximum);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("200000");
+    expect(delivery.deliveryRate).toBe(10n ** 16n);
+    expect(cache.count(Request)).toBe(0);
+    expect((await global()).totalFeesPaidUSD.toString()).toBe("0");
+  });
+
   it("accumulates batch sizes across requesters, excluding individual delivery logs", async () => {
     expect((await global()).totalOffChainRequests).toBe(0n);
     await signedBatch(MULTISIG_1, [rid(1), rid(2), rid(3)]);

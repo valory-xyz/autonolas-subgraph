@@ -2,7 +2,7 @@
 
 Prepared against repository revision `80d09c0`; updated 26 October 2026 following implementation of #140.
 
-Status: #140 implementation is complete in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156). Manifest and handler tests pass; deployment, full reindexing and historical reconciliation remain. Next, implement #143 during 27–30 October, then start one combined replay per active chain once verified new-factory configuration is included. Contract deployment is expected that week, but exact dates remain external inputs. Allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks elsewhere, measured from each replay's actual start. No weekend work is assumed.
+Status: #140 implementation is complete in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156). Manifest and handler tests pass; deployment, full reindexing and historical reconciliation remain. #143 subscriptions, field/reporting documentation, aggregate audit and signed-only lifecycle regressions are implemented in the follow-up branch; the full Graph suite, targeted squid tests, manifest checks and affected builds pass. Deployment-time verification with a live variable-price settlement remains. Then start one combined replay per active chain once verified new-factory configuration is included. Contract deployment is expected that week, but exact dates remain external inputs. Allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks elsewhere, measured from each replay's actual start. No weekend work is assumed.
 
 ## Scope and priorities
 
@@ -105,12 +105,12 @@ For Polygon, Optimism, Ethereum, Arbitrum and Celo, query `eth_getLogs` at the m
 | When | Work / result |
 | --- | --- |
 | Mon 26 Oct | #140 implementation and V1-only log validation complete in PR #156; run review and merge when approved. |
-| Tue–Fri 27–30 Oct | Implement #143 maximum-update subscriptions, signed-only regression tests and reporting audit/documentation; prepare final factory configuration. |
+| Tue 27 Oct | #143 subscriptions, signed-only lifecycle coverage and reporting audit/documentation implemented and checked; prepare final factory configuration. |
 | Once final factory deployment records are available | Configure and test all factories for a chain, then start its single combined full replay. No fixed replay-start promise before that input is available. |
 | Approximately 1–1.5 weeks after Gnosis replay starts | Catch-up and reconciliation, followed by consumer cutover. Other chains can take several weeks. |
 | After a real variable-price settlement is indexed | Verify raw charge, applicable USD conversion and the separate advertised maximum; record cutover evidence. |
 
-Estimated implementation effort remaining: roughly 1–2 working days for #143, plus review and external deployment inputs. #140 implementation and log investigation are complete. Indexing time is separate. Publish per-chain replay start, progress and ETA; do not equate a deployed but lagging version with current corrected data.
+The #143 code and local validation are complete; remaining work is review, final factory configuration and live verification after deployment. #140 implementation and log investigation are complete. Indexing time is separate. Publish per-chain replay start, progress and ETA; do not equate a deployed but lagging version with current corrected data.
 
 Run focused regressions, marketplace tests, codegen/build for affected manifests and corresponding checks for both active squids. Before switching endpoints, require catch-up, no indexing errors and count/fee reconciliation. If contract deployment is delayed, finish code and tests but wait for final factory configuration before the combined replay. Existing endpoints/workarounds remain available during indexing; no #142-based activation or rollback gate applies.
 

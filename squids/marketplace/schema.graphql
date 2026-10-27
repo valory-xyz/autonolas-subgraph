@@ -36,7 +36,7 @@ type Global @entity {
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
-  # Fee tracking: accumulates finalFeeUSD only (actual paid), never feeUSD.
+  # Accumulates actual finalFeeUSD charges, not advertised-rate snapshots.
   totalFeesPaidUSD: BigDecimal!
 }
 
@@ -74,8 +74,10 @@ type Mech @entity {
   deliveredByOthersFromReceived: BigInt!
   # null when the factory event was missing at CreateMech time; self-heals
   # from the next observed Deliver's deliveryRate.
+  # Latest advertised maximum from factory creation or MaxDeliveryRateUpdated;
+  # not necessarily the amount charged for any particular request.
   maxDeliveryRate: BigInt
-  # USD-converted maxDeliveryRate for cross-payment-type comparison.
+  # USD conversion of the advertised maximum for cross-payment-type discovery.
   maxDeliveryRateUSD: BigDecimal
   # Cumulative sum of MechKarmaChanged deltas; can go negative.
   karma: BigInt!
@@ -95,6 +97,7 @@ type Sender @entity {
   # +1 per on-chain marketplace batch event.
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt!
+  # Accumulates actual finalFeeUSD charges, not advertised-rate snapshots.
   totalFeesPaidUSD: BigDecimal!
 }
 
@@ -118,12 +121,13 @@ type Request @entity {
   isDelivered: Boolean!
   priorityMech: String # mech originally requested
   deliveredByMech: String # mech that delivered
-  # Estimated fee locked at request time (priority mech's maxDeliveryRate
-  # in USD at that block). Upper bound — do not sum for spend analytics.
+  # Advertised-rate snapshot at request time, not the actual amount paid.
+  # Once cap-and-actual pricing is active this may exceed the final charge.
   feeUSD: BigDecimal
-  # Actual fee, computed exactly once when the delivery carrying
-  # deliveryRate is indexed.
+  # Actual charge converted to USD on supported Request paths. This can be
+  # absent for signed-only requests; use DeliverForMarketplace.deliveryRate there.
   finalFeeUSD: BigDecimal
+  # Advertised-rate snapshot in the payment unit's raw units, not actual spend.
   feeRaw: BigInt
   feeUnit: FeeUnit
 }
@@ -157,7 +161,7 @@ type DeliverForMarketplace @entity {
   requestIdBytes: String!
   ipfsHashBytes: String # raw delivery payload bytes
   mechServiceMultisig: String
-  deliveryRate: BigInt
+  deliveryRate: BigInt # Actual charge in raw payment units
   isMarketplace: Boolean
   isOffChain: Boolean
   deliver: Deliver @unique

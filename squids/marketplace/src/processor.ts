@@ -107,8 +107,8 @@ export const LOG_QUERIES: LogQuery[] = [
   // `Deliver` has a different arity (hence a different topic0), so the
   // unfiltered volume is the mechs' own traffic plus nothing measurable.
   //
-  // MaxDeliveryRateUpdated only where the subgraph's templates handle it
-  // (not on Base).
+  // MaxDeliveryRateUpdated follows the marketplace subgraph subscriptions on
+  // both supported chains; this keeps signed-only mechs' advertised maximum current.
   {
     where: {
       topic0: [

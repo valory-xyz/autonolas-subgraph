@@ -689,9 +689,8 @@ export async function handleMarketplaceRequest(
   const serviceId = await getServiceIdFromMultisig(ctx, p.requester);
   const service = serviceId == null ? undefined : await getService(ctx, serviceId);
 
-  // Fee info from the priority mech's stored maxDeliveryRate (no RPC).
-  // Requesters may pass a higher rate, but the contract locks at most the
-  // mech's rate, so this is the amount actually locked.
+  // Snapshot the priority mech's advertised maximum (no RPC). With
+  // cap-and-actual signed settlement this is not necessarily the amount paid.
   let feeUnit: FeeUnit | null = null;
   let feeRaw: bigint | null = null;
   let feeUSD: BigDecimal | null = null;

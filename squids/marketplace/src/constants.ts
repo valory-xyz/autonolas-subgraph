@@ -92,11 +92,7 @@ export interface ChainConfig {
    * when the chain launched on V2.
    */
   mechMarketplaceV1EndBlock: number | null;
-  /**
-   * Whether the subgraph's mech templates handle `MaxDeliveryRateUpdated`
-   * on this chain. The Base manifest does not, so a rate change there only
-   * reaches Mech.maxDeliveryRate through an observed delivery.
-   */
+  /** Whether this chain's marketplace indexer handles `MaxDeliveryRateUpdated`. */
   handlesMaxDeliveryRateUpdated: boolean;
   mechFactories: MechFactoryConfig[];
   /**
@@ -204,7 +200,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
       startBlock: 26_642_705,
     },
     mechMarketplaceV1EndBlock: 33_907_400,
-    handlesMaxDeliveryRateUpdated: false,
+    handlesMaxDeliveryRateUpdated: true,
     mechFactories: [
       {
         address: "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe",

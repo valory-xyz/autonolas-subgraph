@@ -117,9 +117,9 @@ What differs from Robinhood:
   (both NVM factories) = credits × 0.99 / 1e6
   (`calculateBaseNvmCreditsToUsd`); `TOKEN` (OLAS) from the
   OLAS/USDC Balancer pool `0x5332…7E69` at the event's block.
-- **No `MaxDeliveryRateUpdated`.** The Base templates do not handle it, so
-  neither does the squid there; an observed `deliveryRate` still refreshes
-  `Mech.maxDeliveryRate`, as in the subgraph.
+- **`MaxDeliveryRateUpdated` is indexed.** The Base squid follows the
+  marketplace subgraph and updates `Mech.maxDeliveryRate` and its USD value
+  even when a signed-only mech has no mech-side on-chain delivery.
 - **Graph-node arithmetic.** Every USD step and running total is rounded to
   34 significant digits, half-up, as graph-node's `BigDecimal` is, so USD
   values are equal to the subgraph's rather than merely close.
@@ -333,9 +333,15 @@ from the checkpoint, or re-index everything from zero. Never edit
 | `Sender.totalMarketplaceRequests` | +1 per on-chain marketplace batch event |
 | `Mech.totalDeliveriesTransactions` | delivered item count on the delivery mech, both on-chain and signed paths |
 | `Global.totalMarketplace*` | count **events** (one per batch); `Global.totalRequests` / `totalDeliveries` count items |
-| `Request.feeUSD` | estimate locked at request time (upper bound — do not sum) |
-| `Request.finalFeeUSD` | actual fee, set once by the delivery carrying the rate; the only thing `*.totalFeesPaidUSD` accumulate |
+| `Mech.maxDeliveryRate` / `maxDeliveryRateUSD` | latest advertised maximum and its USD conversion; not the charge for a specific request |
+| `Request.feeRaw` / `feeUSD` | advertised-rate snapshot at request time; may be an upper bound, not actual spend |
+| `Request.finalFeeUSD` | actual charge in USD on supported Request paths; fee totals accumulate this value only and therefore do not universally include signed-only charges. Signed-only deliveries may not create/update a Request fee, so read their raw actual charge from `DeliverForMarketplace.deliveryRate` |
 | `IndexerStatus` (id `"1"`) | last indexed block number + timestamp, for stale-data checks |
+
+Before a chain's cap-and-actual contract upgrade, the advertised maximum and
+actual charge are expected to match. After the first variable-price settlement,
+they can differ. Record the upgrade and first variable-price settlement block
+per chain before comparing historical and new fee reports.
 
 `Mech.id` is the **serviceId**, not the mech address; `CreateMech` (id =
 mech address) is the address → serviceId lookup. `Mech.karma` can go

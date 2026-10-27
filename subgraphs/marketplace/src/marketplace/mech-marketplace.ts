@@ -432,10 +432,8 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   // Get service ID from requester's multisig address
   let serviceId = getServiceIdFromMultisig(requester);
 
-  // Get fee info from priority mech for all requests in this batch
-  // Note: Requesters can specify a higher maxDeliveryRate in their request input,
-  // but the contract locks at most the mech's maxDeliveryRate (see MechMarketplace._requestBatch).
-  // So feeUSD here represents the mech's rate, which is the actual amount locked.
+  // Snapshot the priority mech's advertised maximum for each request. With
+  // cap-and-actual signed settlement this is not necessarily the amount paid.
   let feeUnit: string | null = null;
   let feeRaw: BigInt | null = null;
   let feeUSD: BigDecimal | null = null;

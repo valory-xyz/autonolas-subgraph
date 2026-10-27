@@ -49,7 +49,7 @@ describe("Base chain table", () => {
     expect(c.CHAIN.mechMarketplace.startBlock).toBe(26_642_705);
     expect(c.CHAIN.mechMarketplaceV1EndBlock).toBe(V1_END);
     expect(c.CHAIN.nativeUsdFeed).toBe("0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70");
-    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(false);
+    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(true);
     expect(c.MECH_FACTORY_ADDRESSES).toEqual([
       "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe",
       "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee",
@@ -111,7 +111,7 @@ describe("portal dataset guard", () => {
 });
 
 describe("Base subscriptions (processor.ts)", () => {
-  it("V1 topics up to 33,907,400, V2 from 33,907,401, five factory topics, no MaxDeliveryRateUpdated", async () => {
+  it("V1 topics up to 33,907,400, V2 from 33,907,401, five factory topics, and mech rate updates", async () => {
     vi.stubEnv("MARKETPLACE_CHAIN", "base");
     vi.stubEnv("SQD_PORTAL_API_KEY", "");
     vi.stubEnv("INGEST_SOURCE", "portal");
@@ -138,7 +138,11 @@ describe("Base subscriptions (processor.ts)", () => {
     );
 
     const mechQuery = LOG_QUERIES.find((q) => q.where?.address == null)!;
-    expect(mechQuery.where!.topic0).toEqual([mechAbi.Request.topic, mechAbi.Deliver.topic]);
+    expect(mechQuery.where!.topic0).toEqual([
+      mechAbi.Request.topic,
+      mechAbi.Deliver.topic,
+      mechAbi.MaxDeliveryRateUpdated.topic,
+    ]);
   }, 60_000); // the SDK import alone takes several seconds
 
   it("robinhood: one V2 marketplace query from its start, and MaxDeliveryRateUpdated IS subscribed", async () => {
@@ -389,7 +393,7 @@ describe("Base fee conversion (subgraph fee-utils.ts)", () => {
 });
 
 describe("Base handlers: NVM-USDC mech end to end", () => {
-  it('maxDeliveryRateUSD, feeUSD and finalFeeUSD match the subgraph ("0.000099" locked, "0.00000099" paid)', async () => {
+  it('maxDeliveryRateUSD, feeUSD and finalFeeUSD match the subgraph ("0.000099" advertised, "0.00000099" charged)', async () => {
     vi.stubEnv("MARKETPLACE_CHAIN", "base");
     const h = await import("../src/handlers");
     const m = await import("../src/model");
@@ -444,8 +448,8 @@ describe("Base handlers: NVM-USDC mech end to end", () => {
     expect(req.finalFeeUSD!.toFixed()).toBe("0.00000099");
     expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
     expect((await cache.get(m.Sender, MULTISIG))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
-    // The Base manifest has no MaxDeliveryRateUpdated handler; the observed
-    // deliveryRate refreshes the mech's rate, as in the subgraph.
+    // An observed on-chain delivery refreshes the rate; MaxDeliveryRateUpdated
+    // also keeps it current when signed-only mechs have no such delivery.
     expect((await cache.get(m.Mech, "111"))!.maxDeliveryRate).toBe(1n);
     expect((await cache.get(m.Mech, "111"))!.maxDeliveryRateUSD!.toFixed()).toBe("0.00000099");
   });
@@ -494,6 +498,64 @@ describe("balancerOlasPool (rpc.ts)", () => {
   });
 });
 
+describe("Base signed-only advertised maximum", () => {
+  it("keeps MaxDeliveryRateUpdated separate from the actual signed charge", async () => {
+    vi.stubEnv("MARKETPLACE_CHAIN", "base");
+    const h = await import("../src/handlers");
+    const m = await import("../src/model");
+    const { InMemoryCache, TWO_K_USD } = await import("./inMemoryCache");
+    const cache = new InMemoryCache();
+    const ctx = { cache, log: cache.log, price: TWO_K_USD, olasPool: NO_OLAS_POOL, ...h.newBatchState() };
+
+    const MECH = "0x00000000000000000000000000000000000000e3";
+    const REQUESTER = "0x00000000000000000000000000000000000000e4";
+    const FACTORY = CHAINS.base.mechFactories[0].address;
+    const requestId = "0x" + "51".repeat(32);
+    const updatedMaximum = 2n * 10n ** 16n;
+    const actualRate = 5n * 10n ** 15n;
+    let n = 0;
+    const eventMeta = (address = MECH, marketplaceTx = false) => ({
+      blockNumber: 27_716_877n + BigInt(n),
+      blockTimestamp: 1_700_000_000n + BigInt(n),
+      txHash: "0x" + String(++n).padStart(64, "0"),
+      logIndex: 0,
+      address,
+      txFrom: "0x0000000000000000000000000000000000000abc",
+      txTo: marketplaceTx ? BASE.mechMarketplace.address : "0x0000000000000000000000000000000000000dad",
+    });
+
+    await h.handleCreateService(ctx, eventMeta(), { serviceId: 113n, configHash: "0x" + "00".repeat(32) });
+    await h.handleCreateMultisigWithAgents(ctx, eventMeta(), { serviceId: 113n, multisig: REQUESTER });
+    const factoryMeta = eventMeta();
+    h.handleMechFactoryCreate(ctx, factoryMeta, { mech: MECH, serviceId: 113n, maxDeliveryRate: 10n ** 16n });
+    await h.handleCreateMech(ctx, { ...factoryMeta, logIndex: 1 }, { mech: MECH, serviceId: 113n, mechFactory: FACTORY });
+
+    await h.handleMaxDeliveryRateUpdated(ctx, eventMeta(), { maxDeliveryRate: updatedMaximum });
+    const deliveryMeta = eventMeta(BASE.mechMarketplace.address, true);
+    await h.handleDeliverWithSignatures(ctx, deliveryMeta, {
+      mech: MECH,
+      mechServiceMultisig: REQUESTER,
+      requestId,
+      deliveryRate: actualRate,
+      deliveryData: "0x" + "aa".repeat(32),
+    });
+    await h.handleMarketplaceDeliveryWithSignatures(ctx, { ...deliveryMeta, logIndex: 1 }, {
+      deliveryMech: MECH,
+      requester: REQUESTER,
+      numDeliveries: 1n,
+      requestIds: [requestId],
+    });
+
+    const mech = (await cache.get(m.Mech, "113"))!;
+    const delivery = (await cache.get(m.DeliverForMarketplace, requestId))!;
+    expect(mech.maxDeliveryRate).toBe(updatedMaximum);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("40");
+    expect(delivery.deliveryRate).toBe(actualRate);
+    expect(cache.count(m.Request)).toBe(0);
+    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toString()).toBe("0");
+  });
+});
+
 describe("Base handlers: NATIVE and TOKEN mechs end to end", () => {
   const MARKETPLACE = "0xf24ee42eda0fc9b33b7d41b06ee8ccd2ef7c5020";
   const MECH = "0x723f6a7fc401a8d2eade269b5c65643b9ad3719f";
@@ -510,7 +572,7 @@ describe("Base handlers: NATIVE and TOKEN mechs end to end", () => {
     ["NATIVE", "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe", 10n ** 16n, "20", 5n * 10n ** 15n, "10"],
     ["TOKEN", "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee", 10n * 10n ** 18n, "2", 5n * 10n ** 18n, "1"],
   ] as const)(
-    "%s: feeUSD at the locked rate, finalFeeUSD at the delivered rate, totals",
+    "%s: feeUSD at the advertised rate, finalFeeUSD at the delivered rate, totals",
     async (unit, factory, maxRate, maxUsd, rate, rateUsd) => {
       vi.stubEnv("MARKETPLACE_CHAIN", "base");
       const h = await import("../src/handlers");
