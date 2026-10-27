@@ -8,7 +8,7 @@ const signature = (event) => event.replace(/\bindexed\s*/g, '').replace(/\s/g, '
 const sources = (manifest) => manifest.dataSources.filter((s) => s.name.startsWith('MechMarketplace'));
 function overlaps(manifest) {
   const result = [];
-  const entries = sources(manifest);
+  const entries = manifest.dataSources.filter((s) => typeof s.source?.address === 'string');
   for (let i = 0; i < entries.length; i++) {
     for (const b of entries.slice(i + 1)) {
       const a = entries[i];
@@ -28,25 +28,43 @@ for (const chain of ['gnosis', 'base', 'polygon', 'optimism', 'mainnet', 'arbitr
     assert.deepEqual(overlaps(read(chain)), []);
   });
 }
-for (const [chain, start] of Object.entries({polygon: 81028558, optimism: 145788454, mainnet: 24427441, arbitrum: 430646886, celo: 58841368})) {
-  test(`${chain}: V2 covers the original deployment with all five handlers`, () => {
+const v2Starts = {
+  gnosis: 41490894,
+  base: 33907401,
+  polygon: 81028558,
+  optimism: 145788454,
+  mainnet: 24427441,
+  arbitrum: 430646886,
+  celo: 58841368,
+};
+const expectedV2Handlers = [
+  'handleCreateMech', 'handleMarketplaceDelivery', 'handleMarketplaceDeliveryWithSignatures',
+  'handleMarketplaceRequest', 'handleDeliverWithSignaturesV2',
+].sort();
+const expectedV1Handlers = [
+  'handleCreateMech', 'handleMarketplaceDelivery', 'handleMarketplaceDeliveryWithSignatures',
+  'handleMarketplaceRequest', 'handleDeliverWithSignaturesV1',
+].sort();
+
+for (const [chain, start] of Object.entries(v2Starts)) {
+  test(`${chain}: V2 covers its deployment block with all five handlers`, () => {
     const entries = sources(read(chain));
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].name, 'MechMarketplaceV2');
-    assert.equal(entries[0].source.startBlock, start);
-    assert.equal(entries[0].source.endBlock, undefined);
-    assert.deepEqual(entries[0].mapping.eventHandlers.map((h) => h.handler).sort(), [
-      'handleCreateMech', 'handleMarketplaceDelivery', 'handleMarketplaceDeliveryWithSignatures',
-      'handleMarketplaceRequest', 'handleDeliverWithSignaturesV2',
-    ].sort());
+    const v2 = entries.find((s) => s.name === 'MechMarketplaceV2');
+    assert(v2, `${chain} has no MechMarketplaceV2 source`);
+    assert.equal(v2.source.startBlock, start);
+    assert.equal(v2.source.endBlock, undefined);
+    assert.deepEqual(v2.mapping.eventHandlers.map((h) => h.handler).sort(), expectedV2Handlers);
   });
 }
 for (const [chain, boundary] of [['gnosis', 41490893], ['base', 33907400]]) {
   test(`${chain}: historical V1/V2 boundary is retained without a gap`, () => {
     const entries = sources(read(chain));
     assert.equal(entries.length, 2);
-    assert.equal(entries.find((s) => s.name === 'MechMarketplaceV1').source.endBlock, boundary);
-    assert.equal(entries.find((s) => s.name === 'MechMarketplaceV2').source.startBlock, boundary + 1);
+    const v1 = entries.find((s) => s.name === 'MechMarketplaceV1');
+    const v2 = entries.find((s) => s.name === 'MechMarketplaceV2');
+    assert.equal(v1.source.endBlock, boundary);
+    assert.equal(v2.source.startBlock, boundary + 1);
+    assert.deepEqual(v1.mapping.eventHandlers.map((h) => h.handler).sort(), expectedV1Handlers);
   });
 }
 test('coverage check detects the original overlapping V1/V2 registrations', () => {
@@ -54,9 +72,13 @@ test('coverage check detects the original overlapping V1/V2 registrations', () =
   const [v1, v2] = sources(manifest);
   delete v1.source.endBlock;
   v2.source.startBlock = v1.source.startBlock;
+  const alias = JSON.parse(JSON.stringify(v2));
+  alias.name = 'AlternateMarketplaceRegistration';
+  manifest.dataSources.push(alias);
   const conflicts = overlaps(manifest);
   assert(conflicts.some((x) => x.includes('MarketplaceDeliveryWithSignatures(')));
   assert(conflicts.some((x) => x.includes('CreateMech(')));
+  assert(conflicts.some((x) => x.includes('AlternateMarketplaceRegistration')));
   // Indexed-ness does not change topic0.
   assert(conflicts.some((x) => x.includes('MarketplaceDelivery(')));
 });

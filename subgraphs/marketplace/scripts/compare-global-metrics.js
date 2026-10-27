@@ -15,6 +15,7 @@ const GLOBAL_FIELDS = [
   'totalMarketplaceRequests',
   'totalMarketplaceDeliveries',
   'totalMarketplaceDeliveriesWithSignatures',
+  'totalOffChainRequests',
   'totalLegacyRequests',
   'totalLegacyDeliveries',
   'totalLegacyTransactions',

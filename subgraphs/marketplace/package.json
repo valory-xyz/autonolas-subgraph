@@ -26,6 +26,7 @@
     "@graphprotocol/graph-ts": "0.37.0"
   },
   "devDependencies": {
+    "js-yaml": "4.3.2",
     "matchstick-as": "0.6.0"
   },
   "resolutions": {

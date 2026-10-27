@@ -332,16 +332,16 @@ Naming convention: `marketplace-{network}-v{version}` (e.g., `marketplace-gnosis
 
 - [CLAUDE.md](./CLAUDE.md) - Detailed technical context for developers and AI assistants
 
-## License
+## Corrected signed-delivery counters (#140)
 
-MIT
-
-### Corrected signed-delivery counters (#140)
-
-Polygon, Optimism, Ethereum, Arbitrum and Celo use one V2 marketplace source from deployment; redundant V1 sources have been removed. Gnosis and Base retain their non-overlapping historical V1/V2 ranges. See the [V1-event investigation in PR #153](https://github.com/valory-xyz/autonolas-subgraph/pull/153) for the evidence.
+Polygon, Optimism, Ethereum, Arbitrum and Celo use one V2 marketplace source from deployment; redundant V1 sources have been removed. Gnosis and Base retain their non-overlapping historical V1/V2 ranges. See the [V1-event investigation](docs/v1-event-check-2026-10-26/README.md) for the evidence.
 
 `Global.totalOffChainRequests` counts requests in settled signed batches, whereas `totalMarketplaceDeliveriesWithSignatures` counts batch events. The global off-chain count should equal both the sum of `Sender.totalOffChainRequests` and the sum of signed-event `numDeliveries` at the same indexed block. Deliveries represent settlement, not necessarily successful tool execution.
 
 Deploy a fresh version and replay history: changing a manifest does not repair already inflated counters, and the new global field needs all historical batches. Coordinate one replay per active chain after final new-factory configuration is included. Keep existing consumer endpoints until reconciliation completes.
 
 Run `yarn test:manifests` to check event coverage and historical boundaries, alongside the Matchstick handler tests.
+
+## License
+
+MIT

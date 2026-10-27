@@ -317,6 +317,23 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("RequestsPerAgent", agentId.toString(), "requestsCount", "2")
     assert.fieldEquals("Global", "", "totalTransactions", "2")
     assert.fieldEquals("Global", "", "totalAtaTransactions", "2")
+
+    let secondRequestIds = [
+      Bytes.fromHexString("0x5000000000000000000000000000000000000000000000000000000000000005"),
+      Bytes.fromHexString("0x6000000000000000000000000000000000000000000000000000000000000006"),
+      Bytes.fromHexString("0x7000000000000000000000000000000000000000000000000000000000000007"),
+    ]
+    let secondEvent = createMarketplaceDeliveryWithSignaturesEvent(
+      mech,
+      requester,
+      BigInt.fromI32(3),
+      secondRequestIds
+    )
+    handleMarketplaceDeliveryWithSignatures(secondEvent)
+
+    assert.fieldEquals("Global", "", "totalOffChainRequests", "5")
+    assert.fieldEquals("Global", "", "totalMarketplaceDeliveriesWithSignatures", "2")
+    assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "5")
   })
 
   test("handleDeliverWithSignaturesV1 stores delivery data and links to requester", () => {

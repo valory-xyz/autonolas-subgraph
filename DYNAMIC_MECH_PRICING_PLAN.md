@@ -8,7 +8,7 @@ Status: #140 implementation is complete in [PR #156](https://github.com/valory-x
 
 | Priority | Issue | Outcome / dependency |
 | --- | --- | --- |
-| Done: implementation | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Implemented in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156): duplicate event coverage removed and global off-chain counter added. Deployment, full replay and reconciliation remain; combine with final factory configuration. |
+| 1 (in review) | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Implemented in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156): duplicate event coverage removed and global off-chain counter added. Deployment, full replay and reconciliation remain; combine with final factory configuration. |
 | 2 | [#143 — cap-and-actual reporting](https://github.com/valory-xyz/autonolas-subgraph/issues/143) | Add missing `MaxDeliveryRateUpdated` subscriptions so signed-only mechs retain a current advertised maximum; audit existing aggregates, clarify fields and document cutover. Final deployment records and a real variable-price settlement complete live validation. |
 | Closed; no fix planned | [#142](https://github.com/valory-xyz/autonolas-subgraph/issues/142) | The signed path does not call `refreshMechDeliveryRate`. The issue author closed it after correcting the call-site interpretation. It is not an activation gate. |
 
@@ -81,9 +81,9 @@ The investigation compared local V1/V2 ABIs, manifest history, original contract
 | --- | --- | --- |
 | Polygon | V2 from 81,028,558 | Removed V1 after the log check. |
 | Optimism | V2 from 145,788,454 | Removed V1 after the log check. |
-| Ethereum | V2 from 24,427,441 | Remove V1 source after the log check; source/build change only. |
-| Arbitrum | V2 from 430,646,886 | Remove V1 source after the log check; source/build change only unless activated separately. |
-| Celo | V2 from 58,841,368 | Remove V1 source after the log check; source/build change only. |
+| Ethereum | V2 from 24,427,441 | Removed V1 after the log check; source/build change only. |
+| Arbitrum | V2 from 430,646,886 | Removed V1 after the log check; source/build change only unless activated separately. |
+| Celo | V2 from 58,841,368 | Removed V1 after the log check; source/build change only. |
 | Gnosis | V1 through 41,490,893; V2 from 41,490,894 | Preserve existing split. |
 | Base | V1 through 33,907,400; V2 from 33,907,401 | Preserve existing split in Graph and active squid. |
 | Robinhood | V2 from configured marketplace start 59,578,054 | Preserve existing V2-only squid configuration. |

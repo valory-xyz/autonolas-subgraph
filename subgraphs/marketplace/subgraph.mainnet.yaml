@@ -68,7 +68,6 @@ dataSources:
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
 
-  # MechMarketplaceV1 data source for type generation only (no V1 events on Ethereum)
   - kind: ethereum
     name: MechMarketplaceV2
     network: mainnet
@@ -92,7 +91,7 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
-        # Shared mapping retains the V1 handler for Gnosis/Base history; ABI only, no extra source.
+        # ABI only: the shared mapping imports MechMarketplaceV1 types.
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
