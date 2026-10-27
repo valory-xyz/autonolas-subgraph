@@ -89,7 +89,9 @@ easy to trip over:
 - **The two graph-node templates became topic-only subscriptions** with no
   address filter (SQD has no templates). Measured before committing to it:
   unfiltered Safe logs are 0.12 logs/block against 133 for the ERC-20
-  sources — templates were never the expensive half. Any address-less
+  sources — templates were never the expensive half. `pearl-transactions`
+  now also subscribes `ExecutionSuccess` (the Agent Safe → Agent Signer
+  top-up), which moves that towards 4.23. Any address-less
   decode must go through `decodeForeignSafe`, since topic0 does not encode
   indexed-ness and foreign contracts collide.
 - **The tracked-address table is held fully in memory** (`EntityCache`),

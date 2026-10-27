@@ -28,6 +28,7 @@ import { EntityCache } from "./entityCache";
 import {
   BondQueue,
   agentFundingEventId,
+  agentSafeTopUpId,
   classifyTransfer,
   dailyServiceFundsId,
   dayTimestamp,
@@ -39,7 +40,9 @@ import {
   serviceEntityId,
   tokenBalanceId,
 } from "./logic";
+import { FunctionCalldataDecodeError } from "@subsquid/evm-abi";
 import { getSafeConfig } from "./rpc";
+import { execTransaction } from "./abi/GnosisSafe/functions";
 import {
   CHAIN,
   OLAS,
@@ -1053,6 +1056,85 @@ export async function handleSafeReceived(
   const emitter = await ctx.cache.tracked(meta.address);
   if (emitter?.role !== ROLE_MASTER && emitter?.role !== ROLE_AGENT) return;
   await handleTransfer(ctx, meta, e.sender, meta.address, e.value, null);
+}
+
+/**
+ * Native out: an Agent Safe paying its own Agent Signer through a plain
+ * `execTransaction` the Signer submits itself. ExecutionSuccess carries no
+ * amount or recipient, so both come from the outer tx calldata.
+ *
+ * Runs for every Safe execution on the chain (~4 per block on Polygon), so
+ * every shape check runs before the one tracked lookup. A module execution
+ * emits ExecutionFromModuleSuccess and never reaches here; a relayed
+ * execTransaction is decoded but skipped, because its recipient is not the
+ * tx sender.
+ * Never routed through classifyTransfer, which would label an Agent Safe
+ * -> untracked transfer AGENT_TO_APP.
+ *
+ * The row ID is one per tx, as in the studio subgraph: a reentrant
+ * execTransaction from the same Safe (e.g. an Agent Signer with EIP-7702
+ * code) emits a second ExecutionSuccess in the same tx, which reads the same
+ * outer input and is skipped.
+ */
+export async function handleSafeExecutionSuccess(
+  ctx: Ctx,
+  meta: EventMeta,
+  tx: { from: string; to: string | undefined; input: string }
+): Promise<void> {
+  if (tx.to?.toLowerCase() !== meta.address) return;
+  const input = tx.input.toLowerCase();
+  if (input.slice(0, 10) !== execTransaction.selector) return;
+
+  let call;
+  try {
+    call = execTransaction.decode(input);
+  } catch (err) {
+    // Malformed calldata behind a valid selector is foreign noise, not a
+    // bug of ours; anything else must still crash the batch.
+    if (err instanceof FunctionCalldataDecodeError) {
+      ctx.log.warn(
+        `Safe ${meta.address} execTransaction calldata not decodable ` +
+          `(tx=${meta.txHash}, ${input.length} hex chars); skipping: ${err.message}`
+      );
+      return;
+    }
+    throw err;
+  }
+  if (call.operation !== 0) return;
+  if (call.data !== "0x") return;
+  if (call.value <= 0n) return;
+  const signer = tx.from.toLowerCase();
+  if (call.to.toLowerCase() !== signer) return;
+
+  const agent = await ctx.cache.tracked(meta.address);
+  if (agent?.role !== ROLE_AGENT) return;
+
+  const id = agentSafeTopUpId(meta.txHash);
+  if ((await ctx.cache.get(FundsMovement, id)) != null) return;
+
+  ctx.cache.set(
+    FundsMovement,
+    new FundsMovement({
+      id,
+      service: agent.serviceId ? new Service({ id: agent.serviceId }) : null,
+      masterSafe: agent.masterSafeId
+        ? new MasterSafe({ id: agent.masterSafeId })
+        : null,
+      agentSafe: new AgentSafe({ id: agent.id }),
+      stakingContract: null,
+      epoch: null,
+      category: FundsCategory.AGENT_SAFE_TO_AGENT_EOA,
+      source: FundsSource.SEMANTIC,
+      agentFundingEvent: null,
+      token: null,
+      amount: call.value,
+      from: meta.address,
+      to: signer,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      transactionHash: meta.txHash,
+    })
+  );
 }
 
 // --- Safe owner upkeep ------------------------------------------------
