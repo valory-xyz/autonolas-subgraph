@@ -245,6 +245,8 @@ type Global @entity(immutable: false) {
   totalLegacyAtaTransactions: BigInt!
 
   # Combined/aggregate counters (marketplace + legacy)
+  """Settled off-chain requests, summed by signed batch size; includes charged failed runs."""
+  totalOffChainRequests: BigInt!
   totalRequests: BigInt!
   totalDeliveries: BigInt!
   totalTransactions: BigInt!

@@ -186,6 +186,9 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        # ABI only: the shared mapping imports MechMarketplaceV1 types.
+        - name: MechMarketplaceV1
+          file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface

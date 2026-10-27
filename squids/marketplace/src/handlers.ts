@@ -78,6 +78,7 @@ export async function getGlobal(ctx: Ctx): Promise<Global> {
     totalMarketplaceRequests: 0n,
     totalMarketplaceDeliveries: 0n,
     totalMarketplaceDeliveriesWithSignatures: 0n,
+    totalOffChainRequests: 0n,
     totalRequests: 0n,
     totalDeliveries: 0n,
     totalTransactions: 0n,
@@ -977,6 +978,7 @@ export async function handleMarketplaceDeliveryWithSignatures(
 
   const global = await getGlobal(ctx);
   global.totalRequests += p.numDeliveries;
+  global.totalOffChainRequests += p.numDeliveries;
   global.totalDeliveries += p.numDeliveries;
   global.totalMarketplaceDeliveriesWithSignatures += 1n;
   // 1 for the request side and 1 for the delivery side (request is off-chain).

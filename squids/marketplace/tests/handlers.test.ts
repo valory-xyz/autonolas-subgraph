@@ -329,6 +329,7 @@ describe("on-chain marketplace request -> delivery", () => {
     const g = await global();
     expect(g.totalMarketplaceRequests).toBe(1n); // per event
     expect(g.totalRequests).toBe(2n); // per request
+    expect(g.totalOffChainRequests).toBe(0n);
     expect(g.totalTransactions).toBe(1n);
     expect(g.totalAtaTransactions).toBe(1n);
     expect(await cache.get(AtaTransaction, m.txHash)).toBeDefined();
@@ -611,6 +612,7 @@ describe("off-chain signed deliveries", () => {
 
     const g = await global();
     expect(g.totalRequests).toBe(3n);
+    expect(g.totalOffChainRequests).toBe(3n);
     expect(g.totalDeliveries).toBe(3n);
     expect(g.totalMarketplaceDeliveriesWithSignatures).toBe(1n);
     expect(g.totalTransactions).toBe(2n);
@@ -620,6 +622,17 @@ describe("off-chain signed deliveries", () => {
     // Service.totalDeliveries is NOT incremented on the signed path
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(0n);
     expect(cache.count(MarketplaceDeliveryWithSignatures)).toBe(1);
+  });
+
+  it("accumulates batch sizes across requesters, excluding individual delivery logs", async () => {
+    expect((await global()).totalOffChainRequests).toBe(0n);
+    await signedBatch(MULTISIG_1, [rid(1), rid(2), rid(3)]);
+    await signedBatch(REQUESTER_EOA, [rid(4), rid(5)]);
+    const g = await global();
+    expect(g.totalOffChainRequests).toBe(5n);
+    expect(g.totalMarketplaceDeliveriesWithSignatures).toBe(2n);
+    expect(cache.all(Sender).reduce((sum, sender) => sum + sender.totalOffChainRequests, 0n)).toBe(5n);
+    expect(cache.all(MarketplaceDeliveryWithSignatures).reduce((sum, batch) => sum + batch.numDeliveries, 0n)).toBe(5n);
   });
 
   it("an EOA requester adds only the mech's ATA", async () => {

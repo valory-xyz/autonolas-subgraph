@@ -18,13 +18,15 @@
     "create-local": "graph create --node http://localhost:8020/ marketplace",
     "remove-local": "graph remove --node http://localhost:8020/ marketplace",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 marketplace",
-    "test": "graph test"
+    "test": "graph test",
+    "test:manifests": "node --test scripts/manifest-coverage.test.cjs"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",
     "@graphprotocol/graph-ts": "0.37.0"
   },
   "devDependencies": {
+    "js-yaml": "4.3.2",
     "matchstick-as": "0.6.0"
   },
   "resolutions": {

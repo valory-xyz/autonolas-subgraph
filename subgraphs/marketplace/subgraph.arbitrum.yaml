@@ -68,53 +68,6 @@ dataSources:
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
 
-  # MechMarketplaceV1 data source for type generation only (no V1 events on Arbitrum)
-  - kind: ethereum
-    name: MechMarketplaceV1
-    network: arbitrum-one
-    source:
-      address: "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17"
-      abi: MechMarketplaceV1
-      startBlock: 430646886
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - CreateMech
-        - MarketplaceDelivery
-        - MarketplaceDeliveryWithSignatures
-        - Deliver
-        - MarketplaceRequest
-        - Mech
-        - Sender
-        - Global
-      abis:
-        - name: MechMarketplaceV1
-          file: ../../abis/MechMarketplaceV1.json
-        - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
-        - name: AggregatorV3Interface
-          file: ../../abis/AggregatorV3Interface.json
-        - name: BalancerV2Vault
-          file: ../../abis/BalancerV2Vault.json
-        - name: BalancerV2WeightedPool
-          file: ../../abis/BalancerV2WeightedPool.json
-        - name: IUniswapV2Pair
-          file: ../../abis/IUniswapV2Pair.json
-      eventHandlers:
-        - event: CreateMech(indexed address,indexed uint256,indexed address)
-          handler: handleCreateMech
-        - event: MarketplaceDelivery(indexed address,indexed address[],uint256,bytes32[],bool[])
-          handler: handleMarketplaceDelivery
-        - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
-            address,uint256,bytes32[])
-          handler: handleMarketplaceDeliveryWithSignatures
-        - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
-          handler: handleMarketplaceRequest
-        - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
-          handler: handleDeliverWithSignaturesV1
-      file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
     network: arbitrum-one
@@ -138,6 +91,9 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        # ABI only: the shared mapping imports MechMarketplaceV1 types.
+        - name: MechMarketplaceV1
+          file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface

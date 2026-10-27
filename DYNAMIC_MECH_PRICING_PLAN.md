@@ -1,14 +1,14 @@
 # Dynamic mech pricing: indexing implementation plan
 
-Prepared against repository revision `80d09c0`; updated 26 October 2026 following PR #153 review.
+Prepared against repository revision `80d09c0`; updated 26 October 2026 following implementation of #140.
 
-Target: implement #140 and #143 during 26–30 October, then start one combined replay per active chain once verified new-factory configuration is included. Contract deployment is expected that week, but exact dates remain external inputs. Allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks elsewhere, measured from each replay's actual start. No weekend work is assumed.
+Status: #140 implementation is complete in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156). Manifest and handler tests pass; deployment, full reindexing and historical reconciliation remain. Next, implement #143 during 27–30 October, then start one combined replay per active chain once verified new-factory configuration is included. Contract deployment is expected that week, but exact dates remain external inputs. Allow approximately 1–1.5 weeks for Gnosis indexing and potentially several weeks elsewhere, measured from each replay's actual start. No weekend work is assumed.
 
 ## Scope and priorities
 
 | Priority | Issue | Outcome / dependency |
 | --- | --- | --- |
-| 1 | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Remove duplicate event coverage and rebuild counters. Implementation does not depend on new contracts; combine the release with final factory configuration before replay. |
+| 1 (in review) | [#140 — duplicate data sources](https://github.com/valory-xyz/autonolas-subgraph/issues/140) | Implemented in [PR #156](https://github.com/valory-xyz/autonolas-subgraph/pull/156): duplicate event coverage removed and global off-chain counter added. Deployment, full replay and reconciliation remain; combine with final factory configuration. |
 | 2 | [#143 — cap-and-actual reporting](https://github.com/valory-xyz/autonolas-subgraph/issues/143) | Add missing `MaxDeliveryRateUpdated` subscriptions so signed-only mechs retain a current advertised maximum; audit existing aggregates, clarify fields and document cutover. Final deployment records and a real variable-price settlement complete live validation. |
 | Closed; no fix planned | [#142](https://github.com/valory-xyz/autonolas-subgraph/issues/142) | The signed path does not call `refreshMechDeliveryRate`. The issue author closed it after correcting the call-site interpretation. It is not an activation gate. |
 
@@ -42,10 +42,10 @@ Existing URLs remain supported and consumers switch gradually after validation. 
 
 ### 1. Repair duplicate processing and historical counters — #140
 
-1. Complete the V1-only log check below before removing sources. Repository deployment history supports V2 from launch, but is not a complete on-chain absence check.
-2. If the check finds no V1-only events, remove redundant V1 marketplace sources from Polygon, Optimism, Ethereum, Arbitrum and Celo, retaining V2 at existing start blocks. Preserve Gnosis/Base boundaries. If V1 events exist, establish actual historical boundaries and preserve that coverage.
-3. Add `Global.totalOffChainRequests`, initialize every Global creation path and increment by `numDeliveries`, not one per batch. Include both marketplace squids, generated models and schema migrations.
-4. Test multi-request signed batches across Global, Sender, RequestsPerAgent and Mech counters. Add manifest coverage checks; calling a handler once does not establish single graph-node dispatch.
+1. Completed the V1-only log check below before removing sources; all five queried chains returned zero events over complete ranges.
+2. Removed redundant V1 marketplace sources from Polygon, Optimism, Ethereum, Arbitrum and Celo, retaining V2 at existing start blocks. Preserved Gnosis/Base boundaries.
+3. Added `Global.totalOffChainRequests`, initialized every Global creation path and incremented by `numDeliveries`, not one per batch. Included both marketplace squids, generated models and schema migrations.
+4. Added multi-request signed-batch tests across Global, Sender, RequestsPerAgent and Mech counters, and manifest coverage checks.
 5. Include final factory configuration, deploy the combined version and fully reindex. Do not reuse inflated historical state.
 6. At a common indexed block, reconcile fully paginated signed-event `numDeliveries`, sender off-chain counts and the new global counter. Batch-event counters must equal event counts. Reconcile other shared handlers separately; do not halve all totals mechanically.
 
@@ -79,11 +79,11 @@ The investigation compared local V1/V2 ABIs, manifest history, original contract
 
 | Chain | Retained marketplace coverage | Decision |
 | --- | --- | --- |
-| Polygon | V2 from 81,028,558 | Remove V1 source after the log check. |
-| Optimism | V2 from 145,788,454 | Remove V1 source after the log check. |
-| Ethereum | V2 from 24,427,441 | Remove V1 source after the log check; source/build change only. |
-| Arbitrum | V2 from 430,646,886 | Remove V1 source after the log check; source/build change only unless activated separately. |
-| Celo | V2 from 58,841,368 | Remove V1 source after the log check; source/build change only. |
+| Polygon | V2 from 81,028,558 | Removed V1 after the log check. |
+| Optimism | V2 from 145,788,454 | Removed V1 after the log check. |
+| Ethereum | V2 from 24,427,441 | Removed V1 after the log check; source/build change only. |
+| Arbitrum | V2 from 430,646,886 | Removed V1 after the log check; source/build change only unless activated separately. |
+| Celo | V2 from 58,841,368 | Removed V1 after the log check; source/build change only. |
 | Gnosis | V1 through 41,490,893; V2 from 41,490,894 | Preserve existing split. |
 | Base | V1 through 33,907,400; V2 from 33,907,401 | Preserve existing split in Graph and active squid. |
 | Robinhood | V2 from configured marketplace start 59,578,054 | Preserve existing V2-only squid configuration. |
@@ -104,15 +104,14 @@ For Polygon, Optimism, Ethereum, Arbitrum and Celo, query `eth_getLogs` at the m
 
 | When | Work / result |
 | --- | --- |
-| Fri 23 Oct / next available work slot | Address plan review and prepare the on-chain absence check. No #142 implementation. |
-| Mon–Tue 26–27 Oct | Complete log validation and #140 implementation/tests, including the new global counter in Graph and squids. |
-| Wed–Fri 28–30 Oct | Complete #143 maximum-update subscriptions, signed-only regression tests and reporting audit/documentation; review the combined changes and prepare new-factory configuration. |
+| Mon 26 Oct | #140 implementation and V1-only log validation complete in PR #156; run review and merge when approved. |
+| Tue–Fri 27–30 Oct | Implement #143 maximum-update subscriptions, signed-only regression tests and reporting audit/documentation; prepare final factory configuration. |
 | Once final factory deployment records are available | Configure and test all factories for a chain, then start its single combined full replay. No fixed replay-start promise before that input is available. |
 | Approximately 1–1.5 weeks after Gnosis replay starts | Catch-up and reconciliation, followed by consumer cutover. Other chains can take several weeks. |
 | After a real variable-price settlement is indexed | Verify raw charge, applicable USD conversion and the separate advertised maximum; record cutover evidence. |
 
-Estimated implementation effort: roughly 2.5–4 working days including subscription wiring/tests, plus RPC investigation, review and external deployment inputs. Indexing time is separate. Publish per-chain replay start, progress and ETA; do not equate a deployed but lagging version with current corrected data.
+Estimated implementation effort remaining: roughly 1–2 working days for #143, plus review and external deployment inputs. #140 implementation and log investigation are complete. Indexing time is separate. Publish per-chain replay start, progress and ETA; do not equate a deployed but lagging version with current corrected data.
 
 Run focused regressions, marketplace tests, codegen/build for affected manifests and corresponding checks for both active squids. Before switching endpoints, require catch-up, no indexing errors and count/fee reconciliation. If contract deployment is delayed, finish code and tests but wait for final factory configuration before the combined replay. Existing endpoints/workarounds remain available during indexing; no #142-based activation or rollback gate applies.
 
-Close #140 after historical reconciliation and #143 after its subscription fixes and signed-only maximum-update tests, aggregate audit, documentation and live verification. #142 is already closed. This is a documentation plan; implementation has not been performed by this PR; V1-only log validation is recorded in the linked evidence, including representative shared-signature layout checks.
+Close #140 after historical reconciliation and #143 after its subscription fixes and signed-only maximum-update tests, aggregate audit, documentation and live verification. #142 is already closed. The #140 implementation is in PR #156; V1-only log validation and representative shared-signature layout checks are recorded in the linked evidence. Full replay and historical reconciliation are still required before closing #140.
