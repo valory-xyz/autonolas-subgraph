@@ -10,6 +10,8 @@ import * as ctfExchangeV2 from "./abi/CTFExchangeV2/events";
 import * as collateralAdapter from "./abi/CtfCollateralAdapter/events";
 import * as factory from "./abi/DepositWalletFactory/events";
 import * as exchangeV3 from "./abi/ExchangeV3/events";
+import * as binaryModule from "./abi/BinaryModule/events";
+import * as ooReporter from "./abi/PolymarketOOReporter/events";
 import {
   SERVICE_REGISTRY_L2,
   CONDITIONAL_TOKENS,
@@ -23,11 +25,15 @@ import {
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
   EXCHANGE_V3,
+  BINARY_MODULE,
+  POLYMARKET_OO_REPORTER,
   START_BLOCK,
   SERVICE_REGISTRY_START,
   V2_CUTOVER_START,
   ADAPTERS_START,
   EXCHANGE_V3_START,
+  BINARY_MODULE_START,
+  POLYMARKET_OO_REPORTER_START,
 } from "./constants";
 
 // SQD Portal endpoint. The public portal needs no key; the paid private
@@ -140,5 +146,24 @@ export const dataSource = new DataSourceBuilder()
       topic0: [exchangeV3.OrderFilled.topic],
     },
     range: { from: EXCHANGE_V3_START },
+  })
+  // Protocol V2 results of binary markets and the redemptions that pay them
+  .addLog({
+    where: {
+      address: [BINARY_MODULE],
+      topic0: [
+        binaryModule.ConditionResolved.topic,
+        binaryModule.PositionRedeemed.topic,
+      ],
+    },
+    range: { from: BINARY_MODULE_START },
+  })
+  // Protocol V2 market rules: titles and outcome names
+  .addLog({
+    where: {
+      address: [POLYMARKET_OO_REPORTER],
+      topic0: [ooReporter.RequestRegistered.topic],
+    },
+    range: { from: POLYMARKET_OO_REPORTER_START },
   })
   .build();

@@ -5,6 +5,8 @@ The two stores are at different block heights, so only height-independent
 data is compared:
   1. DailyProfitStatistic rows for days fully elapsed on BOTH sides
      (day < cutoff). Row ids match across stores: <agent>_<dayTimestamp>.
+     Differences that the CLOB v2 fee explains (see FEE_BOUND) are
+     reported separately and do not count as discrepancies.
   2. TraderAgent identity (id -> serviceId).
   3. DepositWallet -> TraderAgent links (factory-derived in the squid vs
      pUSD-heuristic in the subgraph) for DWs created before the cutoff.
@@ -30,6 +32,37 @@ PG = ["docker", "exec", PG_CONTAINER,
       "psql", "-U", "postgres", "-d", "squid", "-t", "-A"]
 
 ONE_DAY = 86400
+
+# The squid adds the CLOB v2 OrderFilled.fee to bet amounts and the subgraph
+# does not (MIGRATION.md). A fee only raises totalTraded and
+# dailyTradedSettled, and lowers dailyProfit by exactly the amount it raises
+# dailyTradedSettled on the same row (profit = payout - settled amount). A
+# difference with that shape and at most FEE_BOUND of the subgraph value is
+# an expected fee difference. The largest fee in the recorded fills is 4.8%
+# of the collateral moved (356,350 on a 7,378,000 sell); the bound doubles
+# that. totalBets has no fee and is still compared exactly, so a missing or
+# extra bet still shows up. A day whose sells nearly cancel its buys can
+# exceed the bound and is then reported as a mismatch.
+FEE_BOUND = 0.10
+
+
+def fee_shaped(sub, squid, field):
+    """True if squid - subgraph on `field` of one row is a CLOB v2 fee."""
+    def delta(f):
+        return int(squid[f]) - int(sub[f])
+
+    def within_bound(f):
+        return 0 < delta(f) <= FEE_BOUND * abs(int(sub[f]))
+
+    if field == "totalTraded":
+        return within_bound(field)
+    if field not in ("dailyTradedSettled", "dailyProfit"):
+        return False
+    if "dailyTradedSettled" not in sub:
+        return False
+    if "dailyProfit" in sub and delta("dailyProfit") != -delta("dailyTradedSettled"):
+        return False
+    return within_bound("dailyTradedSettled")
 
 
 def gql(query, variables=None):
@@ -100,20 +133,27 @@ squid_days = {r[0]: dict(zip(FIELDS, r[1:])) for r in sql(
 
 only_sub = sub_days.keys() - squid_days.keys()
 only_squid = squid_days.keys() - sub_days.keys()
-diff = []
+diff, fee_diff = [], []
 for k in sub_days.keys() & squid_days.keys():
     for f in FIELDS:
         if str(sub_days[k][f]) != str(squid_days[k][f]):
-            diff.append((k, f, sub_days[k][f], squid_days[k][f]))
+            row = (k, f, sub_days[k][f], squid_days[k][f])
+            if fee_shaped(sub_days[k], squid_days[k], f):
+                fee_diff.append(row)
+            else:
+                diff.append(row)
 print(f"daily stats: subgraph {len(sub_days)} rows, squid {len(squid_days)} rows")
 print(f"  only in subgraph: {len(only_sub)}  only in squid: {len(only_squid)}"
-      f"  field mismatches: {len(diff)}")
+      f"  field mismatches: {len(diff)}"
+      f"  expected fee differences: {len(fee_diff)}")
 for k in sorted(only_sub)[:5]:
     print(f"    sub-only  {k}")
 for k in sorted(only_squid)[:5]:
     print(f"    squid-only {k}")
 for k, f, a, b in diff[:10]:
     print(f"    {k} {f}: subgraph={a} squid={b}")
+for k, f, a, b in fee_diff[:5]:
+    print(f"    fee {k} {f}: subgraph={a} squid={b}")
 problems += len(only_sub) + len(only_squid) + len(diff)
 
 # ---- 2. trader agents -----------------------------------------------------

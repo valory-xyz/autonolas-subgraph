@@ -16,7 +16,7 @@ export class QuestionResolution {
     question!: Relation_<Question>
 
     /**
-     * Winning outcome index (0 or 1). -1 means the market resolved invalid/unresolvable — NOT an index into Question.metadata.outcomes.
+     * Winning outcome index (0 or 1). -1 means no single winner (V1 invalid/unresolvable, or a V2 result split across outcomes). NOT an index into Question.metadata.outcomes.
      */
     @BigIntColumn_({nullable: false})
     winningIndex!: bigint
