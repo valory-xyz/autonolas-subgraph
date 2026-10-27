@@ -7,14 +7,16 @@ const abs = (x: bigint) => (x < 0n ? -x : x);
 /**
  * Per-token price of a fill, 1e18-scaled. Sells are stored with negative
  * amount/shares, so both are taken absolute. Zero shares -> 0 sentinel.
- * Not clamped: an above-1e18 price is a real (mispriced) fill and is scored as such.
+ * Capped at 1e18: a fee-inclusive buy can cost more than 1 per share, and an
+ * uncapped price would add a Brier penalty to a win.
  */
 export function computeImpliedProbability(
   amount: bigint,
   shares: bigint,
 ): bigint {
   if (shares === 0n) return 0n;
-  return (abs(amount) * PROBABILITY_SCALE) / abs(shares);
+  const price = (abs(amount) * PROBABILITY_SCALE) / abs(shares);
+  return price > PROBABILITY_SCALE ? PROBABILITY_SCALE : price;
 }
 
 /** (p - actual)^2 / 1e18, both inputs 1e18-scaled. */

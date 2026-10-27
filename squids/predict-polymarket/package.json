@@ -1,11 +1,11 @@
 {
   "name": "predict-polymarket-squid",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "build": "rm -rf lib && tsc",
     "codegen": "squid-typeorm-codegen",
-    "typegen": "squid-evm-typegen src/abi ../../abis/ServiceRegistryL2.json ../../abis/ConditionalTokens.json ../../abis/OptimisticOracleV3.json ../../abis/UmaCtfAdapter.json ../../abis/NegRiskAdapter.json ../../abis/CTFExchange.json ../../abis/CTFExchangeV2.json ../../abis/CtfCollateralAdapter.json ../../abis/DepositWalletFactory.json ../../abis/ExchangeV3.json --multicall",
+    "typegen": "squid-evm-typegen src/abi ../../abis/ServiceRegistryL2.json ../../abis/ConditionalTokens.json ../../abis/OptimisticOracleV3.json ../../abis/UmaCtfAdapter.json ../../abis/NegRiskAdapter.json ../../abis/CTFExchange.json ../../abis/CTFExchangeV2.json ../../abis/CtfCollateralAdapter.json ../../abis/DepositWalletFactory.json ../../abis/ExchangeV3.json ../../abis/BinaryModule.json ../../abis/PolymarketOOReporter.json --multicall",
     "migration:generate": "squid-typeorm-migration generate",
     "migration:apply": "squid-typeorm-migration apply",
     "process": "node lib/main.js",

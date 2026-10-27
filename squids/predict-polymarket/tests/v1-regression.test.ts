@@ -5,10 +5,12 @@
 // Safe on CTFExchange and NegRiskCtfExchange, one through its DepositWallet on
 // the CLOB v2 CTF Exchange, plus the registry, wallet-factory, TokenRegistered
 // and ConditionPreparation logs those fills need.
-// tests/fixtures/v1-replay.expected.json: the snapshot main (7d0705d3)
-// produces for the same logs, from main.ts's decode-and-dispatch and main's
-// handlers. The CTF getCollectionId eth_call is replaced by the token IDs
-// Gamma serves for those conditions, recorded in the fixture.
+// tests/fixtures/v1-replay.expected.json: the snapshot of main's handlers at
+// 7d0705d3 for these logs, through main.ts's decode-and-dispatch, with the two
+// CLOB v2 CTF exchange DepositWallet fills updated to include their fee.
+// Regenerate it by running the current handlers on the fixture. The CTF
+// getCollectionId eth_call is replaced by the token IDs Gamma serves for
+// those conditions, recorded in the fixture.
 import { expect, it, vi } from "vitest";
 
 const derivation = vi.hoisted(() => ({

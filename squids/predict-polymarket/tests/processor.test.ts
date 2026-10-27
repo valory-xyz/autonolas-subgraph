@@ -25,12 +25,23 @@ function activeAt(block: number): string[] {
 
 // keccak256 of the event signatures
 const ORDER_FILLED = "0xd543adfd945773f1a62f74f0ee55a5e3b9b1a28262980ba90b1a89f2ea84d8ee";
+const CONDITION_RESOLVED = "0xe560c1a2847d4cf2e66de11fe592605556989449f38cc3ab96e2e287daa68caa";
+const POSITION_REDEEMED = "0x4fd474b703f46b453536518b4cbc159dfbea6fd663233763d321a9bc8ccdf97f";
+const REQUEST_REGISTERED = "0x459464e3d93204e986f0b20e33596daba585b1f37d5afe1eb1821551f7cb6f49";
 
-// Protocol V2 ExchangeV3 proxy (docs.polymarket.com/resources/contracts) and
-// its deployment block (first block with proxy bytecode on Polygon mainnet).
+// Protocol V2 proxies (docs.polymarket.com/resources/contracts) and their
+// deployment blocks (first block with proxy bytecode on Polygon mainnet).
 // PositionManager transfers are not subscribed: no handler reads them.
 const EXCHANGE_V3 = "0xe3333700ca9d93003f00f0f71f8515005f6c00aa";
-const V2: [string, string, number][] = [[EXCHANGE_V3, ORDER_FILLED, 87_479_471]];
+const BINARY_MODULE = "0x1000008dd9001b968442c1000017eae6e0da00ba";
+// PolymarketOOReporter, the UMA rules store of Protocol V2 markets
+const OO_REPORTER = "0x53703dd6129d723066b6362510e5ae2fecd48218";
+const V2: [string, string, number][] = [
+  [EXCHANGE_V3, ORDER_FILLED, 87_479_471],
+  [BINARY_MODULE, CONDITION_RESOLVED, 87_479_502],
+  [BINARY_MODULE, POSITION_REDEEMED, 87_479_502],
+  [OO_REPORTER, REQUEST_REGISTERED, 92_766_000],
+];
 
 // Every subscription on main, with the block it starts at.
 const OO_INIT = "0xeee0897acd6893adcaf2ba5158191b3601098ab6bece35c5d57874340b64c5b7";
@@ -49,13 +60,13 @@ const MAIN: [string[], string[], number][] = [
   [["0x00000000000fb5c9adea0298d729a0cb3823cc07"], ["0x7441de0ad639fe5d2bf1c22447715a0528b682385736bb40ae8dd92555eb8276"], 85_952_819],
 ];
 
-it("adds only ExchangeV3 OrderFilled, from its deployment block, and changes nothing else", () => {
+it("adds the Protocol V2 fills, BinaryModule results and redemptions and OOReporter rules from their deployment blocks and changes nothing else", () => {
   const expectedAt = (b: number) =>
     [
       ...MAIN.filter(([, , from]) => from <= b).flatMap(([as, ts]) => as.flatMap((a) => ts.map((t) => `${a} ${t}`))),
       ...V2.filter(([, , from]) => from <= b).map(([a, t]) => `${a} ${t}`),
     ].sort();
-  for (const b of [78_425_180, 80_360_433, 85_952_819, 86_219_367, 87_479_470, 87_479_471, 200_000_000]) {
+  for (const b of [78_425_180, 80_360_433, 85_952_819, 86_219_367, 87_479_470, 87_479_471, 87_479_501, 87_479_502, 92_765_999, 92_766_000, 200_000_000]) {
     expect(activeAt(b), `subscriptions at block ${b}`).toEqual(expectedAt(b));
   }
 });
