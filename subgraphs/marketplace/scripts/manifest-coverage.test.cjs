@@ -30,15 +30,21 @@ for (const chain of ['gnosis', 'base', 'polygon', 'optimism', 'mainnet', 'arbitr
   test(`${chain}: every mech template subscribes to advertised-maximum updates`, () => {
     const manifest = read(chain);
     const mechTemplates = manifest.templates.filter((t) => t.kind === 'ethereum');
-    assert(mechTemplates.length > 0);
-    for (const template of mechTemplates) {
-      assert(
-        template.mapping.eventHandlers.some(
-          (h) => h.event === 'MaxDeliveryRateUpdated(uint256)' && h.handler === 'handleMaxDeliveryRateUpdated'
-        ),
-        `${chain}/${template.name} is missing MaxDeliveryRateUpdated`
-      );
-    }
+    const expectedTemplates = [
+      'MechFixedPriceNative',
+      'MechFixedPriceToken',
+      'MechNvmSubscriptionNative',
+      'MechNvmSubscriptionTokenUSDC',
+    ].sort();
+    assert.deepEqual(mechTemplates.map((t) => t.name).sort(), expectedTemplates,
+      `${chain} mech template set changed`);
+    const missing = mechTemplates
+      .filter((template) => !template.mapping.eventHandlers.some(
+        (h) => h.event === 'MaxDeliveryRateUpdated(uint256)' && h.handler === 'handleMaxDeliveryRateUpdated'
+      ))
+      .map((template) => template.name)
+      .sort();
+    assert.deepEqual(missing, [], `${chain} templates missing MaxDeliveryRateUpdated`);
   });
 }
 const v2Starts = {

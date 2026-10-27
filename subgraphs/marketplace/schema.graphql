@@ -256,7 +256,7 @@ type Global @entity(immutable: false) {
   totalAtaTransactions: BigInt!
 
   # Fee tracking
-  totalFeesPaidUSD: BigDecimal! # Actual marketplace charges in USD on supported Request paths
+  totalFeesPaidUSD: BigDecimal! # Actual USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
   # Prediction-specific counters (only requests with non-empty questionTitle)
   totalPredictRequests: BigInt!
@@ -353,8 +353,10 @@ type Request @entity(immutable: false) {
   # Advertised-rate snapshot at request time, not the actual amount paid.
   # Once cap-and-actual pricing is active this may exceed the final charge.
   feeUSD: BigDecimal
-  # Actual charge converted to USD on supported Request paths. This can be
-  # absent for signed-only requests; use DeliverForMarketplace.deliveryRate there.
+  # Actual charge converted to USD for on-chain marketplace Requests whose
+  # priority mech has a fee unit recorded at request time. Signed-only
+  # deliveries create no Request entity; their raw charge is on
+  # DeliverForMarketplace.deliveryRate.
   finalFeeUSD: BigDecimal
   # Advertised-rate snapshot in the payment unit's raw units, not actual spend.
   feeRaw: BigInt
@@ -429,7 +431,7 @@ type Sender @entity(immutable: false) {
   totalOffChainRequests: BigInt!
 
   # Fee tracking
-  totalFeesPaidUSD: BigDecimal! # Cumulative actual charges in USD on supported Request paths
+  totalFeesPaidUSD: BigDecimal! # Cumulative USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
   # Prediction-specific counters (only requests with non-empty questionTitle)
   totalPredictRequests: BigInt!

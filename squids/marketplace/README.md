@@ -120,6 +120,11 @@ What differs from Robinhood:
 - **`MaxDeliveryRateUpdated` is indexed.** The Base squid follows the
   marketplace subgraph and updates `Mech.maxDeliveryRate` and its USD value
   even when a signed-only mech has no mech-side on-chain delivery.
+- **Historical updates require a full replay on Base.** The new subscription
+  only sees past `MaxDeliveryRateUpdated` events when the squid is fully
+  reindexed. Restarting from the old checkpoint does not backfill events that
+  the previous processor did not subscribe to. Use blue-green reindexing and
+  switch after catch-up and reconciliation.
 - **Graph-node arithmetic.** Every USD step and running total is rounded to
   34 significant digits, half-up, as graph-node's `BigDecimal` is, so USD
   values are equal to the subgraph's rather than merely close.
@@ -335,7 +340,7 @@ from the checkpoint, or re-index everything from zero. Never edit
 | `Global.totalMarketplace*` | count **events** (one per batch); `Global.totalRequests` / `totalDeliveries` count items |
 | `Mech.maxDeliveryRate` / `maxDeliveryRateUSD` | latest advertised maximum and its USD conversion; not the charge for a specific request |
 | `Request.feeRaw` / `feeUSD` | advertised-rate snapshot at request time; may be an upper bound, not actual spend |
-| `Request.finalFeeUSD` | actual charge in USD on supported Request paths; fee totals accumulate this value only and therefore do not universally include signed-only charges. Signed-only deliveries may not create/update a Request fee, so read their raw actual charge from `DeliverForMarketplace.deliveryRate` |
+| `Request.finalFeeUSD` | actual USD charge for on-chain marketplace Requests whose priority mech had a fee unit recorded at request time; signed-only deliveries create no Request entity, so they are excluded from fee totals and their raw actual charge is on `DeliverForMarketplace.deliveryRate` |
 | `IndexerStatus` (id `"1"`) | last indexed block number + timestamp, for stale-data checks |
 
 Before a chain's cap-and-actual contract upgrade, the advertised maximum and

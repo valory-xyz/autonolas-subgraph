@@ -49,7 +49,6 @@ describe("Base chain table", () => {
     expect(c.CHAIN.mechMarketplace.startBlock).toBe(26_642_705);
     expect(c.CHAIN.mechMarketplaceV1EndBlock).toBe(V1_END);
     expect(c.CHAIN.nativeUsdFeed).toBe("0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70");
-    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(true);
     expect(c.MECH_FACTORY_ADDRESSES).toEqual([
       "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe",
       "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee",
@@ -87,7 +86,6 @@ describe("Base chain table", () => {
     const c = await import("../src/constants");
     expect(c.CHAIN.name).toBe("robinhood");
     expect(c.CHAIN.mechMarketplaceV1EndBlock).toBeNull();
-    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(true);
   });
 });
 
@@ -426,6 +424,8 @@ describe("Base handlers: NVM-USDC mech end to end", () => {
     expect(mech.paymentType).toBe("0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14");
     expect(mech.maxDeliveryRateUSD!.toFixed()).toBe("0.000099");
 
+    await h.handleMaxDeliveryRateUpdated(ctx, meta(), { maxDeliveryRate: 120n });
+
     await h.handleMarketplaceRequest(ctx, meta(), {
       priorityMech: MECH,
       requester: MULTISIG,
@@ -434,24 +434,23 @@ describe("Base handlers: NVM-USDC mech end to end", () => {
     });
     let req = (await cache.get(m.Request, RID))!;
     expect(req.feeUnit).toBe("CREDITS");
-    expect(req.feeRaw).toBe(100n);
-    expect(req.feeUSD!.toFixed()).toBe("0.000099");
+    expect(req.feeRaw).toBe(120n);
+    expect(req.feeUSD!.toFixed()).toBe("0.0001188");
 
-    // delivered at 1 credit
+    // Delivered at 100 credits, below the advertised 120-credit maximum.
     await h.handleMechDeliver(ctx, meta(), {
       mechServiceMultisig: MULTISIG,
       requestId: RID,
-      deliveryRate: 1n,
+      deliveryRate: 100n,
       data: "0x" + "22".repeat(32),
     });
     req = (await cache.get(m.Request, RID))!;
-    expect(req.finalFeeUSD!.toFixed()).toBe("0.00000099");
-    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
-    expect((await cache.get(m.Sender, MULTISIG))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
-    // An observed on-chain delivery refreshes the rate; MaxDeliveryRateUpdated
-    // also keeps it current when signed-only mechs have no such delivery.
-    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRate).toBe(1n);
-    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRateUSD!.toFixed()).toBe("0.00000099");
+    expect(req.finalFeeUSD!.toFixed()).toBe("0.000099");
+    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toFixed()).toBe("0.000099");
+    expect((await cache.get(m.Sender, MULTISIG))!.totalFeesPaidUSD.toFixed()).toBe("0.000099");
+    // A delivery records actual charge but preserves the advertised cap.
+    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRate).toBe(120n);
+    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRateUSD!.toFixed()).toBe("0.0001188");
   });
 });
 
@@ -495,64 +494,6 @@ describe("balancerOlasPool (rpc.ts)", () => {
     const empty = { balancesAt: async () => ({ olas: 0n, stable: 1n, missingTokens: [] }) };
     await convertFeeToUsd(10n ** 18n, "TOKEN", 1n, { price: NO_PRICE, olasPool: empty, log }, BASE);
     expect(warnings).toEqual([expect.stringMatching(/is empty at block 1/)]);
-  });
-});
-
-describe("Base signed-only advertised maximum", () => {
-  it("keeps MaxDeliveryRateUpdated separate from the actual signed charge", async () => {
-    vi.stubEnv("MARKETPLACE_CHAIN", "base");
-    const h = await import("../src/handlers");
-    const m = await import("../src/model");
-    const { InMemoryCache, TWO_K_USD } = await import("./inMemoryCache");
-    const cache = new InMemoryCache();
-    const ctx = { cache, log: cache.log, price: TWO_K_USD, olasPool: NO_OLAS_POOL, ...h.newBatchState() };
-
-    const MECH = "0x00000000000000000000000000000000000000e3";
-    const REQUESTER = "0x00000000000000000000000000000000000000e4";
-    const FACTORY = CHAINS.base.mechFactories[0].address;
-    const requestId = "0x" + "51".repeat(32);
-    const updatedMaximum = 2n * 10n ** 16n;
-    const actualRate = 5n * 10n ** 15n;
-    let n = 0;
-    const eventMeta = (address = MECH, marketplaceTx = false) => ({
-      blockNumber: 27_716_877n + BigInt(n),
-      blockTimestamp: 1_700_000_000n + BigInt(n),
-      txHash: "0x" + String(++n).padStart(64, "0"),
-      logIndex: 0,
-      address,
-      txFrom: "0x0000000000000000000000000000000000000abc",
-      txTo: marketplaceTx ? BASE.mechMarketplace.address : "0x0000000000000000000000000000000000000dad",
-    });
-
-    await h.handleCreateService(ctx, eventMeta(), { serviceId: 113n, configHash: "0x" + "00".repeat(32) });
-    await h.handleCreateMultisigWithAgents(ctx, eventMeta(), { serviceId: 113n, multisig: REQUESTER });
-    const factoryMeta = eventMeta();
-    h.handleMechFactoryCreate(ctx, factoryMeta, { mech: MECH, serviceId: 113n, maxDeliveryRate: 10n ** 16n });
-    await h.handleCreateMech(ctx, { ...factoryMeta, logIndex: 1 }, { mech: MECH, serviceId: 113n, mechFactory: FACTORY });
-
-    await h.handleMaxDeliveryRateUpdated(ctx, eventMeta(), { maxDeliveryRate: updatedMaximum });
-    const deliveryMeta = eventMeta(BASE.mechMarketplace.address, true);
-    await h.handleDeliverWithSignatures(ctx, deliveryMeta, {
-      mech: MECH,
-      mechServiceMultisig: REQUESTER,
-      requestId,
-      deliveryRate: actualRate,
-      deliveryData: "0x" + "aa".repeat(32),
-    });
-    await h.handleMarketplaceDeliveryWithSignatures(ctx, { ...deliveryMeta, logIndex: 1 }, {
-      deliveryMech: MECH,
-      requester: REQUESTER,
-      numDeliveries: 1n,
-      requestIds: [requestId],
-    });
-
-    const mech = (await cache.get(m.Mech, "113"))!;
-    const delivery = (await cache.get(m.DeliverForMarketplace, requestId))!;
-    expect(mech.maxDeliveryRate).toBe(updatedMaximum);
-    expect(mech.maxDeliveryRateUSD!.toString()).toBe("40");
-    expect(delivery.deliveryRate).toBe(actualRate);
-    expect(cache.count(m.Request)).toBe(0);
-    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toString()).toBe("0");
   });
 });
 

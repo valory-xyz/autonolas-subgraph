@@ -36,7 +36,9 @@ type Global @entity {
   totalDeliveries: BigInt!
   totalTransactions: BigInt!
   totalAtaTransactions: BigInt!
-  # Accumulates actual finalFeeUSD charges, not advertised-rate snapshots.
+  # Actual USD charges for on-chain marketplace Requests whose priority mech
+  # has a fee unit recorded at request time. Signed-only deliveries create no
+  # Request entity and are not included in this aggregate.
   totalFeesPaidUSD: BigDecimal!
 }
 
@@ -72,8 +74,7 @@ type Mech @entity {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  # null when the factory event was missing at CreateMech time; self-heals
-  # from the next observed Deliver's deliveryRate.
+  # Null until the factory event or first MaxDeliveryRateUpdated event is seen.
   # Latest advertised maximum from factory creation or MaxDeliveryRateUpdated;
   # not necessarily the amount charged for any particular request.
   maxDeliveryRate: BigInt
@@ -97,7 +98,9 @@ type Sender @entity {
   # +1 per on-chain marketplace batch event.
   totalMarketplaceRequests: BigInt!
   totalOffChainRequests: BigInt!
-  # Accumulates actual finalFeeUSD charges, not advertised-rate snapshots.
+  # Cumulative USD charges for on-chain marketplace Requests whose priority
+  # mech has a fee unit recorded at request time. Signed-only deliveries
+  # create no Request entity and are not included in this aggregate.
   totalFeesPaidUSD: BigDecimal!
 }
 
@@ -124,8 +127,10 @@ type Request @entity {
   # Advertised-rate snapshot at request time, not the actual amount paid.
   # Once cap-and-actual pricing is active this may exceed the final charge.
   feeUSD: BigDecimal
-  # Actual charge converted to USD on supported Request paths. This can be
-  # absent for signed-only requests; use DeliverForMarketplace.deliveryRate there.
+  # Actual charge converted to USD for on-chain marketplace Requests whose
+  # priority mech had a fee unit recorded at request time. Signed-only
+  # deliveries create no Request entity; their raw charge is on
+  # DeliverForMarketplace.deliveryRate.
   finalFeeUSD: BigDecimal
   # Advertised-rate snapshot in the payment unit's raw units, not actual spend.
   feeRaw: BigInt

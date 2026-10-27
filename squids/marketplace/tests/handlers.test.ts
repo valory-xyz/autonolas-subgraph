@@ -392,9 +392,9 @@ describe("on-chain marketplace request -> delivery", () => {
     expect(mech.selfDeliveredFromReceived).toBe(1n);
     expect(mech.deliveredByOthersFromReceived).toBe(0n);
     expect(mech.totalDeliveriesTransactions).toBe(1n);
-    // observed rate differs from stored max -> self-heal + reprice
-    expect(mech.maxDeliveryRate).toBe(8n * 10n ** 15n);
-    expect(mech.maxDeliveryRateUSD!.toString()).toBe("16");
+    // Actual delivery charge does not replace the advertised maximum.
+    expect(mech.maxDeliveryRate).toBe(10n ** 16n);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("20");
 
     // supply-side counter on the mech's service, exactly once
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(1n);
