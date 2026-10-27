@@ -11,7 +11,9 @@ to this squid. Irrelevant once the subgraph is retired.
 > transfers. The **deployed** subgraph behind a public endpoint may be an
 > older build that is missing those features. So when the compare script
 > reports differences of the classes listed below, the missing data is on
-> the deployed-subgraph side — it does not mean the squid is behind.
+> the deployed-subgraph side — it does not mean the squid is behind. The
+> one exception is the CLOB v2 fee, which the squid deliberately includes
+> in bet amounts (see below).
 
 ## Validating squid data against the subgraph
 
@@ -47,6 +49,25 @@ that are missing data on the subgraph side, not squid bugs:
   eth_call-based TokenRegistry derivation, so trades on markets without v1
   `TokenRegistered` events were dropped.
 - no `DepositWallet` entity / `dailyTradedSettled` field — older schema.
+
+One difference is deliberate and appears against every subgraph version.
+The squid includes the CLOB v2 CTF exchange `OrderFilled.fee` in bet amounts
+(buy = `makerAmountFilled + fee`, sell = `takerAmountFilled - fee`); the
+subgraph does not. So `totalTraded` differs on agent-days with fee-paying
+CLOB v2 fills, and `dailyProfit` and `dailyTradedSettled` differ on the days
+those markets resolve. These differences are expected, not missing subgraph
+data. Legacy CTF exchange fills record no fee on either side.
+
+The compare script reports these as expected fee differences, apart from
+the field mismatches it counts as discrepancies. A difference counts as a
+fee difference when it has the fee's shape: `totalTraded` and
+`dailyTradedSettled` are higher in the squid, `dailyProfit` is lower by
+exactly the `dailyTradedSettled` difference on the same row, and the
+difference is at most `FEE_BOUND` (10%) of the subgraph value. The largest
+fee in the recorded fills is 4.8% of the collateral moved, so the bound
+leaves a margin of two. `totalBets` has no fee and is still compared
+exactly. A day whose sells nearly cancel its buys can exceed the bound and
+shows up as a mismatch to check by hand.
 
 Always compare against the newest deployed version of the subgraph.
 

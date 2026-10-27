@@ -311,8 +311,9 @@ export type OrderFill = {
   makerAmountFilled: bigint;
   takerAmountFilled: bigint;
   /**
-   * Fee in pUSD that the order's signer (the event's `maker`) paid, from
-   * OrderFilled.fee; CTF exchange fills leave it unset (0).
+   * Fee in collateral that the order's signer (the event's `maker`) paid,
+   * from OrderFilled.fee on ExchangeV3 and the CLOB v2 CTF exchange; legacy
+   * CTF exchange fills leave it unset (0).
    */
   fee?: bigint;
   builder: string | null;
@@ -561,11 +562,14 @@ async function recordBet(
   outcomeIndex: bigint,
   collateral: string | null,
 ) {
-  // Sells use NEGATIVE amounts/shares (omen convention)
+  // Sells use NEGATIVE amounts/shares (omen convention). A sell's fee comes
+  // out of its proceeds, so at most takerAmountFilled is deducted and a sell
+  // amount is never positive.
   const fee = p.fee ?? 0n;
+  const sellFee = fee < p.takerAmountFilled ? fee : p.takerAmountFilled;
   const usdcAmount = p.isBuying
     ? p.makerAmountFilled + fee
-    : -(p.takerAmountFilled - fee);
+    : -(p.takerAmountFilled - sellFee);
   const sharesAmount = p.isBuying ? p.takerAmountFilled : -p.makerAmountFilled;
 
   // 1. Update Daily Stats
