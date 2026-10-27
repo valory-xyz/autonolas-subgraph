@@ -8,10 +8,11 @@ import { getIngestionConfig } from "@olas/squid-shared";
 import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import * as stakingFactory from "./abi/StakingFactory/events";
 import * as stakingProxy from "./abi/StakingProxy/events";
-import { CHAIN } from "./constants";
+import { assertPortalDataset, CHAIN } from "./constants";
 
 export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
 
+assertPortalDataset(CHAIN);
 const ingestion = getIngestionConfig(CHAIN);
 
 const fields = {
