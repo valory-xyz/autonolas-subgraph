@@ -1035,6 +1035,24 @@
       "reason": "Squid runtime (npm, squids/*; gated via scripts/audit.mjs --npm). Prototype pollution in mergeDeep when a gateway merges results from two subgraphs (stitching/federation). Only 12.0.1 is fixed; @subsquid/graphql-server 4.12.1 and @subsquid/apollo-server-core pin 8.x/9.x/10.x, so forcing 12.x means 2-4 major jumps in the served GraphQL stack. Not reachable here: the squids serve a single schema with no stitching (no @graphql-tools/delegate or stitch installed); graphql-tools mergeDeep is only called via mergeResolvers/mergeExtensions while makeExecutableSchema/mergeSchemas build the schema at startup from static inputs; Apollo mocks are off; there are no custom resolvers. Re-review when @subsquid/graphql-server moves to @graphql-tools/utils >=12.0.1.",
       "added": "2026-10-07",
       "review": "2026-11-06"
+    },
+    {
+      "id": 1242879,
+      "ghsa": "GHSA-c4qx-w738-7hr3",
+      "package": "@graphql-tools/utils",
+      "severity": "high",
+      "reason": "Squid runtime (npm, squids/*; gated via scripts/audit.mjs --npm). Prototype pollution in mergeIncrementalResult when a consumer merges @defer/@stream incremental results from an untrusted upstream. Fixed only in 12.0.2; the 10.11.0 copy that @subsquid/graphql-server 4.12.1 requires (^10.0.11) has no 10.x fix, and predict-polymarket's @graphql-tools/merge/schema need ^11.2.0. Not reachable here: nothing in any squid tree calls mergeIncrementalResult (only its own definition and re-export in @graphql-tools/utils; checked in the liquidity and predict-polymarket installs), the squids have no own GraphQL code and act as a server, never as a client merging upstream incremental results. Re-review when @subsquid/graphql-server moves to @graphql-tools/utils >=12.0.2.",
+      "added": "2026-10-23",
+      "review": "2026-11-22"
+    },
+    {
+      "id": 1243066,
+      "ghsa": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "severity": "high",
+      "reason": "Build-time only (yarn trees: root and subgraphs/*). Memory exhaustion when an array schema without a length limit validates an oversized untrusted array. Fixed only in 4.6.6; zod is reached via @graphprotocol/graph-cli > web3-eth-abi > web3-validator 2.0.6, which pins zod ^3.21.4 (3.25.76 installed, 3.24.4 in service-registry), so no in-range fix exists. Not reachable here: graph-cli runs only in local and CI builds and deploys, and validates this repo's own ABIs and manifests, never untrusted input; the deployed subgraphs are WASM and don't ship zod. Re-review when graph-cli moves to a web3-validator that accepts zod >=4.6.6.",
+      "added": "2026-10-26",
+      "review": "2026-11-25"
     }
   ]
 }

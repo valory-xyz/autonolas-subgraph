@@ -4,7 +4,7 @@
 
 import { selectChain } from "@olas/squid-shared";
 
-export type ChainName = "robinhood";
+export type ChainName = "robinhood" | "base";
 
 // Fee unit names (schema enum FeeUnit). String constants rather than the
 // generated enum so logic.ts / fee.ts stay importable without the models.
@@ -46,11 +46,36 @@ export interface ContractSource {
   startBlock: number;
 }
 
+/**
+ * NVM subscription credits -> USD, as the subgraph's
+ * calculate<Chain>NvmCreditsToUsd: credits × ratio / 1e18 / 10^tokenDecimals.
+ */
+export interface NvmCreditsConfig {
+  /** The contracts' immutable credit ratio, 18-decimal fixed point. */
+  ratio: string;
+  /** Decimals of the token the credits are paid in. */
+  tokenDecimals: number;
+}
+
+/**
+ * OLAS -> USD from a Balancer V2 OLAS/stablecoin pool's balances at the
+ * event's block (the subgraph's calculateOlasInUsd for Gnosis/Base).
+ */
+export interface OlasPoolConfig {
+  vault: string;
+  pool: string;
+  olas: string;
+  stable: string;
+  stableDecimals: number;
+}
+
 export interface ChainConfig {
   name: ChainName;
   chainId: number;
   /** SQD Portal dataset for this chain. */
   portalDataset: string;
+  /** Private datasets fail fast without SQD_PORTAL_API_KEY in portal mode. */
+  portalRequiresApiKey?: boolean;
   /** Public JSON-RPC used when RPC_HTTP is unset (fee conversion only). */
   defaultRpc: string;
   /** Earliest block any tracked contract was deployed at. */
@@ -61,6 +86,18 @@ export interface ChainConfig {
   karma: ContractSource;
   /** The MechMarketplace PROXY — events are emitted at the proxy address. */
   mechMarketplace: ContractSource;
+  /**
+   * Last block decoded with the V1 marketplace ABI (the subgraph's
+   * MechMarketplaceV1 data source `endBlock`); V2 from the next block. Null
+   * when the chain launched on V2.
+   */
+  mechMarketplaceV1EndBlock: number | null;
+  /**
+   * Whether the subgraph's mech templates handle `MaxDeliveryRateUpdated`
+   * on this chain. The Base manifest does not, so a rate change there only
+   * reaches Mech.maxDeliveryRate through an observed delivery.
+   */
+  handlesMaxDeliveryRateUpdated: boolean;
   mechFactories: MechFactoryConfig[];
   /**
    * Chainlink AggregatorV3 proxy for <native>/USD, or null when the chain has
@@ -70,9 +107,13 @@ export interface ChainConfig {
   nativeUsdFeed: string | null;
   nativeDecimals: number;
   usdcDecimals: number;
+  /** CREDITS fee unit; null converts to $0 with a warning. */
+  nvmCredits: NvmCreditsConfig | null;
+  /** TOKEN (OLAS) fee unit; null converts to $0 with a warning. */
+  olasPool: OlasPoolConfig | null;
 }
 
-const CHAINS: Record<ChainName, ChainConfig> = {
+export const CHAINS: Record<ChainName, ChainConfig> = {
   // Robinhood Chain (Arbitrum Orbit L2, ETH gas). Addresses from
   // autonolas-marketplace PR #197 / #196 and autonolas-registries
   // scripts/deployment/l2/globals_robinhood_mainnet.json; deployment blocks
@@ -102,6 +143,8 @@ const CHAINS: Record<ChainName, ChainConfig> = {
       address: "0xa45e64d13a30a51b91ae0eb182e88a40e9b18ed8", // MechMarketplaceProxy
       startBlock: 59_578_054,
     },
+    mechMarketplaceV1EndBlock: null,
+    handlesMaxDeliveryRateUpdated: true,
     mechFactories: [
       {
         address: "0x04b0007b2afb398015b76e5f22993a1fddf83644",
@@ -127,11 +170,149 @@ const CHAINS: Record<ChainName, ChainConfig> = {
     nativeUsdFeed: "0x78f3556b67e17df817d51ef5a990cdaf09e8d3a9",
     nativeDecimals: 18,
     usdcDecimals: 6,
+    nvmCredits: null,
+    olasPool: null,
+  },
+
+  // Base. Every address, start block and conversion below is the Base
+  // marketplace subgraph's (subgraphs/marketplace/subgraph.base.yaml and
+  // src/marketplace/{constants,fee-utils}.ts): the squid replaces it, and
+  // consumers must read the same numbers from both.
+  base: {
+    name: "base",
+    chainId: 8453,
+    // Public dataset; production sets SQD_PORTAL_URL + key to the private
+    // portal. Set INGEST_SOURCE=portal when running keyless: RPC ingestion
+    // cannot serve the address-less mech subscription on public Base RPCs.
+    portalDataset: "https://portal.sqd.dev/datasets/base-mainnet",
+    defaultRpc: "https://mainnet.base.org",
+    startBlock: 10_827_380,
+    serviceRegistryL2: {
+      address: "0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe",
+      startBlock: 10_827_380,
+    },
+    complementaryServiceMetadata: {
+      address: "0x28c1edc7ced549f7f80b732fdc19f0370160707d",
+      startBlock: 31_728_383,
+    },
+    karma: {
+      address: "0x1f84f8f70de0651c2d51bf8850fe9d0289ba3b3a",
+      startBlock: 26_642_705,
+    },
+    mechMarketplace: {
+      address: "0xf24ee42eda0fc9b33b7d41b06ee8ccd2ef7c5020",
+      startBlock: 26_642_705,
+    },
+    mechMarketplaceV1EndBlock: 33_907_400,
+    handlesMaxDeliveryRateUpdated: false,
+    mechFactories: [
+      {
+        address: "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe",
+        event: "CreateMechFixedPriceNative",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+        feeUnit: FEE_UNIT_NATIVE,
+        startBlock: 26_642_705,
+      },
+      {
+        address: "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee",
+        event: "CreateMechFixedPriceToken",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN,
+        feeUnit: FEE_UNIT_TOKEN,
+        startBlock: 26_642_705,
+      },
+      {
+        address: "0x5b70a66fe68c4c86ffd724b58cc56049c70e9d3d",
+        event: "CreateMechFixedPriceTokenUSDC",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+        feeUnit: FEE_UNIT_USDC,
+        startBlock: 26_642_705,
+      },
+      {
+        address: "0x847bbe8b474e0820215f818858e23f5f5591855a",
+        event: "CreateMechNvmSubscriptionNative",
+        paymentType: PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE,
+        feeUnit: FEE_UNIT_CREDITS,
+        startBlock: 26_642_705,
+      },
+      {
+        address: "0x7bed01f8482ff686f025628e7780ca6c1f0559fc",
+        event: "CreateMechNvmSubscriptionTokenUSDC",
+        paymentType: PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC,
+        feeUnit: FEE_UNIT_CREDITS,
+        startBlock: 26_642_705,
+      },
+    ],
+    // Chainlink ETH / USD on Base, 8 decimals.
+    nativeUsdFeed: "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70",
+    nativeDecimals: 18,
+    usdcDecimals: 6,
+    // calculateBaseNvmCreditsToUsd: credits × 0.99 / 1e6 (USDC).
+    nvmCredits: { ratio: "990000000000000000", tokenDecimals: 6 },
+    // OLAS/USDC Balancer V2 pool.
+    olasPool: {
+      vault: "0xba12222222228d8ba445958a75a0704d566bf2c8",
+      pool: "0x5332584890d6e415a6dc910254d6430b8aab7e69",
+      olas: "0x54330d28ca3357f294334bdc454a032e7f353416",
+      stable: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      stableDecimals: 6,
+    },
   },
 };
 
+/** `<name>` of a `.../datasets/<name>` portal URL, or null. */
+function portalDatasetName(url: string): string | null {
+  const m = /\/datasets\/([^/?#]+)/.exec(url);
+  return m == null ? null : m[1];
+}
+
+/**
+ * In portal mode the URL must serve this chain's dataset. A Robinhood URL
+ * left in place with MARKETPLACE_CHAIN=base would stream the wrong chain,
+ * match no address, and report healthy at an empty head.
+ */
+export function assertPortalDataset(url: string, chain: ChainConfig): void {
+  const want = portalDatasetName(chain.portalDataset);
+  const got = portalDatasetName(url);
+  if (got !== want) {
+    throw new Error(
+      `SQD_PORTAL_URL="${url}" serves dataset "${got ?? "(none)"}", but ` +
+        `MARKETPLACE_CHAIN="${chain.name}" needs "${want}".`
+    );
+  }
+}
+
+/**
+ * Load-time checks on a chain entry, so a config slip fails startup instead
+ * of silently pricing fees at $0 or matching no log:
+ * - every address is lowercase (SQD lowercases log addresses and the code
+ *   compares with ===; the OLAS pool's token match relies on it too);
+ * - a factory with fee unit TOKEN needs `olasPool`, CREDITS needs `nvmCredits`,
+ *   NATIVE needs `nativeUsdFeed`.
+ */
+export function assertChainConfig(chain: ChainConfig): void {
+  const addrs = JSON.stringify(chain).match(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g) ?? [];
+  const mixed = addrs.filter((a) => a !== a.toLowerCase());
+  if (mixed.length > 0) {
+    throw new Error(`${chain.name}: addresses must be lowercase: ${mixed.join(", ")}`);
+  }
+  const needs: [string, unknown][] = [
+    [FEE_UNIT_TOKEN, chain.olasPool],
+    [FEE_UNIT_CREDITS, chain.nvmCredits],
+    [FEE_UNIT_NATIVE, chain.nativeUsdFeed],
+  ];
+  for (const [unit, source] of needs) {
+    const f = chain.mechFactories.find((x) => x.feeUnit === unit);
+    if (f != null && source == null) {
+      throw new Error(
+        `${chain.name}: factory ${f.address} has fee unit ${unit} but the chain has no source for it`
+      );
+    }
+  }
+}
+
 // This deployment's chain.
 export const CHAIN: ChainConfig = selectChain("MARKETPLACE_CHAIN", CHAINS, "robinhood");
+assertChainConfig(CHAIN);
 
 export const START_BLOCK = CHAIN.startBlock;
 export const SERVICE_REGISTRY_L2 = CHAIN.serviceRegistryL2.address;

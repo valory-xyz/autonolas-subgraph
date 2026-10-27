@@ -12,15 +12,19 @@ import { EntityCache } from "./entityCache";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as metadata from "./abi/ComplementaryServiceMetadata/events";
 import * as karma from "./abi/Karma/events";
-import * as marketplace from "./abi/MechMarketplaceV2/events";
-import * as factoryNative from "./abi/MechFactoryFixedPriceNative/events";
-import * as factoryToken from "./abi/MechFactoryFixedPriceToken/events";
 import * as mech from "./abi/MechFixedPriceNative/events";
 import * as h from "./handlers";
 import type { Ctx } from "./handlers";
-import { decodeForeign, eventMeta } from "./decode";
-import { probeRpc, rpcPriceSource } from "./rpc";
 import {
+  assertDecodedIfSubscribed,
+  decodeFactoryLog,
+  decodeForeign,
+  decodeMarketplaceLog,
+  eventMeta,
+} from "./decode";
+import { probeRpc, rpcOlasPool, rpcPriceSource } from "./rpc";
+import {
+  CHAIN,
   COMPLEMENTARY_SERVICE_METADATA,
   KARMA,
   MECH_FACTORY_ADDRESSES,
@@ -48,6 +52,7 @@ run(
       cache,
       log: logger,
       price: rpcPriceSource,
+      olasPool: rpcOlasPool,
       ...h.newBatchState(),
     };
 
@@ -63,50 +68,21 @@ run(
         const topic0 = log.topics[0];
         const meta = eventMeta(block.header, log);
 
-        // --- MechMarketplace (proxy) ---------------------------------
+        // --- MechMarketplace (proxy), V1 or V2 ABI by block ------------
         if (address === MECH_MARKETPLACE) {
-          if (topic0 === marketplace.CreateMech.topic) {
-            const e = marketplace.CreateMech.decode(log);
-            await h.handleCreateMech(hctx, meta, {
-              mech: lc(e.mech),
-              serviceId: e.serviceId,
-              mechFactory: lc(e.mechFactory),
-            });
-          } else if (topic0 === marketplace.MarketplaceRequest.topic) {
-            const e = marketplace.MarketplaceRequest.decode(log);
-            await h.handleMarketplaceRequest(hctx, meta, {
-              priorityMech: lc(e.priorityMech),
-              requester: lc(e.requester),
-              numRequests: e.numRequests,
-              requestIds: e.requestIds.map(lc),
-            });
-          } else if (topic0 === marketplace.MarketplaceDelivery.topic) {
-            const e = marketplace.MarketplaceDelivery.decode(log);
-            await h.handleMarketplaceDelivery(hctx, meta, {
-              deliveryMech: lc(e.deliveryMech),
-              numDeliveries: e.numDeliveries,
-              requestIds: e.requestIds.map(lc),
-              deliveredRequests: [...e.deliveredRequests],
-            });
-          } else if (
-            topic0 === marketplace.MarketplaceDeliveryWithSignatures.topic
-          ) {
-            const e = marketplace.MarketplaceDeliveryWithSignatures.decode(log);
-            await h.handleMarketplaceDeliveryWithSignatures(hctx, meta, {
-              deliveryMech: lc(e.deliveryMech),
-              requester: lc(e.requester),
-              numDeliveries: e.numDeliveries,
-              requestIds: e.requestIds.map(lc),
-            });
-          } else if (topic0 === marketplace.Deliver.topic) {
-            const e = marketplace.Deliver.decode(log);
-            await h.handleDeliverWithSignatures(hctx, meta, {
-              mech: lc(e.mech),
-              mechServiceMultisig: lc(e.mechServiceMultisig),
-              requestId: lc(e.requestId),
-              deliveryRate: e.deliveryRate,
-              deliveryData: lc(e.deliveryData),
-            });
+          const e = decodeMarketplaceLog(log, block.header.number, CHAIN.mechMarketplaceV1EndBlock);
+          if (e?.kind === "CreateMech") {
+            await h.handleCreateMech(hctx, meta, e);
+          } else if (e?.kind === "MarketplaceRequest") {
+            await h.handleMarketplaceRequest(hctx, meta, e);
+          } else if (e?.kind === "MarketplaceDelivery") {
+            await h.handleMarketplaceDelivery(hctx, meta, e);
+          } else if (e?.kind === "MarketplaceDeliveryWithSignatures") {
+            await h.handleMarketplaceDeliveryWithSignatures(hctx, meta, e);
+          } else if (e?.kind === "Deliver") {
+            await h.handleDeliverWithSignatures(hctx, meta, e);
+          } else {
+            assertDecodedIfSubscribed(topic0, block.header.number, CHAIN.mechMarketplaceV1EndBlock);
           }
           continue;
         }
@@ -182,20 +158,8 @@ run(
 
         // --- Mech factories: maxDeliveryRate hand-off ----------------
         if (FACTORY_SET.has(address)) {
-          const ev =
-            topic0 === factoryNative.CreateMechFixedPriceNative.topic
-              ? factoryNative.CreateMechFixedPriceNative
-              : topic0 === factoryToken.CreateMechFixedPriceToken.topic
-                ? factoryToken.CreateMechFixedPriceToken
-                : null;
-          if (ev != null) {
-            const e = ev.decode(log);
-            h.handleMechFactoryCreate(hctx, meta, {
-              mech: lc(e.mech),
-              serviceId: e.serviceId,
-              maxDeliveryRate: e.maxDeliveryRate,
-            });
-          }
+          const e = decodeFactoryLog(log);
+          if (e != null) h.handleMechFactoryCreate(hctx, meta, e);
           continue;
         }
 
@@ -223,7 +187,10 @@ run(
               data: lc(e.data),
             });
           }
-        } else if (topic0 === mech.MaxDeliveryRateUpdated.topic) {
+        } else if (
+          CHAIN.handlesMaxDeliveryRateUpdated &&
+          topic0 === mech.MaxDeliveryRateUpdated.topic
+        ) {
           const e = decodeForeign(mech.MaxDeliveryRateUpdated, log);
           if (e != null) {
             await h.handleMaxDeliveryRateUpdated(hctx, meta, {

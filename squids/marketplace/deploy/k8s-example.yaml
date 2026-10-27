@@ -8,7 +8,9 @@
 #   Secret marketplace-robinhood-squid-db   (all three workloads):
 #     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
 #   Secret marketplace-robinhood-squid-data (processor ONLY):
-#     MARKETPLACE_CHAIN  -> "robinhood" (key into src/constants.ts CHAINS)
+#     MARKETPLACE_CHAIN  -> "robinhood" or "base" (key into src/constants.ts CHAINS).
+#       Base: INGEST_SOURCE=portal, SQD_PORTAL_URL .../datasets/base-mainnet,
+#       archive RPC_HTTP; name the workloads marketplace-base-squid-*.
 #     INGEST_SOURCE      -> "portal" or "rpc". robinhood-mainnet is a PRIVATE
 #       portal dataset (the public portal answers 404): use "portal" only with
 #       the private portal URL + key below; otherwise "rpc" ingests from
