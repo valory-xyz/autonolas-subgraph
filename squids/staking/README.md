@@ -1,11 +1,31 @@
 # Staking squid
 
-Robinhood Chain staking indexer, ported from **autonolas-subgraph-studio main
+Robinhood Chain and Base staking indexer, ported from **autonolas-subgraph-studio main
 `ab3ac860ada32aa16121c3637816cba3f8075f1b`** (PR #169). It tracks factory events,
 dynamically discovered staking proxies, services, rewards by epoch, OLAS stake
 and claimed-reward totals, and cumulative daily snapshots.
 
 ## Chain configuration
+
+`STAKING_CHAIN` picks one chain per deployment (default `robinhood`; unknown
+names fail at startup). `SQD_PORTAL_URL`, when set, must name that chain's
+dataset.
+
+| | Robinhood | Base |
+|---|---|---|
+| `STAKING_CHAIN` | `robinhood` | `base` |
+| Chain ID | 4663 | 8453 |
+| Factory | `0x1bd1505b711fb58c54ca3712e6bef47a133892d9` | `0x1cee30d08943eb58eff84dd1ab44a6ee6feff63a` |
+| Start block | 58,661,778 | 17,310,019 |
+| OLAS | `0x092963938debd8013a2e545b3549f8a5ec0d2286` | `0x54330d28ca3357f294334bdc454a032e7f353416` |
+| Portal dataset | `robinhood-mainnet` (private, key required) | `base-mainnet` (public; key optional) |
+| Default RPC | Olas rpc-gate | `https://mainnet.base.org` (archive, keyless, rate-limited) |
+
+Base mirrors studio `subgraphs/staking/subgraph.base.yaml` (factory and start
+block; no bytecode at 17,310,018) and `shared/constants.ts` `OLAS_ADDRESS_BASE`.
+It replaces the graph-node `staking-base` subgraph.
+
+### Robinhood
 
 - Chain ID: **4663** (`STAKING_CHAIN=robinhood`).
 - Factory: `0x1bd1505b711fb58c54ca3712e6bef47a133892d9`.
