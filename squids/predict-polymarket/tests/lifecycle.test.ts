@@ -1,12 +1,22 @@
 // Full agent lifecycle against the extracted handlers + in-memory cache:
 // register (agent id 86) -> multisig -> tokens -> question -> buy -> resolve
 // -> re-resolve (no-op) -> redeem, plus condition preparation with a stubbed
-// token derivation and the factory-based DepositWallet linking + v2 sell.
+// token derivation, the factory-based DepositWallet linking + v2 sell, and
+// exchange fills dispatched through main.ts.
 // Mirrors the behavioral expectations of the original subgraph's Matchstick
 // suite and the Envio port's vitest suite.
 import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryCache } from "./inMemoryCache";
+import { FakeStore, runBatch } from "./replay";
 import * as handlers from "../src/handlers";
+import * as ctfExchangeEvents from "../src/abi/CTFExchange/events";
+import * as ctfExchangeV2Events from "../src/abi/CTFExchangeV2/events";
+import {
+  CTF_EXCHANGE_V1,
+  CTF_EXCHANGE_V2,
+  NEG_RISK_CTF_EXCHANGE_V1,
+  NEG_RISK_CTF_EXCHANGE_V2,
+  PROBABILITY_SCALE,
+} from "../src/constants";
 import { processRedemption, EventMeta } from "../src/logic";
 import {
   Bet,
@@ -58,11 +68,30 @@ function meta(blockTimestamp: bigint, logIndex = 0): EventMeta {
   };
 }
 
-let cache: InMemoryCache;
+// The cache doubles as the store main.ts's batch handler writes to.
+let cache: FakeStore;
 beforeEach(() => {
-  cache = new InMemoryCache();
+  cache = new FakeStore();
   txCounter = 0;
 });
+
+/** Dispatches one encoded log through main.ts's batch handler, at BET_TS. */
+async function dispatch(address: string, rec: { topics: string[]; data: string }) {
+  txCounter += 1;
+  await runBatch(cache, [
+    {
+      block: { number: 80_000_000 + txCounter, timestamp: Number(BET_TS) },
+      logs: [
+        {
+          address,
+          ...rec,
+          transactionHash: `0x${String(txCounter).padStart(64, "0")}`,
+          logIndex: 0,
+        },
+      ],
+    },
+  ]);
+}
 
 async function registerAgent() {
   await handlers.handleRegisterInstance(cache, meta(1_750_000_000n), {
@@ -434,13 +463,19 @@ describe("brier score", () => {
     await setupMarket();
   });
 
-  async function buy(amountUsd: number, shares: number, token = TOKEN_YES) {
+  async function buy(
+    amountUsd: number,
+    shares: number,
+    token = TOKEN_YES,
+    fee = 0n,
+  ) {
     await handlers.handleOrderFill(cache, meta(BET_TS), {
       maker: SAFE,
       isBuying: true,
       outcomeTokenId: token,
       makerAmountFilled: USDC(amountUsd),
       takerAmountFilled: USDC(shares),
+      fee,
       builder: null,
       metadata: null,
     });
@@ -520,6 +555,14 @@ describe("brier score", () => {
     expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(2);
   });
 
+  it("caps a fee-inclusive price above 1 at 1e18, so a win adds no penalty", async () => {
+    await buy(99, 100, TOKEN_YES, 1_980_000n); // price 0.99 plus a 2% fee
+    expect(cache.all(Bet)[0]!.impliedProbability).toBe(PROBABILITY_SCALE);
+    await resolve([0n, 1n]); // YES wins
+    expect(dayStat(RESOLUTION_DAY)?.brierSum).toBe(0n);
+    expect(dayStat(RESOLUTION_DAY)?.brierCount).toBe(1);
+  });
+
   it("does not re-score on a repeated resolution", async () => {
     await buy(40, 100);
     await resolve([0n, 1n]);
@@ -585,34 +628,65 @@ describe("deposit wallet factory linking + v2 orders", () => {
     expect(participant?.outcomeShares1).toBe(-USDC(50));
   });
 
-  // Polygon tx 0xd44716474978b2c0e48140692fc64c26caed36f83111db2850f50edcd0e19d07,
+  // Recorded CLOB v2 CTF exchange fills, dispatched through main.ts on both
+  // CLOB v2 exchanges (the NegRisk rows reuse the recorded amounts).
+  // buy: Polygon tx 0xd44716474978b2c0e48140692fc64c26caed36f83111db2850f50edcd0e19d07,
   // log 371: the DW pays 2,178,559 pUSD (log 354) = makerAmountFilled + fee.
-  it("includes the CLOB v2 fee in a buy's cost and profit", async () => {
+  // sell: Polygon tx 0xd6965862dd60f7faf29c2fae94750397657c32be3e954709d39f74f3544478fe,
+  // log 539: the maker receives 7,021,650 pUSD (log 538) = takerAmountFilled - fee.
+  // YES wins, so profit = YES shares held (none after a sell) - pUSD paid.
+  const CLOB_V2_BUY = {
+    side: 0,
+    makerAmountFilled: 2_129_999n,
+    takerAmountFilled: 4_953_487n,
+    fee: 48_560n,
+    amount: 2_178_559n,
+    shares: 4_953_487n,
+    profit: 4_953_487n - 2_178_559n,
+  };
+  const CLOB_V2_SELL = {
+    side: 1,
+    makerAmountFilled: 23_800_000n,
+    takerAmountFilled: 7_378_000n,
+    fee: 356_350n,
+    amount: -7_021_650n,
+    shares: -23_800_000n,
+    profit: 7_021_650n,
+  };
+  it.each([
+    ["CTF", "buy", CTF_EXCHANGE_V2, CLOB_V2_BUY],
+    ["CTF", "sell", CTF_EXCHANGE_V2, CLOB_V2_SELL],
+    ["NegRisk CTF", "buy", NEG_RISK_CTF_EXCHANGE_V2, CLOB_V2_BUY],
+    ["NegRisk CTF", "sell", NEG_RISK_CTF_EXCHANGE_V2, CLOB_V2_SELL],
+  ])("includes the fee of a CLOB v2 %s exchange %s in its amount and profit", async (_exchange, _side, address, fill) => {
     await handlers.handleWalletDeployed(cache, meta(1_760_000_000n), {
       wallet: DW,
       owner: AGENT_EOA,
     });
-    await handlers.handleOrderFill(cache, meta(BET_TS), {
-      maker: DW,
-      isBuying: true,
-      outcomeTokenId: TOKEN_YES,
-      makerAmountFilled: 2_129_999n,
-      takerAmountFilled: 4_953_487n,
-      fee: 48_560n,
-      builder: `0x${"00".repeat(32)}`,
-      metadata: `0x${"00".repeat(32)}`,
-    });
+    await dispatch(
+      address,
+      ctfExchangeV2Events.OrderFilled.encode({
+        orderHash: `0x${"0d".repeat(32)}`,
+        maker: DW,
+        taker: TAKER,
+        side: fill.side,
+        tokenId: TOKEN_YES,
+        makerAmountFilled: fill.makerAmountFilled,
+        takerAmountFilled: fill.takerAmountFilled,
+        fee: fill.fee,
+        builder: `0x${"00".repeat(32)}`,
+        metadata: `0x${"00".repeat(32)}`,
+      }),
+    );
 
     const bet = cache.all(Bet)[0]!;
-    expect(bet.amount).toBe(2_178_559n);
-    expect(bet.shares).toBe(4_953_487n);
-    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(2_178_559n);
+    expect([bet.amount, bet.shares]).toEqual([fill.amount, fill.shares]);
+    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(fill.amount);
     expect(
       (await cache.get(MarketParticipant, `${SAFE}_${CONDITION_ID}`))
         ?.totalTraded,
-    ).toBe(2_178_559n);
+    ).toBe(fill.amount);
 
-    // YES wins: profit = shares - pUSD paid, fee included
     await handlers.handleQuestionResolution(cache, meta(RESOLUTION_TS), {
       questionID: QUESTION_ID,
       settledPrice: 10n ** 18n,
@@ -621,31 +695,54 @@ describe("deposit wallet factory linking + v2 orders", () => {
     const resolutionDay = cache
       .all(DailyProfitStatistic)
       .find((s) => s.date === RESOLUTION_DAY);
-    expect(resolutionDay?.dailyProfit).toBe(4_953_487n - 2_178_559n);
+    expect(resolutionDay?.dailyTradedSettled).toBe(fill.amount);
+    expect(resolutionDay?.dailyProfit).toBe(fill.profit);
   });
 
-  // Polygon tx 0xd6965862dd60f7faf29c2fae94750397657c32be3e954709d39f74f3544478fe,
-  // log 539: the maker receives 7,021,650 pUSD (log 538) = takerAmountFilled - fee.
-  it("nets the CLOB v2 fee from a sell's proceeds", async () => {
-    await handlers.handleWalletDeployed(cache, meta(1_760_000_000n), {
-      wallet: DW,
-      owner: AGENT_EOA,
-    });
+  // The legacy exchanges take their fee from what the maker receives
+  // (outcome tokens on a buy), so it is not added to the collateral amount.
+  it.each([
+    ["CTF", CTF_EXCHANGE_V1],
+    ["NegRisk CTF", NEG_RISK_CTF_EXCHANGE_V1],
+  ])(
+    "records a legacy %s exchange buy without its OrderFilled fee",
+    async (_exchange, address) => {
+      await dispatch(
+        address,
+        ctfExchangeEvents.OrderFilled.encode({
+          orderHash: `0x${"0d".repeat(32)}`,
+          maker: SAFE,
+          taker: TAKER,
+          makerAssetId: 0n,
+          takerAssetId: TOKEN_YES,
+          makerAmountFilled: USDC(40),
+          takerAmountFilled: USDC(100),
+          fee: USDC(1),
+        }),
+      );
+
+      const bet = cache.all(Bet)[0]!;
+      expect([bet.amount, bet.shares]).toEqual([USDC(40), USDC(100)]);
+      expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(USDC(40));
+    },
+  );
+
+  // a dust sell whose fee exceeds its proceeds nets to zero, never to a gain
+  it("caps a sell's fee at its proceeds, so a sell amount is never positive", async () => {
     await handlers.handleOrderFill(cache, meta(BET_TS), {
-      maker: DW,
+      maker: SAFE,
       isBuying: false,
       outcomeTokenId: TOKEN_YES,
-      makerAmountFilled: 23_800_000n,
-      takerAmountFilled: 7_378_000n,
-      fee: 356_350n,
-      builder: `0x${"00".repeat(32)}`,
-      metadata: `0x${"00".repeat(32)}`,
+      makerAmountFilled: 10n,
+      takerAmountFilled: 1n,
+      fee: 2n,
+      builder: null,
+      metadata: null,
     });
 
     const bet = cache.all(Bet)[0]!;
-    expect(bet.amount).toBe(-7_021_650n);
-    expect(bet.shares).toBe(-23_800_000n);
-    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(-7_021_650n);
+    expect([bet.amount, bet.shares]).toEqual([0n, -10n]);
+    expect((await cache.get(TraderAgent, SAFE))?.totalTraded).toBe(0n);
   });
 
   it("warns and drops a trade on an unknown token", async () => {

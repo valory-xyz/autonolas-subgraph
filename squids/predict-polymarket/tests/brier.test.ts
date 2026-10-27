@@ -24,8 +24,9 @@ describe("computeImpliedProbability", () => {
     expect(computeImpliedProbability(USDC(1), 0n)).toBe(0n);
   });
 
-  it("does not clamp above 1e18", () => {
-    expect(computeImpliedProbability(USDC(120), USDC(100))).toBe(P(12));
+  it("clamps a fee-inclusive price above 1 to 1e18", () => {
+    expect(computeImpliedProbability(USDC(120), USDC(100))).toBe(PROBABILITY_SCALE);
+    expect(computeImpliedProbability(-USDC(120), -USDC(100))).toBe(PROBABILITY_SCALE);
   });
 });
 
