@@ -96,6 +96,9 @@ type Bet @entity {
   dailyStatistic: DailyProfitStatistic
   builder: String
   metadata: String
+  # Collateral token of the fill: pUSD for Protocol V2 (ExchangeV3) bets;
+  # null for bets on CTF outcome tokens (CTF exchanges).
+  collateral: String
   blockTimestamp: BigInt!
   transactionHash: String!
 }
