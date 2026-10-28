@@ -392,9 +392,9 @@ describe("on-chain marketplace request -> delivery", () => {
     expect(mech.selfDeliveredFromReceived).toBe(1n);
     expect(mech.deliveredByOthersFromReceived).toBe(0n);
     expect(mech.totalDeliveriesTransactions).toBe(1n);
-    // observed rate differs from stored max -> self-heal + reprice
-    expect(mech.maxDeliveryRate).toBe(8n * 10n ** 15n);
-    expect(mech.maxDeliveryRateUSD!.toString()).toBe("16");
+    // Actual delivery charge does not replace the advertised maximum.
+    expect(mech.maxDeliveryRate).toBe(10n ** 16n);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("20");
 
     // supply-side counter on the mech's service, exactly once
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(1n);
@@ -622,6 +622,23 @@ describe("off-chain signed deliveries", () => {
     // Service.totalDeliveries is NOT incremented on the signed path
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(0n);
     expect(cache.count(MarketplaceDeliveryWithSignatures)).toBe(1);
+  });
+
+  it("signed-only settlement preserves the latest advertised maximum and records the actual rate", async () => {
+    const updatedMaximum = 100n * 10n ** 18n;
+    await h.handleMaxDeliveryRateUpdated(ctx, meta({ address: MECH_A }), {
+      maxDeliveryRate: updatedMaximum,
+    });
+
+    await signedBatch(MULTISIG_1, [rid(20)]);
+
+    const mech = (await cache.get(Mech, "2"))!;
+    const delivery = (await cache.get(DeliverForMarketplace, rid(20)))!;
+    expect(mech.maxDeliveryRate).toBe(updatedMaximum);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("200000");
+    expect(delivery.deliveryRate).toBe(10n ** 16n);
+    expect(cache.count(Request)).toBe(0);
+    expect((await global()).totalFeesPaidUSD.toString()).toBe("0");
   });
 
   it("accumulates batch sizes across requesters, excluding individual delivery logs", async () => {

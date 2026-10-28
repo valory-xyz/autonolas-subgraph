@@ -223,8 +223,11 @@ type Mech @entity(immutable: false) {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  maxDeliveryRate: BigInt # Latest maxDeliveryRate from MaxDeliveryRateUpdated event
-  maxDeliveryRateUSD: BigDecimal # USD-converted maxDeliveryRate for mech discoverability across payment types
+  # Latest advertised maximum from factory creation or MaxDeliveryRateUpdated;
+  # it is not necessarily the amount charged for any particular request.
+  maxDeliveryRate: BigInt
+  # USD conversion of the advertised maximum for cross-payment-type discovery.
+  maxDeliveryRateUSD: BigDecimal
   karma: BigInt! # Cumulative karma (sum of all karmaChange values from MechKarmaChanged events)
   paymentType: Bytes! # Payment type from the payment type contract (required)
 }
@@ -253,7 +256,7 @@ type Global @entity(immutable: false) {
   totalAtaTransactions: BigInt!
 
   # Fee tracking
-  totalFeesPaidUSD: BigDecimal! # Total marketplace fees in USD
+  totalFeesPaidUSD: BigDecimal! # Actual USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
   # Prediction-specific counters (only requests with non-empty questionTitle)
   totalPredictRequests: BigInt!
@@ -347,10 +350,16 @@ type Request @entity(immutable: false) {
   isDelivered: Boolean!
   priorityMech: Bytes # address of the mech that was originally requested
   deliveredByMech: Bytes # address of the mech that delivered the request
-  # Fee tracking
-  feeUSD: BigDecimal # Initial locked fee in USD (from mech maxDeliveryRate)
-  finalFeeUSD: BigDecimal # Actual paid fee in USD (from actual deliver.deliveryRate)
-  feeRaw: BigInt # Raw fee in original units
+  # Advertised-rate snapshot at request time, not the actual amount paid.
+  # Once cap-and-actual pricing is active this may exceed the final charge.
+  feeUSD: BigDecimal
+  # Actual charge converted to USD for on-chain marketplace Requests whose
+  # priority mech has a fee unit recorded at request time. Signed-only
+  # deliveries create no Request entity; their raw charge is on
+  # DeliverForMarketplace.deliveryRate.
+  finalFeeUSD: BigDecimal
+  # Advertised-rate snapshot in the payment unit's raw units, not actual spend.
+  feeRaw: BigInt
   feeUnit: FeeUnit # Payment model indicator (NATIVE, TOKEN, CREDITS)
 }
 
@@ -368,7 +377,7 @@ type DeliverForMarketplace @entity(immutable: true) {
   requestIdBytes: Bytes! # raw bytes32
   ipfsHashBytes: Bytes
   mechServiceMultisig: Bytes
-  deliveryRate: BigInt
+  deliveryRate: BigInt # Actual charge in raw payment units
   isMarketplace: Boolean
   isOffChain: Boolean
   deliver: Deliver
@@ -422,7 +431,7 @@ type Sender @entity(immutable: false) {
   totalOffChainRequests: BigInt!
 
   # Fee tracking
-  totalFeesPaidUSD: BigDecimal! # Cumulative fees paid in USD
+  totalFeesPaidUSD: BigDecimal! # Cumulative USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
   # Prediction-specific counters (only requests with non-empty questionTitle)
   totalPredictRequests: BigInt!

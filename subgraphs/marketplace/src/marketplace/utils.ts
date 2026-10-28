@@ -1056,7 +1056,9 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
     return;
   }
 
-  if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+  // Deliver logs contain the actual charge. They can only recover a missing
+  // advertised maximum; MaxDeliveryRateUpdated is authoritative thereafter.
+  if (mech.maxDeliveryRate === null) {
     let createMech = CreateMech.load(mechAddress);
     if (createMech !== null && createMech.mechFactory !== null) {
       mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(

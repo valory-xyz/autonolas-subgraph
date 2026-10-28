@@ -160,7 +160,7 @@ describe("Fee tracking comprehensive tests", () => {
     dataSourceMock.resetValues();
   });
 
-  test("should_set_finalFeeUSD_equal_to_feeUSD_when_delivery_rate_equals_locked_rate", () => {
+  test("should_set_finalFeeUSD_equal_to_feeUSD_when_delivery_rate_equals_advertised_rate", () => {
     initNetworkGnosis();
     ensureGlobalExists();
 

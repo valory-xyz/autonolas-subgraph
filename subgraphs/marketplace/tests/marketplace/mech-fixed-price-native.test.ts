@@ -467,4 +467,23 @@ describe("Mech Fixed Price Native Handler", () => {
       // Assert: Should reflect latest value
       assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
     })
+
+    test("a lower on-chain delivery charge does not overwrite the advertised maximum", () => {
+      let serviceId = BigInt.fromI32(302)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000302")
+      createMechWithMapping(mechAddress, serviceId)
+
+      handleMaxDeliveryRateUpdated(createMaxDeliveryRateUpdatedEvent(mechAddress, BigInt.fromI32(120)))
+      handleDeliver(
+        createDeliverEvent(
+          mechAddress,
+          TEST_REQUEST_ID_1,
+          TEST_MECH_SERVICE_MULTISIG,
+          BigInt.fromI32(100),
+          TEST_DATA_NATIVE
+        )
+      )
+
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "120")
+    })
 })

@@ -49,7 +49,6 @@ describe("Base chain table", () => {
     expect(c.CHAIN.mechMarketplace.startBlock).toBe(26_642_705);
     expect(c.CHAIN.mechMarketplaceV1EndBlock).toBe(V1_END);
     expect(c.CHAIN.nativeUsdFeed).toBe("0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70");
-    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(false);
     expect(c.MECH_FACTORY_ADDRESSES).toEqual([
       "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe",
       "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee",
@@ -87,7 +86,6 @@ describe("Base chain table", () => {
     const c = await import("../src/constants");
     expect(c.CHAIN.name).toBe("robinhood");
     expect(c.CHAIN.mechMarketplaceV1EndBlock).toBeNull();
-    expect(c.CHAIN.handlesMaxDeliveryRateUpdated).toBe(true);
   });
 });
 
@@ -111,7 +109,7 @@ describe("portal dataset guard", () => {
 });
 
 describe("Base subscriptions (processor.ts)", () => {
-  it("V1 topics up to 33,907,400, V2 from 33,907,401, five factory topics, no MaxDeliveryRateUpdated", async () => {
+  it("V1 topics up to 33,907,400, V2 from 33,907,401, five factory topics, and mech rate updates", async () => {
     vi.stubEnv("MARKETPLACE_CHAIN", "base");
     vi.stubEnv("SQD_PORTAL_API_KEY", "");
     vi.stubEnv("INGEST_SOURCE", "portal");
@@ -138,7 +136,11 @@ describe("Base subscriptions (processor.ts)", () => {
     );
 
     const mechQuery = LOG_QUERIES.find((q) => q.where?.address == null)!;
-    expect(mechQuery.where!.topic0).toEqual([mechAbi.Request.topic, mechAbi.Deliver.topic]);
+    expect(mechQuery.where!.topic0).toEqual([
+      mechAbi.Request.topic,
+      mechAbi.Deliver.topic,
+      mechAbi.MaxDeliveryRateUpdated.topic,
+    ]);
   }, 60_000); // the SDK import alone takes several seconds
 
   it("robinhood: one V2 marketplace query from its start, and MaxDeliveryRateUpdated IS subscribed", async () => {
@@ -389,7 +391,7 @@ describe("Base fee conversion (subgraph fee-utils.ts)", () => {
 });
 
 describe("Base handlers: NVM-USDC mech end to end", () => {
-  it('maxDeliveryRateUSD, feeUSD and finalFeeUSD match the subgraph ("0.000099" locked, "0.00000099" paid)', async () => {
+  it('maxDeliveryRateUSD, feeUSD and finalFeeUSD match the subgraph ("0.000099" advertised, "0.00000099" charged)', async () => {
     vi.stubEnv("MARKETPLACE_CHAIN", "base");
     const h = await import("../src/handlers");
     const m = await import("../src/model");
@@ -422,6 +424,8 @@ describe("Base handlers: NVM-USDC mech end to end", () => {
     expect(mech.paymentType).toBe("0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14");
     expect(mech.maxDeliveryRateUSD!.toFixed()).toBe("0.000099");
 
+    await h.handleMaxDeliveryRateUpdated(ctx, meta(), { maxDeliveryRate: 120n });
+
     await h.handleMarketplaceRequest(ctx, meta(), {
       priorityMech: MECH,
       requester: MULTISIG,
@@ -430,24 +434,23 @@ describe("Base handlers: NVM-USDC mech end to end", () => {
     });
     let req = (await cache.get(m.Request, RID))!;
     expect(req.feeUnit).toBe("CREDITS");
-    expect(req.feeRaw).toBe(100n);
-    expect(req.feeUSD!.toFixed()).toBe("0.000099");
+    expect(req.feeRaw).toBe(120n);
+    expect(req.feeUSD!.toFixed()).toBe("0.0001188");
 
-    // delivered at 1 credit
+    // Delivered at 100 credits, below the advertised 120-credit maximum.
     await h.handleMechDeliver(ctx, meta(), {
       mechServiceMultisig: MULTISIG,
       requestId: RID,
-      deliveryRate: 1n,
+      deliveryRate: 100n,
       data: "0x" + "22".repeat(32),
     });
     req = (await cache.get(m.Request, RID))!;
-    expect(req.finalFeeUSD!.toFixed()).toBe("0.00000099");
-    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
-    expect((await cache.get(m.Sender, MULTISIG))!.totalFeesPaidUSD.toFixed()).toBe("0.00000099");
-    // The Base manifest has no MaxDeliveryRateUpdated handler; the observed
-    // deliveryRate refreshes the mech's rate, as in the subgraph.
-    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRate).toBe(1n);
-    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRateUSD!.toFixed()).toBe("0.00000099");
+    expect(req.finalFeeUSD!.toFixed()).toBe("0.000099");
+    expect((await cache.get(m.Global, ""))!.totalFeesPaidUSD.toFixed()).toBe("0.000099");
+    expect((await cache.get(m.Sender, MULTISIG))!.totalFeesPaidUSD.toFixed()).toBe("0.000099");
+    // A delivery records actual charge but preserves the advertised cap.
+    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRate).toBe(120n);
+    expect((await cache.get(m.Mech, "111"))!.maxDeliveryRateUSD!.toFixed()).toBe("0.0001188");
   });
 });
 
@@ -510,7 +513,7 @@ describe("Base handlers: NATIVE and TOKEN mechs end to end", () => {
     ["NATIVE", "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe", 10n ** 16n, "20", 5n * 10n ** 15n, "10"],
     ["TOKEN", "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee", 10n * 10n ** 18n, "2", 5n * 10n ** 18n, "1"],
   ] as const)(
-    "%s: feeUSD at the locked rate, finalFeeUSD at the delivered rate, totals",
+    "%s: feeUSD at the advertised rate, finalFeeUSD at the delivered rate, totals",
     async (unit, factory, maxRate, maxUsd, rate, rateUsd) => {
       vi.stubEnv("MARKETPLACE_CHAIN", "base");
       const h = await import("../src/handlers");

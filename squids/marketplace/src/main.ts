@@ -187,10 +187,7 @@ run(
               data: lc(e.data),
             });
           }
-        } else if (
-          CHAIN.handlesMaxDeliveryRateUpdated &&
-          topic0 === mech.MaxDeliveryRateUpdated.topic
-        ) {
+        } else if (topic0 === mech.MaxDeliveryRateUpdated.topic) {
           const e = decodeForeign(mech.MaxDeliveryRateUpdated, log);
           if (e != null) {
             await h.handleMaxDeliveryRateUpdated(hctx, meta, {

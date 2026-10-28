@@ -37,6 +37,8 @@ import {
 } from "../../generated/schema"
 import { getGlobal as getLegacyGlobal } from "../../src/utils"
 import { getGlobal as getMarketplaceGlobal } from "../../src/marketplace/utils"
+import { handleMaxDeliveryRateUpdated } from "../../src/marketplace/mech-nvm-subscription-native"
+import { createMaxDeliveryRateUpdatedEvent } from "./mech-nvm-subscription-native-utils"
 import {
   TEST_REQUEST_ID_A,
   TEST_REQUEST_ID_B,
@@ -334,6 +336,47 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Global", "", "totalOffChainRequests", "5")
     assert.fieldEquals("Global", "", "totalMarketplaceDeliveriesWithSignatures", "2")
     assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "5")
+  })
+
+  test("signed-only delivery keeps an updated advertised maximum separate from its actual charge", () => {
+    dataSourceMock.setNetwork("gnosis")
+
+    let serviceId = BigInt.fromI32(113)
+    let mech = Address.fromString("0x00000000000000000000000000000000000000e1")
+    let mechFactory = Address.fromString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE)
+    let requester = Address.fromString("0x00000000000000000000000000000000000000e2")
+    let requestId = Bytes.fromHexString("0x5100000000000000000000000000000000000000000000000000000000000051")
+    let actualRate = BigInt.fromString("40000000000000000000")
+    let updatedMaximum = BigInt.fromString("100000000000000000000")
+
+    createService(serviceId, [BigInt.fromI32(34)])
+    createMultisig(requester, serviceId)
+    createMechMapping(mech, serviceId, mechFactory, requester)
+    handleMaxDeliveryRateUpdated(createMaxDeliveryRateUpdatedEvent(mech, updatedMaximum))
+
+    let deliveryBatch = createMarketplaceDeliveryWithSignaturesEvent(
+      mech,
+      requester,
+      BigInt.fromI32(1),
+      [requestId]
+    )
+    let actualDeliver = createDeliverWithSignaturesV2Event(
+      mech,
+      requester,
+      requestId,
+      actualRate,
+      Bytes.fromHexString("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      Bytes.fromHexString("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    )
+    actualDeliver.transaction.hash = deliveryBatch.transaction.hash
+
+    handleMarketplaceDeliveryWithSignatures(deliveryBatch)
+    handleDeliverWithSignaturesV2(actualDeliver)
+
+    assert.entityCount("Request", 0)
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", updatedMaximum.toString())
+    assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRateUSD", "100")
+    assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", actualRate.toString())
   })
 
   test("handleDeliverWithSignaturesV1 stores delivery data and links to requester", () => {

@@ -27,6 +27,25 @@ for (const chain of ['gnosis', 'base', 'polygon', 'optimism', 'mainnet', 'arbitr
   test(`${chain}: no overlapping subscriptions for the same marketplace event`, () => {
     assert.deepEqual(overlaps(read(chain)), []);
   });
+  test(`${chain}: every mech template subscribes to advertised-maximum updates`, () => {
+    const manifest = read(chain);
+    const mechTemplates = manifest.templates.filter((t) => t.kind === 'ethereum');
+    const expectedTemplates = [
+      'MechFixedPriceNative',
+      'MechFixedPriceToken',
+      'MechNvmSubscriptionNative',
+      'MechNvmSubscriptionTokenUSDC',
+    ].sort();
+    assert.deepEqual(mechTemplates.map((t) => t.name).sort(), expectedTemplates,
+      `${chain} mech template set changed`);
+    const missing = mechTemplates
+      .filter((template) => !template.mapping.eventHandlers.some(
+        (h) => h.event === 'MaxDeliveryRateUpdated(uint256)' && h.handler === 'handleMaxDeliveryRateUpdated'
+      ))
+      .map((template) => template.name)
+      .sort();
+    assert.deepEqual(missing, [], `${chain} templates missing MaxDeliveryRateUpdated`);
+  });
 }
 const v2Starts = {
   gnosis: 41490894,
