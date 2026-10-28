@@ -15,6 +15,9 @@ import * as ctfExchangeEvents from "./abi/CTFExchange/events";
 import * as ctfExchangeV2Events from "./abi/CTFExchangeV2/events";
 import * as adapterEvents from "./abi/CtfCollateralAdapter/events";
 import * as factoryEvents from "./abi/DepositWalletFactory/events";
+import * as exchangeV3Events from "./abi/ExchangeV3/events";
+import * as binaryModuleEvents from "./abi/BinaryModule/events";
+import * as ooReporterEvents from "./abi/PolymarketOOReporter/events";
 import { processRedemption } from "./logic";
 import { eventMeta, inferV1Direction, inferV2Direction } from "./decode";
 import * as handlers from "./handlers";
@@ -30,6 +33,9 @@ import {
   NEG_RISK_CTF_EXCHANGE_V2,
   CTF_COLLATERAL_ADAPTERS,
   DEPOSIT_WALLET_FACTORY,
+  EXCHANGE_V3,
+  BINARY_MODULE,
+  POLYMARKET_OO_REPORTER,
 } from "./constants";
 
 const lc = (s: string) => s.toLowerCase();
@@ -136,6 +142,11 @@ run(
           address === NEG_RISK_CTF_EXCHANGE_V1
         ) {
           if (topic0 === ctfExchangeEvents.OrderFilled.topic) {
+            // OrderFilled.fee is not passed: the legacy exchanges stopped
+            // trading at the CLOB v2 cutover, and their fee is taken from the
+            // proceeds the maker receives (outcome tokens on a buy) rather
+            // than paid in collateral, so it does not fit the collateral fee
+            // rule in recordBet.
             const e = ctfExchangeEvents.OrderFilled.decode(log);
             const { isBuying, outcomeTokenId } = inferV1Direction(
               e.makerAssetId,
@@ -170,8 +181,47 @@ run(
               outcomeTokenId: e.tokenId,
               makerAmountFilled: e.makerAmountFilled,
               takerAmountFilled: e.takerAmountFilled,
+              fee: e.fee,
               builder: e.builder,
               metadata: e.metadata,
+            });
+          }
+        } else if (address === EXCHANGE_V3) {
+          if (topic0 === exchangeV3Events.OrderFilled.topic) {
+            const e = exchangeV3Events.OrderFilled.decode(log);
+            await handlers.handlePositionFill(cache, meta(), {
+              maker: lc(e.maker),
+              isBuying: inferV2Direction(e.side),
+              outcomeTokenId: e.tokenId,
+              makerAmountFilled: e.makerAmountFilled,
+              takerAmountFilled: e.takerAmountFilled,
+              fee: e.fee,
+              builder: e.builder,
+              metadata: e.metadata,
+            });
+          }
+        } else if (address === BINARY_MODULE) {
+          if (topic0 === binaryModuleEvents.ConditionResolved.topic) {
+            const e = binaryModuleEvents.ConditionResolved.decode(log);
+            await handlers.handleConditionResolved(cache, meta(), {
+              conditionId: e.conditionId,
+              result: [...e.result],
+            });
+          } else if (topic0 === binaryModuleEvents.PositionRedeemed.topic) {
+            const e = binaryModuleEvents.PositionRedeemed.decode(log);
+            await handlers.handlePositionRedeemed(cache, meta(), {
+              initiator: lc(e.initiator),
+              positionId: e.positionId,
+              recipient: lc(e.recipient),
+              payout: e.payout,
+            });
+          }
+        } else if (address === POLYMARKET_OO_REPORTER) {
+          if (topic0 === ooReporterEvents.RequestRegistered.topic) {
+            const e = ooReporterEvents.RequestRegistered.decode(log);
+            await handlers.handleRequestRegistered(cache, {
+              requestId: e.requestId,
+              requestRules: e.requestRules,
             });
           }
         } else if (CTF_COLLATERAL_ADAPTERS.includes(address)) {

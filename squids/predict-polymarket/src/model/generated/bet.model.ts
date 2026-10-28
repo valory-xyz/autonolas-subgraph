@@ -56,6 +56,9 @@ export class Bet {
     @StringColumn_({nullable: true})
     metadata!: string | undefined | null
 
+    @StringColumn_({nullable: true})
+    collateral!: string | undefined | null
+
     @BigIntColumn_({nullable: false})
     blockTimestamp!: bigint
 

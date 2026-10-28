@@ -13,7 +13,7 @@ import {
   TraderAgent,
 } from "./model";
 import { IEntityCache } from "./entityCache";
-import { ONE_DAY } from "./constants";
+import { ONE_DAY, PROBABILITY_SCALE } from "./constants";
 import { actualForOutcome, brierContribution } from "./brier";
 
 export type EventMeta = {
@@ -214,6 +214,7 @@ export async function processMarketResolution(
   let globalTradedSettledDelta = 0n;
   let globalExpectedPayoutDelta = 0n;
 
+  const payoutTotal = payouts.reduce((sum, p) => sum + p, 0n);
   const isAnswer0 = winningOutcome === 0n;
   const isAnswer1 = winningOutcome === 1n;
 
@@ -234,12 +235,15 @@ export async function processMarketResolution(
       expectedPayout =
         participant.outcomeShares1 > 0n ? participant.outcomeShares1 : 0n;
     } else {
-      // Invalid answer — each share worth 1/2 collateral
-      const payout0 =
-        participant.outcomeShares0 > 0n ? participant.outcomeShares0 / 2n : 0n;
-      const payout1 =
-        participant.outcomeShares1 > 0n ? participant.outcomeShares1 / 2n : 0n;
-      expectedPayout = payout0 + payout1;
+      // No single winner: each share pays its outcome's part of the payout
+      // vector (a V1 invalid answer reports [1, 1]: 1/2 collateral per share)
+      const part = (shares: bigint, i: number) =>
+        shares > 0n && payoutTotal > 0n
+          ? (shares * (payouts[i] ?? 0n)) / payoutTotal
+          : 0n;
+      expectedPayout =
+        part(participant.outcomeShares0, 0) +
+        part(participant.outcomeShares1, 1);
     }
 
     // 4b. Calculate settlement amounts and profit
@@ -283,7 +287,10 @@ export async function processMarketResolution(
       if (bet.isBuy && bet.impliedProbability > 0n) {
         dailyStat.brierSum += brierContribution(
           bet.impliedProbability,
-          actualForOutcome(bet.outcomeIndex, winningOutcome),
+          winningOutcome === -1n && payoutTotal > 0n
+            ? ((payouts[Number(bet.outcomeIndex)] ?? 0n) * PROBABILITY_SCALE) /
+                payoutTotal
+            : actualForOutcome(bet.outcomeIndex, winningOutcome),
         );
         dailyStat.brierCount += 1;
       }

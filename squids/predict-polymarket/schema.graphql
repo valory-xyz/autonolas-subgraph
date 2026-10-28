@@ -73,6 +73,7 @@ type Question @entity {
 type MarketMetadata @entity {
   id: ID! # questionId
   title: String!
+  "Outcome labels, not indexed by outcomeIndex or winningIndex. V2 rules and V1 UMA ancillary data with a p1/p2 mapping list p1, p2, the reverse of outcome index order. NegRisk rows list Yes, No in index order. Other V1 rows follow their ancillary data, or Yes, No when it names none. A migrated V2 market without rules reuses its V1 row."
   outcomes: [String!]!
   rawAncillaryData: String!
 }
@@ -96,6 +97,9 @@ type Bet @entity {
   dailyStatistic: DailyProfitStatistic
   builder: String
   metadata: String
+  # Collateral token of the fill: pUSD for Protocol V2 (ExchangeV3) bets;
+  # null for bets on CTF outcome tokens (CTF exchanges).
+  collateral: String
   blockTimestamp: BigInt!
   transactionHash: String!
 }
@@ -111,7 +115,7 @@ type TokenRegistry @entity {
 type QuestionResolution @entity {
   id: ID! # conditionId (same id as Question)
   question: Question! @unique
-  "Winning outcome index (0 or 1). -1 means the market resolved invalid/unresolvable — NOT an index into Question.metadata.outcomes."
+  "Winning outcome index (0 or 1). -1 means no single winner (V1 invalid/unresolvable, or a V2 result split across outcomes). NOT an index into Question.metadata.outcomes."
   winningIndex: BigInt!
   settledPrice: BigInt!
   payouts: [String!]! # decimal strings — SQD codegen has no BigInt arrays
@@ -176,7 +180,8 @@ type DailyProfitStatistic @entity {
   dailyProfit: BigInt!
   profitParticipants: [String!]!
   # Brier accumulators for buys settled on this day, 1e18-scaled.
-  # Per bet: (impliedProbability - actual)^2 / 1e18; actual = 1e18 won, 0 lost, 5e17 invalid.
+  # Per bet: (impliedProbability - actual)^2 / 1e18; actual = 1e18 won, 0 lost, 5e17 V1 invalid,
+  # the outcome's share of the payout vector for a split V2 result.
   # Mean over a window: sum(brierSum) / sum(brierCount).
   brierSum: BigInt!
   brierCount: Int!

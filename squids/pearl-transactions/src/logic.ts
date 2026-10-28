@@ -40,6 +40,12 @@ export function safeDeployedId(masterSafe: string): string {
   return `safe-deployed-${masterSafe}`;
 }
 
+/** One AGENT_SAFE_TO_AGENT_EOA row per tx (see handleSafeExecutionSuccess),
+ * matching the studio subgraph's `agentSafeTopUpId`. */
+export function agentSafeTopUpId(txHash: string): string {
+  return `topup-${txHash}`;
+}
+
 export function serviceEntityId(serviceId: bigint): string {
   return serviceId.toString();
 }

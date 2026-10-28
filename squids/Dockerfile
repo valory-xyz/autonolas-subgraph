@@ -8,7 +8,7 @@
 # Squids that do not depend on it (pearl-transactions, predict-polymarket)
 # just carry an unused folder.
 ARG SQUID
-FROM node:24-slim AS build
+FROM node:24.22.1-slim AS build
 ARG SQUID
 # native deps (bufferutil et al.) need a compiler at install time
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,7 +27,7 @@ COPY squids/${SQUID}/tsconfig.json squids/${SQUID}/schema.graphql ./
 COPY squids/${SQUID}/src ./src
 RUN npm run build && npm prune --omit=dev
 
-FROM node:24-slim
+FROM node:24.22.1-slim
 ARG SQUID
 WORKDIR /app/squids/${SQUID}
 USER node

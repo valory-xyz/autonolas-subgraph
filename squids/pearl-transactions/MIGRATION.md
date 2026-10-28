@@ -143,11 +143,12 @@ These are intended. When the compare script flags them, they are not bugs.
   creation are separate user actions), but if the compare script ever
   reports a missing native row in a Safe's discovery block, this is why.
 
-- **`ExecutionSuccess` and `ExecutionFromModuleSuccess` are not indexed at
-  all.** Their subgraph handlers were documented no-ops (the events carry
-  no amount or recipient, so native-out tracking needs trace handlers), but
-  a graph-node template subscribes per contract and pays for them anyway.
-  They are 97% of Safe log volume. Dropping them changes no output.
+- **`ExecutionFromModuleSuccess` is not indexed at all.** Its subgraph
+  handler is a no-op, and the squid drops the topic. `ExecutionSuccess` is
+  subscribed with its transaction, as in the subgraph, to write the
+  `AGENT_SAFE_TO_AGENT_EOA` row decoded from the outer `execTransaction`
+  calldata. `ExecutionSuccess` and `ExecutionFromModuleSuccess` together
+  are ~97% of Safe log volume (4.23 vs 0.12 logs/block without them).
 
 ### Known gap carried over, not fixed
 
