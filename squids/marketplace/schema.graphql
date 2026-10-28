@@ -74,7 +74,8 @@ type Mech @entity {
   receivedRequests: BigInt!
   selfDeliveredFromReceived: BigInt!
   deliveredByOthersFromReceived: BigInt!
-  # Null until the factory event or first MaxDeliveryRateUpdated event is seen.
+  # Null until the factory event or first MaxDeliveryRateUpdated event is
+  # indexed; an observed Deliver can also fill a missing value.
   # Latest advertised maximum from factory creation or MaxDeliveryRateUpdated;
   # not necessarily the amount charged for any particular request.
   maxDeliveryRate: BigInt
