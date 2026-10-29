@@ -16,7 +16,7 @@ dataSources:
       startBlock: 58841401
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -36,7 +36,7 @@ dataSources:
       startBlock: 58841482
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -56,7 +56,7 @@ dataSources:
       startBlock: 58841543
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -77,7 +77,7 @@ dataSources:
       startBlock: 58841368
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - CreateMech
@@ -126,7 +126,7 @@ dataSources:
       startBlock: 58841368
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - CreateService
@@ -162,7 +162,7 @@ dataSources:
       startBlock: 60900782
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Metadata
@@ -182,7 +182,7 @@ dataSources:
       startBlock: 58841280
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Mech
@@ -201,7 +201,7 @@ templates:
       abi: MechFixedPriceNative
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -228,7 +228,7 @@ templates:
       abi: MechFixedPriceToken
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -257,7 +257,7 @@ templates:
       abi: MechNvmSubscriptionNative
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -280,7 +280,7 @@ templates:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver

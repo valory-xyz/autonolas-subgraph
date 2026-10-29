@@ -16,7 +16,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -36,7 +36,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -56,7 +56,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -76,7 +76,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -96,7 +96,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - PendingMechData
@@ -126,7 +126,7 @@ dataSources:
       endBlock: 33907400
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - CreateMech
@@ -172,7 +172,7 @@ dataSources:
       startBlock: 33907401
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - CreateMech
@@ -221,7 +221,7 @@ dataSources:
       startBlock: 10827380
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - CreateService
@@ -257,7 +257,7 @@ dataSources:
       startBlock: 31728383
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Metadata
@@ -277,7 +277,7 @@ dataSources:
       startBlock: 26642705
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Mech
@@ -296,7 +296,7 @@ templates:
       abi: MechFixedPriceNative
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -321,7 +321,7 @@ templates:
       abi: MechFixedPriceToken
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -350,7 +350,7 @@ templates:
       abi: MechNvmSubscriptionNative
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
@@ -373,7 +373,7 @@ templates:
       abi: MechNvmSubscriptionTokenUSDC
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - Deliver
