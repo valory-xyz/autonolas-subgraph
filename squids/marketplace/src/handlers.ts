@@ -78,6 +78,7 @@ export async function getGlobal(ctx: Ctx): Promise<Global> {
     totalMarketplaceRequests: 0n,
     totalMarketplaceDeliveries: 0n,
     totalMarketplaceDeliveriesWithSignatures: 0n,
+    totalOffChainRequests: 0n,
     totalRequests: 0n,
     totalDeliveries: 0n,
     totalTransactions: 0n,
@@ -343,8 +344,10 @@ async function updateMechCountersOnRequest(ctx: Ctx, mech: string): Promise<void
 }
 
 /**
- * `Mech.maxDeliveryRate` self-heals from an observed deliveryRate when it is
- * null (factory event unindexed at CreateMech) or has drifted.
+ * `Mech.maxDeliveryRate` self-heals from an observed deliveryRate only when
+ * it is null. Once known, actual delivery charges must not overwrite the
+ * advertised maximum; MaxDeliveryRateUpdated is authoritative. Only events
+ * from the current Mech.address for the service can update or fill this field.
  */
 async function refreshMechDeliveryRate(
   ctx: Ctx,
@@ -356,7 +359,8 @@ async function refreshMechDeliveryRate(
   if (serviceId == null) return;
   const m = await getMechById(ctx, serviceId);
   if (m == null) return;
-  if (m.maxDeliveryRate == null || m.maxDeliveryRate !== deliveryRate) {
+  if (m.address.toLowerCase() !== mech.toLowerCase()) return;
+  if (m.maxDeliveryRate == null) {
     const createMech = await ctx.cache.get(CreateMech, mech);
     if (createMech?.mechFactory != null) {
       m.maxDeliveryRateUSD = await calculateMaxDeliveryRateUSD(
@@ -688,9 +692,8 @@ export async function handleMarketplaceRequest(
   const serviceId = await getServiceIdFromMultisig(ctx, p.requester);
   const service = serviceId == null ? undefined : await getService(ctx, serviceId);
 
-  // Fee info from the priority mech's stored maxDeliveryRate (no RPC).
-  // Requesters may pass a higher rate, but the contract locks at most the
-  // mech's rate, so this is the amount actually locked.
+  // Snapshot the priority mech's advertised maximum (no RPC). With
+  // cap-and-actual signed settlement this is not necessarily the amount paid.
   let feeUnit: FeeUnit | null = null;
   let feeRaw: bigint | null = null;
   let feeUSD: BigDecimal | null = null;
@@ -977,6 +980,7 @@ export async function handleMarketplaceDeliveryWithSignatures(
 
   const global = await getGlobal(ctx);
   global.totalRequests += p.numDeliveries;
+  global.totalOffChainRequests += p.numDeliveries;
   global.totalDeliveries += p.numDeliveries;
   global.totalMarketplaceDeliveriesWithSignatures += 1n;
   // 1 for the request side and 1 for the delivery side (request is off-chain).
@@ -1215,6 +1219,9 @@ export async function handleMaxDeliveryRateUpdated(
       `MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId}`
     );
   }
+  // Mech is keyed by service ID and represents only that service's current
+  // mech. Keep events from older mechs from changing its advertised maximum.
+  if (m.address.toLowerCase() !== mech.toLowerCase()) return false;
   const createMech = await ctx.cache.get(CreateMech, mech);
   if (createMech?.mechFactory != null) {
     m.maxDeliveryRateUSD = await calculateMaxDeliveryRateUSD(

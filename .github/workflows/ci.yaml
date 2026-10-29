@@ -79,6 +79,11 @@ jobs:
         working-directory: subgraphs/${{ matrix.subgraph }}
         run: yarn graph build ${{ matrix.manifest }}
 
+      - name: Marketplace manifest coverage
+        if: matrix.subgraph == 'marketplace' && matrix.manifest == 'subgraph.gnosis.yaml'
+        working-directory: subgraphs/marketplace
+        run: yarn test:manifests
+
       - name: Test
         if: matrix.test
         working-directory: subgraphs/${{ matrix.subgraph }}

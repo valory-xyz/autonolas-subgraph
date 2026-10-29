@@ -186,6 +186,9 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        # ABI only: the shared mapping imports MechMarketplaceV1 types.
+        - name: MechMarketplaceV1
+          file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface
@@ -308,6 +311,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
@@ -335,6 +340,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
@@ -356,6 +363,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
@@ -377,6 +386,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
   ### Offchain request metadata (IPFS) — fetched async, OFF the indexing critical path.
   ### Spawned per request by processOnChainRequest; unreachable/abusive hashes fail in the

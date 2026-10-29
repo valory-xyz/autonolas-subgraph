@@ -1,0 +1,709 @@
+{
+  "recordedAt": "2026-10-26T11:14:00.125793+00:00",
+  "scope": "V1-only event topics; inclusive ranges; finalized upper bounds pinned at scan start",
+  "topicHashes": {
+    "MarketplaceRequest(address,address,uint256,bytes32[])": "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3",
+    "Deliver(address,address,bytes32,uint256,bytes)": "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+  },
+  "checks": [
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "proxy": "0x343F2B005cF6D70bA610CD9F1F1927049414B582",
+      "fromBlock": 81028558,
+      "toBlock": 96204676,
+      "toBlockHash": "0x8aa5e30965a4f5be9e1359a6f4e2485b06211016b77febc787444160ba6bdd86",
+      "proxyCodePresent": true,
+      "status": "complete",
+      "matchingV1Logs": 0,
+      "pages": [
+        {
+          "provider": "https://polygon.gateway.tenderly.co",
+          "fromBlock": 81028558,
+          "toBlock": 96204676,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://polygon.gateway.tenderly.co",
+          "fromBlock": 81028558,
+          "toBlock": 96204676,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "proxy": "0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461",
+      "fromBlock": 145788454,
+      "toBlock": 158706176,
+      "toBlockHash": "0xc5e029f842b2f56c4bb248a2fb36ea555359d9c246767db07110873465d49566",
+      "proxyCodePresent": true,
+      "status": "complete",
+      "matchingV1Logs": 0,
+      "pages": [
+        {
+          "provider": "https://optimism.gateway.tenderly.co",
+          "fromBlock": 145788454,
+          "toBlock": 158706176,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3",
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "proxy": "0x3d6494CE09a9f40c0B5a92BdBD7c7A9b0e3912b1",
+      "fromBlock": 24427441,
+      "toBlock": 26276339,
+      "toBlockHash": "0x69d4b031f1766b0de069530106e8e31bc8d6b5930d3edd8dc539aa3f789324d9",
+      "proxyCodePresent": true,
+      "status": "complete",
+      "matchingV1Logs": 0,
+      "pages": [
+        {
+          "provider": "https://mainnet.gateway.tenderly.co",
+          "fromBlock": 24427441,
+          "toBlock": 26276339,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3",
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "proxy": "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17",
+      "fromBlock": 430646886,
+      "toBlock": 518416640,
+      "toBlockHash": "0xaf5f78a0db276b6a1e5a3181783501b91b40dc47b9584341674d1ac123d03692",
+      "proxyCodePresent": true,
+      "status": "complete",
+      "matchingV1Logs": 0,
+      "pages": [
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 430646886,
+          "toBlock": 440646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 430646886,
+          "toBlock": 440646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 440646886,
+          "toBlock": 450646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 440646886,
+          "toBlock": 450646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 450646886,
+          "toBlock": 460646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 450646886,
+          "toBlock": 460646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 460646886,
+          "toBlock": 470646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 460646886,
+          "toBlock": 470646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 470646886,
+          "toBlock": 480646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 470646886,
+          "toBlock": 480646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 480646886,
+          "toBlock": 490646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 480646886,
+          "toBlock": 490646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 490646886,
+          "toBlock": 500646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 490646886,
+          "toBlock": 500646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 500646886,
+          "toBlock": 510646885,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 500646886,
+          "toBlock": 510646885,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 510646886,
+          "toBlock": 518416640,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3"
+          ],
+          "count": 0,
+          "logs": []
+        },
+        {
+          "provider": "https://arb1.arbitrum.io/rpc",
+          "fromBlock": 510646886,
+          "toBlock": 518416640,
+          "topics": [
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        }
+      ]
+    },
+    {
+      "chain": "celo",
+      "chainId": 42220,
+      "proxy": "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8",
+      "fromBlock": 58841368,
+      "toBlock": 81110247,
+      "toBlockHash": "0xcb00642215083a439101dc35611533d08389b5c8ece68af10ab8bf35853901f3",
+      "proxyCodePresent": true,
+      "status": "complete",
+      "matchingV1Logs": 0,
+      "pages": [
+        {
+          "provider": "https://celo.gateway.tenderly.co",
+          "fromBlock": 58841368,
+          "toBlock": 81110247,
+          "topics": [
+            "0x5d60556939d4ab71b3129033c865bf7e828306916fd94fd35019d3d530eb36b3",
+            "0xb0d013658abb05dd269ff3ab257175d5ae3fa4107d4e142abd96e947cd5cb06f"
+          ],
+          "count": 0,
+          "logs": []
+        }
+      ]
+    }
+  ],
+  "sharedSignatureChecks": {
+    "samples": [
+      {
+        "chain": "polygon",
+        "provider": "https://polygon.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "samples": [
+          {
+            "fromBlock": 81028558,
+            "toBlock": 81128557,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 96104677,
+            "toBlock": 96204676,
+            "count": 155,
+            "topicCounts": [
+              2
+            ],
+            "examples": [
+              {
+                "blockNumber": "0x5ba718f",
+                "transactionHash": "0x2c7903d4df626c729888357ccccac9cb70778d15c36f09f02cf18abcb59918f1",
+                "logIndex": "0x21d",
+                "topics": [
+                  "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+                  "0x00000000000000000000000045f25db135e83d7a010b05ffc1202f8473e3ae7d"
+                ]
+              },
+              {
+                "blockNumber": "0x5ba7235",
+                "transactionHash": "0xdd8d43c96d93afa834c7e2a00580ce168cbc25c2e62d4a2aa5162a17fb5e8c5a",
+                "logIndex": "0x2ac",
+                "topics": [
+                  "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+                  "0x00000000000000000000000045f25db135e83d7a010b05ffc1202f8473e3ae7d"
+                ]
+              }
+            ]
+          }
+        ],
+        "status": "sample_found",
+        "endBlockHash": "0x8aa5e30965a4f5be9e1359a6f4e2485b06211016b77febc787444160ba6bdd86",
+        "codePresent": true
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "samples": [],
+        "status": "error",
+        "endBlockHash": "0xc5e029f842b2f56c4bb248a2fb36ea555359d9c246767db07110873465d49566",
+        "codePresent": true,
+        "error": "HTTP Error 413: Request Entity Too Large {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32614,\"message\":\"eth_getLogs is limited to a 10,000 range\"},\"id\":1}\n"
+      },
+      {
+        "chain": "ethereum",
+        "provider": "https://mainnet.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "samples": [
+          {
+            "fromBlock": 24427441,
+            "toBlock": 24527440,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 26176340,
+            "toBlock": 26276339,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 24427441,
+            "toBlock": 25427440,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "no_sample",
+        "endBlockHash": "0x69d4b031f1766b0de069530106e8e31bc8d6b5930d3edd8dc539aa3f789324d9",
+        "codePresent": true
+      },
+      {
+        "chain": "arbitrum",
+        "provider": "https://arb1.arbitrum.io/rpc",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "samples": [
+          {
+            "fromBlock": 430646886,
+            "toBlock": 430746885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 518316641,
+            "toBlock": 518416640,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 430646886,
+            "toBlock": 431646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "no_sample",
+        "endBlockHash": "0xaf5f78a0db276b6a1e5a3181783501b91b40dc47b9584341674d1ac123d03692",
+        "codePresent": true
+      },
+      {
+        "chain": "celo",
+        "provider": "https://celo.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "samples": [
+          {
+            "fromBlock": 58841368,
+            "toBlock": 58941367,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 81010248,
+            "toBlock": 81110247,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 58841368,
+            "toBlock": 59841367,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "no_sample",
+        "endBlockHash": "0xcb00642215083a439101dc35611533d08389b5c8ece68af10ab8bf35853901f3",
+        "codePresent": true
+      }
+    ],
+    "fullRange": [
+      {
+        "chain": "optimism",
+        "provider": "https://optimism.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "fromBlock": 145788454,
+        "toBlock": 158706176,
+        "pages": [],
+        "status": "incomplete",
+        "error": "{\"code\": -32602, \"message\": \"invalid params\", \"data\": \"Query returned more than 20000 results. Try with this block range [0x8b08e26, 0x8fcd965].\"}"
+      },
+      {
+        "chain": "ethereum",
+        "provider": "https://mainnet.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "fromBlock": 24427441,
+        "toBlock": 26276339,
+        "pages": [
+          {
+            "fromBlock": 24427441,
+            "toBlock": 26276339,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "complete",
+        "count": 0
+      },
+      {
+        "chain": "arbitrum",
+        "provider": "https://arb1.arbitrum.io/rpc",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "fromBlock": 430646886,
+        "toBlock": 518416640,
+        "pages": [
+          {
+            "fromBlock": 430646886,
+            "toBlock": 440646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 440646886,
+            "toBlock": 450646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 450646886,
+            "toBlock": 460646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 460646886,
+            "toBlock": 470646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 470646886,
+            "toBlock": 480646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 480646886,
+            "toBlock": 490646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 490646886,
+            "toBlock": 500646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 500646886,
+            "toBlock": 510646885,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 510646886,
+            "toBlock": 518416640,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "complete",
+        "count": 0
+      },
+      {
+        "chain": "celo",
+        "provider": "https://celo.gateway.tenderly.co",
+        "topic": "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+        "fromBlock": 58841368,
+        "toBlock": 81110247,
+        "pages": [
+          {
+            "fromBlock": 58841368,
+            "toBlock": 68841367,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 68841368,
+            "toBlock": 78841367,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          },
+          {
+            "fromBlock": 78841368,
+            "toBlock": 81110247,
+            "count": 0,
+            "topicCounts": [],
+            "examples": []
+          }
+        ],
+        "status": "complete",
+        "count": 0
+      }
+    ],
+    "optimismIndependentV1Confirmation": {
+      "chain": "optimism",
+      "provider": "https://optimism.gateway.tenderly.co",
+      "fromBlock": 145788454,
+      "toBlock": 158706176,
+      "v1Logs": [],
+      "status": "complete",
+      "layoutSample": {
+        "fromBlock": 145788454,
+        "toBlock": 145798453,
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      }
+    },
+    "optimismFinalSamples": [
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 150000000,
+        "toBlock": 150009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 149000000,
+        "toBlock": 149009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 148000000,
+        "toBlock": 148009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 151000000,
+        "toBlock": 151009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 152000000,
+        "toBlock": 152009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 153000000,
+        "toBlock": 153009999,
+        "status": "complete",
+        "count": 0,
+        "topicCounts": [],
+        "examples": []
+      },
+      {
+        "chain": "optimism",
+        "provider": "https://mainnet.optimism.io",
+        "fromBlock": 154000000,
+        "toBlock": 154009999,
+        "status": "complete",
+        "count": 688,
+        "topicCounts": [
+          2
+        ],
+        "examples": [
+          {
+            "blockNumber": "0x92dda88",
+            "transactionHash": "0xe12bedd2ebbf222b2340a7663729219b483257f1ec61c878a2dcbad5383909b6",
+            "logIndex": "0x32",
+            "topics": [
+              "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+              "0x0000000000000000000000003208dc0deba018dde8a8e2ffa09265ea12aaf55e"
+            ]
+          },
+          {
+            "blockNumber": "0x92dda97",
+            "transactionHash": "0xc0e094e5e6687b0d0c9af5656ff0dbd950e4fc6263c92592259db1f21ad78bdb",
+            "logIndex": "0x3c",
+            "topics": [
+              "0x894bb814a80f77e14febccf552394d95b38cc21a6dda1b0cf26434433fdf3e4c",
+              "0x0000000000000000000000003208dc0deba018dde8a8e2ffa09265ea12aaf55e"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Public RPC responses, not independent local-node verification.",
+    "Polygon shared-signature check is representative sampling, not a complete layout scan.",
+    "Optimism shared-signature layout validation is representative sampling, not a complete layout scan; earlier failed attempts remain recorded for transparency."
+  ]
+}

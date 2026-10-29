@@ -90,6 +90,7 @@ export function getGlobal(): Global {
     global.totalMarketplaceRequests = BigInt.fromI32(0);
     global.totalMarketplaceDeliveries = BigInt.fromI32(0);
     global.totalMarketplaceDeliveriesWithSignatures = BigInt.fromI32(0);
+    global.totalOffChainRequests = BigInt.fromI32(0);
     
     // Legacy AgentMech-specific counters
     global.totalLegacyRequests = BigInt.fromI32(0);
@@ -1028,6 +1029,16 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
     );
   }
 
+  // A service can have several historical mechs, but Mech is keyed by the
+  // service ID and stores only the current mech. Ignore events from old ones.
+  if (!mech.address.equals(mechAddress)) {
+    log.debug('MaxDeliveryRateUpdated: ignoring stale mech {} for serviceId {}', [
+      mechAddress.toHexString(),
+      serviceId,
+    ]);
+    return;
+  }
+
   let createMech = CreateMech.load(mechAddress);
   if (createMech !== null && createMech.mechFactory !== null) {
     mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
@@ -1055,7 +1066,18 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
     return;
   }
 
-  if (mech.maxDeliveryRate === null || !mech.maxDeliveryRate!.equals(deliveryRate)) {
+  // Do not let a historical mech populate the current mech's advertised rate.
+  if (!mech.address.equals(mechAddress)) {
+    log.debug('refreshMechDeliveryRate: ignoring stale mech {} for serviceId {}', [
+      mechAddress.toHexString(),
+      serviceId,
+    ]);
+    return;
+  }
+
+  // Deliver logs contain the actual charge. They can only recover a missing
+  // advertised maximum; MaxDeliveryRateUpdated is authoritative thereafter.
+  if (mech.maxDeliveryRate === null) {
     let createMech = CreateMech.load(mechAddress);
     if (createMech !== null && createMech.mechFactory !== null) {
       mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(

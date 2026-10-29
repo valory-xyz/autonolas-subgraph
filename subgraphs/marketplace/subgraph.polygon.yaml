@@ -88,54 +88,6 @@ dataSources:
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
 
-  # MechMarketplaceV1 data source for type generation only (no V1 events on Polygon)
-  # V1 event signatures differ from V2, so handlers won't match V2 events
-  - kind: ethereum
-    name: MechMarketplaceV1
-    network: matic
-    source:
-      address: "0x343F2B005cF6D70bA610CD9F1F1927049414B582"
-      abi: MechMarketplaceV1
-      startBlock: 81028558
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - CreateMech
-        - MarketplaceDelivery
-        - MarketplaceDeliveryWithSignatures
-        - Deliver
-        - MarketplaceRequest
-        - Mech
-        - Sender
-        - Global
-      abis:
-        - name: MechMarketplaceV1
-          file: ../../abis/MechMarketplaceV1.json
-        - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
-        - name: AggregatorV3Interface
-          file: ../../abis/AggregatorV3Interface.json
-        - name: BalancerV2Vault
-          file: ../../abis/BalancerV2Vault.json
-        - name: BalancerV2WeightedPool
-          file: ../../abis/BalancerV2WeightedPool.json
-        - name: IUniswapV2Pair
-          file: ../../abis/IUniswapV2Pair.json
-      eventHandlers:
-        - event: CreateMech(indexed address,indexed uint256,indexed address)
-          handler: handleCreateMech
-        - event: MarketplaceDelivery(indexed address,indexed address[],uint256,bytes32[],bool[])
-          handler: handleMarketplaceDelivery
-        - event: MarketplaceDeliveryWithSignatures(indexed address,indexed
-            address,uint256,bytes32[])
-          handler: handleMarketplaceDeliveryWithSignatures
-        - event: MarketplaceRequest(indexed address,indexed address,uint256,bytes32[])
-          handler: handleMarketplaceRequest
-        - event: Deliver(indexed address,indexed address,bytes32,uint256,bytes)
-          handler: handleDeliverWithSignaturesV1
-      file: ./src/marketplace/mech-marketplace.ts
   - kind: ethereum
     name: MechMarketplaceV2
     network: matic
@@ -159,6 +111,9 @@ dataSources:
       abis:
         - name: MechMarketplaceV2
           file: ../../abis/MechMarketplaceV2.json
+        # ABI only: the shared mapping imports MechMarketplaceV1 types.
+        - name: MechMarketplaceV1
+          file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
           file: ../../abis/MechFixedPriceNative.json
         - name: AggregatorV3Interface
@@ -281,6 +236,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-native.ts
   - kind: ethereum
     name: MechFixedPriceToken
@@ -308,6 +265,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-fixed-price-token.ts
   - kind: ethereum
     name: MechNvmSubscriptionNative
@@ -329,6 +288,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-native.ts
   - kind: ethereum
     name: MechNvmSubscriptionTokenUSDC
@@ -350,6 +311,8 @@ templates:
           handler: handleDeliver
         - event: Request(indexed address,bytes32,bytes)
           handler: handleRequest
+        - event: MaxDeliveryRateUpdated(uint256)
+          handler: handleMaxDeliveryRateUpdated
       file: ./src/marketplace/mech-nvm-subscription-token-usdc.ts
   ### Offchain request metadata (IPFS) — fetched async, OFF the indexing critical path.
   ### Spawned per request by processOnChainRequest; unreachable/abusive hashes fail in the

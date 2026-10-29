@@ -235,7 +235,7 @@ service(id: "175") {
   - Karma updates (`karma.ts`), `refreshMechDeliveryRate`, and the priority-mech delivery counters (`updateMechCountersOnDelivery`) **skip with a log** instead — Karma events can legitimately reference legacy mechs unknown to this subgraph.
   - Follow the same policy when adding handlers: throw only for events that cannot legitimately precede `CreateMech`.
 - `Mech.karma` is the cumulative sum of `MechKarmaChanged` deltas and can go negative.
-- `Mech.maxDeliveryRate` is null when `PendingMechData` was missing at `CreateMech` time (factory event unindexed); it self-heals via `refreshMechDeliveryRate` from the next observed `Deliver`'s `deliveryRate`.
+- `Mech.maxDeliveryRate` can be null when the factory event was missing at `CreateMech` time; `refreshMechDeliveryRate` may fill that missing value from an observed `Deliver` only when its emitting mech is the current `Mech.address` for the service. The same current-address check applies to `MaxDeliveryRateUpdated`. Neither path may overwrite a known advertised maximum with an actual delivery charge.
 
 ## ATA Counting Rules
 

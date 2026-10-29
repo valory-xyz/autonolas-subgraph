@@ -8,7 +8,7 @@ import {
   MarketplaceRequest as MarketplaceRequestEvent,
   OwnerUpdated as OwnerUpdatedEvent,
 } from '../../generated/MechMarketplaceV2/MechMarketplaceV2';
-import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV1/MechMarketplaceV1';
+import { Deliver as DeliverWithSignaturesEventV1 } from '../../generated/MechMarketplaceV2/MechMarketplaceV1';
 import {
   MarketplaceDelivery,
   MarketplaceDeliveryWithSignatures,
@@ -289,6 +289,7 @@ export function handleMarketplaceDeliveryWithSignatures(
 
   // For this event, total number of deliveries is the same as total number of requests
   global.totalRequests = global.totalRequests.plus(numDeliveries);
+  global.totalOffChainRequests = global.totalOffChainRequests.plus(numDeliveries);
 
   global.totalDeliveries = global.totalDeliveries.plus(numDeliveries);
   global.totalMarketplaceDeliveriesWithSignatures =
@@ -431,10 +432,8 @@ export function handleMarketplaceRequest(event: MarketplaceRequestEvent): void {
   // Get service ID from requester's multisig address
   let serviceId = getServiceIdFromMultisig(requester);
 
-  // Get fee info from priority mech for all requests in this batch
-  // Note: Requesters can specify a higher maxDeliveryRate in their request input,
-  // but the contract locks at most the mech's maxDeliveryRate (see MechMarketplace._requestBatch).
-  // So feeUSD here represents the mech's rate, which is the actual amount locked.
+  // Snapshot the priority mech's advertised maximum for each request. With
+  // cap-and-actual signed settlement this is not necessarily the amount paid.
   let feeUnit: string | null = null;
   let feeRaw: BigInt | null = null;
   let feeUSD: BigDecimal | null = null;

@@ -231,6 +231,7 @@ Request/delivery IPFS metadata is fetched by background file data sources (`hand
 | `Sender.totalLegacyTransactions` | Misnomer: all-time request-bearing transactions by this sender (all paths) |
 | `Sender.totalMarketplaceRequests` | Misnomer: +1 per marketplace batch event AND +1 per legacy AgentMech request |
 | `Global.totalMarketplaceRequests` / `totalMarketplaceDeliveries` / `totalMarketplaceDeliveriesWithSignatures` | Count **events** (one per batch), not individual requests |
+| `Global.totalOffChainRequests` | Settled off-chain requests, summed from signed batch sizes; includes charged failed runs |
 | `Global.totalRequests` / `totalDeliveries` | Count individual requests/deliveries across all paths |
 
 > **Note:** `totalRequests` only counts requests where the requester is a registered service multisig. To count all requests received by a service's mech, query requests directly with the service filter.
@@ -279,7 +280,10 @@ Fees are converted to USD using:
 
 **Semantics and caveats:**
 
-- `Request.feeUSD` is the estimated fee locked at request time (the priority mech's `maxDeliveryRate` converted to USD at that block). `Request.finalFeeUSD` is the actual fee, computed exactly once when the delivery carrying `deliveryRate` is indexed. `Sender.totalFeesPaidUSD` and `Global.totalFeesPaidUSD` accumulate only `finalFeeUSD` — use it for spend analytics; `feeUSD` is an upper-bound estimate and summing it overstates spend.
+- `Mech.maxDeliveryRate` and `maxDeliveryRateUSD` are the latest advertised maximum and its USD conversion, updated by factory creation and `MaxDeliveryRateUpdated`. An observed delivery can fill a missing maximum but cannot overwrite one already recorded. `Request.feeRaw` and `feeUSD` are advertised-rate snapshots at request time, not the actual amount paid. `Request.finalFeeUSD` is the actual charge converted to USD for on-chain marketplace `Request`s whose priority mech had a fee unit recorded at request time. Signed-only deliveries create no `Request` entity; their raw actual charge is on `DeliverForMarketplace.deliveryRate`, and they are not included in `Sender.totalFeesPaidUSD` or `Global.totalFeesPaidUSD`.
+- Fee aggregate audit for cap-and-actual reporting: the Graph handlers and both active marketplace squids add only `finalFeeUSD` to `totalFeesPaidUSD`; there are no other fee sum/average aggregates in these handler paths. Do not aggregate `feeUSD` or `feeRaw` as spend.
+- No cap-and-actual contract is deployed on any supported chain yet. Before each chain's upgrade, advertised maximum and actual charge are expected to match. At deployment, record its block and transaction; also record the first variable-price settlement block and transaction. After that settlement, `Request.feeUSD` (advertised snapshot) can differ from `Request.finalFeeUSD` (actual USD charge), while `Mech.maxDeliveryRate` (advertised cap) can differ from `DeliverForMarketplace.deliveryRate` (actual raw charge). Signed-only charges remain outside Request-based USD totals and are already recorded in the data lake; indexed USD charge reporting for signed-only deliveries is a separate follow-up.
+- Adding `MaxDeliveryRateUpdated` subscriptions requires a full replay to index historical events. A restart from an existing checkpoint will not backfill events missed by the old manifest. Deploy using blue-green reindexing and switch only after catch-up and reconciliation.
 - Conversions read the price source at the block being indexed (Chainlink `latestRoundData`, Balancer/Uniswap pool reserves) — there is no TWAP or historical smoothing, so `totalFeesPaidUSD` may differ slightly between deployments due to price feed timing (see `scripts/README.md`).
 - All conversion failures are non-fatal and return **$0** with only a log warning: reverted Chainlink calls, empty/zero DEX pools, unknown fee units, OLAS (TOKEN) fees on Celo (no pricing pool exists), and NVM Credits on networks other than Gnosis/Base. USD totals are therefore lower bounds; raw amounts are preserved in `Request.feeRaw` and `DeliverForMarketplace.deliveryRate`.
 - NVM subscription Credits convert via hardcoded 0.99 ratios in `src/marketplace/constants.ts` that mirror immutable contract values — they are not read on-chain. A new NVM plan with a different ratio requires updating `constants.ts`.
@@ -330,6 +334,16 @@ Naming convention: `marketplace-{network}-v{version}` (e.g., `marketplace-gnosis
 ## Documentation
 
 - [CLAUDE.md](./CLAUDE.md) - Detailed technical context for developers and AI assistants
+
+## Corrected signed-delivery counters (#140)
+
+Polygon, Optimism, Ethereum, Arbitrum and Celo use one V2 marketplace source from deployment; redundant V1 sources have been removed. Gnosis and Base retain their non-overlapping historical V1/V2 ranges. See the [V1-event investigation](docs/v1-event-check-2026-10-26/README.md) for the evidence.
+
+`Global.totalOffChainRequests` counts requests in settled signed batches, whereas `totalMarketplaceDeliveriesWithSignatures` counts batch events. The global off-chain count should equal both the sum of `Sender.totalOffChainRequests` and the sum of signed-event `numDeliveries` at the same indexed block. Deliveries represent settlement, not necessarily successful tool execution.
+
+Deploy a fresh version and replay history: changing a manifest does not repair already inflated counters, and the new global field needs all historical batches. Coordinate one replay per active chain after final new-factory configuration is included. Keep existing consumer endpoints until reconciliation completes.
+
+Run `yarn test:manifests` to check event coverage and historical boundaries, alongside the Matchstick handler tests.
 
 ## License
 

@@ -467,4 +467,58 @@ describe("Mech Fixed Price Native Handler", () => {
       // Assert: Should reflect latest value
       assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", secondRate.toString())
     })
+
+    test("MaxDeliveryRateUpdated from an older mech does not replace the current mech rate", () => {
+      let serviceId = BigInt.fromI32(303)
+      let oldMech = Address.fromString("0x0000000000000000000000000000000000000303")
+      let currentMech = Address.fromString("0x0000000000000000000000000000000000000304")
+      createMechWithMapping(oldMech, serviceId)
+      createMechWithMapping(currentMech, serviceId)
+
+      handleMaxDeliveryRateUpdated(createMaxDeliveryRateUpdatedEvent(currentMech, BigInt.fromI32(120)))
+      handleMaxDeliveryRateUpdated(createMaxDeliveryRateUpdatedEvent(oldMech, BigInt.fromI32(100)))
+
+      assert.fieldEquals("Mech", serviceId.toString(), "address", currentMech.toHexString())
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "120")
+    })
+
+    test("a delivery from an older mech cannot fill the current mech's missing rate", () => {
+      let serviceId = BigInt.fromI32(304)
+      let oldMech = Address.fromString("0x0000000000000000000000000000000000000305")
+      let currentMech = Address.fromString("0x0000000000000000000000000000000000000306")
+      createMechWithMapping(oldMech, serviceId)
+      createMechWithMapping(currentMech, serviceId)
+
+      handleDeliver(
+        createDeliverEvent(
+          oldMech,
+          TEST_REQUEST_ID_1,
+          TEST_MECH_SERVICE_MULTISIG,
+          BigInt.fromI32(100),
+          TEST_DATA_NATIVE
+        )
+      )
+
+      assert.fieldEquals("Mech", serviceId.toString(), "address", currentMech.toHexString())
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "null")
+    })
+
+    test("a lower on-chain delivery charge does not overwrite the advertised maximum", () => {
+      let serviceId = BigInt.fromI32(302)
+      let mechAddress = Address.fromString("0x0000000000000000000000000000000000000302")
+      createMechWithMapping(mechAddress, serviceId)
+
+      handleMaxDeliveryRateUpdated(createMaxDeliveryRateUpdatedEvent(mechAddress, BigInt.fromI32(120)))
+      handleDeliver(
+        createDeliverEvent(
+          mechAddress,
+          TEST_REQUEST_ID_1,
+          TEST_MECH_SERVICE_MULTISIG,
+          BigInt.fromI32(100),
+          TEST_DATA_NATIVE
+        )
+      )
+
+      assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", "120")
+    })
 })

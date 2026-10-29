@@ -224,6 +224,44 @@ describe("CreateMech", () => {
     expect((await cache.get(CreateMech, MECH_B))!.serviceId).toBe(1n);
     expect((await global()).totalMechs).toBe(2n);
   });
+
+  it("ignores maximum updates from a historical mech for a service", async () => {
+    await createService(2n, MULTISIG_2);
+    await createMech(2n, MECH_A, FACTORY_NATIVE, 10n ** 16n);
+    await createMech(2n, MECH_B, FACTORY_USDC, 250_000n);
+
+    expect(
+      await h.handleMaxDeliveryRateUpdated(ctx, meta({ address: MECH_A }), {
+        maxDeliveryRate: 10n ** 18n,
+      })
+    ).toBe(false);
+    const mech = (await cache.get(Mech, "2"))!;
+    expect(mech.address).toBe(MECH_B);
+    expect(mech.maxDeliveryRate).toBe(250_000n);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("0.25");
+  });
+
+  it("does not use a historical mech delivery to fill the current mech's missing maximum", async () => {
+    await createService(2n, MULTISIG_2);
+    await createMech(2n, MECH_A, FACTORY_NATIVE, 10n ** 16n);
+    await createMech(2n, MECH_B, FACTORY_USDC, 250_000n);
+    const mech = (await cache.get(Mech, "2"))!;
+    mech.maxDeliveryRate = null;
+    mech.maxDeliveryRateUSD = null;
+    cache.set(Mech, mech);
+
+    await h.handleMechDeliver(ctx, meta({ address: MECH_A }), {
+      mechServiceMultisig: MULTISIG_2,
+      requestId: rid(89),
+      deliveryRate: 10n ** 18n,
+      data: payload32(89),
+    });
+
+    const currentMech = (await cache.get(Mech, "2"))!;
+    expect(currentMech.address).toBe(MECH_B);
+    expect(currentMech.maxDeliveryRate).toBeNull();
+    expect(currentMech.maxDeliveryRateUSD).toBeNull();
+  });
 });
 
 describe("on-chain marketplace request -> delivery", () => {
@@ -329,6 +367,7 @@ describe("on-chain marketplace request -> delivery", () => {
     const g = await global();
     expect(g.totalMarketplaceRequests).toBe(1n); // per event
     expect(g.totalRequests).toBe(2n); // per request
+    expect(g.totalOffChainRequests).toBe(0n);
     expect(g.totalTransactions).toBe(1n);
     expect(g.totalAtaTransactions).toBe(1n);
     expect(await cache.get(AtaTransaction, m.txHash)).toBeDefined();
@@ -391,9 +430,9 @@ describe("on-chain marketplace request -> delivery", () => {
     expect(mech.selfDeliveredFromReceived).toBe(1n);
     expect(mech.deliveredByOthersFromReceived).toBe(0n);
     expect(mech.totalDeliveriesTransactions).toBe(1n);
-    // observed rate differs from stored max -> self-heal + reprice
-    expect(mech.maxDeliveryRate).toBe(8n * 10n ** 15n);
-    expect(mech.maxDeliveryRateUSD!.toString()).toBe("16");
+    // Actual delivery charge does not replace the advertised maximum.
+    expect(mech.maxDeliveryRate).toBe(10n ** 16n);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("20");
 
     // supply-side counter on the mech's service, exactly once
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(1n);
@@ -611,6 +650,7 @@ describe("off-chain signed deliveries", () => {
 
     const g = await global();
     expect(g.totalRequests).toBe(3n);
+    expect(g.totalOffChainRequests).toBe(3n);
     expect(g.totalDeliveries).toBe(3n);
     expect(g.totalMarketplaceDeliveriesWithSignatures).toBe(1n);
     expect(g.totalTransactions).toBe(2n);
@@ -620,6 +660,34 @@ describe("off-chain signed deliveries", () => {
     // Service.totalDeliveries is NOT incremented on the signed path
     expect((await cache.get(Service, "2"))!.totalDeliveries).toBe(0n);
     expect(cache.count(MarketplaceDeliveryWithSignatures)).toBe(1);
+  });
+
+  it("signed-only settlement preserves the latest advertised maximum and records the actual rate", async () => {
+    const updatedMaximum = 100n * 10n ** 18n;
+    await h.handleMaxDeliveryRateUpdated(ctx, meta({ address: MECH_A }), {
+      maxDeliveryRate: updatedMaximum,
+    });
+
+    await signedBatch(MULTISIG_1, [rid(20)]);
+
+    const mech = (await cache.get(Mech, "2"))!;
+    const delivery = (await cache.get(DeliverForMarketplace, rid(20)))!;
+    expect(mech.maxDeliveryRate).toBe(updatedMaximum);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("200000");
+    expect(delivery.deliveryRate).toBe(10n ** 16n);
+    expect(cache.count(Request)).toBe(0);
+    expect((await global()).totalFeesPaidUSD.toString()).toBe("0");
+  });
+
+  it("accumulates batch sizes across requesters, excluding individual delivery logs", async () => {
+    expect((await global()).totalOffChainRequests).toBe(0n);
+    await signedBatch(MULTISIG_1, [rid(1), rid(2), rid(3)]);
+    await signedBatch(REQUESTER_EOA, [rid(4), rid(5)]);
+    const g = await global();
+    expect(g.totalOffChainRequests).toBe(5n);
+    expect(g.totalMarketplaceDeliveriesWithSignatures).toBe(2n);
+    expect(cache.all(Sender).reduce((sum, sender) => sum + sender.totalOffChainRequests, 0n)).toBe(5n);
+    expect(cache.all(MarketplaceDeliveryWithSignatures).reduce((sum, batch) => sum + batch.numDeliveries, 0n)).toBe(5n);
   });
 
   it("an EOA requester adds only the mech's ATA", async () => {

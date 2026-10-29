@@ -21,6 +21,7 @@
   "resolutions": {
     "**/@float-capital/float-subgraph-uncrashable/js-yaml": "4.3.2",
     "**/@graphprotocol/graph-cli/js-yaml": "4.3.2",
+    "**/@graphprotocol/graph-cli/undici": "7.30.1",
     "axios": "1.18.0",
     "immutable": "5.1.8",
     "nanoid": "5.1.11",
