@@ -224,6 +224,44 @@ describe("CreateMech", () => {
     expect((await cache.get(CreateMech, MECH_B))!.serviceId).toBe(1n);
     expect((await global()).totalMechs).toBe(2n);
   });
+
+  it("ignores maximum updates from a historical mech for a service", async () => {
+    await createService(2n, MULTISIG_2);
+    await createMech(2n, MECH_A, FACTORY_NATIVE, 10n ** 16n);
+    await createMech(2n, MECH_B, FACTORY_USDC, 250_000n);
+
+    expect(
+      await h.handleMaxDeliveryRateUpdated(ctx, meta({ address: MECH_A }), {
+        maxDeliveryRate: 10n ** 18n,
+      })
+    ).toBe(false);
+    const mech = (await cache.get(Mech, "2"))!;
+    expect(mech.address).toBe(MECH_B);
+    expect(mech.maxDeliveryRate).toBe(250_000n);
+    expect(mech.maxDeliveryRateUSD!.toString()).toBe("0.25");
+  });
+
+  it("does not use a historical mech delivery to fill the current mech's missing maximum", async () => {
+    await createService(2n, MULTISIG_2);
+    await createMech(2n, MECH_A, FACTORY_NATIVE, 10n ** 16n);
+    await createMech(2n, MECH_B, FACTORY_USDC, 250_000n);
+    const mech = (await cache.get(Mech, "2"))!;
+    mech.maxDeliveryRate = null;
+    mech.maxDeliveryRateUSD = null;
+    cache.set(Mech, mech);
+
+    await h.handleMechDeliver(ctx, meta({ address: MECH_A }), {
+      mechServiceMultisig: MULTISIG_2,
+      requestId: rid(89),
+      deliveryRate: 10n ** 18n,
+      data: payload32(89),
+    });
+
+    const currentMech = (await cache.get(Mech, "2"))!;
+    expect(currentMech.address).toBe(MECH_B);
+    expect(currentMech.maxDeliveryRate).toBeNull();
+    expect(currentMech.maxDeliveryRateUSD).toBeNull();
+  });
 });
 
 describe("on-chain marketplace request -> delivery", () => {

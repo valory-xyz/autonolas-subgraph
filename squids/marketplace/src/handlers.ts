@@ -346,7 +346,8 @@ async function updateMechCountersOnRequest(ctx: Ctx, mech: string): Promise<void
 /**
  * `Mech.maxDeliveryRate` self-heals from an observed deliveryRate only when
  * it is null. Once known, actual delivery charges must not overwrite the
- * advertised maximum; MaxDeliveryRateUpdated is authoritative.
+ * advertised maximum; MaxDeliveryRateUpdated is authoritative. Only events
+ * from the current Mech.address for the service can update or fill this field.
  */
 async function refreshMechDeliveryRate(
   ctx: Ctx,
@@ -358,6 +359,7 @@ async function refreshMechDeliveryRate(
   if (serviceId == null) return;
   const m = await getMechById(ctx, serviceId);
   if (m == null) return;
+  if (m.address.toLowerCase() !== mech.toLowerCase()) return;
   if (m.maxDeliveryRate == null) {
     const createMech = await ctx.cache.get(CreateMech, mech);
     if (createMech?.mechFactory != null) {
@@ -1217,6 +1219,9 @@ export async function handleMaxDeliveryRateUpdated(
       `MaxDeliveryRateUpdated: Mech entity not found for serviceId ${serviceId}`
     );
   }
+  // Mech is keyed by service ID and represents only that service's current
+  // mech. Keep events from older mechs from changing its advertised maximum.
+  if (m.address.toLowerCase() !== mech.toLowerCase()) return false;
   const createMech = await ctx.cache.get(CreateMech, mech);
   if (createMech?.mechFactory != null) {
     m.maxDeliveryRateUSD = await calculateMaxDeliveryRateUSD(

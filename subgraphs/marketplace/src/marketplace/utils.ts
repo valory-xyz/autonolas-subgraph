@@ -1029,6 +1029,16 @@ export function updateMaxDeliveryRate(mechAddress: Bytes, maxDeliveryRate: BigIn
     );
   }
 
+  // A service can have several historical mechs, but Mech is keyed by the
+  // service ID and stores only the current mech. Ignore events from old ones.
+  if (!mech.address.equals(mechAddress)) {
+    log.debug('MaxDeliveryRateUpdated: ignoring stale mech {} for serviceId {}', [
+      mechAddress.toHexString(),
+      serviceId,
+    ]);
+    return;
+  }
+
   let createMech = CreateMech.load(mechAddress);
   if (createMech !== null && createMech.mechFactory !== null) {
     mech.maxDeliveryRateUSD = calculateMaxDeliveryRateUSD(
@@ -1053,6 +1063,15 @@ export function refreshMechDeliveryRate(mechAddress: Bytes, deliveryRate: BigInt
   let mech = Mech.load(serviceId);
   if (mech === null) {
     log.debug('refreshMechDeliveryRate: mech entity missing for serviceId {}', [serviceId]);
+    return;
+  }
+
+  // Do not let a historical mech populate the current mech's advertised rate.
+  if (!mech.address.equals(mechAddress)) {
+    log.debug('refreshMechDeliveryRate: ignoring stale mech {} for serviceId {}', [
+      mechAddress.toHexString(),
+      serviceId,
+    ]);
     return;
   }
 
