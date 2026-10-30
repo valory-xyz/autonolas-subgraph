@@ -341,12 +341,12 @@ yarn codegen:celo
 | Network  | API Version |
 |----------|-------------|
 | Gnosis   | 0.0.9       |
-| Base     | 0.0.7       |
-| Polygon  | 0.0.7       |
-| Optimism | 0.0.7       |
-| Ethereum | 0.0.7       |
-| Arbitrum | 0.0.7       |
-| Celo     | 0.0.7       |
+| Base     | 0.0.9       |
+| Polygon  | 0.0.9       |
+| Optimism | 0.0.9       |
+| Ethereum | 0.0.9       |
+| Arbitrum | 0.0.9       |
+| Celo     | 0.0.9       |
 
 ## Pruning and Grafting
 

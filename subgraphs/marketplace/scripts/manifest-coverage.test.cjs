@@ -24,6 +24,12 @@ function overlaps(manifest) {
 }
 const read = (chain) => yaml.load(fs.readFileSync(path.join(root, `subgraph.${chain}.yaml`), 'utf8'));
 for (const chain of ['gnosis', 'base', 'polygon', 'optimism', 'mainnet', 'arbitrum', 'celo']) {
+  test(`${chain}: all data sources and templates use one mapping API version`, () => {
+    const manifest = read(chain);
+    const mappings = [...manifest.dataSources, ...manifest.templates]
+      .map((source) => source.mapping.apiVersion);
+    assert.deepEqual([...new Set(mappings)], ['0.0.9']);
+  });
   test(`${chain}: no overlapping subscriptions for the same marketplace event`, () => {
     assert.deepEqual(overlaps(read(chain)), []);
   });
