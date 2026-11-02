@@ -50,7 +50,7 @@ describe("getTokenPriceUSD", () => {
     expect(isValidPriceResult(gd("100000"), "WETH")).toBe(false);
   });
 
-  it("stablecoins referencing USDC/USD get 0.99 × 0.9 confidence and overwrite the shared PriceSource", async () => {
+  it("stablecoins referencing USDC/USD get 0.9 × 0.9 = 0.81 confidence and overwrite the shared PriceSource", async () => {
     const { ctx, cache } = setup();
     await getTokenPriceUSD(ctx, USDC_NATIVE, at());
     expect((await cache.get(PriceSource, USDC_USD_FEED))!.sourceType).toBe("chainlink");
