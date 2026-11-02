@@ -32,9 +32,12 @@ npm run process
 npm run serve                 # separate terminal, same .env (GQL_PORT=4350)
 ```
 
-Regenerate with `npm run codegen` (models) and `npm run typegen` (decoders,
-from the shared `abis/` plus babydegen-mode's `VelodromeV2Pool.json`, the
-same ABI the studio subgraph uses).
+Regenerate with `npm run codegen` (models) and `npm run typegen` (decoders).
+Typegen reads the shared `abis/` (ERC20Detailed, AggregatorV3Interface),
+babydegen-mode's `VelodromeV2Pool.json` (the ABI the studio subgraph uses), and
+this squid's `abis/`: event-only fragments of `GnosisSafe.json` and
+`ServiceRegistryL2.json` with just the five events handled, copied verbatim
+from the shared files.
 
 ## Ingestion: restart on a new Safe
 
