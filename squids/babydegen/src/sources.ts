@@ -70,12 +70,20 @@ interface ScanLog {
 
 /**
  * Index of the first block that creates a new Basius Service, or -1. Mirrors
- * the handler gate: an agentId-115 RegisterInstance (from the database or
- * earlier in the scan) followed by CreateMultisigWithAgents for a multisig
- * that is not a Service yet. Erring towards a cut only costs a restart.
+ * the handler gate: an agentId-115 RegisterInstance followed by
+ * CreateMultisigWithAgents for a multisig that is not a Service yet. Erring
+ * towards a cut only costs a restart.
+ *
+ * `basius` holds every Basius id known to this stream (the database snapshot
+ * plus registrations already scanned) and is added to here, because a
+ * registration and its deploy are separate transactions and usually land in
+ * different batches (at the head a batch is about one block).
  */
-export function firstSpawnIndex(blocks: { logs: ScanLog[] }[], tracked: Tracked): number {
-  const basius = new Set(tracked.basiusServiceIds);
+export function firstSpawnIndex(
+  blocks: { logs: ScanLog[] }[],
+  tracked: Tracked,
+  basius: Set<bigint> = new Set(tracked.basiusServiceIds),
+): number {
   for (let b = 0; b < blocks.length; b++) {
     const logs = [...blocks[b].logs].sort((x, y) => x.logIndex - y.logIndex);
     for (const log of logs) {
@@ -110,8 +118,11 @@ export async function* cutAtSpawn<B extends { logs: ScanLog[] }>(
   tracked: Tracked,
   state: CutState,
 ): AsyncIterable<Batch<B>> {
+  // One set for the whole stream: a registration seen in an earlier batch
+  // must still gate the deploy in a later one.
+  const basius = new Set(tracked.basiusServiceIds);
   for await (const batch of stream) {
-    const at = firstSpawnIndex(batch.blocks, tracked);
+    const at = firstSpawnIndex(batch.blocks, tracked, basius);
     if (at < 0) {
       yield batch;
       continue;

@@ -9,8 +9,8 @@ import { SERVICE_REGISTRY, TRACKED_TOKENS, USDC_NATIVE } from "../src/constants"
 import { dispatch, type RawLog } from "../src/dispatch";
 import { FLUSH_ORDER } from "../src/entityCache";
 import { ETH_ADDRESS, tokenBalanceId } from "../src/ids";
-import { FundingBalance, SafeDataSource, Service, TokenBalance } from "../src/model";
-import { cutAtSpawn, emptyTracked, firstSpawnIndex, logQueries, serviceIdFromKey } from "../src/sources";
+import { FundingBalance, SafeDataSource, Service, ServiceRegistration, TokenBalance } from "../src/model";
+import { cutAtSpawn, emptyTracked, firstSpawnIndex, logQueries, serviceIdFromKey, type Tracked } from "../src/sources";
 import { addr, hash, meta, setup } from "./helpers";
 
 const OPERATOR = addr(0x0a);
@@ -142,6 +142,75 @@ describe("restart-on-new-Safe source", () => {
     for await (const b of cutAtSpawn(source(), emptyTracked(), state)) sizes.push(b.blocks.length);
     expect(sizes).toEqual([2, 2]);
     expect(state.cut).toBe(true);
+  });
+
+  it("cuts when the registration and the deploy arrive in different batches of one stream", async () => {
+    async function* source() {
+      yield { blocks: [block([registerInstance(1)])] };
+      yield { blocks: [block([createMultisig(1)]), block([])] };
+      yield { blocks: [block([])] };
+    }
+    const state = { cut: false };
+    const sizes: number[] = [];
+    for await (const b of cutAtSpawn(source(), emptyTracked(), state)) sizes.push(b.blocks.length);
+    expect(sizes).toEqual([1, 1]);
+    expect(state.cut).toBe(true);
+  });
+
+  it("end to end: a service registered in one batch and deployed in a later one is subscribed from its deploy block, each event once", async () => {
+    // The chain, every log. Stream batches: [100], [101, 102], [103].
+    const chainLogs = new Map<number, RawLog[]>([
+      [100, [registerInstance(1)]],
+      [101, [createMultisig(5), usdcTransfer(7, EOA, SAFE, 5_000_000n)]],
+      [102, [usdcTransfer(1, EOA, SAFE, 3_000_000n), safeReceived(2, SAFE, EOA, 10n ** 18n)]],
+      [103, [usdcTransfer(4, EOA, SAFE, 2_000_000n)]],
+    ]);
+    const batches = [[100], [101, 102], [103]];
+    const matches = (tracked: Tracked, l: RawLog) =>
+      logQueries(tracked).some(({ where = {} }) =>
+        (!where.address || where.address.includes(l.address)) &&
+        (["topic0", "topic1", "topic2"] as const).every((k, i) => !where[k] || where[k]!.includes(l.topics[i])),
+      );
+    const hdr = (n: number) => ({ number: n, hash: hash(n), timestamp: 1_781_000_000_000 + n * 2000 });
+    const { ctx, cache } = setup();
+    let from = 100;
+    let runs = 0;
+    for (;;) {
+      runs++;
+      // what main.ts loads from the database at a (re)start
+      const tracked: Tracked = {
+        basiusServiceIds: new Set(cache.all(ServiceRegistration).map((r) => r.serviceId)),
+        serviceSafes: new Set(cache.all(Service).map((s) => s.id)),
+        safeHosts: new Set(cache.all(SafeDataSource).map((s) => s.id)),
+      };
+      const stream: StreamState = { serviceSafes: new Set(tracked.serviceSafes), safeHosts: new Set(tracked.safeHosts) };
+      async function* portal() {
+        for (const nums of batches) {
+          const todo = nums.filter((n) => n >= from);
+          if (todo.length) yield { blocks: todo.map((n) => ({ n, logs: chainLogs.get(n)!.filter((l) => matches(tracked, l)) })) };
+        }
+      }
+      const cut = { cut: false };
+      for await (const batch of cutAtSpawn(portal(), tracked, cut)) {
+        for (const b of batch.blocks) {
+          await processBlock(ctx, { header: hdr(b.n), logs: b.logs }, stream, async (_h, services, hosts) =>
+            chainLogs.get(b.n)!.filter(
+              (l) =>
+                (l.topics[0] === erc20.Transfer.topic &&
+                  services.some((s) => l.topics[1] === addressTopic(s) || l.topics[2] === addressTopic(s))) ||
+                (hosts.includes(l.address) && l.topics[0] !== erc20.Transfer.topic),
+            ),
+          );
+          from = b.n + 1;
+        }
+      }
+      if (!cut.cut) break;
+    }
+    expect(runs).toBe(2);
+    const fb = (await cache.get(FundingBalance, SAFE))!;
+    expect(fb.totalInUsd.toFixed()).toBe("3010"); // 5 + 3 + 2 USDC + 1 ETH @ $3000
+    expect(fb.fundingInTxs).toHaveLength(4);
+    expect((await cache.get(TokenBalance, tokenBalanceId(SAFE, USDC_NATIVE)))!.balance.toFixed()).toBe("10");
   });
 
   it("subscribes the registry, then Transfers both ways and Safe events for tracked safes", () => {
