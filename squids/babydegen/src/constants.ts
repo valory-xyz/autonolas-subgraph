@@ -43,9 +43,6 @@ export const AERO_USDC_POOL: Address = "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb97
 /** The Transfer data sources in subgraph.yaml, in manifest order. */
 export const TRACKED_TOKENS: Address[] = [USDC_NATIVE, WETH, AERO, BOLD, MSUSD, FRXUSD, EUSD, AXLUSDC];
 
-/** constants.ts WHITELISTED_TOKENS (uninvested-value iteration order). */
-export const WHITELISTED_TOKENS: Address[] = [USDC_NATIVE, WETH, AERO, BOLD, MSUSD, FRXUSD, EUSD, AXLUSDC];
-
 /** $1 pair price in the pool adapter. */
 export const STABLECOINS: string[] = [USDC_NATIVE, BOLD, MSUSD, FRXUSD, EUSD, AXLUSDC];
 /** $1.00 fallback when no source prices the token. */
