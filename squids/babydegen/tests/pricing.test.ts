@@ -42,6 +42,12 @@ describe("getTokenPriceUSD", () => {
     expect(cache.all(PriceUpdate)[0].source.id).toBe(USDC_USD_FEED);
   });
 
+  it("still accepts a Chainlink answer exactly 24h old", async () => {
+    const { ctx, chain } = setup();
+    chain.feeds.set(USDC_USD_FEED, { answer: 99_000000n, updatedAt: 1000n });
+    expect((await getTokenPriceUSD(ctx, USDC_NATIVE, at(1000n + 86_400n))).toFixed()).toBe("0.99");
+  });
+
   it("USDC must sit strictly inside (0.95, 1.05); other symbols inside (0.0001, 100000)", () => {
     expect(isValidPriceResult(gd("0.95"), "USDC")).toBe(false);
     expect(isValidPriceResult(gd("0.9501"), "USDC")).toBe(true);

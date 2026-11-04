@@ -12,9 +12,11 @@ Base. It is being ported in three slices (BDMARK-2311):
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
-`PriceSource`, `PriceUpdate`, and `AgentPortfolio` (created, with
-`firstTradingTimestamp` and `firstFundingEthPrice`; its metrics stay 0 until
-slice 3 ports `calculatePortfolioMetrics`). Consumers read only
+`PriceSource`, `PriceUpdate`, and `AgentPortfolio`. `AgentPortfolio` differs
+from the subgraph until slice 3 ports `calculatePortfolioMetrics`: its metrics
+stay 0, `lastUpdated` stays at creation, and `firstTradingTimestamp` and
+`firstFundingEthPrice` come from the first funding, where the subgraph falls
+back to the registration timestamp first. Consumers read only
 `dailyPopulationMetrics`, so nothing switches before slice 3.
 
 ## Running locally

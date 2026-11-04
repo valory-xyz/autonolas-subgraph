@@ -34,14 +34,20 @@ export const SAFE_TOPICS = [safe.SafeReceived.topic, safe.ExecutionSuccess.topic
 
 export const isSafeTopic = (log: { topics: string[] }) => SAFE_TOPICS.includes(log.topics[0]);
 
+/** Only the execution events read the top-level transaction's to/value. */
+export const needsTransaction = (log: { topics: string[] }) =>
+  log.topics[0] === safe.ExecutionSuccess.topic || log.topics[0] === safe.ExecutionFromModuleSuccess.topic;
+
 export async function dispatch(ctx: h.Ctx, meta: EventMeta, log: RawLog): Promise<void> {
   const topic = log.topics[0];
   if (meta.address === SERVICE_REGISTRY) {
     if (topic === registry.RegisterInstance.topic) {
-      const e = registry.RegisterInstance.decode(log);
+      const e = tryDecode(ctx, meta, registry.RegisterInstance, log);
+      if (e == null) return;
       await h.handleRegisterInstance(ctx, meta, { operator: lc(e.operator), serviceId: e.serviceId, agentId: e.agentId });
     } else if (topic === registry.CreateMultisigWithAgents.topic) {
-      const e = registry.CreateMultisigWithAgents.decode(log);
+      const e = tryDecode(ctx, meta, registry.CreateMultisigWithAgents, log);
+      if (e == null) return;
       await h.handleCreateMultisigWithAgents(ctx, meta, { serviceId: e.serviceId, multisig: lc(e.multisig) });
     }
     return;

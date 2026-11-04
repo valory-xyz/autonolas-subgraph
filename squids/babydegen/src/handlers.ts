@@ -190,14 +190,14 @@ export async function updateFundingBalance(
   usd: GD,
   deposit: boolean,
   meta: EventMeta,
-  txHash = "",
+  txHash: string,
 ): Promise<void> {
   const ts = meta.blockTimestamp;
   const fb = (await ctx.cache.get(FundingBalance, serviceSafe)) ?? (await newFundingBalance(ctx, serviceSafe, ts));
   const oldTotalIn = GD.fromStore(fb.totalInUsd);
   if (deposit) {
     fb.totalInUsd = oldTotalIn.plus(usd).toStore();
-    if (txHash !== "") fb.fundingInTxs = [...fb.fundingInTxs, txHash];
+    fb.fundingInTxs = [...fb.fundingInTxs, txHash];
     if (oldTotalIn.equals(ZERO)) {
       const portfolio = await ensureAgentPortfolio(ctx, serviceSafe, ts);
       if (portfolio.firstTradingTimestamp === 0n) {
@@ -210,7 +210,7 @@ export async function updateFundingBalance(
     }
   } else {
     fb.totalOutUsd = GD.fromStore(fb.totalOutUsd).plus(usd).toStore();
-    if (txHash !== "") fb.fundingOutTxs = [...fb.fundingOutTxs, txHash];
+    fb.fundingOutTxs = [...fb.fundingOutTxs, txHash];
   }
   fb.netUsd = GD.fromStore(fb.totalInUsd).minus(GD.fromStore(fb.totalOutUsd)).toStore();
   fb.lastChangeTs = ts;

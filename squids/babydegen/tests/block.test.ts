@@ -80,6 +80,27 @@ describe("processBlock: a Basius service registered mid-block", () => {
     expect(await cache.get(Service, SAFE)).toBeDefined();
   });
 
+  it("replays a new host's earlier Safe event when a hot-block rollback left it in the stream", async () => {
+    const { ctx, cache } = setup();
+    const stream: StreamState = { serviceSafes: new Set([SAFE]), safeHosts: new Set([SAFE, OPERATOR]) };
+    const logs = [safeReceived(1, SAFE, EOA, 10n ** 18n), registerInstance(2), createMultisig(5)];
+    await processBlock(ctx, { header, logs }, stream, async () => []);
+    expect((await cache.get(FundingBalance, SAFE))!.totalInUsd.toFixed()).toBe("3000");
+    expect((await cache.get(TokenBalance, tokenBalanceId(SAFE, ETH_ADDRESS)))!.balance.toFixed()).toBe("1");
+  });
+
+  it("fetches the transaction for Safe executions only", async () => {
+    const { chain } = setup();
+    chain.logs = [
+      { ...safeReceived(1, SAFE, EOA, 1n), transactionIndex: 0 },
+      { ...log(2, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n })), transactionIndex: 0 },
+    ];
+    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n });
+    const got = await fetchMissingLogs(chain as any, header.hash, [], [SAFE]);
+    expect(got.find((l) => l.logIndex === 1)!.transaction).toBeUndefined();
+    expect(got.find((l) => l.logIndex === 2)!.transaction).toMatchObject({ to: SAFE, value: 5n });
+  });
+
   it("fetchMissingLogs asks for Transfers both ways plus the hosts' Safe events, with their transactions", async () => {
     const { chain } = setup();
     chain.logs = [

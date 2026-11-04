@@ -19,7 +19,7 @@
 
 import { eventMeta, type EventMeta } from "@olas/squid-shared";
 import { TRACKED_TOKENS } from "./constants";
-import { dispatch, isSafeTopic, SAFE_TOPICS, TRANSFER_TOPIC, type RawLog } from "./dispatch";
+import { dispatch, isSafeTopic, needsTransaction, SAFE_TOPICS, TRANSFER_TOPIC, type RawLog } from "./dispatch";
 import type { Ctx } from "./handlers";
 import type { ChainReader } from "./rpc";
 
@@ -57,7 +57,7 @@ export async function fetchMissingLogs(
   const out: RawLog[] = [];
   for (const l of logs) {
     let transaction: RawLog["transaction"];
-    if (isSafeTopic(l)) {
+    if (needsTransaction(l)) {
       if (!txs.has(l.transactionHash)) txs.set(l.transactionHash, chain.getTransaction(l.transactionHash));
       transaction = await txs.get(l.transactionHash)!;
     }
@@ -92,6 +92,11 @@ export async function processBlock(
     const hosts = ctx.spawnedSafes.splice(0);
     const services = ctx.newServices.splice(0);
     hosts.forEach((a) => newHosts.add(a));
+    // After a hot-block rollback the stream can already carry a new host, so
+    // its earlier Safe events are in the queue and were dropped in place.
+    for (const past of queue.slice(0, i)) {
+      if (hosts.includes(past.address) && isSafeTopic(past)) deferred.push(past);
+    }
     const missingHosts = hosts.filter((a) => !stream.safeHosts.has(a));
     const missingServices = services.filter((a) => !stream.serviceSafes.has(a));
     missingHosts.forEach((a) => stream.safeHosts.add(a));

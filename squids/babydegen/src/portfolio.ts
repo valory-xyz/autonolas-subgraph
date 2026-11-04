@@ -59,10 +59,18 @@ export async function registerServiceForSnapshots(ctx: PortfolioCtx, serviceAddr
 
 /**
  * helpers.ts calculatePortfolioMetrics, called from handleERC20Transfer on
- * every inflow to a service safe. It writes only AgentPortfolio metrics
- * (positions value, ROI/APR, ETH-adjusted figures) and reads no price that
- * this slice caches, so leaving it out does not change any entity written
- * here. It is ported with ROI and snapshots in slice 3 of BDMARK-2311; the
- * call site already sits where the subgraph calls it.
+ * every inflow to a service safe. It is ported with ROI and snapshots in
+ * slice 3 of BDMARK-2311; the call site already sits where the subgraph calls
+ * it. It writes only AgentPortfolio and reads no price that this slice caches,
+ * so every other entity is unaffected, but AgentPortfolio differs until then:
+ *
+ * - initialValue, uninvestedValue, finalValue, finalValueWithoutRewards,
+ *   totalWithdrawnUsd, unrealisedPnL, projectedUnrealisedPnL,
+ *   unrealisedPnLWithRewards, projectedUnrealisedPnLWithRewards,
+ *   currentEthPrice and ethAdjusted* stay 0.
+ * - lastUpdated stays at the creation timestamp.
+ * - firstTradingTimestamp and firstFundingEthPrice come from the first funding
+ *   here. The subgraph's call runs before the funding check and falls back to
+ *   the registration timestamp, so on an ERC-20 first inflow it sets them first.
  */
 export async function calculatePortfolioMetrics(_ctx: PortfolioCtx, _serviceSafe: string, _meta: EventMeta): Promise<void> {}
