@@ -676,6 +676,43 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     }
   });
 
+  it("books the leg without an Agent Safe when the service has none yet", async () => {
+    const b = newBatch(store, 1000, 1000);
+    await mintTo(b, 7n, PEARL_SAFE);
+    await h.handleRegisterInstance(
+      b,
+      meta({ blockNumber: 1000n, txHash: "0xreg7" }),
+      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: SIGNER }
+    );
+    await b.cache.flush();
+
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].masterSafeId).toBe(PEARL_SAFE);
+    expect(signerRows[0].agentSafeId).toBeNull();
+  });
+
+  it("does not link an Agent Signer registered before its Service exists", async () => {
+    const b = newBatch(store, 1000, 1000);
+    await h.handleRegisterInstance(
+      b,
+      meta({ blockNumber: 1000n, txHash: "0xreg7" }),
+      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: SIGNER }
+    );
+    await mintTo(b, 7n, PEARL_SAFE);
+    await h.handleCreateMultisigWithAgents(
+      b,
+      meta({ blockNumber: 1000n, txHash: "0xms7" }),
+      { serviceId: 7n, multisig: AGENT_SAFE }
+    );
+    await b.cache.flush();
+
+    // Known gap (MIGRATION.md): the FK rules out a row for a buffered service.
+    expect(store.count("AgentInstance")).toBe(0);
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(0);
+  });
+
   it("uses the leg's MultiSend position in the row id", async () => {
     await discoverService();
     const { signerRows } = await fund(

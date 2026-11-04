@@ -153,6 +153,13 @@ These are intended. When the compare script flags them, they are not bugs.
 
 ### Known gap carried over, not fixed
 
+An Agent Signer registered while its `Service` row does not exist yet (the
+`PendingRegistration` buffer) gets no `AgentInstance` row, so a later Pearl
+Safe → Agent Signer leg to it is not booked. The studio subgraph writes the
+link anyway; here the foreign key would reject it. The service NFT mint
+creates the `Service` before any `RegisterInstance`, so only services minted
+before the start block can hit this.
+
 `SAFE_SETUP_TRANSFER` can still miss a deposit made **before** the indexer
 first learns a Master Safe exists — the normal Pearl flow is create Safe →
 fund it → register service, and discovery happens at registration. It is

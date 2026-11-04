@@ -77,8 +77,8 @@ export function agentFundingEventId(
 // --- MultiSend --------------------------------------------------------
 //
 // Pearl batches a Fund Agent split (Agent Signer + Agent Safe) into one
-// Safe tx that DELEGATECALLs MultiSend v1.3.0. Only that deployment is
-// decoded; the address is the same on every chain Pearl indexes.
+// Safe tx that DELEGATECALLs MultiSend v1.3.0. Only the canonical v1.3.0
+// deployment is decoded; a DELEGATECALL to any other target is skipped.
 
 export const MULTISEND_V130 = "0xa238cbeb142c10ef7ad8442c6d1f9e89e07e7761";
 /** multiSend(bytes) */
