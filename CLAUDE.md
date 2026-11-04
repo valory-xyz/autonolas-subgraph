@@ -26,7 +26,7 @@ squids/
 ├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
 ├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
-├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
+├── marketplace/         # SQD marketplace indexer: Robinhood, Base and Polygon configurations
 ├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
 ├── tokenomics/          # SQD OLAS holder tracking (Robinhood), port of studio tokenomics-l2
 ├── staking/             # SQD staking indexer (Robinhood), port of studio main; requires archive RPC
@@ -98,8 +98,9 @@ easy to trip over:
   shared across batches with a reorg guard. That, not SQD itself, is what
   takes mapping from ~5 to ~2,000 blocks/sec.
 
-`squids/marketplace` is the **marketplace subgraph for chains graph-node
-does not serve** — first Robinhood Chain (4663). Same entity and field
+`squids/marketplace` supports **Robinhood Chain (4663), Base (8453) and
+Polygon (137)**. These are source configurations; the internal deployment
+tracker records active consumer routing. Same entity and field
 names as `subgraphs/marketplace`, minus the legacy AgentMech path and minus
 all IPFS fetching (payloads are off-chain now; only the raw 32-byte
 `ipfsHashBytes` is kept). One deployment = one chain, selected by
@@ -121,9 +122,10 @@ easy to trip over:
   Robinhood USDG factory emits `CreateMechFixedPriceToken`, not the
   `...TokenUSDC` name, and is registered under the `FixedPriceTokenUSDC`
   payment type — both verified on-chain.
-- **Fee → USD reads Chainlink at the event's block** via `RPC_HTTP` (the
-  only eth_call), with a logged fallback to `latest` on a pruned node
-  rather than $0 or a stall.
+- **Fee → USD uses historical RPC reads:** Chainlink native/USD, plus
+  Balancer balances for Base OLAS pricing. Polygon preserves the Graph
+  marketplace's zero-USD OLAS/NVM gaps through `unpricedFeeUnits`; raw charges
+  remain available. Use archive RPCs to avoid logged `latest` fallbacks.
 - **Two ingestion sources, one query.** `robinhood-mainnet` is a PRIVATE
   portal dataset (the public portal answers 404), so `INGEST_SOURCE`
   selects the SQD Portal (with the private key) or the chain's JSON-RPC via

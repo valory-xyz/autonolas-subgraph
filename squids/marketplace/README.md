@@ -2,7 +2,7 @@
 
 Indexer for the Olas **Mech Marketplace** on chains graph-node does not
 serve or is being retired on, built with the [SQD Squid SDK](https://docs.sqd.dev).
-Chains: **Robinhood Chain** (4663) and **Base** (8453). It reads marketplace,
+Chains: **Robinhood Chain** (4663), **Base** (8453) and **Polygon** (137). It reads marketplace,
 mech, registry and karma events, tracks mechs, requests, deliveries,
 service activity and fees, stores them in PostgreSQL and serves them over a
 GraphQL API.
@@ -134,12 +134,46 @@ What differs from Robinhood:
   `RPC_HTTP` must be **archive** (`https://mainnet.base.org` is): a price read
   that falls back to `latest` no longer matches the subgraph.
 
+## Polygon (137)
+
+Set `MARKETPLACE_CHAIN=polygon`, `INGEST_SOURCE=portal` and a
+`SQD_PORTAL_URL` serving `polygon-mainnet`. Supply an archive `RPC_HTTP`
+and preferably `RPC_HTTP_FALLBACK` for historical POL/USD reads. The default
+public RPC is not a guarantee of archive access.
+
+Addresses and start blocks match `subgraphs/marketplace/subgraph.polygon.yaml`:
+
+| Source | From block |
+|---|---|
+| ServiceRegistryL2 | 41,783,952 |
+| Marketplace proxy, Karma proxy and four historical factories | 81,028,558 |
+| ComplementaryServiceMetadata | 81,433,108 |
+
+The factory table includes native POL, OLAS, USDC and NVM-USDC. Polygon uses
+one V2 Marketplace source, without overlapping V1 decoding. Factory creation
+events initialize advertised rates; `MaxDeliveryRateUpdated` keeps them current.
+Actual delivery charges remain separate from those advertised maxima.
+
+Pricing preserves the existing Marketplace subgraph: native POL uses Chainlink
+POL/USD and USDC uses six decimals at 1:1. **Historical OLAS and NVM-credit
+fees have no USD conversion on Polygon:** raw charges remain available, but
+their USD values are zero with warnings. `unpricedFeeUnits` records these
+known gaps explicitly; missing pricing config on other chains still fails startup.
+Adding USD coverage for those units requires a separate historical backfill.
+
+Deploy with a fresh database, apply the existing migrations, index to head,
+then reconcile counters and native/USDC charges at a common block before
+switching consumers. Signed-request counters should be checked against event
+logs: the old Polygon subgraph may contain duplicate counts. Register any
+replacement protocol factories before their first use; their unpublished
+addresses are not placeholders in this config.
+
 ## Environment variables
 
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `MARKETPLACE_CHAIN` | which `CHAINS` entry to index: `robinhood` (default) or `base` |
+| `MARKETPLACE_CHAIN` | which `CHAINS` entry to index: `robinhood` (default), `base` or `polygon` |
 | `INGEST_SOURCE` | `portal` or `rpc` — where blocks come from. Unset: `portal` when `SQD_PORTAL_API_KEY` is set, `rpc` otherwise. See below |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL; in portal mode it must name the chain's dataset or the processor refuses to start. **`robinhood-mainnet` is a private portal dataset** — the public portal answers 404 for it, so this and the key below come from the infra secret |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header) |
@@ -278,7 +312,7 @@ exhaustive at load, so forgetting is a startup error, not silent data loss.
 
 The subgraph's CLAUDE.md lists three files to touch per factory. Here it
 is **one table entry** in `src/constants.ts` (`CHAINS.<chain>.mechFactories`):
-address, the event name it emits, payment type hash, fee unit, kind, start
+address, the event name it emits, payment type hash, fee unit, start
 block. That entry feeds the processor's address filter, the payment type
 lookup and the fee unit lookup at once.
 
@@ -287,10 +321,9 @@ don't: the marketplace `CreateMech` for that mech throws
 `Unknown mech factory` and the processor crash-loops on that block until
 the table is fixed — deliberately, the same fatal-halt policy as the
 subgraph, because every later event of that mech would otherwise be
-misattributed. A factory that emits an event other than the two already
-listed (`CreateMechFixedPriceNative`, `CreateMechFixedPriceToken`) also
-needs its ABI in [`abis/`](../../abis), the `typegen` script, and a topic in
-`src/processor.ts` / `src/main.ts` — the NVM factories, if they ever come.
+misattributed. The five existing native/token/USDC/NVM creation-event shapes
+are decoded in `src/decode.ts`. A new shape also needs its ABI, generated
+decoder and factory-event registration there.
 
 ### Indexing a new contract or event
 
@@ -313,9 +346,10 @@ different topic count; the raw decoder throws on those and kills the batch.
 Add a `CHAINS` entry in `src/constants.ts` (addresses lowercase, deployment
 blocks, factories, the Chainlink feed or `null`), set `MARKETPLACE_CHAIN`
 and deploy against a fresh database. A squid deployment is one chain.
-Nothing else in the code is chain-specific. TOKEN (OLAS) needs an
-`olasPool` and CREDITS an `nvmCredits` entry, or they convert to $0 with a
-warning; a chain with a V1 marketplace range sets `mechMarketplaceV1EndBlock`.
+TOKEN (OLAS) needs an `olasPool` and CREDITS an `nvmCredits` entry. A known
+historical pricing gap must be listed in `unpricedFeeUnits`; otherwise missing
+config fails startup. A chain with a V1 marketplace range sets
+`mechMarketplaceV1EndBlock`.
 
 ### Re-indexing from a specific block
 
@@ -371,11 +405,13 @@ column with a relation. `tests/fee.test.ts`, `tests/logic.test.ts` and
 Base: chain table, V1/V2 split, subscriptions, the four fee units in
 graph-node arithmetic (against live Base subgraph values) and an NVM-USDC
 request end to end.
+`tests/polygon.test.ts` checks source-manifest parity, V2/factory/rate-update
+subscriptions, POL/USDC conversion, historical pricing gaps and dynamic charges.
 
 ## Migration from the subgraph
 
 There is no marketplace subgraph on Robinhood to cut over from — this is
-the first indexer for the chain. On Base, consumers switch only after the
-parity check against the Base subgraph passes. Consumers coming from the subgraph on
+the first indexer for the chain. On Base and Polygon, switch consumers only after
+catch-up and reconciliation against the subgraph and event logs. Consumers coming from the subgraph on
 other chains: [MIGRATION.md](MIGRATION.md) lists the schema deltas, the id
 scheme and the OpenReader query dialect.
