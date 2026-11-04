@@ -692,25 +692,62 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(signerRows[0].agentSafeId).toBeNull();
   });
 
-  it("does not link an Agent Signer registered before its Service exists", async () => {
-    const b = newBatch(store, 1000, 1000);
+  /** RegisterInstance for service 7 while its Service row does not exist yet. */
+  async function registerBuffered(block: bigint, signer = SIGNER) {
+    const b = newBatch(store, Number(block), Number(block));
     await h.handleRegisterInstance(
       b,
-      meta({ blockNumber: 1000n, txHash: "0xreg7" }),
-      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: SIGNER }
+      meta({ blockNumber: block, txHash: `0xreg7-${block}` }),
+      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: signer }
     );
-    await mintTo(b, 7n, PEARL_SAFE);
+    await b.cache.flush();
+  }
+
+  /** Mint and deploy service 7, draining its PendingRegistration. */
+  async function deployService7(block: bigint) {
+    const b = newBatch(store, Number(block), Number(block));
+    await mintTo(b, 7n, PEARL_SAFE, block);
     await h.handleCreateMultisigWithAgents(
       b,
-      meta({ blockNumber: 1000n, txHash: "0xms7" }),
+      meta({ blockNumber: block, txHash: "0xms7" }),
       { serviceId: 7n, multisig: AGENT_SAFE }
     );
     await b.cache.flush();
+  }
 
-    // Known gap (MIGRATION.md): the FK rules out a row for a buffered service.
+  it("links an Agent Signer registered before its Service exists once the buffer drains", async () => {
+    await registerBuffered(1000n);
+    // The foreign key rules out the row until the Service exists.
     expect(store.count("AgentInstance")).toBe(0);
+
+    await deployService7(1010n);
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+    });
     const { signerRows } = await fund(SPLIT);
-    expect(signerRows).toHaveLength(0);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].serviceId).toBe("7");
+  });
+
+  it("keeps a later registration over a buffered one drained after it", async () => {
+    await registerBuffered(1000n);
+    // The Signer re-registers to a deployed service of another Pearl Safe.
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1050);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
+  });
+
+  it("lets a buffered registration replace an earlier one when drained", async () => {
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 900);
+    await registerBuffered(1000n);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+    });
   });
 
   it("uses the leg's MultiSend position in the row id", async () => {

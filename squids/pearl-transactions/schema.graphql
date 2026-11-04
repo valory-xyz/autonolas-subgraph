@@ -223,6 +223,12 @@ type PendingRegistration @entity {
   id: ID! # serviceId (decimal string)
   agentIds: [Int!]!
   operators: [String!]!
+  # Buffered Agent Signers and the block each registered at (parallel
+  # arrays). AgentInstance has a foreign key to Service, so these are linked
+  # at drain time, not when buffered. Int, not BigInt: codegen has no BigInt
+  # arrays, and block numbers stay far below 2^31.
+  agentInstances: [String!]!
+  agentInstanceBlocks: [Int!]!
 }
 
 # Agent Signer (RegisterInstance.agentInstance) -> the service of its latest
@@ -233,7 +239,7 @@ type PendingRegistration @entity {
 type AgentInstance @entity {
   id: ID! # Agent Signer address
   service: Service!
-  updatedBlock: BigInt!
+  updatedBlock: BigInt! # block of the registration this link comes from
 }
 
 # --- Raw token / native ledger ---------------------------------------

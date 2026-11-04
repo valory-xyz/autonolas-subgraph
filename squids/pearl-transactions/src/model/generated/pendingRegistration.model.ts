@@ -14,4 +14,10 @@ export class PendingRegistration {
 
     @StringColumn_({array: true, nullable: false})
     operators!: (string)[]
+
+    @StringColumn_({array: true, nullable: false})
+    agentInstances!: (string)[]
+
+    @IntColumn_({array: true, nullable: false})
+    agentInstanceBlocks!: (number)[]
 }

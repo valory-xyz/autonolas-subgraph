@@ -400,6 +400,27 @@ async function attributeBond(
 
 // --- ServiceRegistryL2 ------------------------------------------------
 
+/**
+ * Point an Agent Signer at the service it registered with, unless a later
+ * registration already did: handleSafeExecutionSuccess attributes a Pearl
+ * Safe -> Agent Signer leg through this link. A buffered registration is
+ * linked late, at drain time, so `registeredBlock` (not the current block)
+ * decides which registration is the latest.
+ */
+async function linkAgentInstance(
+  ctx: Ctx,
+  signer: string,
+  service: Service,
+  registeredBlock: bigint
+): Promise<void> {
+  const current = await ctx.cache.get(AgentInstance, signer);
+  if (current != null && current.updatedBlock > registeredBlock) return;
+  ctx.cache.set(
+    AgentInstance,
+    new AgentInstance({ id: signer, service, updatedBlock: registeredBlock })
+  );
+}
+
 export async function handleRegisterInstance(
   ctx: Ctx,
   meta: EventMeta,
@@ -415,28 +436,35 @@ export async function handleRegisterInstance(
     existing.operators = pushUnique(existing.operators, e.operator);
     existing.updatedTimestamp = meta.blockTimestamp;
     ctx.cache.set(Service, existing);
-    // The Agent Signer -> service link handleSafeExecutionSuccess attributes
-    // a Pearl Safe -> Agent Signer leg through; latest registration wins.
-    // Unlike the studio subgraph it is not written for a buffered service:
-    // the foreign key would reject a Service row that does not exist. The
-    // service NFT mint creates the Service before any RegisterInstance, so
-    // only services minted before START_BLOCK reach the buffer.
-    ctx.cache.set(
-      AgentInstance,
-      new AgentInstance({
-        id: e.agentInstance,
-        service: existing,
-        updatedBlock: meta.blockNumber,
-      })
-    );
+    await linkAgentInstance(ctx, e.agentInstance, existing, meta.blockNumber);
   } else {
-    // Buffer; drained at CreateMultisigWithAgents time.
+    // Buffer; drained at CreateMultisigWithAgents time. The Agent Signer
+    // link waits too: the foreign key would reject an AgentInstance whose
+    // Service row does not exist yet.
     let pending = await ctx.cache.get(PendingRegistration, id);
     if (pending == null) {
-      pending = new PendingRegistration({ id, agentIds: [], operators: [] });
+      pending = new PendingRegistration({
+        id,
+        agentIds: [],
+        operators: [],
+        agentInstances: [],
+        agentInstanceBlocks: [],
+      });
     }
     pending.agentIds = pushUnique(pending.agentIds, agentId);
     pending.operators = pushUnique(pending.operators, e.operator);
+    const i = pending.agentInstances.indexOf(e.agentInstance);
+    if (i === -1) {
+      pending.agentInstances = [...pending.agentInstances, e.agentInstance];
+      pending.agentInstanceBlocks = [
+        ...pending.agentInstanceBlocks,
+        Number(meta.blockNumber),
+      ];
+    } else {
+      pending.agentInstanceBlocks = pending.agentInstanceBlocks.map((b, j) =>
+        j === i ? Number(meta.blockNumber) : b
+      );
+    }
     ctx.cache.set(PendingRegistration, pending);
   }
 
@@ -486,6 +514,12 @@ export async function handleCreateMultisigWithAgents(
     service.operators = mergeUnique(service.operators, pending.operators);
   }
   ctx.cache.set(Service, service);
+  if (pending != null) {
+    for (const [i, signer] of pending.agentInstances.entries()) {
+      const registeredBlock = BigInt(pending.agentInstanceBlocks[i]);
+      await linkAgentInstance(ctx, signer, service, registeredBlock);
+    }
+  }
 
   const agentSafe = await getOrCreateAgentSafe(ctx, e.multisig, service, meta);
   service.agentSafe = agentSafe;
@@ -1113,9 +1147,9 @@ export async function handleSafeReceived(
  *
  * Runs for every Safe execution on the chain (~4 per block on Polygon), so
  * every shape check runs before the one tracked lookup. A module execution
- * emits ExecutionFromModuleSuccess and never reaches here; a relayed
- * execTransaction is decoded but skipped, because the tx does not call the
- * Safe itself or, for the Agent Safe, its recipient is not the tx sender.
+ * emits ExecutionFromModuleSuccess and never reaches here. A tx that does
+ * not call the Safe itself is skipped before decoding; for the Agent Safe, a
+ * call whose recipient is not the tx sender is also skipped.
  * Never routed through classifyTransfer, which would label an Agent Safe
  * -> untracked transfer AGENT_TO_APP.
  *
