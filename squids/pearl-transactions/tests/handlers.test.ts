@@ -739,6 +739,20 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
   });
 
+  it("keeps a buffered Signer's latest block when it registers again before the drain", async () => {
+    await registerBuffered(1000n);
+    // Another Pearl Safe's deployed service registers the same Signer at 1010...
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1010);
+    // ...then it registers for still-buffered service 7 again, at 1020.
+    await registerBuffered(1020n);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1020n,
+    });
+  });
+
   it("lets a buffered registration replace an earlier one when drained", async () => {
     await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 900);
     await registerBuffered(1000n);
@@ -792,6 +806,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
       execCalldata({
         data: multiSendData(
           leg(SIGNER, 0n, "0xa9059cbb"), // ERC-20 call on the Signer address
+          leg(SIGNER, 4n, "0xa9059cbb"), // value AND data
           leg(SIGNER, 4n, "0x", 1) // DELEGATECALL
         ),
       })

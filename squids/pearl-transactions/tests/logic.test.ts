@@ -321,8 +321,9 @@ describe("MultiSend decoding", () => {
       `0x${leg(0, SAFE, 0n, "0xa9059cbb")}` + // ERC-20 call
       leg(1, SAFE, 5n) + // DELEGATECALL
       leg(0, SAFE, 0n) + // no value
+      leg(0, SAFE, 5n, "0xa9059cbb") + // value AND data
       leg(0, SIGNER, 7n);
-    expect(unpackMultiSend(buf)).toEqual([{ index: 3, to: SIGNER, value: 7n }]);
+    expect(unpackMultiSend(buf)).toEqual([{ index: 4, to: SIGNER, value: 7n }]);
   });
 
   it("lowercases the recipient of an upper-case buffer", () => {
