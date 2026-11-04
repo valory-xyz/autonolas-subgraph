@@ -33,6 +33,7 @@ export class InMemoryStore {
     Service: ["masterSafe", "agentSafe", "currentStakingContract"],
     AgentSafe: ["masterSafe", "service"],
     TrackedAddress: ["masterSafe", "service"],
+    AgentInstance: ["service"],
     FundsMovement: [
       "service",
       "masterSafe",
@@ -165,6 +166,7 @@ const FK_TARGETS: Record<string, string> = {
   "AgentSafe.serviceId": "Service",
   "TrackedAddress.masterSafeId": "MasterSafe",
   "TrackedAddress.serviceId": "Service",
+  "AgentInstance.serviceId": "Service",
   "FundsMovement.serviceId": "Service",
   "FundsMovement.masterSafeId": "MasterSafe",
   "FundsMovement.agentSafeId": "AgentSafe",

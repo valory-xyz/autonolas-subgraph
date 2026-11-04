@@ -225,6 +225,17 @@ type PendingRegistration @entity {
   operators: [String!]!
 }
 
+# Agent Signer (RegisterInstance.agentInstance) -> the service of its latest
+# registration. Read by handleSafeExecutionSuccess to attribute a Pearl Safe
+# -> Agent Signer native leg. Mutable, latest registration wins, and kept
+# out of TrackedAddress on purpose: that table is write-once and feeds
+# classifyTransfer, whose rows must not change.
+type AgentInstance @entity {
+  id: ID! # Agent Signer address
+  service: Service!
+  updatedBlock: BigInt!
+}
+
 # --- Raw token / native ledger ---------------------------------------
 
 # Token metadata snapshot. Populated lazily on first encounter,
