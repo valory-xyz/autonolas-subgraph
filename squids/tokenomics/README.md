@@ -32,7 +32,11 @@ dataset.
 | Portal dataset | `robinhood-mainnet` (private, key required) | `base-mainnet` (public; key optional) |
 
 Base mirrors studio `subgraphs/tokenomics-l2/subgraph.base.yaml` (no bytecode at
-10,622,420). It replaces the Base tokenomics-l2 subgraph on The Graph network.
+10,622,420). Base support is available; its presence here does not establish
+consumer cutover from Studio. Robinhood is deployed for OLAS holder tracking.
+This squid tracks token supply, holders and transfers, not Dispenser incentives.
+See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
+document for current deployments and consumer migration status.
 
 ### Robinhood
 

@@ -39,7 +39,6 @@ jobs:
           - { subgraph: mech,                manifest: subgraph.yaml }
           - { subgraph: pearl-transactions,  manifest: subgraph.yaml }
           - { subgraph: predict-omen,        manifest: subgraph.yaml }
-          - { subgraph: predict-polymarket,  manifest: subgraph.yaml }
           - { subgraph: service-registry,    manifest: subgraph.gnosis.yaml }
           - { subgraph: service-registry,    manifest: subgraph.mode-mainnet.yaml }
           - { subgraph: staking,             manifest: subgraph.mode-mainnet.yaml }

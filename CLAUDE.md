@@ -19,11 +19,10 @@ subgraphs/
 ├── tokenomics/          # OLAS ERC-20 tracking (Mode)
 ├── babydegen-mode/      # BabyDegen agent portfolio tracking (Mode)
 ├── pearl-transactions/  # Pearl wallet transaction-history (Gnosis)
-├── predict-omen/        # Omen prediction market trading (Gnosis)
-└── predict-polymarket/  # Polymarket prediction market trading (Polygon)
+└── predict-omen/        # Active Omen trader: self-hosted subgraph (Gnosis)
 
 squids/
-├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
+├── predict-polymarket/  # Active Polystrat/Polymarket trader squid (Polygon)
 ├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
 ├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
@@ -56,7 +55,7 @@ graph-node cannot keep up with chain-wide event volume. They are npm packages
 (not yarn) and deploy as Docker images (see `squids/Dockerfile`, each squid's
 `deploy/k8s-example.yaml`, and README), not via the subgraph deploy workflows.
 
-`squids/predict-polymarket` supersedes `subgraphs/predict-polymarket`. Key
+`squids/predict-polymarket` is the active Polystrat indexer; the retired Graph copy has been removed. Key
 design difference: DepositWallet→agent linking is derived from the Polymarket
 wallet factory's `WalletDeployed` event (owner = agent instance EOA →
 `RegisterInstance` → service multisig) instead of the global pUSD `Transfer`

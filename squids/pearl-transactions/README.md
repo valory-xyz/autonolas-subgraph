@@ -1,7 +1,7 @@
 # pearl-transactions-squid
 
 Funds-movement indexer for Pearl **Master Safe / Agent Safe** accounts on
-Polygon (and, by env, Base), built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
+Polygon and Base, built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
 events from the blockchain, classifies every fund movement in and out of a
 user's wallets, stores the result in PostgreSQL, and serves it over a
 GraphQL API. It powers Pearl's wallet transaction-history view.
@@ -9,9 +9,11 @@ GraphQL API. It powers Pearl's wallet transaction-history view.
 SQD port of
 [`subgraphs/pearl-transactions`](https://github.com/valory-xyz/autonolas-subgraph-studio)
 (in the `autonolas-subgraph-studio` repo — **not** the copy in this repo,
-which is an older Gnosis-only fork). The subgraph still serves Gnosis, Base
-and Optimism; Polygon moved here because graph-node indexed it at roughly
-5 blocks/sec through the USDC.e-dense range and sat ~15 days behind head.
+which is an older Gnosis-only fork). Base and Polygon use this squid;
+Gnosis and Optimism use the Studio subgraph. For Pearl's current consumer
+configuration, see [olas-operate-app](https://github.com/valory-xyz/olas-operate-app).
+Track deployment versions and migrations in the internal
+**[WD] Subgraph&Squids Development and Deployment Tracking** document.
 
 ## How it works
 

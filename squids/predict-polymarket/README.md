@@ -6,6 +6,8 @@ blockchain, computes agent trading data (bets, market participation,
 profits, payouts), stores it in PostgreSQL, and serves it over a GraphQL
 API.
 
+**Polystrat uses this squid.** The retired Graph subgraph copies have been removed from both repositories.
+
 ## How it works
 
 Three processes, one codebase:
