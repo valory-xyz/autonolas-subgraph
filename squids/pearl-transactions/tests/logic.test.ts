@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { encodeAbiParameters, encodePacked } from "viem";
 import { FundsCategory } from "../src/model";
 import {
   BondQueue,
   ClassifyInput,
+  agentSignerLegId,
   TrackedInfo,
   classifyTransfer,
   dayTimestamp,
   evictionRowId,
   eventId,
   mergeUnique,
+  multiSendTransactions,
   pushUnique,
+  unpackMultiSend,
 } from "../src/logic";
 import {
   ROLE_AGENT,
@@ -273,6 +277,10 @@ describe("id helpers", () => {
     expect(evictionRowId("0xabc", 3, 1)).toBe("0xabc-3-1");
     expect(evictionRowId("0xabc", 3, 1)).not.toBe(eventId("0xabc", 4));
   });
+
+  it("builds Agent Signer leg ids from tx hash and leg position", () => {
+    expect(agentSignerLegId("0xabc", 1)).toBe("signer-0xabc-1");
+  });
 });
 
 describe("dedupe helpers", () => {
@@ -283,5 +291,70 @@ describe("dedupe helpers", () => {
 
   it("mergeUnique unions without duplicates and keeps order", () => {
     expect(mergeUnique([1, 2], [2, 3])).toEqual([1, 2, 3]);
+  });
+});
+
+describe("MultiSend decoding", () => {
+  const SIGNER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const SAFE = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  function leg(operation: number, to: string, value: bigint, data = "0x") {
+    return encodePacked(
+      ["uint8", "address", "uint256", "uint256", "bytes"],
+      [operation, to as `0x${string}`, value, BigInt((data.length - 2) / 2), data as `0x${string}`]
+    ).slice(2);
+  }
+
+  // The shape of the ZD#1285 Fund Agent split: Agent Signer leg first, then
+  // the Agent Safe leg, adding up to the 0.0004 ETH the user approved.
+  const split = `0x${leg(0, SIGNER, 321980789324419n)}${leg(0, SAFE, 78019210675581n)}`;
+
+  it("unpacks every native leg with its position", () => {
+    expect(unpackMultiSend(split)).toEqual([
+      { index: 0, to: SIGNER, value: 321980789324419n },
+      { index: 1, to: SAFE, value: 78019210675581n },
+    ]);
+  });
+
+  it("keeps positions but drops legs that are not plain native transfers", () => {
+    const buf =
+      `0x${leg(0, SAFE, 0n, "0xa9059cbb")}` + // ERC-20 call
+      leg(1, SAFE, 5n) + // DELEGATECALL
+      leg(0, SAFE, 0n) + // no value
+      leg(0, SIGNER, 7n);
+    expect(unpackMultiSend(buf)).toEqual([{ index: 3, to: SIGNER, value: 7n }]);
+  });
+
+  it("lowercases the recipient of an upper-case buffer", () => {
+    const to = "0xabcdef0123456789abcdef0123456789abcdef01";
+    expect(unpackMultiSend(`0x${leg(0, to, 1n).toUpperCase()}`)).toEqual([
+      { index: 0, to, value: 1n },
+    ]);
+  });
+
+  it("returns no legs for an empty buffer", () => {
+    expect(unpackMultiSend("0x")).toEqual([]);
+  });
+
+  it.each([
+    ["a truncated head", split.slice(0, split.length - 200)],
+    ["trailing bytes", `${split}00`],
+    ["a data length past the end", `0x${leg(0, SAFE, 1n, "0x1234").slice(0, -2)}`],
+    ["odd-length hex", `${split}0`],
+    ["non-hex characters", `0x${"zz".repeat(85)}`],
+  ])("returns null for %s", (_, buf) => {
+    expect(unpackMultiSend(buf)).toBeNull();
+  });
+
+  it("reads the packed buffer out of multiSend(bytes) calldata", () => {
+    const calldata = `0x8d80ff0a${encodeAbiParameters([{ type: "bytes" }], [split as `0x${string}`]).slice(2)}`;
+    expect(multiSendTransactions(calldata)).toBe(split);
+  });
+
+  it.each([
+    ["another selector", `0xdeadbeef${encodeAbiParameters([{ type: "bytes" }], [split as `0x${string}`]).slice(2)}`],
+    ["an argument that is not bytes", "0x8d80ff0a1234"],
+  ])("returns null for %s", (_, calldata) => {
+    expect(multiSendTransactions(calldata)).toBeNull();
   });
 });
