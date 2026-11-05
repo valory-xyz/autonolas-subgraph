@@ -10,6 +10,7 @@ import {
   AgentInstance,
   AgentSafe,
   BondMovement,
+  BufferedAgentInstance,
   DailyServiceFunds,
   FundsCategory,
   FundsMovement,
@@ -28,6 +29,7 @@ import {
 import { EntityCache } from "./entityCache";
 import {
   BondQueue,
+  LogPosition,
   MULTISEND_V130,
   NativeLeg,
   agentFundingEventId,
@@ -38,6 +40,7 @@ import {
   dayTimestamp,
   eventId,
   evictionRowId,
+  isAfter,
   mergeUnique,
   multiSendTransactions,
   pushUnique,
@@ -47,6 +50,7 @@ import {
   unpackMultiSend,
 } from "./logic";
 import { FunctionCalldataDecodeError } from "@subsquid/evm-abi";
+import { BaseError as ViemError } from "viem";
 import { getSafeConfig } from "./rpc";
 import { execTransaction } from "./abi/GnosisSafe/functions";
 import {
@@ -400,12 +404,6 @@ async function attributeBond(
 
 // --- ServiceRegistryL2 ------------------------------------------------
 
-/** Where a RegisterInstance log sits in the chain. */
-interface LogPosition {
-  block: bigint;
-  logIndex: number;
-}
-
 /**
  * Point an Agent Signer at the service it registered with, unless a later
  * registration already did: handleSafeExecutionSuccess attributes a Pearl
@@ -423,9 +421,10 @@ async function linkAgentInstance(
   const current = await ctx.cache.get(AgentInstance, signer);
   if (
     current != null &&
-    (current.updatedBlock > registered.block ||
-      (current.updatedBlock === registered.block &&
-        current.updatedLogIndex > registered.logIndex))
+    isAfter(
+      { block: current.updatedBlock, logIndex: current.updatedLogIndex },
+      registered
+    )
   ) {
     return;
   }
@@ -470,31 +469,20 @@ export async function handleRegisterInstance(
         agentIds: [],
         operators: [],
         agentInstances: [],
-        agentInstanceBlocks: [],
-        agentInstanceLogIndexes: [],
       });
     }
     pending.agentIds = pushUnique(pending.agentIds, agentId);
     pending.operators = pushUnique(pending.operators, e.operator);
-    const i = pending.agentInstances.indexOf(e.agentInstance);
-    if (i === -1) {
-      pending.agentInstances = [...pending.agentInstances, e.agentInstance];
-      pending.agentInstanceBlocks = [
-        ...pending.agentInstanceBlocks,
-        Number(meta.blockNumber),
-      ];
-      pending.agentInstanceLogIndexes = [
-        ...pending.agentInstanceLogIndexes,
-        meta.logIndex,
-      ];
-    } else {
-      pending.agentInstanceBlocks = pending.agentInstanceBlocks.map((b, j) =>
-        j === i ? Number(meta.blockNumber) : b
-      );
-      pending.agentInstanceLogIndexes = pending.agentInstanceLogIndexes.map(
-        (l, j) => (j === i ? meta.logIndex : l)
-      );
-    }
+    // A Signer registered again before the drain keeps only its latest
+    // position.
+    pending.agentInstances = [
+      ...pending.agentInstances.filter((b) => b.signer !== e.agentInstance),
+      new BufferedAgentInstance({
+        signer: e.agentInstance,
+        block: meta.blockNumber,
+        logIndex: meta.logIndex,
+      }),
+    ];
     ctx.cache.set(PendingRegistration, pending);
   }
 
@@ -542,16 +530,11 @@ export async function handleCreateMultisigWithAgents(
   if (pending != null) {
     service.agentIds = mergeUnique(service.agentIds, pending.agentIds);
     service.operators = mergeUnique(service.operators, pending.operators);
-  }
-  ctx.cache.set(Service, service);
-  if (pending != null) {
-    for (const [i, signer] of pending.agentInstances.entries()) {
-      await linkAgentInstance(ctx, signer, service, {
-        block: BigInt(pending.agentInstanceBlocks[i]),
-        logIndex: pending.agentInstanceLogIndexes[i],
-      });
+    for (const buffered of pending.agentInstances) {
+      await linkAgentInstance(ctx, buffered.signer, service, buffered);
     }
   }
+  ctx.cache.set(Service, service);
 
   const agentSafe = await getOrCreateAgentSafe(ctx, e.multisig, service, meta);
   service.agentSafe = agentSafe;
@@ -1268,15 +1251,24 @@ function unpackMultiSendCall(
   meta: EventMeta,
   data: string
 ): NativeLeg[] | null {
-  const transactions = multiSendTransactions(data);
-  const legs = transactions == null ? null : unpackMultiSend(transactions);
-  if (legs == null) {
+  const skip = (reason: string): null => {
     ctx.log.warn(
-      `Pearl Safe ${meta.address} MultiSend calldata does not unpack ` +
-        `(tx=${meta.txHash}, ${data.length} hex chars); skipping`
+      `Pearl Safe ${meta.address} MultiSend calldata skipped ` +
+        `(tx=${meta.txHash}, ${data.length} hex chars): ${reason}`
     );
+    return null;
+  };
+  let transactions;
+  try {
+    transactions = multiSendTransactions(data);
+  } catch (err) {
+    // Same rule as the execTransaction decode: an argument that is not
+    // valid bytes is foreign noise; anything else must crash the batch.
+    if (err instanceof ViemError) return skip(err.shortMessage);
+    throw err;
   }
-  return legs;
+  if (transactions == null) return skip("not a multiSend(bytes) call");
+  return unpackMultiSend(transactions) ?? skip("packed buffer does not unpack");
 }
 
 /**

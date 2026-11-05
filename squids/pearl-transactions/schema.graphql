@@ -223,13 +223,16 @@ type PendingRegistration @entity {
   id: ID! # serviceId (decimal string)
   agentIds: [Int!]!
   operators: [String!]!
-  # Buffered Agent Signers and the block and log index each registered at
-  # (parallel arrays). AgentInstance has a foreign key to Service, so these
-  # are linked at drain time, not when buffered. Int, not BigInt: codegen has
-  # no BigInt arrays, and block numbers stay far below 2^31.
-  agentInstances: [String!]!
-  agentInstanceBlocks: [Int!]!
-  agentInstanceLogIndexes: [Int!]!
+  # Buffered Agent Signers, each with the position it registered at.
+  # AgentInstance has a foreign key to Service, so these are linked at drain
+  # time, not when buffered.
+  agentInstances: [BufferedAgentInstance!]!
+}
+
+type BufferedAgentInstance @jsonField {
+  signer: String!
+  block: BigInt!
+  logIndex: Int!
 }
 
 # Agent Signer (RegisterInstance.agentInstance) -> the service of its latest
