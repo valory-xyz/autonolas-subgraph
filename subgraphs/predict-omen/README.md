@@ -1,6 +1,6 @@
 # Autonolas Predict Omen Subgraph
 
-A streamlined GraphQL API for tracking prediction markets and Autonolas agent performance on Gnosis Chain.
+The active **Omen trader indexer on Gnosis**, deployed as a self-hosted Graph subgraph. This directory is the maintained implementation; the retired Studio copy has been removed.
 
 > **Technical reference**: See [claude.md](claude.md) for full business rules, schema reference, handler details, accounting formulas, and AI context.
 

@@ -2,6 +2,11 @@
 
 Tracks the lifecycle of Olas services on Gnosis and Mode, including agent registration, multisig creation, ERC-8004 agent identity, and daily activity metrics.
 
+**Gnosis uses this self-hosted subgraph.** Mode is unsupported and remains unchanged.
+Base and Robinhood use the [service-registry squid](../../squids/service-registry).
+See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
+document for current endpoints and versions.
+
 > **Technical reference**: See [CLAUDE.md](CLAUDE.md) for full schema reference, handler details, business rules, multi-network configuration, and AI context.
 
 ## Quick Overview

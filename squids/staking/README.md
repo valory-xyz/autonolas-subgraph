@@ -23,7 +23,9 @@ dataset.
 
 Base mirrors studio `subgraphs/staking/subgraph.base.yaml` (factory and start
 block; no bytecode at 17,310,018) and `shared/constants.ts` `OLAS_ADDRESS_BASE`.
-It replaces the graph-node `staking-base` subgraph.
+Base migration to this squid is complete. Robinhood also uses this squid.
+See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
+document for current endpoints and versions.
 
 ### Robinhood
 

@@ -31,11 +31,9 @@ jobs:
           - "subgraphs/marketplace"
           - "subgraphs/mech"
           - "subgraphs/predict-omen"
-          - "subgraphs/predict-polymarket"
           - "subgraphs/service-registry"
           - "subgraphs/staking"
           - "subgraphs/tokenomics"
-          - "subgraphs/pearl-transactions"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -77,11 +75,9 @@ jobs:
           - "subgraphs/marketplace"
           - "subgraphs/mech"
           - "subgraphs/predict-omen"
-          - "subgraphs/predict-polymarket"
           - "subgraphs/service-registry"
           - "subgraphs/staking"
           - "subgraphs/tokenomics"
-          - "subgraphs/pearl-transactions"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -121,11 +117,9 @@ jobs:
           - "subgraphs/marketplace"
           - "subgraphs/mech"
           - "subgraphs/predict-omen"
-          - "subgraphs/predict-polymarket"
           - "subgraphs/service-registry"
           - "subgraphs/staking"
           - "subgraphs/tokenomics"
-          - "subgraphs/pearl-transactions"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
