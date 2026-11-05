@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { encodeAbiParameters, encodePacked } from "viem";
+import { BaseError } from "viem";
+import { bytesArg, leg } from "./encoding";
 import { FundsCategory } from "../src/model";
 import {
   BondQueue,
@@ -10,6 +11,7 @@ import {
   dayTimestamp,
   evictionRowId,
   eventId,
+  isAfter,
   mergeUnique,
   multiSendTransactions,
   pushUnique,
@@ -298,16 +300,9 @@ describe("MultiSend decoding", () => {
   const SIGNER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const SAFE = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-  function leg(operation: number, to: string, value: bigint, data = "0x") {
-    return encodePacked(
-      ["uint8", "address", "uint256", "uint256", "bytes"],
-      [operation, to as `0x${string}`, value, BigInt((data.length - 2) / 2), data as `0x${string}`]
-    ).slice(2);
-  }
-
-  // The shape of the ZD#1285 Fund Agent split: Agent Signer leg first, then
-  // the Agent Safe leg, adding up to the 0.0004 ETH the user approved.
-  const split = `0x${leg(0, SIGNER, 321980789324419n)}${leg(0, SAFE, 78019210675581n)}`;
+  // The shape of a Fund Agent split: Agent Signer leg first, then the
+  // Agent Safe leg, adding up to 0.0004 ETH.
+  const split = `0x${leg(SIGNER, 321980789324419n)}${leg(SAFE, 78019210675581n)}`;
 
   it("unpacks every native leg with its position", () => {
     expect(unpackMultiSend(split)).toEqual([
@@ -318,17 +313,17 @@ describe("MultiSend decoding", () => {
 
   it("keeps positions but drops legs that are not plain native transfers", () => {
     const buf =
-      `0x${leg(0, SAFE, 0n, "0xa9059cbb")}` + // ERC-20 call
-      leg(1, SAFE, 5n) + // DELEGATECALL
-      leg(0, SAFE, 0n) + // no value
-      leg(0, SAFE, 5n, "0xa9059cbb") + // value AND data
-      leg(0, SIGNER, 7n);
+      `0x${leg(SAFE, 0n, "0xa9059cbb")}` + // ERC-20 call
+      leg(SAFE, 5n, "0x", 1) + // DELEGATECALL
+      leg(SAFE, 0n) + // no value
+      leg(SAFE, 5n, "0xa9059cbb") + // value AND data
+      leg(SIGNER, 7n);
     expect(unpackMultiSend(buf)).toEqual([{ index: 4, to: SIGNER, value: 7n }]);
   });
 
   it("lowercases the recipient of an upper-case buffer", () => {
     const to = "0xabcdef0123456789abcdef0123456789abcdef01";
-    expect(unpackMultiSend(`0x${leg(0, to, 1n).toUpperCase()}`)).toEqual([
+    expect(unpackMultiSend(`0x${leg(to, 1n).toUpperCase()}`)).toEqual([
       { index: 0, to, value: 1n },
     ]);
   });
@@ -340,22 +335,37 @@ describe("MultiSend decoding", () => {
   it.each([
     ["a truncated head", split.slice(0, split.length - 200)],
     ["trailing bytes", `${split}00`],
-    ["a data length past the end", `0x${leg(0, SAFE, 1n, "0x1234").slice(0, -2)}`],
+    ["a data length past the end", `0x${leg(SAFE, 1n, "0x1234").slice(0, -2)}`],
     ["odd-length hex", `${split}0`],
     ["non-hex characters", `0x${"zz".repeat(85)}`],
   ])("returns null for %s", (_, buf) => {
     expect(unpackMultiSend(buf)).toBeNull();
   });
 
+  // `split` ABI-encoded as the lone `bytes` argument, without its selector.
+  const splitArg = bytesArg(split);
+
   it("reads the packed buffer out of multiSend(bytes) calldata", () => {
-    const calldata = `0x8d80ff0a${encodeAbiParameters([{ type: "bytes" }], [split as `0x${string}`]).slice(2)}`;
-    expect(multiSendTransactions(calldata)).toBe(split);
+    expect(multiSendTransactions(`0x8d80ff0a${splitArg}`)).toBe(split);
   });
 
+  it("returns null for another selector", () => {
+    expect(multiSendTransactions(`0xdeadbeef${splitArg}`)).toBeNull();
+  });
+
+  it("throws viem's decode error for an argument that is not bytes", () => {
+    expect(() => multiSendTransactions("0x8d80ff0a1234")).toThrow(BaseError);
+  });
+});
+
+describe("isAfter", () => {
   it.each([
-    ["another selector", `0xdeadbeef${encodeAbiParameters([{ type: "bytes" }], [split as `0x${string}`]).slice(2)}`],
-    ["an argument that is not bytes", "0x8d80ff0a1234"],
-  ])("returns null for %s", (_, calldata) => {
-    expect(multiSendTransactions(calldata)).toBeNull();
+    ["a later block", { block: 11n, logIndex: 0 }, { block: 10n, logIndex: 5 }, true],
+    ["an earlier block with a higher log index", { block: 10n, logIndex: 5 }, { block: 11n, logIndex: 0 }, false],
+    ["a later log in the same block", { block: 10n, logIndex: 6 }, { block: 10n, logIndex: 5 }, true],
+    ["an earlier log in the same block", { block: 10n, logIndex: 4 }, { block: 10n, logIndex: 5 }, false],
+    ["the same log", { block: 10n, logIndex: 5 }, { block: 10n, logIndex: 5 }, false],
+  ])("orders %s", (_, a, b, expected) => {
+    expect(isAfter(a, b)).toBe(expected);
   });
 });

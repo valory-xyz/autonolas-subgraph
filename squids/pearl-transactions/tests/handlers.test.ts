@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { encodeAbiParameters, encodePacked } from "viem";
 import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
+import { ExecFields, bytesArg, execCalldata as encodeExecTransaction, leg } from "./encoding";
 import { EntityCache, resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
 import { FundsCategory, FundsSource, ServiceBondType } from "../src/model";
@@ -345,25 +345,8 @@ describe("transfer classification and balances", () => {
 
 describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
   const SIGNER = `0x${"11".repeat(20)}`;
-  const ZERO20 = `0x${"00".repeat(20)}`;
-
-  function execCalldata(
-    over: Partial<{ to: string; value: bigint; data: string; operation: number }> = {}
-  ) {
-    return safeFns.execTransaction.encode({
-      to: SIGNER,
-      value: 5n,
-      data: "0x",
-      operation: 0,
-      safeTxGas: 0n,
-      baseGas: 0n,
-      gasPrice: 0n,
-      gasToken: ZERO20,
-      refundReceiver: ZERO20,
-      signatures: `0x${"ab".repeat(65)}`,
-      ...over,
-    });
-  }
+  const execCalldata = (over: Partial<ExecFields> = {}) =>
+    encodeExecTransaction({ to: SIGNER, value: 5n, data: "0x", operation: 0 }, over);
 
   async function execute(
     tx: { from?: string; to?: string | undefined; input?: string },
@@ -521,7 +504,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   const AGENT_SAFE = `0x${"44".repeat(20)}`;
   const SIGNER = `0x${"55".repeat(20)}`;
   const OTHER_PEARL_SAFE = `0x${"66".repeat(20)}`;
-  const ZERO20 = `0x${"00".repeat(20)}`;
+  const OTHER_AGENT_SAFE = `0x${"45".repeat(20)}`;
   const MULTISEND = "0xa238cbeb142c10ef7ad8442c6d1f9e89e07e7761";
   const SIGNER_SHARE = 321980789324419n;
   const SAFE_SHARE = 78019210675581n;
@@ -555,37 +538,12 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     await ctx.cache.flush();
   }
 
-  function leg(to: string, value: bigint, data = "0x", operation = 0) {
-    return encodePacked(
-      ["uint8", "address", "uint256", "uint256", "bytes"],
-      [operation, to as `0x${string}`, value, BigInt((data.length - 2) / 2), data as `0x${string}`]
-    ).slice(2);
-  }
-
   function multiSendData(...legs: string[]) {
-    return `0x8d80ff0a${encodeAbiParameters(
-      [{ type: "bytes" }],
-      [`0x${legs.join("")}` as `0x${string}`]
-    ).slice(2)}`;
+    return `0x8d80ff0a${bytesArg(`0x${legs.join("")}`)}`;
   }
 
-  function execCalldata(
-    over: Partial<{ to: string; value: bigint; data: string; operation: number }>
-  ) {
-    return safeFns.execTransaction.encode({
-      to: MULTISEND,
-      value: 0n,
-      data: "0x",
-      operation: 1,
-      safeTxGas: 0n,
-      baseGas: 0n,
-      gasPrice: 0n,
-      gasToken: ZERO20,
-      refundReceiver: ZERO20,
-      signatures: `0x${"ab".repeat(65)}`,
-      ...over,
-    });
-  }
+  const execCalldata = (over: Partial<ExecFields>) =>
+    encodeExecTransaction({ to: MULTISEND, value: 0n, data: "0x", operation: 1 }, over);
 
   const SPLIT = execCalldata({
     data: multiSendData(leg(SIGNER, SIGNER_SHARE), leg(AGENT_SAFE, SAFE_SHARE)),
@@ -735,7 +693,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   it("keeps a later registration over a buffered one drained after it", async () => {
     await registerBuffered(1000n);
     // The Signer re-registers to a deployed service of another Pearl Safe.
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1050);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1050);
     await deployService7(1100n);
 
     expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
@@ -745,7 +703,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     // Service 7 (buffered) registers the Signer at log 1; it unbonds and
     // re-registers to deployed service 8 at log 5 of the same block.
     await registerBuffered(1000n, SIGNER, 1);
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1000, 5);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1000, 5);
     await deployService7(1100n);
 
     expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
@@ -758,7 +716,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   });
 
   it("lets a buffered registration later in the same block replace an earlier one when drained", async () => {
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1000, 1);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1000, 1);
     await registerBuffered(1000n, SIGNER, 5);
     await deployService7(1100n);
 
@@ -772,7 +730,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   it("keeps a buffered Signer's latest position when it registers again before the drain", async () => {
     await registerBuffered(1000n, SIGNER, 3);
     // Another Pearl Safe's deployed service registers the same Signer at 1020...
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1020, 4);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1020, 4);
     // ...then it registers for still-buffered service 7 again, later in 1020.
     await registerBuffered(1020n, SIGNER, 6);
     await deployService7(1100n);
@@ -785,14 +743,51 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   });
 
   it("lets a buffered registration replace an earlier one when drained", async () => {
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 900);
-    await registerBuffered(1000n);
+    // The earlier block has the higher log index: the block decides.
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 900, 5);
+    await registerBuffered(1000n, SIGNER, 1);
     await deployService7(1100n);
 
     expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
       serviceId: "7",
       updatedBlock: 1000n,
+      updatedLogIndex: 1,
     });
+  });
+
+  it("books a funding in the batch where a buffered registration lost its drain", async () => {
+    // Service 9 of another Pearl Safe buffers the Signer at 900; service 7
+    // links it at 1000, in an earlier batch than the drain.
+    const b900 = newBatch(store, 900, 900);
+    await h.handleRegisterInstance(
+      b900,
+      meta({ blockNumber: 900n, txHash: "0xreg9" }),
+      { serviceId: 9n, agentId: 40n, operator: OTHER_PEARL_SAFE, agentInstance: SIGNER }
+    );
+    await b900.cache.flush();
+    await discoverService();
+
+    // The losing drain reads the AgentInstance without its `service`; the
+    // funding later in the same batch must still resolve it.
+    const b = newBatch(store, 1100, 1100);
+    await mintTo(b, 9n, OTHER_PEARL_SAFE, 1100n);
+    await h.handleCreateMultisigWithAgents(
+      b,
+      meta({ blockNumber: 1100n, txHash: "0xms9", logIndex: 1 }),
+      { serviceId: 9n, multisig: OTHER_AGENT_SAFE }
+    );
+    await h.handleSafeExecutionSuccess(
+      b,
+      meta({ blockNumber: 1100n, txHash: "0xfund", logIndex: 5, address: PEARL_SAFE }),
+      { from: PEARL_EOA, to: PEARL_SAFE, input: SPLIT }
+    );
+    await b.cache.flush();
+
+    const signerRows = store
+      .all("FundsMovement")
+      .filter((r) => r.transactionHash === "0xfund" && r.to === SIGNER);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].serviceId).toBe("7");
   });
 
   it("uses the leg's MultiSend position in the row id", async () => {
@@ -814,7 +809,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   it("follows the Agent Signer's latest registration", async () => {
     await discoverService();
     // The same Signer re-registered to a service of another Pearl Safe.
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1050);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1050);
     expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
 
     const { signerRows } = await fund(SPLIT);
@@ -823,7 +818,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
 
   it("skips an Agent Signer of another Pearl Safe's service", async () => {
     await discoverService();
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, `0x${"56".repeat(20)}`, 1050);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, `0x${"56".repeat(20)}`, 1050);
     const { rows } = await fund(
       execCalldata({ data: multiSendData(leg(`0x${"56".repeat(20)}`, 3n)) })
     );
@@ -851,15 +846,23 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("warns and writes nothing when the MultiSend buffer does not unpack", async () => {
+  it.each([
+    [
+      "the multiSend argument is not valid bytes",
+      multiSendData(leg(SIGNER, SIGNER_SHARE)).slice(0, -64),
+      "out of bounds",
+    ],
+    [
+      "the packed buffer does not unpack",
+      `0x8d80ff0a${bytesArg(`0x${leg(SIGNER, SIGNER_SHARE).slice(0, -2)}`)}`,
+      "packed buffer does not unpack",
+    ],
+  ])("warns with the reason and writes nothing when %s", async (_, data, reason) => {
     await discoverService();
-    const truncated = execCalldata({
-      data: multiSendData(leg(SIGNER, SIGNER_SHARE)).slice(0, -64),
-    });
-    const { rows, warn } = await fund(truncated);
+    const { rows, warn } = await fund(execCalldata({ data }));
     expect(rows).toHaveLength(0);
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0][0]).toContain("does not unpack");
+    expect(warn.mock.calls[0][0]).toContain(reason);
     expect(warn.mock.calls[0][0]).toContain("0xfund");
   });
 
