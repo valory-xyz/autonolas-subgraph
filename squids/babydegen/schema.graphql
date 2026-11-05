@@ -1,0 +1,178 @@
+# Port of autonolas-subgraph-studio subgraphs/babydegen/babydegen-base
+# (Basius on Base), slice 1 of 3: service discovery, Safe/funding flows,
+# token balances and token pricing. Positions, swaps, snapshots and
+# population metrics arrive in slices 2 and 3.
+#
+# Ids and Bytes fields keep graph-node's lowercase hex output, including the
+# UTF-8-encoded ids (e.g. ServiceRegistration "607" -> "0x363037"); see
+# src/ids.ts. Bytes lists are String lists. BigDecimal values follow
+# graph-node's 34-digit arithmetic (src/decimal.ts).
+
+type Service @entity {
+  "Service safe address"
+  id: ID!
+  serviceId: BigInt!
+  operatorSafe: String!
+  serviceSafe: String!
+
+  latestRegistrationBlock: BigInt!
+  latestRegistrationTimestamp: BigInt!
+  latestRegistrationTxHash: String!
+
+  latestMultisigBlock: BigInt!
+  latestMultisigTimestamp: BigInt!
+  latestMultisigTxHash: String!
+
+  isActive: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+
+  balances: [TokenBalance!]! @derivedFrom(field: "service")
+  "Position ids for iteration (filled from slice 2)"
+  positionIds: [String!]!
+}
+
+type ServiceRegistration @entity {
+  "utf8hex(serviceId)"
+  id: ID!
+  serviceId: BigInt!
+  operatorSafe: String!
+  registrationBlock: BigInt!
+  registrationTimestamp: BigInt!
+  registrationTxHash: String!
+}
+
+type ServiceIndex @entity {
+  "utf8hex(serviceId)"
+  id: ID!
+  serviceId: BigInt!
+  currentServiceSafe: String!
+}
+
+type AddressType @entity {
+  id: ID!
+  isContract: Boolean!
+  checkedAt: BigInt!
+}
+
+type FundingBalance @entity {
+  "Service safe address"
+  id: ID!
+  service: Service
+  totalInUsd: BigDecimal!
+  totalOutUsd: BigDecimal!
+  totalWithdrawnUsd: BigDecimal!
+  netUsd: BigDecimal!
+  firstInTimestamp: BigInt!
+  lastChangeTs: BigInt!
+  fundingInTxs: [String!]!
+  fundingOutTxs: [String!]!
+}
+
+type PriceSource @entity {
+  "Feed or pool address"
+  id: ID!
+  token: Token!
+  sourceType: String!
+  priority: Int!
+  isActive: Boolean!
+  lastUpdate: BigInt!
+  lastPrice: BigDecimal!
+  confidence: BigDecimal!
+}
+
+type Token @entity {
+  id: ID!
+  symbol: String!
+  name: String!
+  decimals: BigInt!
+  derivedUSD: BigDecimal!
+  "PriceSource ids (graph-node returned the entities)"
+  priceSources: [String!]!
+  lastPriceUpdate: BigInt!
+  priceConfidence: BigDecimal!
+}
+
+type PriceUpdate @entity {
+  "token address ++ utf8hex(timestamp)"
+  id: ID!
+  token: Token!
+  priceUSD: BigDecimal!
+  source: PriceSource!
+  confidence: BigDecimal!
+  timestamp: BigInt!
+  "Always 0, as in the subgraph"
+  block: BigInt!
+}
+
+type AgentPortfolio @entity {
+  "Service safe address"
+  id: ID!
+  service: Service!
+
+  finalValue: BigDecimal!
+  finalValueWithoutRewards: BigDecimal!
+  initialValue: BigDecimal!
+  positionsValue: BigDecimal!
+  uninvestedValue: BigDecimal!
+  totalWithdrawnUsd: BigDecimal!
+
+  unrealisedPnL: BigDecimal!
+  roi: BigDecimal!
+  apr: BigDecimal!
+  projectedUnrealisedPnL: BigDecimal!
+
+  unrealisedPnLWithRewards: BigDecimal!
+  projectedUnrealisedPnLWithRewards: BigDecimal!
+
+  ethAdjustedRoi: BigDecimal!
+  ethAdjustedApr: BigDecimal!
+  ethAdjustedUnrealisedPnL: BigDecimal!
+  ethAdjustedProjectedUnrealisedPnL: BigDecimal!
+
+  firstFundingEthPrice: BigDecimal!
+  currentEthPrice: BigDecimal!
+
+  totalInvestments: BigDecimal!
+  totalGrossGains: BigDecimal!
+  totalCosts: BigDecimal!
+
+  firstTradingTimestamp: BigInt!
+  lastUpdated: BigInt!
+  lastSnapshotTimestamp: BigInt!
+  lastSnapshotBlock: BigInt!
+
+  totalPositions: Int!
+  totalClosedPositions: Int!
+}
+
+type TokenBalance @entity {
+  "utf8hex('<serviceSafe>-<token>')"
+  id: ID!
+  service: Service!
+  token: String!
+  symbol: String!
+  decimals: Int!
+  balance: BigDecimal!
+  balanceUSD: BigDecimal!
+  lastUpdated: BigInt!
+  lastBlock: BigInt!
+}
+
+type ServiceRegistry @entity {
+  "utf8hex('registry') - singleton"
+  id: ID!
+  serviceAddresses: [String!]!
+}
+
+# --- squid-only ---------------------------------------------------------
+
+"""
+One row per address the subgraph attached a `Safe` template to (service and
+operator safes). The processor rebuilds its log filters from this table and
+Service at every (re)start; see src/sources.ts.
+"""
+type SafeDataSource @entity {
+  id: ID!
+  createdAtBlock: BigInt!
+}

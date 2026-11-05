@@ -31,6 +31,7 @@ squids/
 ├── tokenomics/          # SQD OLAS holder tracking (Robinhood), port of studio tokenomics-l2
 ├── staking/             # SQD staking indexer (Robinhood), port of studio main; requires archive RPC
 ├── mech-fees/           # SQD indexer for mech marketplace fees per payment model (Robinhood first; chain via MECH_FEES_CHAIN)
+├── babydegen/           # SQD port of studio babydegen-base (Basius on Base), in progress (BDMARK-2311); restart-on-new-Safe ingestion
 └── _shared/             # @olas/squid-shared: chain selection, RPC + Chainlink/DEX pricing, entity cache (file:../_shared)
 ```
 
@@ -42,11 +43,11 @@ Each subgraph is an independent package with its own `package.json`, `schema.gra
 `"file:../_shared"`. Each consumer's `package-lock.json` embeds `_shared`'s
 dependency list, so after changing `_shared/package.json` run `npm install` in
 every consumer (service-registry, marketplace, liquidity, mech-fees, staking,
-tokenomics) or
+tokenomics, babydegen) or
 `npm ci` fails in CI. Consumers declare only what they import themselves:
 `viem` is reached through `_shared` and must not be re-declared, or Node
 resolves the link to its real path and loads it twice. `@subsquid/big-decimal`
-is imported directly by marketplace, liquidity and mech-fees, so it is
+is imported directly by marketplace, liquidity, mech-fees and babydegen, so it is
 declared in both places and the pins must stay identical. One
 `squids/Dockerfile` builds any squid (`--build-arg SQUID=<folder>`, repo root
 as context).
