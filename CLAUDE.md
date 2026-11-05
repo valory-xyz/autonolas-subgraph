@@ -18,13 +18,11 @@ subgraphs/
 ├── staking/             # Staking contracts (Mode)
 ├── tokenomics/          # OLAS ERC-20 tracking (Mode)
 ├── babydegen-mode/      # BabyDegen agent portfolio tracking (Mode)
-├── pearl-transactions/  # Pearl wallet transaction-history (Gnosis)
-├── predict-omen/        # Omen prediction market trading (Gnosis)
-└── predict-polymarket/  # Polymarket prediction market trading (Polygon)
+└── predict-omen/        # Active Omen trader: self-hosted subgraph (Gnosis)
 
 squids/
-├── predict-polymarket/  # SQD/Subsquid indexer superseding the predict-polymarket subgraph
-├── pearl-transactions/  # SQD indexer for Pearl wallet history on Polygon
+├── predict-polymarket/  # Active Polystrat/Polymarket trader squid (Polygon)
+├── pearl-transactions/  # Active SQD indexer for Pearl wallet history on Base and Polygon
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
 ├── marketplace/         # SQD indexer for the mech marketplace on chains graph-node does not serve (Robinhood)
 ├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
@@ -57,7 +55,7 @@ graph-node cannot keep up with chain-wide event volume. They are npm packages
 (not yarn) and deploy as Docker images (see `squids/Dockerfile`, each squid's
 `deploy/k8s-example.yaml`, and README), not via the subgraph deploy workflows.
 
-`squids/predict-polymarket` supersedes `subgraphs/predict-polymarket`. Key
+`squids/predict-polymarket` is the active Polystrat indexer; the retired Graph copy has been removed. Key
 design difference: DepositWallet→agent linking is derived from the Polymarket
 wallet factory's `WalletDeployed` event (owner = agent instance EOA →
 `RegisterInstance` → service multisig) instead of the global pUSD `Transfer`
@@ -75,14 +73,12 @@ node lib/main.js               # processor (single instance only)
 npx squid-graphql-server       # GraphQL API
 ```
 
-`squids/pearl-transactions` supersedes the **Polygon** manifest of
-`pearl-transactions` in the separate `autonolas-subgraph-studio` repo (NOT the
-older Gnosis-only fork in `subgraphs/pearl-transactions` here — that one is
-schema v1 with no `BondMovement`). Gnosis / Base / Optimism stay on
-graph-node and are live at `transactions-<network>.subgraph.autonolas.tech`;
-only Polygon was unusable (~5 blk/s through the USDC.e-dense range, ~15 days
-behind head). Three things about it differ from predict-polymarket and are
-easy to trip over:
+`squids/pearl-transactions` serves Pearl wallet history on **Base and Polygon**.
+Gnosis and Optimism use `pearl-transactions` in the separate
+`autonolas-subgraph-studio` repo.
+See the [squid README](squids/pearl-transactions/README.md) for current
+deployment guidance. Three things about it differ from predict-polymarket
+and are easy to trip over:
 
 - **`RPC_POLYGON_HTTP` must be archive-capable.** `getOwners()` is read at
   each Safe's first-sighting block, not `latest` — owner lists change, so
@@ -333,7 +329,6 @@ All versions are pinned exactly (no carets). Most subgraphs are converged on gra
 | `service-registry` | 0.98.1 | 0.38.2 |
 | `tokenomics` | 0.98.1 | 0.38.2 |
 | `mech` | 0.98.1 | 0.38.2 |
-| `pearl-transactions` | 0.98.1 | 0.38.2 |
 | `autonolas` | 0.64.0 | 0.29.1 |
 | `autonolas-base` | 0.64.0 | 0.29.1 |
 
@@ -346,7 +341,7 @@ All versions are pinned exactly (no carets). Most subgraphs are converged on gra
 PR-time CI gates are concentrated in four workflows:
 
 - [`.github/workflows/build.yml`](.github/workflows/build.yml) — `graph codegen` + `graph build` smoke-test for every deployable (subgraph, manifest) pair.
-- [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) — per-(subgraph, manifest) codegen/build/test matrix; the only workflow that runs Matchstick tests. Tests are opt-in per matrix entry and currently run only for `marketplace` (`subgraph.gnosis.yaml`), `pearl-transactions`, `predict-omen`, and `predict-polymarket` — every other entry is build-only (`test: false`). For `autonolas`/`autonolas-base` this is because graph-cli 0.64.0's bundled matchstick downloader crashes on Linux x64 + Node 24; for the rest, tests just haven't been enabled yet.
+- [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) — per-(subgraph, manifest) codegen/build/test matrix; the only workflow that runs Matchstick tests. Tests are opt-in per matrix entry and currently run only for `marketplace` (`subgraph.gnosis.yaml`) and `predict-omen` — every other entry is build-only (`test: false`). For `autonolas`/`autonolas-base` this is because graph-cli 0.64.0's bundled matchstick downloader crashes on Linux x64 + Node 24; for the rest, tests just haven't been enabled yet.
 - [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml) — `yarn audit:prod`, install-hook audit, and lockfile-lint matrices — each across the same paths (root + every subgraph) — with an `All checks passed` aggregator job.
 - [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — gitleaks scan, SHA-pinned binary download.
 

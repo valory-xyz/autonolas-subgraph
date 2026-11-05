@@ -8,10 +8,11 @@ it over a GraphQL API.
 
 SQD port of
 [`subgraphs/service-registry`](https://github.com/valory-xyz/autonolas-subgraph-studio)
-in the `autonolas-subgraph-studio` repo. The subgraph keeps serving the
-graph-node chains; Robinhood is squid-only from day one, and Base moves off
-graph-node once each consumer passes a parity check against the Base
-subgraph (`subgraph.base.yaml`, same start blocks and addresses).
+in the `autonolas-subgraph-studio` repo. **Base migration to this squid is complete.**
+Robinhood also uses this squid; Gnosis uses the self-hosted
+[`service-registry` subgraph](../../subgraphs/service-registry).
+See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
+document for current endpoints and deployment versions.
 
 ## How it works
 
