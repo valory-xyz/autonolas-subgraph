@@ -258,6 +258,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     name: "polygon",
     chainId: 137,
     portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    // Production supplies an archive node via RPC_HTTP, overriding this public fallback.
     defaultRpc: "https://polygon-rpc.com",
     startBlock: 41_783_952,
     serviceRegistryL2: {

@@ -157,7 +157,7 @@ Actual delivery charges remain separate from those advertised maxima.
 Pricing preserves the existing Marketplace subgraph: native POL uses Chainlink
 POL/USD and USDC uses six decimals at 1:1. **Historical OLAS and NVM-credit
 fees have no USD conversion on Polygon:** raw charges remain available, but
-their USD values are zero with warnings. `unpricedFeeUnits` records these
+their USD values are zero without per-conversion warnings. `unpricedFeeUnits` records these
 known gaps explicitly; missing pricing config on other chains still fails startup.
 Adding USD coverage for those units requires a separate historical backfill.
 

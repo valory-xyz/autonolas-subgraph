@@ -99,6 +99,11 @@ describe("Polygon pricing", () => {
     for (const unit of ["TOKEN", "CREDITS"] as const) {
       expect((await convertFeeToUsd(123n, unit, 82_000_000n, sources, POLYGON)).toFixed()).toBe("0");
     }
+    expect(log.warn).not.toHaveBeenCalled();
+    const unexpected = { ...POLYGON, unpricedFeeUnits: [] };
+    for (const unit of ["TOKEN", "CREDITS"] as const) {
+      await convertFeeToUsd(123n, unit, 82_000_000n, sources, unexpected);
+    }
     expect(log.warn).toHaveBeenCalledTimes(2);
   });
 });
