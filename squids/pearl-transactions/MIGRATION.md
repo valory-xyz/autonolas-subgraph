@@ -4,13 +4,10 @@ One-time notes for the cutover from `subgraphs/pearl-transactions` (in the
 **`autonolas-subgraph-studio`** repo) to this squid. Irrelevant once the
 Polygon graph-node deployment is retired.
 
-> **Which subgraph copy is the source.** There are two. The one this squid
-> is ported from lives in `autonolas-subgraph-studio/subgraphs/pearl-transactions`:
-> four manifests generated from `networks.json`, schema v2 (separate
-> `BondMovement` ledger, `AGENT_OLAS_TO_MASTER` pre-split). This repo also
-> has a `subgraphs/pearl-transactions`, but it is an older Gnosis-only fork
-> on schema v1 with no `BondMovement` — do not port from or compare
-> against it.
+> **Migration source.** This squid is ported from
+> `autonolas-subgraph-studio/subgraphs/pearl-transactions`: four manifests
+> generated from `networks.json`, schema v2 (separate `BondMovement` ledger,
+> `AGENT_OLAS_TO_MASTER` pre-split).
 
 ## Why Polygon moved
 
