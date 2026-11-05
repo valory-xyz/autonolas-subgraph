@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {Service} from "./service.model"
 
 @Entity_()
@@ -16,4 +16,7 @@ export class AgentInstance {
 
     @BigIntColumn_({nullable: false})
     updatedBlock!: bigint
+
+    @IntColumn_({nullable: false})
+    updatedLogIndex!: number
 }

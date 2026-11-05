@@ -20,4 +20,7 @@ export class PendingRegistration {
 
     @IntColumn_({array: true, nullable: false})
     agentInstanceBlocks!: (number)[]
+
+    @IntColumn_({array: true, nullable: false})
+    agentInstanceLogIndexes!: (number)[]
 }

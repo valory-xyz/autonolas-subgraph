@@ -400,24 +400,43 @@ async function attributeBond(
 
 // --- ServiceRegistryL2 ------------------------------------------------
 
+/** Where a RegisterInstance log sits in the chain. */
+interface LogPosition {
+  block: bigint;
+  logIndex: number;
+}
+
 /**
  * Point an Agent Signer at the service it registered with, unless a later
  * registration already did: handleSafeExecutionSuccess attributes a Pearl
  * Safe -> Agent Signer leg through this link. A buffered registration is
- * linked late, at drain time, so `registeredBlock` (not the current block)
- * decides which registration is the latest.
+ * linked late, at drain time, so the registration's own position (not the
+ * current block) decides which one is the latest. The log index breaks ties
+ * between two registrations in one block.
  */
 async function linkAgentInstance(
   ctx: Ctx,
   signer: string,
   service: Service,
-  registeredBlock: bigint
+  registered: LogPosition
 ): Promise<void> {
   const current = await ctx.cache.get(AgentInstance, signer);
-  if (current != null && current.updatedBlock > registeredBlock) return;
+  if (
+    current != null &&
+    (current.updatedBlock > registered.block ||
+      (current.updatedBlock === registered.block &&
+        current.updatedLogIndex > registered.logIndex))
+  ) {
+    return;
+  }
   ctx.cache.set(
     AgentInstance,
-    new AgentInstance({ id: signer, service, updatedBlock: registeredBlock })
+    new AgentInstance({
+      id: signer,
+      service,
+      updatedBlock: registered.block,
+      updatedLogIndex: registered.logIndex,
+    })
   );
 }
 
@@ -436,7 +455,10 @@ export async function handleRegisterInstance(
     existing.operators = pushUnique(existing.operators, e.operator);
     existing.updatedTimestamp = meta.blockTimestamp;
     ctx.cache.set(Service, existing);
-    await linkAgentInstance(ctx, e.agentInstance, existing, meta.blockNumber);
+    await linkAgentInstance(ctx, e.agentInstance, existing, {
+      block: meta.blockNumber,
+      logIndex: meta.logIndex,
+    });
   } else {
     // Buffer; drained at CreateMultisigWithAgents time. The Agent Signer
     // link waits too: the foreign key would reject an AgentInstance whose
@@ -449,6 +471,7 @@ export async function handleRegisterInstance(
         operators: [],
         agentInstances: [],
         agentInstanceBlocks: [],
+        agentInstanceLogIndexes: [],
       });
     }
     pending.agentIds = pushUnique(pending.agentIds, agentId);
@@ -460,9 +483,16 @@ export async function handleRegisterInstance(
         ...pending.agentInstanceBlocks,
         Number(meta.blockNumber),
       ];
+      pending.agentInstanceLogIndexes = [
+        ...pending.agentInstanceLogIndexes,
+        meta.logIndex,
+      ];
     } else {
       pending.agentInstanceBlocks = pending.agentInstanceBlocks.map((b, j) =>
         j === i ? Number(meta.blockNumber) : b
+      );
+      pending.agentInstanceLogIndexes = pending.agentInstanceLogIndexes.map(
+        (l, j) => (j === i ? meta.logIndex : l)
       );
     }
     ctx.cache.set(PendingRegistration, pending);
@@ -516,8 +546,10 @@ export async function handleCreateMultisigWithAgents(
   ctx.cache.set(Service, service);
   if (pending != null) {
     for (const [i, signer] of pending.agentInstances.entries()) {
-      const registeredBlock = BigInt(pending.agentInstanceBlocks[i]);
-      await linkAgentInstance(ctx, signer, service, registeredBlock);
+      await linkAgentInstance(ctx, signer, service, {
+        block: BigInt(pending.agentInstanceBlocks[i]),
+        logIndex: pending.agentInstanceLogIndexes[i],
+      });
     }
   }
 
