@@ -890,7 +890,8 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
           meta({ blockNumber: 1100n, txHash: "0xfund", logIndex: 5, address: PEARL_SAFE }),
           { from: PEARL_EOA, to: PEARL_SAFE, input: SPLIT }
         )
-      ).rejects.toThrow(TypeError);
+      ).rejects.toThrow("Cannot read properties of undefined");
+      expect(decode).toHaveBeenCalledOnce();
     } finally {
       decode.mockRestore();
     }
