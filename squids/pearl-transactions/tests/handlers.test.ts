@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
-import { ExecFields, bytesArg, execCalldata as encodeExecTransaction, leg } from "./encoding";
+import { ExecFields, execCalldata as encodeExecTransaction, leg, multiSendData } from "./encoding";
 import { EntityCache, resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
+import * as logic from "../src/logic";
 import { FundsCategory, FundsSource, ServiceBondType } from "../src/model";
 import * as safeFns from "../src/abi/GnosisSafe/functions";
 import {
@@ -538,10 +539,6 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     await ctx.cache.flush();
   }
 
-  function multiSendData(...legs: string[]) {
-    return `0x8d80ff0a${bytesArg(`0x${legs.join("")}`)}`;
-  }
-
   const execCalldata = (over: Partial<ExecFields>) =>
     encodeExecTransaction({ to: MULTISEND, value: 0n, data: "0x", operation: 1 }, over);
 
@@ -733,6 +730,11 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1020, 4);
     // ...then it registers for still-buffered service 7 again, later in 1020.
     await registerBuffered(1020n, SIGNER, 6);
+    // The buffer keeps one record per Signer: the latest.
+    const buffered = store.raw("PendingRegistration", "7").agentInstances;
+    expect(
+      buffered.map((r: any) => ({ signer: r.signer, block: r.block, logIndex: r.logIndex }))
+    ).toEqual([{ signer: SIGNER, block: 1020n, logIndex: 6 }]);
     await deployService7(1100n);
 
     expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
@@ -854,8 +856,13 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     ],
     [
       "the packed buffer does not unpack",
-      `0x8d80ff0a${bytesArg(`0x${leg(SIGNER, SIGNER_SHARE).slice(0, -2)}`)}`,
+      multiSendData(leg(SIGNER, SIGNER_SHARE).slice(0, -2)),
       "packed buffer does not unpack",
+    ],
+    [
+      "the DELEGATECALL to MultiSend is not a multiSend(bytes) call",
+      `0xdeadbeef${multiSendData(leg(SIGNER, SIGNER_SHARE)).slice(10)}`,
+      "not a multiSend(bytes) call",
     ],
   ])("warns with the reason and writes nothing when %s", async (_, data, reason) => {
     await discoverService();
@@ -864,6 +871,30 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0][0]).toContain(reason);
     expect(warn.mock.calls[0][0]).toContain("0xfund");
+  });
+
+  it("rethrows a MultiSend decode error that is not viem's", async () => {
+    // Only foreign calldata is skipped; a bug of ours must crash the batch
+    // rather than silently drop the Agent Signer row.
+    await discoverService();
+    const decode = vi.spyOn(logic, "multiSendTransactions").mockImplementation(() => {
+      throw new TypeError("Cannot read properties of undefined");
+    });
+    const b = newBatch(store, 1100, 1100);
+    const warn = vi.fn();
+    b.log = { ...b.log, warn };
+    try {
+      await expect(
+        h.handleSafeExecutionSuccess(
+          b,
+          meta({ blockNumber: 1100n, txHash: "0xfund", logIndex: 5, address: PEARL_SAFE }),
+          { from: PEARL_EOA, to: PEARL_SAFE, input: SPLIT }
+        )
+      ).rejects.toThrow(TypeError);
+    } finally {
+      decode.mockRestore();
+    }
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it.each([

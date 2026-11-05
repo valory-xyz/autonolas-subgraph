@@ -2,8 +2,8 @@
 // the Safe or MultiSend encoding is made once.
 import { encodeAbiParameters, encodePacked } from "viem";
 import * as safeFns from "../src/abi/GnosisSafe/functions";
-
-const ZERO20 = `0x${"00".repeat(20)}`;
+import { ZERO_ADDRESS } from "../src/constants";
+import { MULTISEND_SELECTOR } from "../src/logic";
 
 export type ExecFields = { to: string; value: bigint; data: string; operation: number };
 
@@ -14,8 +14,8 @@ export function execCalldata(defaults: ExecFields, over: Partial<ExecFields> = {
     safeTxGas: 0n,
     baseGas: 0n,
     gasPrice: 0n,
-    gasToken: ZERO20,
-    refundReceiver: ZERO20,
+    gasToken: ZERO_ADDRESS,
+    refundReceiver: ZERO_ADDRESS,
     signatures: `0x${"ab".repeat(65)}`,
     ...over,
   });
@@ -32,4 +32,9 @@ export function leg(to: string, value: bigint, data = "0x", operation = 0) {
 /** A packed buffer ABI-encoded as the lone `bytes` argument, without `0x`. */
 export function bytesArg(buffer: string) {
   return encodeAbiParameters([{ type: "bytes" }], [buffer as `0x${string}`]).slice(2);
+}
+
+/** `multiSend(bytes)` calldata over the given packed legs. */
+export function multiSendData(...legs: string[]) {
+  return `${MULTISEND_SELECTOR}${bytesArg(`0x${legs.join("")}`)}`;
 }
