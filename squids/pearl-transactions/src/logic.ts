@@ -88,20 +88,27 @@ export type NativeLeg = { index: number; to: string; value: bigint };
 
 /**
  * The packed `transactions` argument of a `multiSend(bytes)` call, or null
- * when `data` is not one. `data` is lowercase hex.
+ * when `data` is not one. `data` is lowercase hex. Throws viem's decode
+ * error when the selector matches but the argument is not valid `bytes`;
+ * the caller decides whether that is foreign noise.
  */
 export function multiSendTransactions(data: string): string | null {
   if (data.slice(0, 10) !== MULTISEND_SELECTOR) return null;
-  try {
-    const [transactions] = decodeAbiParameters(
-      [{ type: "bytes" }],
-      `0x${data.slice(10)}`
-    );
-    return transactions.toLowerCase();
-  } catch {
-    return null;
-  }
+  const [transactions] = decodeAbiParameters(
+    [{ type: "bytes" }],
+    `0x${data.slice(10)}`
+  );
+  return transactions.toLowerCase();
 }
+
+// Field widths of a packed MultiSend leg's fixed head, in hex characters.
+const OPERATION_WIDTH = 2; // uint8
+const ADDRESS_WIDTH = 40; // address
+const WORD_WIDTH = 64; // uint256
+const TO_START = OPERATION_WIDTH;
+const VALUE_START = TO_START + ADDRESS_WIDTH;
+const DATA_LENGTH_START = VALUE_START + WORD_WIDTH;
+const HEAD_WIDTH = DATA_LENGTH_START + WORD_WIDTH;
 
 /**
  * Unpack MultiSend's packed legs — `operation uint8 | to address |
@@ -112,17 +119,15 @@ export function multiSendTransactions(data: string): string | null {
 export function unpackMultiSend(transactions: string): NativeLeg[] | null {
   const hex = transactions.startsWith("0x") ? transactions.slice(2) : transactions;
   if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return null;
-  // Byte widths of the fixed head, in hex characters.
-  const HEAD = 2 + 40 + 64 + 64;
   const legs: NativeLeg[] = [];
   let pos = 0;
   for (let index = 0; pos < hex.length; index++) {
-    if (hex.length - pos < HEAD) return null;
-    const operation = parseInt(hex.slice(pos, pos + 2), 16);
-    const to = `0x${hex.slice(pos + 2, pos + 42)}`.toLowerCase();
-    const value = BigInt(`0x${hex.slice(pos + 42, pos + 106)}`);
-    const dataLength = BigInt(`0x${hex.slice(pos + 106, pos + HEAD)}`);
-    pos += HEAD;
+    if (hex.length - pos < HEAD_WIDTH) return null;
+    const operation = parseInt(hex.slice(pos, pos + TO_START), 16);
+    const to = `0x${hex.slice(pos + TO_START, pos + VALUE_START)}`.toLowerCase();
+    const value = BigInt(`0x${hex.slice(pos + VALUE_START, pos + DATA_LENGTH_START)}`);
+    const dataLength = BigInt(`0x${hex.slice(pos + DATA_LENGTH_START, pos + HEAD_WIDTH)}`);
+    pos += HEAD_WIDTH;
     if (dataLength * 2n > BigInt(hex.length - pos)) return null;
     pos += Number(dataLength) * 2;
     if (operation === 0 && dataLength === 0n && value > 0n) {
@@ -130,6 +135,19 @@ export function unpackMultiSend(transactions: string): NativeLeg[] | null {
     }
   }
   return legs;
+}
+
+// --- Log ordering -----------------------------------------------------
+
+/** Where a log sits in the chain. */
+export interface LogPosition {
+  block: bigint;
+  logIndex: number;
+}
+
+/** Whether log `a` comes after log `b`: by block, then log index within it. */
+export function isAfter(a: LogPosition, b: LogPosition): boolean {
+  return a.block > b.block || (a.block === b.block && a.logIndex > b.logIndex);
 }
 
 // --- Day bucketing ----------------------------------------------------
