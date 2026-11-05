@@ -537,13 +537,14 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     pearlSafe = PEARL_SAFE,
     agentSafe = AGENT_SAFE,
     signer = SIGNER,
-    block = 1000
+    block = 1000,
+    logIndex = 0
   ) {
     const ctx = newBatch(store, block, block);
     await mintTo(ctx, serviceId, pearlSafe, BigInt(block));
     await h.handleRegisterInstance(
       ctx,
-      meta({ blockNumber: BigInt(block), txHash: `0xreg${serviceId}` }),
+      meta({ blockNumber: BigInt(block), txHash: `0xreg${serviceId}`, logIndex }),
       { serviceId, agentId: 40n, operator: pearlSafe, agentInstance: signer }
     );
     await h.handleCreateMultisigWithAgents(
@@ -693,11 +694,11 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
   });
 
   /** RegisterInstance for service 7 while its Service row does not exist yet. */
-  async function registerBuffered(block: bigint, signer = SIGNER) {
+  async function registerBuffered(block: bigint, signer = SIGNER, logIndex = 0) {
     const b = newBatch(store, Number(block), Number(block));
     await h.handleRegisterInstance(
       b,
-      meta({ blockNumber: block, txHash: `0xreg7-${block}` }),
+      meta({ blockNumber: block, txHash: `0xreg7-${block}`, logIndex }),
       { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: signer }
     );
     await b.cache.flush();
@@ -724,6 +725,7 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
       serviceId: "7",
       updatedBlock: 1000n,
+      updatedLogIndex: 0,
     });
     const { signerRows } = await fund(SPLIT);
     expect(signerRows).toHaveLength(1);
@@ -739,17 +741,46 @@ describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
     expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
   });
 
-  it("keeps a buffered Signer's latest block when it registers again before the drain", async () => {
-    await registerBuffered(1000n);
-    // Another Pearl Safe's deployed service registers the same Signer at 1010...
-    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1010);
-    // ...then it registers for still-buffered service 7 again, at 1020.
-    await registerBuffered(1020n);
+  it("keeps a later registration in the same block over a buffered one drained after it", async () => {
+    // Service 7 (buffered) registers the Signer at log 1; it unbonds and
+    // re-registers to deployed service 8 at log 5 of the same block.
+    await registerBuffered(1000n, SIGNER, 1);
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1000, 5);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "8",
+      updatedBlock: 1000n,
+      updatedLogIndex: 5,
+    });
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(0);
+  });
+
+  it("lets a buffered registration later in the same block replace an earlier one when drained", async () => {
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1000, 1);
+    await registerBuffered(1000n, SIGNER, 5);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+      updatedLogIndex: 5,
+    });
+  });
+
+  it("keeps a buffered Signer's latest position when it registers again before the drain", async () => {
+    await registerBuffered(1000n, SIGNER, 3);
+    // Another Pearl Safe's deployed service registers the same Signer at 1020...
+    await discoverService(8n, OTHER_PEARL_SAFE, `0x${"45".repeat(20)}`, SIGNER, 1020, 4);
+    // ...then it registers for still-buffered service 7 again, later in 1020.
+    await registerBuffered(1020n, SIGNER, 6);
     await deployService7(1100n);
 
     expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
       serviceId: "7",
       updatedBlock: 1020n,
+      updatedLogIndex: 6,
     });
   });
 
