@@ -1,7 +1,6 @@
 # Migration from the graph-node subgraph
 
-One-time notes for the cutover from [`subgraphs/predict-polymarket`](../../subgraphs/predict-polymarket)
-to this squid. Irrelevant once the subgraph is retired.
+Historical cutover notes from the retired Graph subgraph to this squid. The Graph implementation is available in Git history; this squid is the active Polystrat indexer.
 
 > **Which side is newer — read this first.** This squid is ported from the
 > **latest** subgraph code and contains all of its features

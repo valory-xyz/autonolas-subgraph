@@ -24,6 +24,7 @@
     "axios": "1.18.0",
     "immutable": "5.1.8",
     "nanoid": "5.1.11",
+    "**/ipfs-unixfs/protobufjs": "6.11.6",
     "tmp": "0.2.7"
   }
 }
