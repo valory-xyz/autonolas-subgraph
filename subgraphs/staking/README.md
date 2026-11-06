@@ -1,8 +1,13 @@
 # Staking Subgraph
 
-> **Migration note**: This subgraph was moved from [autonolas-subgraph-studio](https://github.com/valory-xyz/autonolas-subgraph-studio) to this infra repo because Mode chain is not supported by The Graph's hosted service and we needed historical data. This subgraph is not actively maintained and will not be updated unless absolutely necessary. Only the Mode mainnet manifest (`subgraph.mode-mainnet.yaml`) exists in this directory — other network deployments are managed separately.
+> **Scope:** This is the legacy Mode self-hosted subgraph. Mode is unsupported;
+> its RPC has been abandoned, and this deployment will remain unchanged.
+> Base and Robinhood use the [staking squid](../../squids/staking).
+> Other supported chains use [Studio staking](https://github.com/valory-xyz/autonolas-subgraph-studio/tree/main/subgraphs/staking).
+> Current deployments are tracked in the internal
+> **[WD] Subgraph&Squids Development and Deployment Tracking** document.
 
-This subgraph tracks staking activities and reward distributions across multiple networks in the OLAS ecosystem. It monitors staking factory contracts and individual staking proxy instances to provide comprehensive analytics for staking participants, service providers, and reward distributions.
+This subgraph tracks staking activity and reward distributions on Mode.
 
 ## Overview
 
@@ -13,24 +18,15 @@ The staking subgraph provides real-time indexing of staking activities, tracking
 - **Reward Distribution**: Checkpoint events and reward claiming
 - **Deposit Management**: OLAS deposits and withdrawals
 - **Service Lifecycle**: Inactivity warnings, force unstaking, and evictions
-- **Multi-Network Support**: Deployments across 8 different networks
 
 ## Data Sources
 
-The subgraph monitors staking contracts across multiple networks:
-
-### Supported Networks
+This directory's deployment is Mode only. Other chain settings retained in
+`networks.json` are historical configuration, not active deployments of this copy.
 
 | Network | StakingFactory Address | Start Block |
-|---------|----------------------|-------------|
-| **Gnosis** | `0xb0228CA253A88Bc8eb4ca70BCAC8f87b381f4700` | 35206806 |
-| **Base** | `0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a` | 17310019 |
+|---------|------------------------|-------------|
 | **Mode Mainnet** | `0x75D529FAe220bC8db714F0202193726b46881B76` | 14444647 |
-| **Optimism** | `0xa45E64d13A30a51b91ae0eb182e88a40e9b18eD8` | 124618633 |
-| **Ethereum Mainnet** | `0xEBdde456EA288b49f7D5975E7659bA1Ccf607efc` | 20409818 |
-| **Polygon** | `0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461` | 62213142 |
-| **Arbitrum One** | `0xEB5638eefE289691EcE01943f768EDBF96258a80` | 256823487 |
-| **Celo** | `0x1c2cD884127b080F940b7546c1e9aaf525b1FA55` | 27900037 |
 
 ### Contract Architecture
 
@@ -215,11 +211,6 @@ Daily snapshot, one row per UTC day (`id` = day timestamp string as UTF-8 bytes,
 
 ## Key Features
 
-### Multi-Network Support
-- Deployed across 8 different networks
-- Network-specific configurations and addresses
-- Unified data schema across all networks
-
 ### Comprehensive Staking Tracking
 - Full service lifecycle from staking to unstaking
 - Reward distribution and claiming events
@@ -348,11 +339,11 @@ Daily snapshot, one row per UTC day (`id` = day timestamp string as UTF-8 bytes,
 
 Note: this subgraph has no Matchstick tests (`yarn test` is defined but there is no `tests/` directory); validate changes with `yarn codegen subgraph.mode-mainnet.yaml && yarn build subgraph.mode-mainnet.yaml` (there is no default `subgraph.yaml`, so the manifest must be passed explicitly).
 
-### Multi-Network Deployment
-The subgraph supports deployment across multiple networks:
-- Network configurations are in `networks.json`
-- Template-based deployment using `subgraph.template.yaml`
-- Network-specific address and block configurations
+### Deployment scope
+
+`subgraph.mode-mainnet.yaml` is the deployment manifest for this copy. Retained
+network settings and templates do not indicate active deployments on other chains.
+Mode is unsupported; do not schedule redeployment or reindexing.
 
 ### Local Development
 - The subgraph uses AssemblyScript for mapping logic
