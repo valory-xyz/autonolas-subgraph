@@ -223,6 +223,30 @@ type PendingRegistration @entity {
   id: ID! # serviceId (decimal string)
   agentIds: [Int!]!
   operators: [String!]!
+  # Buffered Agent Signers, each with the position it registered at.
+  # AgentInstance has a foreign key to Service, so these are linked at drain
+  # time, not when buffered.
+  agentInstances: [BufferedAgentInstance!]!
+}
+
+type BufferedAgentInstance @jsonField {
+  signer: String!
+  block: BigInt!
+  logIndex: Int!
+}
+
+# Agent Signer (RegisterInstance.agentInstance) -> the service of its latest
+# registration. Read by handleSafeExecutionSuccess to attribute a Pearl Safe
+# -> Agent Signer native leg. Mutable, latest registration wins, and kept
+# out of TrackedAddress on purpose: that table is write-once and feeds
+# classifyTransfer, whose rows must not change.
+type AgentInstance @entity {
+  id: ID! # Agent Signer address
+  service: Service!
+  # (updatedBlock, updatedLogIndex) of the registration this link comes
+  # from; the block alone cannot order two registrations in one block.
+  updatedBlock: BigInt!
+  updatedLogIndex: Int!
 }
 
 # --- Raw token / native ledger ---------------------------------------

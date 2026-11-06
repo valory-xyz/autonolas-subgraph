@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryStore, meta, newBatch } from "./inMemoryStore";
-import { resetTrackedIndexForTests } from "../src/entityCache";
+import { ExecFields, execCalldata as encodeExecTransaction, leg, multiSendData } from "./encoding";
+import { EntityCache, resetTrackedIndexForTests } from "../src/entityCache";
 import * as h from "../src/handlers";
+import * as logic from "../src/logic";
 import { FundsCategory, FundsSource, ServiceBondType } from "../src/model";
 import * as safeFns from "../src/abi/GnosisSafe/functions";
 import {
@@ -201,7 +203,7 @@ describe("bond attribution", () => {
       await h.handleRegisterInstance(
         ctx,
         meta({ txHash: "0xagentbond", logIndex: li }),
-        { serviceId: 7n, agentId: 40n, operator: OPERATOR }
+        { serviceId: 7n, agentId: 40n, operator: OPERATOR, agentInstance: OPERATOR }
       );
     }
     await ctx.cache.flush();
@@ -344,25 +346,8 @@ describe("transfer classification and balances", () => {
 
 describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
   const SIGNER = `0x${"11".repeat(20)}`;
-  const ZERO20 = `0x${"00".repeat(20)}`;
-
-  function execCalldata(
-    over: Partial<{ to: string; value: bigint; data: string; operation: number }> = {}
-  ) {
-    return safeFns.execTransaction.encode({
-      to: SIGNER,
-      value: 5n,
-      data: "0x",
-      operation: 0,
-      safeTxGas: 0n,
-      baseGas: 0n,
-      gasPrice: 0n,
-      gasToken: ZERO20,
-      refundReceiver: ZERO20,
-      signatures: `0x${"ab".repeat(65)}`,
-      ...over,
-    });
-  }
+  const execCalldata = (over: Partial<ExecFields> = {}) =>
+    encodeExecTransaction({ to: SIGNER, value: 5n, data: "0x", operation: 0 }, over);
 
   async function execute(
     tx: { from?: string; to?: string | undefined; input?: string },
@@ -467,12 +452,19 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     ["the operation is out of range", { input: execCalldata({ operation: 2 }) }],
     ["the inner call carries data", { input: execCalldata({ data: "0x1234" }) }],
     ["the inner call moves no value", { input: execCalldata({ value: 0n }) }],
-    ["the recipient is not the tx sender", { input: execCalldata({ to: `0x${"22".repeat(20)}` }) }],
   ])("writes nothing when %s", async (_, tx) => {
     await discoverAgent();
     const { row, lookedUp } = await execute(tx);
     expect(row).toBeUndefined();
     expect(lookedUp).toBe(false);
+  });
+
+  // A Pearl Safe may pay any recipient, so this one is only rejected after
+  // the lookup says the emitter is an Agent Safe.
+  it("writes nothing when the recipient is not the tx sender", async () => {
+    await discoverAgent();
+    const { row } = await execute({ input: execCalldata({ to: `0x${"22".repeat(20)}` }) });
+    expect(row).toBeUndefined();
   });
 
   it("rethrows a decode error that is not a calldata shape mismatch", async () => {
@@ -504,6 +496,419 @@ describe("Agent Safe -> Agent Signer native top-up (ExecutionSuccess)", () => {
     await discoverAgent();
     const { row } = await execute({}, MASTER);
     expect(row).toBeUndefined();
+  });
+});
+
+describe("Pearl Safe -> Agent Signer native legs (ExecutionSuccess)", () => {
+  const PEARL_SAFE = `0x${"33".repeat(20)}`;
+  const PEARL_EOA = `0x${"34".repeat(20)}`;
+  const AGENT_SAFE = `0x${"44".repeat(20)}`;
+  const SIGNER = `0x${"55".repeat(20)}`;
+  const OTHER_PEARL_SAFE = `0x${"66".repeat(20)}`;
+  const OTHER_AGENT_SAFE = `0x${"45".repeat(20)}`;
+  const MULTISEND = "0xa238cbeb142c10ef7ad8442c6d1f9e89e07e7761";
+  const SIGNER_SHARE = 321980789324419n;
+  const SAFE_SHARE = 78019210675581n;
+
+  beforeEach(() => {
+    OWNERS.set(PEARL_SAFE, [PEARL_EOA]);
+    OWNERS.set(OTHER_PEARL_SAFE, [`0x${"67".repeat(20)}`]);
+  });
+
+  /** Service `serviceId` of `pearlSafe`, with its Agent Safe and `signer` registered. */
+  async function discoverService(
+    serviceId = 7n,
+    pearlSafe = PEARL_SAFE,
+    agentSafe = AGENT_SAFE,
+    signer = SIGNER,
+    block = 1000,
+    logIndex = 0
+  ) {
+    const ctx = newBatch(store, block, block);
+    await mintTo(ctx, serviceId, pearlSafe, BigInt(block));
+    await h.handleRegisterInstance(
+      ctx,
+      meta({ blockNumber: BigInt(block), txHash: `0xreg${serviceId}`, logIndex }),
+      { serviceId, agentId: 40n, operator: pearlSafe, agentInstance: signer }
+    );
+    await h.handleCreateMultisigWithAgents(
+      ctx,
+      meta({ blockNumber: BigInt(block), txHash: `0xms${serviceId}` }),
+      { serviceId, multisig: agentSafe }
+    );
+    await ctx.cache.flush();
+  }
+
+  const execCalldata = (over: Partial<ExecFields>) =>
+    encodeExecTransaction({ to: MULTISEND, value: 0n, data: "0x", operation: 1 }, over);
+
+  const SPLIT = execCalldata({
+    data: multiSendData(leg(SIGNER, SIGNER_SHARE), leg(AGENT_SAFE, SAFE_SHARE)),
+  });
+
+  /** The Pearl Safe's funding tx in its own batch: the Agent Safe leg's
+   *  SafeReceived (when `safeLeg`), then ExecutionSuccess once per index. */
+  async function fund(
+    input: string,
+    opts: { safeLeg?: bigint; emitter?: string; logIndexes?: number[]; block?: number } = {}
+  ) {
+    const { safeLeg, emitter = PEARL_SAFE, logIndexes = [5], block = 1100 } = opts;
+    const b = newBatch(store, block, block);
+    const warn = vi.fn();
+    b.log = { ...b.log, warn };
+    const tracked = vi.spyOn(b.cache, "tracked");
+    if (safeLeg != null) {
+      await h.handleSafeReceived(
+        b,
+        meta({ blockNumber: BigInt(block), txHash: "0xfund", logIndex: 2, address: AGENT_SAFE }),
+        { sender: emitter, value: safeLeg }
+      );
+    }
+    for (const logIndex of logIndexes) {
+      await h.handleSafeExecutionSuccess(
+        b,
+        meta({ blockNumber: BigInt(block), txHash: "0xfund", logIndex, address: emitter }),
+        { from: PEARL_EOA, to: emitter, input }
+      );
+    }
+    await b.cache.flush();
+    const rows = store.all("FundsMovement").filter((r) => r.transactionHash === "0xfund");
+    return {
+      rows,
+      signerRows: rows.filter((r) => r.to === SIGNER),
+      lookedUp: tracked.mock.calls.length > 0,
+      warn,
+    };
+  }
+
+  it("books the Agent Signer leg of a Fund Agent split next to the Agent Safe leg", async () => {
+    await discoverService();
+    const { rows, signerRows } = await fund(SPLIT, { safeLeg: SAFE_SHARE });
+
+    expect(rows).toHaveLength(2);
+    expect(signerRows).toHaveLength(1);
+    const row = signerRows[0];
+    expect(row.id).toBe("signer-0xfund-0");
+    expect(row.category).toBe(FundsCategory.MASTER_TO_AGENT);
+    expect(row.source).toBe(FundsSource.SEMANTIC);
+    expect(row.from).toBe(PEARL_SAFE);
+    expect(row.token).toBeNull();
+    expect(row.amount).toBe(SIGNER_SHARE);
+    expect(row.serviceId).toBe("7");
+    expect(row.masterSafeId).toBe(PEARL_SAFE);
+    expect(row.agentSafeId).toBe(AGENT_SAFE);
+
+    const safeRow = rows.find((r) => r.to === AGENT_SAFE)!;
+    expect(row.agentFundingEventId).toBe(safeRow.agentFundingEventId);
+    const afe = store.raw("AgentFundingEvent", row.agentFundingEventId);
+    expect(afe.totalNativeAmount).toBe(SIGNER_SHARE + SAFE_SHARE);
+  });
+
+  it("creates the AgentFundingEvent for a plain CALL to the Agent Signer only", async () => {
+    await discoverService();
+    const { signerRows } = await fund(
+      execCalldata({ to: SIGNER, value: 9n, operation: 0 })
+    );
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].id).toBe("signer-0xfund-0");
+    const afe = store.raw("AgentFundingEvent", signerRows[0].agentFundingEventId);
+    expect(afe.totalNativeAmount).toBe(9n);
+    expect(afe.serviceId).toBe("7");
+    expect(afe.masterSafeId).toBe(PEARL_SAFE);
+  });
+
+  it("reads the Agent Signer registered in an earlier batch", async () => {
+    // discoverService flushed its own batch, so `fund` re-reads the
+    // AgentInstance from the store, where a plain get() leaves `service`
+    // undefined.
+    await discoverService();
+    const getService = vi.spyOn(EntityCache.prototype, "getService");
+    try {
+      const { signerRows } = await fund(SPLIT);
+      expect(signerRows).toHaveLength(1);
+      expect(getService).toHaveBeenCalledWith("7");
+    } finally {
+      getService.mockRestore();
+    }
+  });
+
+  it("books the leg without an Agent Safe when the service has none yet", async () => {
+    const b = newBatch(store, 1000, 1000);
+    await mintTo(b, 7n, PEARL_SAFE);
+    await h.handleRegisterInstance(
+      b,
+      meta({ blockNumber: 1000n, txHash: "0xreg7" }),
+      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: SIGNER }
+    );
+    await b.cache.flush();
+
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].masterSafeId).toBe(PEARL_SAFE);
+    expect(signerRows[0].agentSafeId).toBeNull();
+  });
+
+  /** RegisterInstance for service 7 while its Service row does not exist yet. */
+  async function registerBuffered(block: bigint, signer = SIGNER, logIndex = 0) {
+    const b = newBatch(store, Number(block), Number(block));
+    await h.handleRegisterInstance(
+      b,
+      meta({ blockNumber: block, txHash: `0xreg7-${block}`, logIndex }),
+      { serviceId: 7n, agentId: 40n, operator: PEARL_SAFE, agentInstance: signer }
+    );
+    await b.cache.flush();
+  }
+
+  /** Mint and deploy service 7, draining its PendingRegistration. */
+  async function deployService7(block: bigint) {
+    const b = newBatch(store, Number(block), Number(block));
+    await mintTo(b, 7n, PEARL_SAFE, block);
+    await h.handleCreateMultisigWithAgents(
+      b,
+      meta({ blockNumber: block, txHash: "0xms7" }),
+      { serviceId: 7n, multisig: AGENT_SAFE }
+    );
+    await b.cache.flush();
+  }
+
+  it("links an Agent Signer registered before its Service exists once the buffer drains", async () => {
+    await registerBuffered(1000n);
+    // The foreign key rules out the row until the Service exists.
+    expect(store.count("AgentInstance")).toBe(0);
+
+    await deployService7(1010n);
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+      updatedLogIndex: 0,
+    });
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].serviceId).toBe("7");
+  });
+
+  it("keeps a later registration over a buffered one drained after it", async () => {
+    await registerBuffered(1000n);
+    // The Signer re-registers to a deployed service of another Pearl Safe.
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1050);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
+  });
+
+  it("keeps a later registration in the same block over a buffered one drained after it", async () => {
+    // Service 7 (buffered) registers the Signer at log 1; it unbonds and
+    // re-registers to deployed service 8 at log 5 of the same block.
+    await registerBuffered(1000n, SIGNER, 1);
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1000, 5);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "8",
+      updatedBlock: 1000n,
+      updatedLogIndex: 5,
+    });
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(0);
+  });
+
+  it("lets a buffered registration later in the same block replace an earlier one when drained", async () => {
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1000, 1);
+    await registerBuffered(1000n, SIGNER, 5);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+      updatedLogIndex: 5,
+    });
+  });
+
+  it("keeps a buffered Signer's latest position when it registers again before the drain", async () => {
+    await registerBuffered(1000n, SIGNER, 3);
+    // Another Pearl Safe's deployed service registers the same Signer at 1020...
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1020, 4);
+    // ...then it registers for still-buffered service 7 again, later in 1020.
+    await registerBuffered(1020n, SIGNER, 6);
+    // The buffer keeps one record per Signer: the latest.
+    const buffered = store.raw("PendingRegistration", "7").agentInstances;
+    expect(
+      buffered.map((r: any) => ({ signer: r.signer, block: r.block, logIndex: r.logIndex }))
+    ).toEqual([{ signer: SIGNER, block: 1020n, logIndex: 6 }]);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1020n,
+      updatedLogIndex: 6,
+    });
+  });
+
+  it("lets a buffered registration replace an earlier one when drained", async () => {
+    // The earlier block has the higher log index: the block decides.
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 900, 5);
+    await registerBuffered(1000n, SIGNER, 1);
+    await deployService7(1100n);
+
+    expect(store.raw("AgentInstance", SIGNER)).toMatchObject({
+      serviceId: "7",
+      updatedBlock: 1000n,
+      updatedLogIndex: 1,
+    });
+  });
+
+  it("books a funding in the batch where a buffered registration lost its drain", async () => {
+    // Service 9 of another Pearl Safe buffers the Signer at 900; service 7
+    // links it at 1000, in an earlier batch than the drain.
+    const b900 = newBatch(store, 900, 900);
+    await h.handleRegisterInstance(
+      b900,
+      meta({ blockNumber: 900n, txHash: "0xreg9" }),
+      { serviceId: 9n, agentId: 40n, operator: OTHER_PEARL_SAFE, agentInstance: SIGNER }
+    );
+    await b900.cache.flush();
+    await discoverService();
+
+    // The losing drain reads the AgentInstance without its `service`; the
+    // funding later in the same batch must still resolve it.
+    const b = newBatch(store, 1100, 1100);
+    await mintTo(b, 9n, OTHER_PEARL_SAFE, 1100n);
+    await h.handleCreateMultisigWithAgents(
+      b,
+      meta({ blockNumber: 1100n, txHash: "0xms9", logIndex: 1 }),
+      { serviceId: 9n, multisig: OTHER_AGENT_SAFE }
+    );
+    await h.handleSafeExecutionSuccess(
+      b,
+      meta({ blockNumber: 1100n, txHash: "0xfund", logIndex: 5, address: PEARL_SAFE }),
+      { from: PEARL_EOA, to: PEARL_SAFE, input: SPLIT }
+    );
+    await b.cache.flush();
+
+    const signerRows = store
+      .all("FundsMovement")
+      .filter((r) => r.transactionHash === "0xfund" && r.to === SIGNER);
+    expect(signerRows).toHaveLength(1);
+    expect(signerRows[0].serviceId).toBe("7");
+  });
+
+  it("uses the leg's MultiSend position in the row id", async () => {
+    await discoverService();
+    const { signerRows } = await fund(
+      execCalldata({ data: multiSendData(leg(AGENT_SAFE, SAFE_SHARE), leg(SIGNER, SIGNER_SHARE)) })
+    );
+    expect(signerRows.map((r) => r.id)).toEqual(["signer-0xfund-1"]);
+  });
+
+  it("counts the legs once when the Safe emits ExecutionSuccess twice", async () => {
+    await discoverService();
+    const { signerRows } = await fund(SPLIT, { logIndexes: [5, 6] });
+    expect(signerRows).toHaveLength(1);
+    const afe = store.raw("AgentFundingEvent", signerRows[0].agentFundingEventId);
+    expect(afe.totalNativeAmount).toBe(SIGNER_SHARE);
+  });
+
+  it("follows the Agent Signer's latest registration", async () => {
+    await discoverService();
+    // The same Signer re-registered to a service of another Pearl Safe.
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, SIGNER, 1050);
+    expect(store.raw("AgentInstance", SIGNER).serviceId).toBe("8");
+
+    const { signerRows } = await fund(SPLIT);
+    expect(signerRows).toHaveLength(0);
+  });
+
+  it("skips an Agent Signer of another Pearl Safe's service", async () => {
+    await discoverService();
+    await discoverService(8n, OTHER_PEARL_SAFE, OTHER_AGENT_SAFE, `0x${"56".repeat(20)}`, 1050);
+    const { rows } = await fund(
+      execCalldata({ data: multiSendData(leg(`0x${"56".repeat(20)}`, 3n)) })
+    );
+    expect(rows).toHaveLength(0);
+    expect(store.count("AgentFundingEvent")).toBe(0);
+  });
+
+  it("skips a leg to the Agent Signer that is not a plain native transfer", async () => {
+    await discoverService();
+    const { rows } = await fund(
+      execCalldata({
+        data: multiSendData(
+          leg(SIGNER, 0n, "0xa9059cbb"), // ERC-20 call on the Signer address
+          leg(SIGNER, 4n, "0xa9059cbb"), // value AND data
+          leg(SIGNER, 4n, "0x", 1) // DELEGATECALL
+        ),
+      })
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("writes nothing when the emitter is an Agent Safe", async () => {
+    await discoverService();
+    const { rows } = await fund(SPLIT, { emitter: AGENT_SAFE });
+    expect(rows).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "the multiSend argument is not valid bytes",
+      multiSendData(leg(SIGNER, SIGNER_SHARE)).slice(0, -64),
+      "out of bounds",
+    ],
+    [
+      "the packed buffer does not unpack",
+      multiSendData(leg(SIGNER, SIGNER_SHARE).slice(0, -2)),
+      "packed buffer does not unpack",
+    ],
+    [
+      "the DELEGATECALL to MultiSend is not a multiSend(bytes) call",
+      `0xdeadbeef${multiSendData(leg(SIGNER, SIGNER_SHARE)).slice(10)}`,
+      "not a multiSend(bytes) call",
+    ],
+  ])("warns with the reason and writes nothing when %s", async (_, data, reason) => {
+    await discoverService();
+    const { rows, warn } = await fund(execCalldata({ data }));
+    expect(rows).toHaveLength(0);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain(reason);
+    expect(warn.mock.calls[0][0]).toContain("0xfund");
+  });
+
+  it("rethrows a MultiSend decode error that is not viem's", async () => {
+    // Only foreign calldata is skipped; a bug of ours must crash the batch
+    // rather than silently drop the Agent Signer row.
+    await discoverService();
+    const decode = vi.spyOn(logic, "multiSendTransactions").mockImplementation(() => {
+      throw new TypeError("Cannot read properties of undefined");
+    });
+    const b = newBatch(store, 1100, 1100);
+    const warn = vi.fn();
+    b.log = { ...b.log, warn };
+    try {
+      await expect(
+        h.handleSafeExecutionSuccess(
+          b,
+          meta({ blockNumber: 1100n, txHash: "0xfund", logIndex: 5, address: PEARL_SAFE }),
+          { from: PEARL_EOA, to: PEARL_SAFE, input: SPLIT }
+        )
+      ).rejects.toThrow("Cannot read properties of undefined");
+      expect(decode).toHaveBeenCalledOnce();
+    } finally {
+      decode.mockRestore();
+    }
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a DELEGATECALL to another contract", { to: `0x${"77".repeat(20)}` }],
+    ["a CALL to MultiSend", { operation: 0, value: 0n }],
+    ["a plain CALL carrying data", { to: SIGNER, operation: 0, value: 1n, data: "0x1234" }],
+  ])("writes nothing, before any lookup, for %s", async (_, over) => {
+    await discoverService();
+    const { rows, lookedUp } = await fund(
+      execCalldata({ data: multiSendData(leg(SIGNER, SIGNER_SHARE)), ...over })
+    );
+    expect(rows).toHaveLength(0);
+    expect(lookedUp).toBe(false);
   });
 });
 
@@ -544,7 +949,7 @@ describe("late Master Safe recognition (Base prod: probe missed the mint)", () =
     await h.handleRegisterInstance(
       b1,
       meta({ blockNumber: 1000n, txHash: "0xreg" }),
-      { serviceId: 7n, agentId: 40n, operator: OPERATOR }
+      { serviceId: 7n, agentId: 40n, operator: OPERATOR, agentInstance: OPERATOR }
     );
     await mintTo(b1, 7n, MASTER);
     await h.handleCreateMultisigWithAgents(
@@ -662,7 +1067,7 @@ describe("late Master Safe recognition (Base prod: probe missed the mint)", () =
     await h.handleRegisterInstance(
       b1,
       meta({ blockNumber: 1000n, txHash: "0xreg" }),
-      { serviceId: 7n, agentId: 40n, operator: OPERATOR }
+      { serviceId: 7n, agentId: 40n, operator: OPERATOR, agentInstance: OPERATOR }
     );
     await mintTo(b1, 7n, MASTER);
     await h.handleCreateMultisigWithAgents(

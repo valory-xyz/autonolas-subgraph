@@ -90,6 +90,7 @@ run(
               serviceId: e.serviceId,
               agentId: e.agentId,
               operator: lc(e.operator),
+              agentInstance: lc(e.agentInstance),
             });
           } else if (topic0 === registry.ActivateRegistration.topic) {
             const e = registry.ActivateRegistration.decode(log);
@@ -241,8 +242,9 @@ run(
         //
         // Replaces the subgraph's Safe template. handleSafeReceived exits
         // unless the emitter is a tracked Master/Agent Safe,
-        // handleSafeExecutionSuccess unless it is a tracked Agent Safe; the
-        // owner handlers no-op unless the address is a known MasterSafe.
+        // handleSafeExecutionSuccess unless it is a tracked Master or Agent
+        // Safe; the owner handlers no-op unless the address is a known
+        // MasterSafe.
         if (topic0 === safe.SafeReceived.topic) {
           const e = decodeForeignSafe(safe.SafeReceived, log);
           if (e != null) {

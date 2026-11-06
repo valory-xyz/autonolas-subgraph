@@ -2,6 +2,7 @@
 // total function of its arguments so it can be unit-tested directly
 // (tests/logic.test.ts). The store-touching half lives in handlers.ts.
 
+import { decodeAbiParameters } from "viem";
 import { FundsCategory } from "./model";
 import {
   Role,
@@ -46,6 +47,13 @@ export function agentSafeTopUpId(txHash: string): string {
   return `topup-${txHash}`;
 }
 
+/** One row per Pearl Safe -> Agent Signer native leg, matching the studio
+ * subgraph's `agentSignerLegId`. `legIndex` is 0 for a plain CALL, the
+ * leg's position in the MultiSend otherwise. */
+export function agentSignerLegId(txHash: string, legIndex: number): string {
+  return `signer-${txHash}-${legIndex}`;
+}
+
 export function serviceEntityId(serviceId: bigint): string {
   return serviceId.toString();
 }
@@ -64,6 +72,82 @@ export function agentFundingEventId(
   serviceId: string
 ): string {
   return `${txHash}-${masterSafeId}-${serviceId}`;
+}
+
+// --- MultiSend --------------------------------------------------------
+//
+// Pearl batches a Fund Agent split (Agent Signer + Agent Safe) into one
+// Safe tx that DELEGATECALLs MultiSend v1.3.0. Only the canonical v1.3.0
+// deployment is decoded; a DELEGATECALL to any other target is skipped.
+
+export const MULTISEND_V130 = "0xa238cbeb142c10ef7ad8442c6d1f9e89e07e7761";
+/** multiSend(bytes) */
+export const MULTISEND_SELECTOR = "0x8d80ff0a";
+
+export type NativeLeg = { index: number; to: string; value: bigint };
+
+/**
+ * The packed `transactions` argument of a `multiSend(bytes)` call, or null
+ * when `data` is not one. `data` is lowercase hex. Throws viem's decode
+ * error when the selector matches but the argument is not valid `bytes`;
+ * the caller decides whether that is foreign noise.
+ */
+export function multiSendTransactions(data: string): string | null {
+  if (data.slice(0, 10) !== MULTISEND_SELECTOR) return null;
+  const [transactions] = decodeAbiParameters(
+    [{ type: "bytes" }],
+    `0x${data.slice(10)}`
+  );
+  return transactions.toLowerCase();
+}
+
+// Field widths of a packed MultiSend leg's fixed head, in hex characters.
+const OPERATION_WIDTH = 2; // uint8
+const ADDRESS_WIDTH = 40; // address
+const WORD_WIDTH = 64; // uint256
+const TO_START = OPERATION_WIDTH;
+const VALUE_START = TO_START + ADDRESS_WIDTH;
+const DATA_LENGTH_START = VALUE_START + WORD_WIDTH;
+const HEAD_WIDTH = DATA_LENGTH_START + WORD_WIDTH;
+
+/**
+ * Unpack MultiSend's packed legs — `operation uint8 | to address |
+ * value uint256 | dataLength uint256 | data bytes`, back to back — and keep
+ * the plain native transfers (CALL, no data, value > 0) with their position.
+ * Returns null when the buffer does not unpack exactly.
+ */
+export function unpackMultiSend(transactions: string): NativeLeg[] | null {
+  const hex = transactions.startsWith("0x") ? transactions.slice(2) : transactions;
+  if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return null;
+  const legs: NativeLeg[] = [];
+  let pos = 0;
+  for (let index = 0; pos < hex.length; index++) {
+    if (hex.length - pos < HEAD_WIDTH) return null;
+    const operation = parseInt(hex.slice(pos, pos + TO_START), 16);
+    const to = `0x${hex.slice(pos + TO_START, pos + VALUE_START)}`.toLowerCase();
+    const value = BigInt(`0x${hex.slice(pos + VALUE_START, pos + DATA_LENGTH_START)}`);
+    const dataLength = BigInt(`0x${hex.slice(pos + DATA_LENGTH_START, pos + HEAD_WIDTH)}`);
+    pos += HEAD_WIDTH;
+    if (dataLength * 2n > BigInt(hex.length - pos)) return null;
+    pos += Number(dataLength) * 2;
+    if (operation === 0 && dataLength === 0n && value > 0n) {
+      legs.push({ index, to, value });
+    }
+  }
+  return legs;
+}
+
+// --- Log ordering -----------------------------------------------------
+
+/** Where a log sits in the chain. */
+export interface LogPosition {
+  block: bigint;
+  logIndex: number;
+}
+
+/** Whether log `a` comes after log `b`: by block, then log index within it. */
+export function isAfter(a: LogPosition, b: LogPosition): boolean {
+  return a.block > b.block || (a.block === b.block && a.logIndex > b.logIndex);
 }
 
 // --- Day bucketing ----------------------------------------------------

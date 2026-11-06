@@ -1,6 +1,8 @@
 import { Store } from "@subsquid/typeorm-store";
+import { getMetadataArgsStorage } from "typeorm";
 import {
   AgentFundingEvent,
+  AgentInstance,
   AgentSafe,
   BondMovement,
   DailyServiceFunds,
@@ -44,6 +46,7 @@ const FLUSH_ORDER: EntityClass<any>[] = [
   AgentSafe,
   // Service pass 2 is injected here by flush()
   TrackedAddress,
+  AgentInstance,
   ServiceIndex,
   PendingRegistration,
   AgentFundingEvent,
@@ -60,9 +63,11 @@ const FLUSH_ORDER: EntityClass<any>[] = [
 // and never errors. Assert the list is exhaustive at module load rather than
 // relying on whoever adds the next entity to remember this file.
 {
+  // Only @Entity classes: models also exports @jsonField value classes,
+  // which are stored inside an entity's column and never flushed on their own.
+  const entityTargets = new Set(getMetadataArgsStorage().tables.map((t) => t.target));
   const entityClasses = Object.values(models).filter(
-    (v): v is EntityClass<any> =>
-      typeof v === "function" && typeof (v as any).prototype?.constructor === "function"
+    (v): v is EntityClass<any> => typeof v === "function" && entityTargets.has(v)
   );
   if (entityClasses.length !== FLUSH_ORDER.length) {
     const listed = new Set(FLUSH_ORDER.map((c) => c.name));
@@ -202,6 +207,25 @@ export class EntityCache {
     const fromDb = await this.store.findOne(Service, {
       where: { id },
       relations: { masterSafe: true, agentSafe: true },
+    });
+    bucket.set(id, fromDb);
+    return fromDb;
+  }
+
+  /**
+   * AgentInstance with its `service` relation loaded. Same reason as
+   * getService: a plain get() returns the link undefined for a row from an
+   * earlier batch, and the caller needs the service id.
+   */
+  async getAgentInstance(id: string): Promise<AgentInstance | undefined> {
+    const bucket = this.bucket(this.cache, AgentInstance);
+    if (bucket.has(id)) {
+      const hit = bucket.get(id) as AgentInstance | undefined;
+      if (hit == null || hit.service !== undefined) return hit;
+    }
+    const fromDb = await this.store.findOne(AgentInstance, {
+      where: { id },
+      relations: { service: true },
     });
     bucket.set(id, fromDb);
     return fromDb;
