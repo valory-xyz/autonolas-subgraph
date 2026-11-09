@@ -329,8 +329,9 @@ describe("ERC-8004 authorization lifecycle", () => {
   }
   it.each([SAFE, otherSafe])("termination and redeployment to %s require explicit authorization", async (newSafe) => {
     await identity();
-    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: SAFE, newMultisig: zero});
+    // ServiceManager terminates in the registry before bridger cleanup.
     await h.handleTerminateService(cache, meta(DAY2_TS), {serviceId: 1n});
+    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: SAFE, newMultisig: zero});
     expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(zero);
     await unchangedIdentity();
     await h.handleCreateMultisig(cache, meta(DAY2_TS), {serviceId: 1n, multisig: newSafe, txFrom: CREATOR});
