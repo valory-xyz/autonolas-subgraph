@@ -72,6 +72,7 @@ export interface RpcTransaction {
   from: string;
   to: string | null;
   value: bigint;
+  input: string;
 }
 
 export interface Fn<A, R> {
@@ -134,7 +135,19 @@ export class ChainReader {
       from: String(tx.from).toLowerCase(),
       to: tx.to == null ? null : tx.to.toLowerCase(),
       value: BigInt(tx.value ?? "0x0"),
+      input: String(tx.input ?? "0x"),
     };
+  }
+
+  /** The receipt's logs (graph-node's `event.receipt.logs`), in log order. */
+  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[] }[]> {
+    const receipt = (await this.request("eth_getTransactionReceipt", [hash])) as {
+      logs: Array<{ address: string; topics: string[]; logIndex: string }>;
+    } | null;
+    if (receipt == null) throw new Error(`eth_getTransactionReceipt(${hash}) returned null`);
+    return [...receipt.logs]
+      .sort((a, b) => Number(a.logIndex) - Number(b.logIndex))
+      .map((l) => ({ address: l.address.toLowerCase(), topics: l.topics.map((t) => t.toLowerCase()) }));
   }
 }
 

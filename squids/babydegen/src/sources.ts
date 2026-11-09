@@ -5,7 +5,7 @@
 // squid asks the portal for exactly the tracked safes' logs:
 //
 // - ServiceRegistryL2 RegisterInstance / CreateMultisigWithAgents;
-// - Transfer on the 8 tracked tokens with topic1 or topic2 = a service safe;
+// - Transfer on the 13 tracked tokens with topic1 or topic2 = a service safe;
 // - Safe events emitted by an address that has a Safe instance.
 //
 // The address lists come from the database (Service, SafeDataSource) when
@@ -50,13 +50,15 @@ export function logQueries(tracked: Tracked): LogRequest[] {
   const services = [...tracked.serviceSafes].sort();
   if (services.length > 0) {
     const topics = services.map(addressTopic);
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic1: topics } });
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic2: topics } });
+    // Transfer handlers read the transaction (its sender) and the receipt.
+    const include = { transaction: true, transactionLogs: true };
+    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic1: topics }, include });
+    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic2: topics }, include });
   }
   const hosts = [...tracked.safeHosts].sort();
   if (hosts.length > 0) {
-    // ExecutionSuccess reads the top-level transaction's to/value.
-    queries.push({ where: { address: hosts, topic0: SAFE_TOPICS }, include: { transaction: true } });
+    // Safe handlers read the transaction's from/to/value/input; ExecutionSuccess the receipt.
+    queries.push({ where: { address: hosts, topic0: SAFE_TOPICS }, include: { transaction: true, transactionLogs: true } });
   }
   return queries;
 }

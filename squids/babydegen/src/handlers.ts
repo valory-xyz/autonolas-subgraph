@@ -1,11 +1,12 @@
 // Event handlers, ported from studio babydegen-base src/serviceRegistry.ts,
-// src/safe.ts, src/tokenBalances.ts (+ funding.ts) and src/common.ts. Same
-// gating, call order and side effects (AddressType rows, Token/PriceUpdate
+// src/safe.ts, src/tokenBalances.ts and src/common.ts as of #174 + #175.
+// Same gating, call order and side effects (AddressType rows, Token/PriceUpdate
 // refreshes) as the subgraph, so entity values match row for row.
 
 import type { EventMeta, IEntityCache } from "@olas/squid-shared";
-import { BASIUS_AGENT_ID, EXCLUDED_SERVICE_IDS, TOKENS, USDC_NATIVE, WETH } from "./constants";
-import { GD, gd, pow10 } from "./decimal";
+import * as calls from "./calls";
+import { BASIUS_AGENT_ID, EXCLUDED_SERVICE_IDS, TOKENS, WETH } from "./constants";
+import { GD, pow10 } from "./decimal";
 import { ETH_ADDRESS, serviceKey, tokenBalanceId } from "./ids";
 import {
   AddressType,
@@ -17,9 +18,15 @@ import {
   ServiceRegistration,
   TokenBalance,
 } from "./model";
-import { calculatePortfolioMetrics, ensureAgentPortfolio, registerServiceForSnapshots } from "./portfolio";
+import {
+  attributeRewardTransfer,
+  calculatePortfolioMetrics,
+  ensureAgentPortfolio,
+  registerServiceForSnapshots,
+} from "./portfolio";
 import { getEthUsd, getTokenPriceUSD } from "./pricing";
 import type { ChainReader } from "./rpc";
+import { addressAt, decodedSendOf, ethSentBySafe } from "./safeCalldata";
 
 export type Logger = { warn(msg: string): void; info(msg: string): void; error(msg: string): void };
 
@@ -36,13 +43,22 @@ export interface Ctx {
   newServices: string[];
 }
 
-/** Top-level transaction fields graph-node exposes as `event.transaction`. */
-export interface TxFields {
+/** The top-level transaction graph-node exposes as `event.transaction`. */
+export interface Tx {
+  from: string;
   to: string | null;
   value: bigint;
+  input: string;
+}
+
+/** One log of the transaction receipt (`receipt: true`). */
+export interface ReceiptLog {
+  address: string;
+  topics: string[];
 }
 
 const ZERO = GD.ZERO;
+const ZERO_ADDRESS = ETH_ADDRESS;
 const isExcluded = (serviceId: bigint) => EXCLUDED_SERVICE_IDS.includes(serviceId);
 const getService = (ctx: Ctx, address: string) => ctx.cache.get(Service, address);
 
@@ -59,25 +75,91 @@ export async function createSafeDataSource(ctx: Ctx, address: string, meta: Even
 
 // --- common.ts --------------------------------------------------------------
 
-/** isEOACached: `ethereum.hasCode` at the current block, memoized in AddressType. */
-export async function isEOACached(ctx: Ctx, address: string, meta: EventMeta): Promise<boolean> {
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const SAFE_RECEIVED_TOPIC = "0x3d0ce9bfc3ed7d6862dbb28b2dea94561fe714a1b4d019aa8af39730d1ad7c3d";
+/** WETH9 Deposit(address indexed dst, uint256 wad): wrapping emits this, not a Transfer. */
+const WETH_DEPOSIT_TOPIC = "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c";
+
+const topicAddress = (topic: string) => addressAt(Buffer.from(topic.slice(2), "hex"), 0);
+
+/**
+ * getAddressType: `ethereum.hasCode` plus, for a contract, a `getThreshold()`
+ * try-call (answers = a Safe), at the current block, memoized in AddressType.
+ */
+export async function getAddressType(ctx: Ctx, address: string, meta: EventMeta): Promise<AddressType> {
   const known = await ctx.cache.get(AddressType, address);
-  if (known != null) return !known.isContract;
+  if (known != null) return known;
   const isContract = await ctx.chain.hasCode(address, meta.blockNumber);
-  ctx.cache.set(AddressType, new AddressType({ id: address, isContract, checkedAt: meta.blockNumber }));
-  return !isContract;
+  const isSafe = isContract && (await ctx.chain.call(address, meta.blockNumber, calls.getThreshold, {})) != null;
+  const row = new AddressType({ id: address, isContract, isSafe, checkedAt: meta.blockNumber });
+  ctx.cache.set(AddressType, row);
+  return row;
 }
 
-/** isFundingSource: the service's operator, or any EOA (both always evaluated). */
-export async function isFundingSource(ctx: Ctx, address: string, serviceSafe: string, meta: EventMeta): Promise<boolean> {
+/** The service's own side: its Safe, its agent EOAs, or the zero address (mint / burn). */
+const isServiceOwnAddress = (address: string, serviceSafe: string, service: Service) =>
+  address === serviceSafe || address === ZERO_ADDRESS || service.agentInstances.includes(address);
+
+async function loadFundingService(ctx: Ctx, serviceSafe: string): Promise<Service | undefined> {
   const service = await getService(ctx, serviceSafe);
-  if (service == null) {
-    ctx.log.warn(`[FUNDING_SOURCE] txHash: ${meta.txHash} - No service found for safe ${serviceSafe}`);
+  if (service == null) ctx.log.warn(`[FUNDING_SOURCE] No service found for safe ${serviceSafe}`);
+  return service;
+}
+
+/**
+ * isUserSideOther: the operator Safe, the tx sender (an EIP-7702 wallet
+ * included), any other Safe, or an EOA. The operator and sender checks come
+ * first, so they never create an AddressType row.
+ */
+async function isUserSideOther(ctx: Ctx, address: string, service: Service, meta: EventMeta, tx: Tx): Promise<boolean> {
+  if (address === service.operatorSafe || address === tx.from) return true;
+  const type = await getAddressType(ctx, address, meta);
+  return !type.isContract || type.isSafe;
+}
+
+/** isUserSide: funding comes from (and withdrawals go to) the user side; gas to an agent EOA is a cost. */
+export async function isUserSide(ctx: Ctx, address: string, serviceSafe: string, meta: EventMeta, tx: Tx): Promise<boolean> {
+  const service = await loadFundingService(ctx, serviceSafe);
+  if (service == null || isServiceOwnAddress(address, serviceSafe, service)) return false;
+  return isUserSideOther(ctx, address, service, meta, tx);
+}
+
+/**
+ * receiptHasInflowTo: the receipt shows something coming back to the Safe:
+ * an ERC-20 / ERC-721 Transfer to it, a WETH Deposit for it, or its own
+ * SafeReceived. Outflows in such a tx are swaps, wraps or LP entries.
+ */
+function receiptHasInflowTo(safe: string, receipt: ReceiptLog[]): boolean {
+  for (const log of receipt) {
+    const t = log.topics;
+    if (t.length >= 3 && t[0] === TRANSFER_TOPIC && topicAddress(t[2]) === safe) return true;
+    if (t.length >= 1 && t[0] === SAFE_RECEIVED_TOPIC && log.address === safe) return true;
+    if (t.length >= 2 && t[0] === WETH_DEPOSIT_TOPIC && log.address === WETH && topicAddress(t[1]) === safe) return true;
+  }
+  return false;
+}
+
+/**
+ * isWithdrawalRecipient: the user side, or a contract when nothing came back
+ * to the Safe in the same tx (e.g. an EIP-7702 wallet). Without a receipt a
+ * contract outflow is not counted.
+ */
+export async function isWithdrawalRecipient(
+  ctx: Ctx,
+  address: string,
+  serviceSafe: string,
+  meta: EventMeta,
+  tx: Tx,
+  receipt: ReceiptLog[] | null,
+): Promise<boolean> {
+  const service = await loadFundingService(ctx, serviceSafe);
+  if (service == null || isServiceOwnAddress(address, serviceSafe, service)) return false;
+  if (await isUserSideOther(ctx, address, service, meta, tx)) return true;
+  if (receipt == null) {
+    ctx.log.error(`[WITHDRAWAL] No receipt for tx ${meta.txHash}; outflow from ${serviceSafe} to contract ${address} not counted`);
     return false;
   }
-  const isOperator = address === service.operatorSafe;
-  const eoa = await isEOACached(ctx, address, meta);
-  return isOperator || eoa;
+  return !receiptHasInflowTo(serviceSafe, receipt);
 }
 
 // --- serviceRegistry.ts -----------------------------------------------------
@@ -85,11 +167,15 @@ export async function isFundingSource(ctx: Ctx, address: string, serviceSafe: st
 export async function handleRegisterInstance(
   ctx: Ctx,
   meta: EventMeta,
-  e: { operator: string; serviceId: bigint; agentId: bigint },
+  e: { operator: string; serviceId: bigint; agentInstance: string; agentId: bigint },
 ): Promise<void> {
   if (e.agentId !== BASIUS_AGENT_ID) return;
   if (isExcluded(e.serviceId)) return;
   const id = serviceKey(e.serviceId);
+  // Every agent EOA ever registered for this service: none of them is the user side.
+  const previous = await ctx.cache.get(ServiceRegistration, id);
+  const agentInstances = previous != null ? [...previous.agentInstances] : [];
+  if (!agentInstances.includes(e.agentInstance)) agentInstances.push(e.agentInstance);
   ctx.cache.set(
     ServiceRegistration,
     new ServiceRegistration({
@@ -99,6 +185,7 @@ export async function handleRegisterInstance(
       registrationBlock: meta.blockNumber,
       registrationTimestamp: meta.blockTimestamp,
       registrationTxHash: meta.txHash,
+      agentInstances,
     }),
   );
   const index = await ctx.cache.get(ServiceIndex, id);
@@ -109,6 +196,7 @@ export async function handleRegisterInstance(
   service.latestRegistrationBlock = meta.blockNumber;
   service.latestRegistrationTimestamp = meta.blockTimestamp;
   service.latestRegistrationTxHash = meta.txHash;
+  service.agentInstances = agentInstances;
   service.updatedAt = meta.blockTimestamp;
   ctx.cache.set(Service, service);
 }
@@ -130,6 +218,7 @@ export async function handleCreateMultisigWithAgents(
     existing.latestRegistrationBlock = registration.registrationBlock;
     existing.latestRegistrationTimestamp = registration.registrationTimestamp;
     existing.latestRegistrationTxHash = registration.registrationTxHash;
+    existing.agentInstances = [...registration.agentInstances];
     existing.latestMultisigBlock = meta.blockNumber;
     existing.latestMultisigTimestamp = meta.blockTimestamp;
     existing.latestMultisigTxHash = meta.txHash;
@@ -149,6 +238,7 @@ export async function handleCreateMultisigWithAgents(
     operatorSafe: registration.operatorSafe,
     serviceSafe: e.multisig,
     positionIds: [],
+    agentInstances: [...registration.agentInstances],
     latestRegistrationBlock: registration.registrationBlock,
     latestRegistrationTimestamp: registration.registrationTimestamp,
     latestRegistrationTxHash: registration.registrationTxHash,
@@ -181,41 +271,17 @@ export async function handleCreateMultisigWithAgents(
 
 // --- tokenBalances.ts -------------------------------------------------------
 
-const ethUsd = async (ctx: Ctx, value: bigint, meta: EventMeta): Promise<GD> =>
-  GD.fromBigInt(value).times(await getEthUsd(ctx, meta)).div(gd("1e18"));
+/** tokenUtils.ts convertTokenAmount: whole tokens by the token's decimals (18 when unknown, i.e. ETH as WETH). */
+const convertTokenAmount = (amount: bigint, token: string) =>
+  GD.fromBigInt(amount).div(pow10(TOKENS.get(token)?.decimals ?? 18));
 
-export async function updateFundingBalance(
-  ctx: Ctx,
-  serviceSafe: string,
-  usd: GD,
-  deposit: boolean,
-  meta: EventMeta,
-  txHash: string,
-): Promise<void> {
-  const ts = meta.blockTimestamp;
-  const fb = (await ctx.cache.get(FundingBalance, serviceSafe)) ?? (await newFundingBalance(ctx, serviceSafe, ts));
-  const oldTotalIn = GD.fromStore(fb.totalInUsd);
-  if (deposit) {
-    fb.totalInUsd = oldTotalIn.plus(usd).toStore();
-    fb.fundingInTxs = [...fb.fundingInTxs, txHash];
-    if (oldTotalIn.equals(ZERO)) {
-      const portfolio = await ensureAgentPortfolio(ctx, serviceSafe, ts);
-      if (portfolio.firstTradingTimestamp === 0n) {
-        portfolio.firstTradingTimestamp = ts;
-        // createBlockFromTimestamp(ts): the eth_call still runs at the
-        // handler's block in graph-node; only the block object is synthetic.
-        portfolio.firstFundingEthPrice = (await getEthUsd(ctx, meta)).toStore();
-        ctx.cache.set(AgentPortfolio, portfolio);
-      }
-    }
-  } else {
-    fb.totalOutUsd = GD.fromStore(fb.totalOutUsd).plus(usd).toStore();
-    fb.fundingOutTxs = [...fb.fundingOutTxs, txHash];
+/** transferUsdValue: valued at the token's price (ETH at WETH's); an unpriced token is $0. */
+export async function transferUsdValue(ctx: Ctx, value: bigint, token: string, safe: string, meta: EventMeta): Promise<GD> {
+  const price = await getTokenPriceUSD(ctx, token, meta);
+  if (price.equals(ZERO)) {
+    ctx.log.warn(`FUNDING: token ${token} has no price; its transfer for safe ${safe} in tx ${meta.txHash} is valued at $0`);
   }
-  fb.netUsd = GD.fromStore(fb.totalInUsd).minus(GD.fromStore(fb.totalOutUsd)).toStore();
-  fb.lastChangeTs = ts;
-  ctx.cache.set(FundingBalance, fb);
-  await ensureAgentPortfolio(ctx, serviceSafe, ts);
+  return convertTokenAmount(value, token).times(price);
 }
 
 async function newFundingBalance(ctx: Ctx, serviceSafe: string, ts: bigint): Promise<FundingBalance> {
@@ -232,7 +298,34 @@ async function newFundingBalance(ctx: Ctx, serviceSafe: string, ts: bigint): Pro
   });
 }
 
-/** USDC to an EOA/operator: tracked as withdrawn, not as funding out. */
+/**
+ * updateFundingBalance, the single source of truth for funding in. Outflows
+ * go to updateWithdrawalBalance, so totalOutUsd stays 0 and netUsd equals
+ * totalInUsd.
+ */
+export async function updateFundingBalance(ctx: Ctx, serviceSafe: string, usd: GD, meta: EventMeta): Promise<void> {
+  const ts = meta.blockTimestamp;
+  const fb = (await ctx.cache.get(FundingBalance, serviceSafe)) ?? (await newFundingBalance(ctx, serviceSafe, ts));
+  const oldTotalIn = GD.fromStore(fb.totalInUsd);
+  fb.totalInUsd = oldTotalIn.plus(usd).toStore();
+  fb.fundingInTxs = [...fb.fundingInTxs, meta.txHash];
+  if (oldTotalIn.equals(ZERO)) {
+    const portfolio = await ensureAgentPortfolio(ctx, serviceSafe, ts);
+    if (portfolio.firstTradingTimestamp === 0n) {
+      portfolio.firstTradingTimestamp = ts;
+      // createBlockFromTimestamp(ts): the eth_call still runs at the
+      // handler's block in graph-node; only the block object is synthetic.
+      portfolio.firstFundingEthPrice = (await getEthUsd(ctx, meta)).toStore();
+      ctx.cache.set(AgentPortfolio, portfolio);
+    }
+  }
+  fb.netUsd = fb.totalInUsd;
+  fb.lastChangeTs = ts;
+  ctx.cache.set(FundingBalance, fb);
+  await ensureAgentPortfolio(ctx, serviceSafe, ts);
+}
+
+/** updateWithdrawalBalance: tracked separately, never reduces netUsd. */
 export async function updateWithdrawalBalance(ctx: Ctx, serviceSafe: string, usd: GD, meta: EventMeta): Promise<void> {
   const ts = meta.blockTimestamp;
   const fb = (await ctx.cache.get(FundingBalance, serviceSafe)) ?? (await newFundingBalance(ctx, serviceSafe, ts));
@@ -290,7 +383,7 @@ export async function updateETHBalance(
 ): Promise<void> {
   const service = await getService(ctx, serviceSafe);
   if (service == null) return;
-  const amountDecimal = GD.fromBigInt(amount).div(gd("1e18"));
+  const amountDecimal = GD.fromBigInt(amount).div(pow10(18));
   await applyBalance(ctx, service, ETH_ADDRESS, "ETH", 18, amountDecimal, isIncrease, WETH, meta);
 }
 
@@ -306,84 +399,104 @@ export async function updateTokenBalance(
   if (service == null) return;
   const config = TOKENS.get(token);
   if (config == null) return;
-  const amountDecimal = GD.fromBigInt(amount).div(pow10(config.decimals));
+  const amountDecimal = convertTokenAmount(amount, token);
   await applyBalance(ctx, service, token, config.symbol, config.decimals, amountDecimal, isIncrease, token, meta);
 }
 
-/** handleERC20Transfer (handleUSDC is the same handler). meta.address is the token. */
+/**
+ * handleERC20Transfer (handleUSDC is the same handler), `receipt: true`.
+ * meta.address is the token. Every tracked token is funding from the user
+ * side and a withdrawal to it, or to a contract that sent nothing back.
+ */
 export async function handleERC20Transfer(
   ctx: Ctx,
   meta: EventMeta,
   e: { from: string; to: string; value: bigint },
+  tx: Tx,
+  receipt: ReceiptLog[] | null,
 ): Promise<void> {
   const token = meta.address;
-  const config = TOKENS.get(token);
-  if (config == null) return;
-  const divisor = pow10(config.decimals);
-  const usdOf = async () => GD.fromBigInt(e.value).div(divisor).times(await getTokenPriceUSD(ctx, token, meta));
+  if (!TOKENS.has(token)) return;
 
   if ((await getService(ctx, e.to)) != null) {
+    await attributeRewardTransfer(ctx, meta, e.from, e.to, e.value, receipt);
     await updateTokenBalance(ctx, e.to, token, e.value, true, meta);
     await ensureAgentPortfolio(ctx, e.to, meta.blockTimestamp);
-    await calculatePortfolioMetrics(ctx, e.to, meta);
-    const isValidSource = await isFundingSource(ctx, e.from, e.to, meta);
-    if (isValidSource && token === USDC_NATIVE) {
-      await updateFundingBalance(ctx, e.to, await usdOf(), true, meta, meta.txHash);
-    } else if (isValidSource) {
-      await usdOf(); // logged only, but the price lookup can refresh Token
+    if (await isUserSide(ctx, e.from, e.to, meta, tx)) {
+      await updateFundingBalance(ctx, e.to, await transferUsdValue(ctx, e.value, token, e.to, meta), meta);
     }
+    // After the funding update, so a deposit is in initialValue as well as in the balances.
+    await calculatePortfolioMetrics(ctx, e.to, meta);
   }
 
   if ((await getService(ctx, e.from)) != null) {
     await updateTokenBalance(ctx, e.from, token, e.value, false, meta);
-    if (token === USDC_NATIVE) {
-      if (await isFundingSource(ctx, e.to, e.from, meta)) {
-        await updateWithdrawalBalance(ctx, e.from, await usdOf(), meta);
-      }
-    } else {
-      await usdOf(); // logged only, but the price lookup can refresh Token
+    if (await isWithdrawalRecipient(ctx, e.to, e.from, meta, tx, receipt)) {
+      await updateWithdrawalBalance(ctx, e.from, await transferUsdValue(ctx, e.value, token, e.from, meta), meta);
     }
+    await calculatePortfolioMetrics(ctx, e.from, meta);
   }
 }
 
 // --- safe.ts ----------------------------------------------------------------
 
-/** SafeReceived on a Safe host (meta.address is the receiving safe). */
+/**
+ * SafeReceived on a Safe host (meta.address is the receiving safe): ETH into
+ * a service Safe (funding when from the user side), or from a service Safe
+ * into another indexed Safe, unless the service Safe's own calldata in this
+ * tx already shows that send (handleExecutionSuccess counts it).
+ */
 export async function handleSafeReceived(
   ctx: Ctx,
   meta: EventMeta,
   e: { sender: string; value: bigint },
+  tx: Tx,
 ): Promise<void> {
   const from = e.sender;
   const to = meta.address;
   if ((await getService(ctx, to)) != null) {
-    if (await isFundingSource(ctx, from, to, meta)) {
-      await updateFundingBalance(ctx, to, await ethUsd(ctx, e.value, meta), true, meta, meta.txHash);
+    if (await isUserSide(ctx, from, to, meta, tx)) {
+      await updateFundingBalance(ctx, to, await transferUsdValue(ctx, e.value, WETH, to, meta), meta);
     }
     await updateETHBalance(ctx, to, e.value, true, meta);
+    await calculatePortfolioMetrics(ctx, to, meta);
     return;
   }
-  const fromService = await getService(ctx, from);
-  if (fromService == null) return;
-  const usd = await ethUsd(ctx, e.value, meta);
-  if (to === fromService.operatorSafe) {
-    // Service safe -> its operator safe
-    await updateFundingBalance(ctx, from, usd, false, meta, meta.txHash);
+  if ((await getService(ctx, from)) == null || decodedSendOf(from, tx, to, e.value)) return;
+  // Only Safes we index emit SafeReceived; the operator Safe and any other Safe are the user side.
+  if (await isUserSide(ctx, to, from, meta, tx)) {
+    await updateWithdrawalBalance(ctx, from, await transferUsdValue(ctx, e.value, WETH, from, meta), meta);
   }
   await updateETHBalance(ctx, from, e.value, false, meta);
+  await calculatePortfolioMetrics(ctx, from, meta);
 }
 
 /**
- * ExecutionSuccess / ExecutionFromModuleSuccess: the TOP-LEVEL transaction's
- * `to` and `value` (graph-node's event.transaction), not the Safe's inner call.
+ * ExecutionSuccess (`receipt: true`), i.e. processSafeEthTransfer: the ETH
+ * the service Safe sends in its own execTransaction, decoded from calldata.
  */
-export async function handleSafeExecution(ctx: Ctx, meta: EventMeta, tx: TxFields): Promise<void> {
+export async function handleExecutionSuccess(ctx: Ctx, meta: EventMeta, tx: Tx, receipt: ReceiptLog[] | null): Promise<void> {
   const serviceSafe = meta.address;
   if ((await getService(ctx, serviceSafe)) == null) return;
-  if (tx.value > 0n && tx.to != null) {
-    await updateETHBalance(ctx, serviceSafe, tx.value, false, meta);
-    if (await isFundingSource(ctx, tx.to, serviceSafe, meta)) {
-      await updateFundingBalance(ctx, serviceSafe, await ethUsd(ctx, tx.value, meta), false, meta, meta.txHash);
+  const decoded = ethSentBySafe(serviceSafe, tx);
+  if (decoded.sends == null) {
+    ctx.log.warn(`SAFE_ETH: tx ${meta.txHash}: ETH safe ${serviceSafe} sends is not read (${decoded.reason}); any ETH it sent is not counted`);
+    return;
+  }
+  for (const send of decoded.sends) {
+    await updateETHBalance(ctx, serviceSafe, send.value, false, meta);
+    if (await isWithdrawalRecipient(ctx, send.to, serviceSafe, meta, tx, receipt)) {
+      await updateWithdrawalBalance(ctx, serviceSafe, await transferUsdValue(ctx, send.value, WETH, serviceSafe, meta), meta);
     }
   }
+  if (decoded.sends.length > 0) await calculatePortfolioMetrics(ctx, serviceSafe, meta);
+}
+
+/**
+ * ExecutionFromModuleSuccess: a module's ETH sends are in the module's
+ * calldata, not the Safe's, so nothing is counted (a warning only).
+ */
+export async function handleExecutionFromModuleSuccess(ctx: Ctx, meta: EventMeta, e: { module: string }): Promise<void> {
+  if ((await getService(ctx, meta.address)) == null) return;
+  ctx.log.warn(`SAFE_ETH: tx ${meta.txHash}: ETH safe ${meta.address} sends through module ${e.module} is not read`);
 }
