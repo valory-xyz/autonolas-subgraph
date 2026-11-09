@@ -1,7 +1,8 @@
-import { log } from '@graphprotocol/graph-ts';
+import { Address, log } from '@graphprotocol/graph-ts';
 import {
   ServiceAgentLinked,
   AgentWalletSet,
+  AgentMultisigUpdated,
   MetadataSet,
 } from '../generated/IdentityRegistryBridger/IdentityRegistryBridger';
 import { Service } from '../generated/schema';
@@ -31,6 +32,15 @@ export function handleServiceAgentLinked(event: ServiceAgentLinked): void {
       event.params.serviceId.toString(),
     ]);
   }
+}
+
+// The bridger unsets authorization only when removing an existing multisig.
+// A new multisig link is not an authorized wallet; wait for AgentWalletSet.
+export function handleAgentMultisigUpdated(event: AgentMultisigUpdated): void {
+  if (event.params.oldMultisig.equals(Address.zero())) return;
+  let agent = getOrCreateERC8004Agent(event.params.agentId.toI32());
+  agent.agentWallet = Address.zero();
+  agent.save();
 }
 
 export function handleAgentWalletSet(event: AgentWalletSet): void {

@@ -454,6 +454,19 @@ export async function handleServiceAgentLinked(
   cache.set(ERC8004Metadata, reg);
 }
 
+// Match IdentityRegistryBridger._updateAgentWallet: a nonzero old multisig
+// unsets authorization. Linking the new Safe never authorizes it.
+export async function handleAgentMultisigUpdated(
+  cache: IEntityCache,
+  _meta: EventMeta,
+  p: { agentId: bigint; oldMultisig: string; newMultisig: string },
+): Promise<void> {
+  if (p.oldMultisig === "0x0000000000000000000000000000000000000000") return;
+  const agent = await getOrCreateERC8004Agent(cache, Number(p.agentId));
+  agent.agentWallet = "0x0000000000000000000000000000000000000000";
+  cache.set(ERC8004Agent, agent);
+}
+
 export async function handleAgentWalletSet(
   cache: IEntityCache,
   _meta: EventMeta,

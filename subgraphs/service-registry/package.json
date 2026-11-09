@@ -4,7 +4,7 @@
     "codegen": "graph codegen subgraph.gnosis.yaml",
     "build": "graph build subgraph.gnosis.yaml",
     "generate-manifests": "node ../../scripts/generate-manifests.ts",
-    "test": "graph test"
+    "test": "node --test scripts/bridger-manifests.test.cjs && graph test"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",

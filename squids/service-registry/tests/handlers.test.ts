@@ -312,6 +312,58 @@ describe("ERC-8004 bridger", () => {
   });
 });
 
+describe("ERC-8004 authorization lifecycle", () => {
+  const zero = "0x0000000000000000000000000000000000000000";
+  const otherSafe = "0x2000000000000000000000000000000000000002";
+  async function identity() {
+    await seedService();
+    await h.handleServiceAgentLinked(cache, meta(DAY1_TS), {serviceId: 1n, agentId: 77n});
+    await h.handleAgentWalletSet(cache, meta(DAY1_TS), {agentId: 77n, multisig: SAFE});
+    await h.handleMetadataSet(cache, meta(DAY1_TS), {agentId: 77n, metadataKey: "custom", metadataValue: utf8ToHex("retained")});
+  }
+  async function unchangedIdentity() {
+    expect((await cache.get(Service, "1"))!.erc8004Agent?.id).toBe("77");
+    expect((await cache.get(ERC8004Metadata, "77-custom"))!.value).toBe("retained");
+    expect((await cache.get(ERC8004Metadata, "77-ecosystem"))!.value).toBe("Olas");
+    expect((await cache.get(ERC8004Metadata, "77-serviceRegistry"))!.value).toBe("1");
+  }
+  it.each([SAFE, otherSafe])("termination and redeployment to %s require explicit authorization", async (newSafe) => {
+    await identity();
+    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: SAFE, newMultisig: zero});
+    await h.handleTerminateService(cache, meta(DAY2_TS), {serviceId: 1n});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(zero);
+    await unchangedIdentity();
+    await h.handleCreateMultisig(cache, meta(DAY2_TS), {serviceId: 1n, multisig: newSafe, txFrom: CREATOR});
+    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: zero, newMultisig: newSafe});
+    expect((await cache.get(Service, "1"))!.multisig).toBe(newSafe);
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(zero);
+    await h.handleAgentWalletSet(cache, meta(DAY2_TS), {agentId: 77n, multisig: newSafe});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(newSafe);
+    await unchangedIdentity();
+  });
+  it("legacy termination without a bridger cleanup event retains authorization", async () => {
+    await identity();
+    await h.handleTerminateService(cache, meta(DAY2_TS), {serviceId: 1n});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(SAFE);
+    await unchangedIdentity();
+  });
+  it("legacy different-Safe replacement clears authorization without authorizing the new Safe", async () => {
+    await identity();
+    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: SAFE, newMultisig: otherSafe});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(zero);
+    await unchangedIdentity();
+  });
+  it("a zero-old-multisig link neither authorizes nor clears an existing wallet", async () => {
+    await seedService();
+    await h.handleServiceAgentLinked(cache, meta(DAY1_TS), {serviceId: 1n, agentId: 77n});
+    await h.handleAgentMultisigUpdated(cache, meta(DAY1_TS), {agentId: 77n, oldMultisig: zero, newMultisig: SAFE});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBeNull();
+    await h.handleAgentWalletSet(cache, meta(DAY1_TS), {agentId: 77n, multisig: SAFE});
+    await h.handleAgentMultisigUpdated(cache, meta(DAY2_TS), {agentId: 77n, oldMultisig: zero, newMultisig: otherSafe});
+    expect((await cache.get(ERC8004Agent, "77"))!.agentWallet).toBe(SAFE);
+  });
+});
+
 describe("logic", () => {
   it("blockTimestampSeconds: SQD header ms -> seconds, floored, so day buckets hold", () => {
     expect(blockTimestampSeconds(1_788_900_000_000)).toBe(1_788_900_000n);

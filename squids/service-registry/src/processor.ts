@@ -55,6 +55,7 @@ export const dataSource = new DataSourceBuilder()
       topic0: [
         bridger.ServiceAgentLinked.topic,
         bridger.AgentWalletSet.topic,
+        bridger.AgentMultisigUpdated.topic,
         bridger.MetadataSet.topic,
       ],
     },
