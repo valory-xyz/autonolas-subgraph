@@ -23,8 +23,8 @@ function setup(olas = true) {
 it('decodes multiple recipients and counts the payout once across claim and normal unstake', async () => {
   const {ctx, cache, emit, stake, checkpoint} = setup();
   await stake(); await checkpoint(1n, [1n], [100n]);
-  await emit(v4.RewardClaimed.encode({...p, receivers: [owner, safe], rewardAmounts: [40n, 60n]}));
-  await emit(v4.ServiceUnstaked.encode({...p, availableRewards: 0n, enforced: false}));
+  await emit(v4.RewardClaimed.encode({...p, epoch: 2n, receivers: [owner, safe], rewardAmounts: [40n, 60n]}));
+  await emit(v4.ServiceUnstaked.encode({...p, epoch: 2n, availableRewards: 0n, enforced: false}));
   expect(await getOrCreateGlobal(ctx)).toMatchObject({totalRewards: 100n, totalRewardsClaimed: 100n, currentOlasStaked: 0n, cumulativeOlasUnstaked: 300n});
   expect(cache.all(RewardClaimed)[0]).toMatchObject({reward: 100n, receivers: [owner, safe], rewardAmounts: ['40', '60']});
   expect(cache.all(RewardUpdate).map(e => e.amount)).toEqual([100n, 100n]);
@@ -35,7 +35,7 @@ it('decodes multiple recipients and counts the payout once across claim and norm
 it('forced unstake releases stake without creating a payout or erasing earnings', async () => {
   const {ctx, cache, emit, stake, checkpoint} = setup();
   await stake(); await checkpoint(1n, [1n], [100n]);
-  await emit(v4.ServiceUnstaked.encode({...p, availableRewards: 100n, enforced: true}));
+  await emit(v4.ServiceUnstaked.encode({...p, epoch: 2n, availableRewards: 100n, enforced: true}));
   expect(await getOrCreateGlobal(ctx)).toMatchObject({totalRewardsClaimed: 0n, currentOlasStaked: 0n});
   expect(cache.all(RewardClaimed)).toHaveLength(0);
   expect(cache.all(ServiceRewardsHistory)[0].rewardAmount).toBe(100n);
