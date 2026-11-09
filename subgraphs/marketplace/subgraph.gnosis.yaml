@@ -1,4 +1,11 @@
 specVersion: 1.2.0
+# Recovery graft from marketplace-gnosis-v6_3_0. Replace the placeholder with an
+# indexed block still retained by the base (prune: 300); pause the base first.
+# Not deployable until replaced: Graph CLI can compile this placeholder, but
+# Graph Node requires an integer graft block when loading the manifest.
+graft:
+  base: QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh
+  block: "[placeholder]"
 indexerHints:
   prune: 300
 schema:
@@ -548,5 +555,6 @@ templates:
           file: ../../abis/AgentMech.json
 
 features:
+  - grafting
   - fullTextSearch
   - ipfsOnEthereumContracts
