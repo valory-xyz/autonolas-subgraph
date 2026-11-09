@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BooleanColumn as BooleanColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 import {Service} from "./service.model"
 import {Checkpoint} from "./checkpoint.model"
 
@@ -7,6 +7,9 @@ export class ServiceRewardsHistory {
     constructor(props?: Partial<ServiceRewardsHistory>) {
         Object.assign(this, props)
     }
+
+    @BooleanColumn_({nullable: true})
+    isRebaseline!: boolean | undefined | null
 
     @PrimaryColumn_()
     id!: string

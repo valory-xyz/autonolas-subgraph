@@ -46,6 +46,8 @@ type VerifierUpdated @entity {
 }
 
 type Checkpoint @entity {
+  isRebaseline: Boolean
+
   id: ID!
   epoch: BigInt! # uint256
   availableRewards: BigInt! # uint256
@@ -70,6 +72,9 @@ type Deposit @entity {
 }
 
 type RewardClaimed @entity {
+  receivers: [String!]
+  rewardAmounts: [String!]
+
   id: ID!
   epoch: BigInt! # uint256
   serviceId: BigInt! # uint256
@@ -107,6 +112,8 @@ type ServiceInactivityWarning @entity {
 }
 
 type ServiceStaked @entity {
+  rewardDistributionInfo: BigInt
+
   id: ID!
   epoch: BigInt! # uint256
   serviceId: BigInt! # uint256
@@ -208,6 +215,8 @@ type Service @entity {
 }
 
 type ServiceRewardsHistory @entity {
+  isRebaseline: Boolean
+
   id: ID! # {serviceId}-{contractAddress}-{epoch}
   service: Service!
   epoch: BigInt!
@@ -248,4 +257,49 @@ type CumulativeDailyStakingGlobal @entity {
   totalRewardsClaimed: BigInt!
   numServices: Int!
   medianCumulativeRewards: BigInt!
+}
+# v0.4 has no reward amount on unstake; payouts are recorded only by RewardClaimed.
+type ServiceUnstakedV4 @entity {
+  id: ID!
+  epoch: BigInt!
+  serviceId: BigInt!
+  owner: String!
+  multisig: String!
+  nonces: [String!]!
+  availableRewards: BigInt!
+  enforced: Boolean!
+  contractAddress: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# One baseline per contract/epoch, correlated with the immediately following Checkpoint.
+type ServicesRebaselined @entity {
+  id: ID!
+  epoch: BigInt!
+  contractAddress: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+type ServiceBaselineEvent @entity {
+  id: ID!
+  epoch: BigInt!
+  serviceId: BigInt!
+  kind: String! # Missing or Recovered
+  contractAddress: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+}
+
+# Service baseline status is scoped to the instance, not only the service ID.
+type ServiceBaselineState @entity {
+  id: ID!
+  serviceId: BigInt!
+  contractAddress: String!
+  baselineMissing: Boolean!
+  epoch: BigInt!
 }

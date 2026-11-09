@@ -14,7 +14,7 @@ it("preserves version gating from studio main", () => {
   expect(supportsEvents("0.2.0", null)).toBe(true);
   expect(supportsEvents("0.3.0", null)).toBe(false);
   expect(supportsEvents("0.3.0", "0x" + "11".repeat(20))).toBe(true);
-  expect(supportsEvents("0.4.0", null)).toBe(false);
+  expect(supportsEvents("0.4.0", null)).toBe(true);
 });
 it("pins reads to the event block and never falls back to latest on transport errors", async () => {
   const calls: unknown[][] = [];

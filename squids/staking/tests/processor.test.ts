@@ -3,6 +3,7 @@ import { BLOCK_RANGE, dataSource, LOG_QUERIES, selectIngestSource } from "../src
 import { CHAIN } from "../src/constants";
 import * as stakingFactory from "../src/abi/StakingFactory/events";
 import * as stakingProxy from "../src/abi/StakingProxy/events";
+import * as stakingV4 from "../src/abi/StakingTokenV4/events";
 
 // Importing the real source also checks that RPC adapter peer dependencies exist.
 it("constructs the source with its SDK runtime dependencies", () => {
@@ -13,7 +14,7 @@ it("constructs the source with its SDK runtime dependencies", () => {
     topic0: Object.values(stakingFactory).map((event) => event.topic),
   });
   expect(LOG_QUERIES[1].where).toMatchObject({
-    topic0: Object.values(stakingProxy).map((event) => event.topic),
+    topic0: [...new Set([...Object.values(stakingProxy), ...Object.values(stakingV4)].map(event => event.topic))],
   });
   expect(BLOCK_RANGE.from).toBe(CHAIN.startBlock);
 });
