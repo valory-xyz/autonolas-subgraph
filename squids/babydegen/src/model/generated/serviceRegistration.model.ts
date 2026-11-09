@@ -26,4 +26,10 @@ export class ServiceRegistration {
 
     @StringColumn_({nullable: false})
     registrationTxHash!: string
+
+    /**
+     * Every agentInstance registered for this serviceId
+     */
+    @StringColumn_({array: true, nullable: false})
+    agentInstances!: (string)[]
 }

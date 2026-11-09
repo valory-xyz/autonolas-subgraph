@@ -44,9 +44,12 @@ describe("processor", () => {
 describe("constants", () => {
   it("keeps every address lowercase and every token priced", async () => {
     const c = await import("../src/constants");
-    const all = [c.SERVICE_REGISTRY, c.ETH_USD_FEED, c.USDC_USD_FEED, c.AERO_USDC_POOL, ...c.TRACKED_TOKENS];
+    const sources = [...c.TOKENS.values()].flatMap((t) => t.priceSources.map((s) => s.address));
+    const all = [c.SERVICE_REGISTRY, ...sources, ...c.TRACKED_TOKENS, ...c.STABLECOINS];
     for (const a of all) expect(a).toBe(a.toLowerCase());
     for (const t of c.TRACKED_TOKENS) expect(c.TOKENS.get(t)?.priceSources.length).toBeGreaterThan(0);
-    expect(c.TRACKED_TOKENS).toHaveLength(8);
+    // subgraph.yaml's 13 Transfer data sources (#174 + #175), one TOKENS entry each
+    expect(c.TRACKED_TOKENS).toHaveLength(13);
+    expect([...c.TOKENS.keys()].sort()).toEqual([...c.TRACKED_TOKENS].sort());
   });
 });
