@@ -19,8 +19,25 @@ export const changeMaxDeliveryRate = func('0x00f20c71', {
 export type ChangeMaxDeliveryRateParams = FunctionArguments<typeof changeMaxDeliveryRate>
 export type ChangeMaxDeliveryRateReturn = FunctionReturn<typeof changeMaxDeliveryRate>
 
+/** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes) */
+export const deliverMarketplaceWithSignatures = func('0x39a6aac7', {
+    requester: address,
+    deliverWithSignatures: array(struct({
+        requestData: bytes,
+        signature: bytes,
+        deliveryData: bytes,
+    })),
+    deliveryRates: array(uint256),
+    maxRates: array(uint256),
+    nonces: array(uint256),
+    deadlines: array(uint256),
+    paymentData: bytes,
+})
+export type DeliverMarketplaceWithSignaturesParams = FunctionArguments<typeof deliverMarketplaceWithSignatures>
+export type DeliverMarketplaceWithSignaturesReturn = FunctionReturn<typeof deliverMarketplaceWithSignatures>
+
 /** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],bytes) */
-export const deliverMarketplaceWithSignatures = func('0x4e894dd1', {
+export const deliverMarketplaceWithSignatures_1 = func('0x4e894dd1', {
     requester: address,
     deliverWithSignatures: array(struct({
         requestData: bytes,
@@ -30,8 +47,23 @@ export const deliverMarketplaceWithSignatures = func('0x4e894dd1', {
     deliveryRates: array(uint256),
     paymentData: bytes,
 })
-export type DeliverMarketplaceWithSignaturesParams = FunctionArguments<typeof deliverMarketplaceWithSignatures>
-export type DeliverMarketplaceWithSignaturesReturn = FunctionReturn<typeof deliverMarketplaceWithSignatures>
+export type DeliverMarketplaceWithSignaturesParams_1 = FunctionArguments<typeof deliverMarketplaceWithSignatures_1>
+export type DeliverMarketplaceWithSignaturesReturn_1 = FunctionReturn<typeof deliverMarketplaceWithSignatures_1>
+
+/** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],bytes) */
+export const deliverMarketplaceWithSignatures_2 = func('0xc2ee2841', {
+    requester: address,
+    deliverWithSignatures: array(struct({
+        requestData: bytes,
+        signature: bytes,
+        deliveryData: bytes,
+    })),
+    deliveryRates: array(uint256),
+    maxRates: array(uint256),
+    paymentData: bytes,
+})
+export type DeliverMarketplaceWithSignaturesParams_2 = FunctionArguments<typeof deliverMarketplaceWithSignatures_2>
+export type DeliverMarketplaceWithSignaturesReturn_2 = FunctionReturn<typeof deliverMarketplaceWithSignatures_2>
 
 /** deliverToMarketplace(bytes32[],bytes[]) */
 export const deliverToMarketplace = func('0x6f6885bb', {

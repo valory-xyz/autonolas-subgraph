@@ -110,12 +110,12 @@ dataSources:
         - Global
       abis:
         - name: MechMarketplaceV2
-          file: ../../abis/MechMarketplaceV2.json
+          file: ../../abis/marketplace-1.2.0/MechMarketplaceV2.json
         # ABI only: the shared mapping imports MechMarketplaceV1 types.
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
+          file: ../../abis/marketplace-1.2.0/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
         - name: BalancerV2Vault
@@ -228,7 +228,7 @@ templates:
         - Request
       abis:
         - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
+          file: ../../abis/marketplace-1.2.0/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
       eventHandlers:

@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "yarn@1.22.22",
   "scripts": {
+    "test:marketplace-abis": "node --test scripts/marketplace-release-abis.test.cjs",
     "audit:prod": "node scripts/audit.mjs",
     "audit:test": "node --test scripts/audit.test.mjs",
     "audit:install-hooks": "node scripts/audit-install-hooks.mjs",

@@ -338,7 +338,7 @@ describe("Mech Marketplace Handlers", () => {
     assert.fieldEquals("Sender", requester.toHexString(), "totalOffChainRequests", "5")
   })
 
-  test("signed-only delivery keeps an updated advertised maximum separate from its actual charge", () => {
+  test("mixed zero/nonzero signed batch preserves emitted IDs, actual charges and advertised maximum", () => {
     dataSourceMock.setNetwork("gnosis")
 
     let serviceId = BigInt.fromI32(113)
@@ -357,8 +357,8 @@ describe("Mech Marketplace Handlers", () => {
     let deliveryBatch = createMarketplaceDeliveryWithSignaturesEvent(
       mech,
       requester,
-      BigInt.fromI32(1),
-      [requestId]
+      BigInt.fromI32(2),
+      [requestId, TEST_REQUEST_ID_B]
     )
     let actualDeliver = createDeliverWithSignaturesV2Event(
       mech,
@@ -370,10 +370,22 @@ describe("Mech Marketplace Handlers", () => {
     )
     actualDeliver.transaction.hash = deliveryBatch.transaction.hash
 
-    handleMarketplaceDeliveryWithSignatures(deliveryBatch)
+    let zeroDeliver = createDeliverWithSignaturesV2Event(
+      mech, requester, TEST_REQUEST_ID_B, BigInt.zero(),
+      Bytes.fromHexString("0x01"), Bytes.fromHexString("0x02")
+    )
+    zeroDeliver.transaction.hash = deliveryBatch.transaction.hash
+    zeroDeliver.logIndex = BigInt.fromI32(2)
     handleDeliverWithSignaturesV2(actualDeliver)
+    handleDeliverWithSignaturesV2(zeroDeliver)
+    handleMarketplaceDeliveryWithSignatures(deliveryBatch)
 
     assert.entityCount("Request", 0)
+    assert.entityCount("DeliverForMarketplace", 2)
+    assert.fieldEquals("DeliverForMarketplace", TEST_REQUEST_ID_B.toHexString(), "deliveryRate", "0")
+    assert.fieldEquals("Global", "", "totalOffChainRequests", "2")
+    assert.fieldEquals("Global", "", "totalDeliveries", "2")
+    assert.fieldEquals("Global", "", "totalMarketplaceDeliveriesWithSignatures", "1")
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRate", updatedMaximum.toString())
     assert.fieldEquals("Mech", serviceId.toString(), "maxDeliveryRateUSD", "100")
     assert.fieldEquals("DeliverForMarketplace", requestId.toHexString(), "deliveryRate", actualRate.toString())

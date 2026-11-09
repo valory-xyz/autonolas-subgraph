@@ -7,6 +7,16 @@ export const DOMAIN_SEPARATOR_TYPE_HASH = func('0xf5dcb7bb', {}, bytes32)
 export type DOMAIN_SEPARATOR_TYPE_HASHParams = FunctionArguments<typeof DOMAIN_SEPARATOR_TYPE_HASH>
 export type DOMAIN_SEPARATOR_TYPE_HASHReturn = FunctionReturn<typeof DOMAIN_SEPARATOR_TYPE_HASH>
 
+/** EXPLICIT_NONCE_TAG() */
+export const EXPLICIT_NONCE_TAG = func('0x3e2399b9', {}, bytes32)
+export type EXPLICIT_NONCE_TAGParams = FunctionArguments<typeof EXPLICIT_NONCE_TAG>
+export type EXPLICIT_NONCE_TAGReturn = FunctionReturn<typeof EXPLICIT_NONCE_TAG>
+
+/** EXPLICIT_NONCE_TYPE_HASH() */
+export const EXPLICIT_NONCE_TYPE_HASH = func('0x87f41f15', {}, bytes32)
+export type EXPLICIT_NONCE_TYPE_HASHParams = FunctionArguments<typeof EXPLICIT_NONCE_TYPE_HASH>
+export type EXPLICIT_NONCE_TYPE_HASHReturn = FunctionReturn<typeof EXPLICIT_NONCE_TYPE_HASH>
+
 /** MAX_FEE_FACTOR() */
 export const MAX_FEE_FACTOR = func('0xaf4937fc', {}, uint256)
 export type MAX_FEE_FACTORParams = FunctionArguments<typeof MAX_FEE_FACTOR>
@@ -74,8 +84,25 @@ export const deliverMarketplace = func('0x9e592bb9', {
 export type DeliverMarketplaceParams = FunctionArguments<typeof deliverMarketplace>
 export type DeliverMarketplaceReturn = FunctionReturn<typeof deliverMarketplace>
 
+/** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes) */
+export const deliverMarketplaceWithSignatures = func('0x39a6aac7', {
+    requester: address,
+    deliverWithSignatures: array(struct({
+        requestData: bytes,
+        signature: bytes,
+        deliveryData: bytes,
+    })),
+    deliveryRates: array(uint256),
+    maxRates: array(uint256),
+    nonces: array(uint256),
+    deadlines: array(uint256),
+    paymentData: bytes,
+})
+export type DeliverMarketplaceWithSignaturesParams = FunctionArguments<typeof deliverMarketplaceWithSignatures>
+export type DeliverMarketplaceWithSignaturesReturn = FunctionReturn<typeof deliverMarketplaceWithSignatures>
+
 /** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],bytes) */
-export const deliverMarketplaceWithSignatures = func('0x4e894dd1', {
+export const deliverMarketplaceWithSignatures_1 = func('0x4e894dd1', {
     requester: address,
     deliverWithSignatures: array(struct({
         requestData: bytes,
@@ -85,8 +112,23 @@ export const deliverMarketplaceWithSignatures = func('0x4e894dd1', {
     deliveryRates: array(uint256),
     paymentData: bytes,
 })
-export type DeliverMarketplaceWithSignaturesParams = FunctionArguments<typeof deliverMarketplaceWithSignatures>
-export type DeliverMarketplaceWithSignaturesReturn = FunctionReturn<typeof deliverMarketplaceWithSignatures>
+export type DeliverMarketplaceWithSignaturesParams_1 = FunctionArguments<typeof deliverMarketplaceWithSignatures_1>
+export type DeliverMarketplaceWithSignaturesReturn_1 = FunctionReturn<typeof deliverMarketplaceWithSignatures_1>
+
+/** deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],bytes) */
+export const deliverMarketplaceWithSignatures_2 = func('0xc2ee2841', {
+    requester: address,
+    deliverWithSignatures: array(struct({
+        requestData: bytes,
+        signature: bytes,
+        deliveryData: bytes,
+    })),
+    deliveryRates: array(uint256),
+    maxRates: array(uint256),
+    paymentData: bytes,
+})
+export type DeliverMarketplaceWithSignaturesParams_2 = FunctionArguments<typeof deliverMarketplaceWithSignatures_2>
+export type DeliverMarketplaceWithSignaturesReturn_2 = FunctionReturn<typeof deliverMarketplaceWithSignatures_2>
 
 /** domainSeparator() */
 export const domainSeparator = func('0xf698da25', {}, bytes32)
@@ -103,6 +145,11 @@ export const getDomainSeparator = func('0xed24911d', {}, bytes32)
 export type GetDomainSeparatorParams = FunctionArguments<typeof getDomainSeparator>
 export type GetDomainSeparatorReturn = FunctionReturn<typeof getDomainSeparator>
 
+/** getDomainSeparatorWithNonce() */
+export const getDomainSeparatorWithNonce = func('0x77fbd320', {}, bytes32)
+export type GetDomainSeparatorWithNonceParams = FunctionArguments<typeof getDomainSeparatorWithNonce>
+export type GetDomainSeparatorWithNonceReturn = FunctionReturn<typeof getDomainSeparatorWithNonce>
+
 /** getRequestId(address,address,bytes,uint256,bytes32,uint256) */
 export const getRequestId = func('0x7ecb65f6', {
     mech: address,
@@ -114,6 +161,19 @@ export const getRequestId = func('0x7ecb65f6', {
 }, bytes32)
 export type GetRequestIdParams = FunctionArguments<typeof getRequestId>
 export type GetRequestIdReturn = FunctionReturn<typeof getRequestId>
+
+/** getRequestIdWithNonce(address,address,bytes,uint256,bytes32,uint256,uint256) */
+export const getRequestIdWithNonce = func('0xf0069643', {
+    mech: address,
+    requester: address,
+    data: bytes,
+    maxDeliveryRate: uint256,
+    paymentType: bytes32,
+    nonce: uint256,
+    deadline: uint256,
+}, bytes32)
+export type GetRequestIdWithNonceParams = FunctionArguments<typeof getRequestIdWithNonce>
+export type GetRequestIdWithNonceReturn = FunctionReturn<typeof getRequestIdWithNonce>
 
 /** getRequestStatus(bytes32) */
 export const getRequestStatus = func('0x45d07664', {

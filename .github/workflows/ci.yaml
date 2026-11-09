@@ -124,6 +124,10 @@ jobs:
         working-directory: squids/_shared
         run: npm ci && npm run build
 
+      - name: Check Marketplace release ABI compatibility
+        if: matrix.squid == 'marketplace'
+        run: node --test scripts/marketplace-release-abis.test.cjs
+
       - name: Install
         working-directory: squids/${{ matrix.squid }}
         run: npm ci
