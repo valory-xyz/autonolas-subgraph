@@ -1,8 +1,6 @@
 import {
-  json,
-  ipfs,
   Bytes,
-  JSONValueKind,
+  DataSourceContext,
   log,
   BigInt,
 } from '@graphprotocol/graph-ts';
@@ -13,15 +11,12 @@ import {
 import {
   Request,
   Deliver,
-  Sender,
   Service,
   CreateMech,
   MechAgent,
   AtaTransaction,
   RequestToMech,
   DeliverForMech,
-  ParsedRequest,
-  ParsedDelivery,
 } from '../generated/schema';
 import {
   getGlobal,
@@ -30,236 +25,51 @@ import {
   getOrCreateSender,
   getOrCreateRequestsPerAgentOnchain,
 } from './utils';
-
-let UNHANDLED_TYPE = '[unhandled type]';
-
-class RequestPayload {
-  content: string;
-  prompt: string;
-  tool: string;
-  questionTitle: string;
-
-  constructor(content: string, prompt: string, tool: string, questionTitle: string) {
-    this.content = content;
-    this.prompt = prompt;
-    this.tool = tool;
-    this.questionTitle = questionTitle;
-  }
-}
-
-class DeliveryPayload {
-  content: string;
-  model: string;
-  response: string;
-  tool: string;
-  toolHash: string;
-
-  constructor(
-    content: string,
-    model: string,
-    response: string,
-    tool: string,
-    toolHash: string
-  ) {
-    this.content = content;
-    this.model = model;
-    this.response = response;
-    this.tool = tool;
-    this.toolHash = toolHash;
-  }
-}
+import { ParsedRequestFile, ParsedDeliveryFile } from '../generated/templates';
+import { CTX_BASE_HASH, CTX_REQUEST_ID } from './marketplace/request-metadata';
+import { CTX_DELIVER_ID, CTX_DELIVER_REQUEST } from './marketplace/delivery-metadata';
 
 function getIpfsHash(data: Bytes): string {
   return 'f01701220' + data.toHexString().slice(2);
 }
 
-// Known closing delimiters that follow the question's closing quote in prompt templates.
-// Add new entries here when the prompt template changes.
-const QUESTION_CLOSING_DELIMITERS: string[] = [
-  '" and the',  // 'With the given question "..." and the `yes` option...'
-];
-
-function extractQuestionTitle(prompt: string): string {
-  const marker = 'With the given question';
-  const markerIndex = prompt.indexOf(marker);
-  if (markerIndex === -1) return '';
-
-  const afterMarker = prompt.slice(markerIndex + marker.length);
-  const firstQuote = afterMarker.indexOf('"');
-  if (firstQuote === -1) return '';
-
-  // Try each closing delimiter pattern, pick the earliest match.
-  // This handles questions with inner quotes like: "Will Trump say "Crypto"?"
-  let closingIndex: i32 = -1;
-  for (let i = 0; i < QUESTION_CLOSING_DELIMITERS.length; i++) {
-    const idx = afterMarker.indexOf(QUESTION_CLOSING_DELIMITERS[i], firstQuote + 1);
-    if (idx !== -1 && (closingIndex === -1 || idx < closingIndex)) {
-      closingIndex = idx;
-    }
-  }
-  if (closingIndex === -1) return '';
-
-  return afterMarker.slice(firstQuote + 1, closingIndex);
+function isIpfsDigest(data: Bytes): boolean {
+  if (data.length === 32) return true;
+  // ipfs.cat used to return null for malformed CIDs. Do not replace that with a
+  // failing file source: preserve the chain event and skip metadata enrichment.
+  log.warning('Skipping legacy IPFS metadata: expected a 32-byte digest, got {} bytes', [
+    data.length.toString(),
+  ]);
+  return false;
 }
 
-function tryGetIpfsResponse(requestHash: string): Bytes | null {
-  let response = ipfs.cat(requestHash + '/' + 'metadata.json');
+function queueRequestMetadata(requestId: string, data: Bytes, baseHash: string): void {
+  if (!isIpfsDigest(data)) return;
 
-  if (response) {
-    return response;
-  }
-  return ipfs.cat(requestHash);
+  let ctx = new DataSourceContext();
+  ctx.setString(CTX_REQUEST_ID, requestId);
+  ctx.setString(CTX_BASE_HASH, baseHash);
+  ParsedRequestFile.createWithContext(baseHash + '/metadata.json', ctx);
+  ParsedRequestFile.createWithContext(baseHash, ctx);
 }
 
-function loadRequestPayload(ipfsHash: string): RequestPayload | null {
-  let data = tryGetIpfsResponse(ipfsHash);
-  if (data === null) {
-    log.warning('Request metadata not found for {}', [ipfsHash]);
-    return null;
-  }
-
-  let payload = new RequestPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE,
-    ''
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let promptValue = obj.get('prompt');
-  if (promptValue !== null && promptValue.kind === JSONValueKind.STRING) {
-    payload.prompt = promptValue.toString();
-    payload.questionTitle = extractQuestionTitle(payload.prompt);
-  }
-
-  let toolValue = obj.get('tool');
-  if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
-    payload.tool = toolValue.toString();
-  }
-
-  return payload;
-}
-
-function saveParsedRequestEntity(
-  requestId: string,
-  ipfsHash: string,
-  payload: RequestPayload
-): void {
-  if (ParsedRequest.load(requestId) !== null) {
-    return;
-  }
-
-  let parsedRequest = new ParsedRequest(requestId);
-  parsedRequest.hash = ipfsHash;
-  parsedRequest.request = requestId;
-  parsedRequest.content = payload.content;
-  parsedRequest.prompt = payload.prompt;
-  parsedRequest.tool = payload.tool;
-  parsedRequest.questionTitle = payload.questionTitle;
-  parsedRequest.save();
-
-  // Increment prediction counters when questionTitle is non-empty
-  if (payload.questionTitle.length > 0) {
-    let global = getGlobal();
-    global.totalPredictRequests = global.totalPredictRequests.plus(BigInt.fromI32(1));
-    global.save();
-
-    let request = Request.load(requestId);
-    if (request !== null) {
-      let sender = Sender.load(request.sender);
-      if (sender !== null) {
-        sender.totalPredictRequests = sender.totalPredictRequests.plus(BigInt.fromI32(1));
-        sender.save();
-      }
-    }
-  }
-}
-
-function loadDeliveryPayload(
-  ipfsHash: string,
-  requestId: BigInt
-): DeliveryPayload | null {
-  let route = ipfsHash + '/' + requestId.toString();
-  let data = tryGetIpfsResponse(route);
-  if (data === null) {
-    log.warning('Delivery metadata not found for {}', [route]);
-    return null;
-  }
-
-  let payload = new DeliveryPayload(
-    data.toString(),
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE,
-    UNHANDLED_TYPE
-  );
-
-  let result = json.try_fromBytes(data);
-  if (result.isError) {
-    return payload;
-  }
-
-  let value = result.value;
-  if (value.kind !== JSONValueKind.OBJECT) {
-    return payload;
-  }
-
-  let obj = value.toObject();
-  let metadataValue = obj.get('metadata');
-  if (metadataValue !== null && metadataValue.kind === JSONValueKind.OBJECT) {
-    let metadataObj = metadataValue.toObject();
-    let modelValue = metadataObj.get('model');
-    if (modelValue !== null && modelValue.kind === JSONValueKind.STRING) {
-      payload.model = modelValue.toString();
-    }
-    let toolValue = metadataObj.get('tool');
-    if (toolValue !== null && toolValue.kind === JSONValueKind.STRING) {
-      payload.tool = toolValue.toString();
-    }
-    let toolHashValue = metadataObj.get('tool_hash');
-    if (toolHashValue !== null && toolHashValue.kind === JSONValueKind.STRING) {
-      payload.toolHash = toolHashValue.toString();
-    }
-  }
-
-  let responseValue = obj.get('result');
-  if (responseValue !== null && responseValue.kind === JSONValueKind.STRING) {
-    payload.response = responseValue.toString();
-  }
-
-  return payload;
-}
-
-function saveParsedDeliveryEntity(
+function queueDeliveryMetadata(
   deliveryId: Bytes,
-  requestId: string,
-  ipfsHash: string,
-  payload: DeliveryPayload
+  requestId: BigInt,
+  data: Bytes,
+  baseHash: string
 ): void {
-  if (ParsedDelivery.load(deliveryId) !== null) {
-    return;
-  }
+  if (!isIpfsDigest(data)) return;
 
-  let parsedDelivery = new ParsedDelivery(deliveryId);
-  parsedDelivery.deliver = deliveryId;
-  parsedDelivery.request = requestId;
-  parsedDelivery.hash = ipfsHash;
-  parsedDelivery.content = payload.content;
-  parsedDelivery.model = payload.model;
-  parsedDelivery.response = payload.response;
-  parsedDelivery.tool = payload.tool;
-  parsedDelivery.toolHash = payload.toolHash;
-  parsedDelivery.save();
+  let ctx = new DataSourceContext();
+  ctx.setString(CTX_DELIVER_ID, deliveryId.toHexString());
+  ctx.setString(CTX_DELIVER_REQUEST, requestId.toHexString());
+  ctx.setString(CTX_BASE_HASH, baseHash);
+  // Legacy uint256 IDs must keep their full decimal representation in the path.
+  // Both layouts were supported by the old synchronous fallback.
+  let route = baseHash + '/' + requestId.toString();
+  ParsedDeliveryFile.createWithContext(route + '/metadata.json', ctx);
+  ParsedDeliveryFile.createWithContext(route, ctx);
 }
 
 export function handleRequest(event: RequestEvent): void {
@@ -302,9 +112,8 @@ export function handleRequest(event: RequestEvent): void {
   sender.save();
   global.save();
 
-  // Get metadata from IPFS
+  // Persist the IPFS reference without fetching content in this handler.
   let ipfsHash = getIpfsHash(event.params.data);
-  let requestPayload = loadRequestPayload(ipfsHash);
 
   let requestToMechId = event.params.requestId.toHexString();
   let requestToMech = new RequestToMech(requestToMechId);
@@ -342,12 +151,12 @@ export function handleRequest(event: RequestEvent): void {
     }
   }
 
-  // Persist request changes before storing parsed metadata
+  // Persist chain state before scheduling optional background metadata.
   entity.save();
 
-  if (requestPayload !== null) {
-    saveParsedRequestEntity(entity.id, ipfsHash, requestPayload);
-  }
+  // File handlers cannot update Global/Sender.totalPredictRequests. Existing
+  // grafted values are retained; derive new prediction counts from ParsedRequest.
+  queueRequestMetadata(entity.id, event.params.data, ipfsHash);
 }
 
 export function handleDeliver(event: DeliverEvent): void {
@@ -365,7 +174,6 @@ export function handleDeliver(event: DeliverEvent): void {
   let mechDelivery = new DeliverForMech(deliveryId);
 
   let ipfsHash = getIpfsHash(event.params.data);
-  let deliveryPayload = loadDeliveryPayload(ipfsHash, event.params.requestId);
 
   mechDelivery.requestId = event.params.requestId.toHexString();
   mechDelivery.ipfsHash = ipfsHash;
@@ -405,14 +213,7 @@ export function handleDeliver(event: DeliverEvent): void {
 
   entity.save();
 
-  if (deliveryPayload !== null) {
-    saveParsedDeliveryEntity(
-      deliveryId,
-      event.params.requestId.toHexString(),
-      ipfsHash,
-      deliveryPayload
-    );
-  }
+  queueDeliveryMetadata(deliveryId, event.params.requestId, event.params.data, ipfsHash);
 
   // Update Service totalDeliveries counter
   if (serviceId !== null) {
