@@ -147,6 +147,7 @@ export async function convertFeeToUsd(
       return stableToUsdGn(feeRaw, chain.usdcDecimals);
     case FEE_UNIT_TOKEN: {
       if (chain.olasPool == null) {
+        if (chain.unpricedFeeUnits?.includes(FEE_UNIT_TOKEN)) return ZERO_USD;
         log.warn(
           `[fee] OLAS (TOKEN) pricing is not available on ${chain.name}; ` +
             `returning $0 for ${feeRaw}`
@@ -181,6 +182,7 @@ export async function convertFeeToUsd(
     }
     case FEE_UNIT_CREDITS:
       if (chain.nvmCredits == null) {
+        if (chain.unpricedFeeUnits?.includes(FEE_UNIT_CREDITS)) return ZERO_USD;
         log.warn(
           `[fee] NVM credits are not configured on ${chain.name}; returning $0 ` +
             `for ${feeRaw}`
