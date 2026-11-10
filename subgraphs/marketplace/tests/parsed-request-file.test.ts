@@ -55,7 +55,8 @@ describe("Offchain ParsedRequest file data source", () => {
     assert.fieldEquals("ParsedRequest", requestId, "tool", UNHANDLED_TYPE);
   });
 
-  // The bare-hash + metadata.json double-spawn relies on this: the second handler run is a no-op.
+  // Repeated invocations in one context are guarded. This does not model isolation
+  // between the bare-hash and metadata.json sources or cancel their polling.
   test("idempotent: second call for the same requestId does not duplicate", () => {
     const requestId = "0x1234567890abcdef";
     const baseHash = "f01701220deadbeef";
