@@ -1,5 +1,6 @@
 import * as stakingFactory from "./abi/StakingFactory/events";
 import * as stakingProxy from "./abi/StakingProxy/events";
+import { dispatchV4 } from "./staking-v4";
 import {
   Deposit,
   InstanceCreated,
@@ -89,6 +90,10 @@ export async function dispatch(
   // Known emitters must decode successfully; a corrupt known log fails the batch.
   const contract = await ctx.cache.get(StakingContract, meta.address);
   if (!contract?.eventsIndexed) return;
+  if (contract.version === "0.4.0") {
+    await dispatchV4(ctx, meta, contract, log);
+    return;
+  }
   switch (topic) {
     case stakingProxy.ServiceStaked.topic:
       await handlers.handleServiceStaked(

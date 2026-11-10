@@ -159,3 +159,8 @@ findings remain in the inherited dependency stack).
 
 The RPC adapter's optional `evm-normalization` and `evm-rpc` peer dependencies
 are explicitly pinned and covered by a source-import test for fresh installs.
+
+
+## Staking v0.4
+
+See [source ABI, event semantics and release requirements](../../abis/StakingTokenV4.README.md).
