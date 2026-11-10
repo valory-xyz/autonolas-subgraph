@@ -30,6 +30,26 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
     expect(c.knownTokenSymbol("0x4200000000000000000000000000000000000006")).toBe("WETH");
   });
 
+  it("selects Robinhood from 58,564,789 with OLAS, WETH and USDG only", async () => {
+    vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "robinhood");
+    const c = await load();
+    expect(c.CHAIN.name).toBe("robinhood");
+    expect(c.START_BLOCK).toBe(58_564_789);
+    expect(c.CHAIN.portalDataset).toBe("https://portal.sqd.dev/datasets/robinhood-mainnet");
+    expect(c.CHAIN.defaultRpc).toBe("https://rpc-gate.autonolas.tech/robinhood-rpc/");
+    expect(c.SERVICE_REGISTRY_L2).toBe("0xe3607b00e75f6405248323a9417ff6b39b244b50");
+    expect(c.SRTU).toBe("0x3d77596beb0f130a4415df3d2d8232b3d3d31e44");
+    expect(c.STAKING_FACTORY).toBe("0x1bd1505b711fb58c54ca3712e6bef47a133892d9");
+    expect(c.ERC20_TOKENS).toEqual([
+      "0x092963938debd8013a2e545b3549f8a5ec0d2286", // OLAS
+      "0x0bd7d308f8e1639fab988df18a8011f41eacad73", // WETH
+      "0x5fc5360d0400a0fd4f2af552add042d716f1d168", // USDG
+    ]);
+    expect(c.knownTokenSymbol("0x0bd7d308f8e1639fab988df18a8011f41eacad73")).toBe("WETH");
+    expect(c.knownTokenSymbol("0x5fc5360d0400a0fd4f2af552add042d716f1d168")).toBe("USDG");
+    expect(c.CHAIN.allowedStakingImplementations).toEqual([]);
+  });
+
   it("trims whitespace around the name", async () => {
     vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", " base\n");
     expect((await load()).CHAIN.name).toBe("base");
@@ -46,7 +66,7 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
   it("fails at startup on an unknown name, listing the known chains", async () => {
     vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "polygon");
     await expect(load()).rejects.toThrow(
-      /PEARL_TRANSACTIONS_CHAIN="polygon" is not configured\. Known chains: matic, gnosis, optimism, base/
+      /PEARL_TRANSACTIONS_CHAIN="polygon" is not configured\. Known chains: matic, gnosis, optimism, base, robinhood/
     );
   });
 
@@ -81,6 +101,16 @@ describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
       portalUrlFor(CHAINS.base, "https://shared.portal.sqd.dev/datasets/polygon-mainnet")
     ).toThrow(
       /^SQD_PORTAL_URL=".*polygon-mainnet" serves dataset "polygon-mainnet", but PEARL_TRANSACTIONS_CHAIN="base" needs "base-mainnet"/
+    );
+  });
+
+  it("fails on Robinhood when the URL serves another chain's dataset", async () => {
+    const { CHAINS, portalUrlFor } = await load();
+    expect(portalUrlFor(CHAINS.robinhood, undefined)).toBe(CHAINS.robinhood.portalDataset);
+    expect(() =>
+      portalUrlFor(CHAINS.robinhood, "https://portal.sqd.dev/datasets/base-mainnet")
+    ).toThrow(
+      /serves dataset "base-mainnet", but PEARL_TRANSACTIONS_CHAIN="robinhood" needs "robinhood-mainnet"/
     );
   });
 

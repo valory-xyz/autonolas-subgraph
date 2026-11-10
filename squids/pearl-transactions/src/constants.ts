@@ -5,13 +5,14 @@
 // is picked once at startup from `PEARL_TRANSACTIONS_CHAIN` (see `CHAIN`
 // below). The per-chain table is kept in full so Gnosis / Optimism / Base
 // are brought up by env, not by rewriting this file. Addresses mirror
-// `subgraphs/pearl-transactions/networks.json` in autonolas-subgraph-studio.
+// `subgraphs/pearl-transactions/networks.json` in autonolas-subgraph-studio,
+// except Robinhood's, which has no subgraph.
 //
 // EVERY address here is lowercase: SQD normalizes log addresses and event
 // address params to lowercase, and the handlers compare with `===`. A
 // mixed-case literal is a silent no-match, so keep them lowercase.
 
-export type ChainName = "gnosis" | "matic" | "optimism" | "base";
+export type ChainName = "gnosis" | "matic" | "optimism" | "base" | "robinhood";
 
 export interface ChainConfig {
   name: ChainName;
@@ -113,6 +114,33 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     allowedStakingImplementations: [
       "0xeb5638eefe289691ece01943f768edbf96258a80",
     ],
+  },
+  // Squid-only (graph-node does not serve Robinhood), so no Studio manifest
+  // to mirror. Addresses from autonolas-registries
+  // globals_robinhood_mainnet.json, as in squids/staking and
+  // squids/marketplace.
+  robinhood: {
+    name: "robinhood",
+    // Private dataset: the public portal answers 404, so SQD_PORTAL_API_KEY
+    // is required.
+    portalDataset: "https://portal.sqd.dev/datasets/robinhood-mainnet",
+    // Archive-capable; the official rpc.mainnet.chain.robinhood.com is pruned.
+    defaultRpc: "https://rpc-gate.autonolas.tech/robinhood-rpc/",
+    // ServiceRegistryL2 deployment block; every other tracked contract is later.
+    startBlock: 58_564_789,
+    serviceRegistryL2: "0xe3607b00e75f6405248323a9417ff6b39b244b50",
+    serviceRegistryTokenUtility: "0x3d77596beb0f130a4415df3d2d8232b3d3d31e44",
+    stakingFactory: "0x1bd1505b711fb58c54ca3712e6bef47a133892d9",
+    olas: "0x092963938debd8013a2e545b3549f8a5ec0d2286",
+    wrappedNative: "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+    wrappedNativeSymbol: "WETH",
+    // Stock Tokens are deliberately absent: their transfers are not history.
+    stablecoins: {
+      "0x5fc5360d0400a0fd4f2af552add042d716f1d168": "USDG",
+    },
+    // No StakingProxy on Robinhood is indexed: Connect, the only agent there,
+    // never stakes.
+    allowedStakingImplementations: [],
   },
 };
 
