@@ -223,16 +223,16 @@ Request/delivery IPFS metadata, including legacy Gnosis AgentMech events, is fet
 ### Gnosis legacy-IPFS recovery graft
 
 `subgraph.gnosis.yaml` is prepared to graft from the v6.3.0 deployment
-`QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh`. Its `graft.block` is
-intentionally `"[placeholder]"`: replace the entire quoted value with an integer
-before deployment. Graph CLI can compile this placeholder, but Graph Node requires
-an integer graft block: a successful local build does not make it deployable.
+`QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh` at block **38,459,986**,
+the reported paused indexed head. The reported oldest retained block was
+38,459,672, so the selected block is within the available history. The chain head
+49,206,027 has not been indexed by this deployment and is not a graft point.
 
-1. Finish testing the mapping, then pause indexing of the base deployment to keep
-   the selected block from aging out of its retained history.
-2. Read the base's committed head and choose an indexed, retained canonical block.
-   Both manifests use `prune: 300`; an old log's block number is not a safe choice.
-3. Replace `graft.block`, then run `yarn graph codegen subgraph.gnosis.yaml`,
+1. Keep the base deployment paused until the graft copy completes, so the
+   selected block does not age out of its retained history.
+2. Before deployment, confirm block 38,459,986 is still indexed, retained, and
+   canonical. Both manifests use `prune: 300`; if the base resumes, recheck the point.
+3. Run `yarn graph codegen subgraph.gnosis.yaml`,
    `yarn build`, `yarn test:manifests`, and the Matchstick tests.
 4. Confirm the deployed base schema is compatible and there is enough database
    space for the copy. Deploy to a new version; grafting copies existing entities

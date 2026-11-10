@@ -1,11 +1,9 @@
 specVersion: 1.2.0
-# Recovery graft from marketplace-gnosis-v6_3_0. Replace the placeholder with an
-# indexed block still retained by the base (prune: 300); pause the base first.
-# Not deployable until replaced: Graph CLI can compile this placeholder, but
-# Graph Node requires an integer graft block when loading the manifest.
+# Recovery graft from marketplace-gnosis-v6_3_0 at its paused indexed head.
+# Keep the base paused until the graft copy completes (prune: 300).
 graft:
   base: QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh
-  block: "[placeholder]"
+  block: 38459986
 indexerHints:
   prune: 300
 schema:
