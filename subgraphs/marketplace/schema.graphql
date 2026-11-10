@@ -258,7 +258,8 @@ type Global @entity(immutable: false) {
   # Fee tracking
   totalFeesPaidUSD: BigDecimal! # Actual USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
-  # Prediction-specific counters (only requests with non-empty questionTitle)
+  # Deprecated: retained graft snapshot; async metadata handlers cannot increment this.
+  # Derive prediction counts from ParsedRequest.questionTitle instead.
   totalPredictRequests: BigInt!
 }
 
@@ -433,7 +434,8 @@ type Sender @entity(immutable: false) {
   # Fee tracking
   totalFeesPaidUSD: BigDecimal! # Cumulative USD charges for on-chain marketplace Requests whose priority mech has a fee unit
 
-  # Prediction-specific counters (only requests with non-empty questionTitle)
+  # Deprecated: retained graft snapshot; async metadata handlers cannot increment this.
+  # Derive prediction counts from ParsedRequest.questionTitle instead.
   totalPredictRequests: BigInt!
 }
 

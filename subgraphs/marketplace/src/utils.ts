@@ -37,7 +37,8 @@ export function getGlobal(): Global {
     // Fee tracking
     global.totalFeesPaidUSD = BigDecimal.fromString('0');
 
-    // Prediction-specific counters
+    // Deprecated metadata counter: retained for schema/graft compatibility.
+    // Async file handlers cannot update chain-owned Global/Sender entities.
     global.totalPredictRequests = BigInt.fromI32(0);
   }
   return global as Global;
@@ -117,7 +118,8 @@ export function getOrCreateSender(address: Bytes): Sender {
     // Fee tracking
     sender.totalFeesPaidUSD = BigDecimal.fromString('0');
 
-    // Prediction-specific counters
+    // Deprecated metadata counter: retained for schema/graft compatibility.
+    // Async file handlers cannot update chain-owned Global/Sender entities.
     sender.totalPredictRequests = BigInt.fromI32(0);
   }
   return sender as Sender;

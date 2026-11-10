@@ -7,10 +7,12 @@ import { CTX_DELIVER_ID, CTX_DELIVER_REQUEST, parseDeliveryPayload } from './del
 /**
  * Offchain file-data-source handler for a delivery's IPFS metadata.
  *
- * Spawned by the deliver handlers (marketplace/utils.ts) via
- * `ParsedDeliveryFile.createWithContext(<baseHash>/<decimalRequestId>, ctx)`. graph-node
- * fetches the file in the BACKGROUND, off the block-indexing critical path — so an unreachable
- * delivery hash can no longer stall the chain head; it just never triggers this handler.
+ * Spawned by marketplace and legacy AgentMech delivery handlers via
+ * `ParsedDeliveryFile.createWithContext(<baseHash>/<decimalRequestId>, ctx)`
+ * (also `/metadata.json` for legacy deliveries). graph-node
+ * fetches the file in the BACKGROUND, off the block-indexing critical path — so an unavailable
+ * delivery file does not block an individual chain handler. Pending sources still need
+ * operational backlog management.
  *
  * Runs in its own causality region: it may only write ParsedDelivery, not the chain-owned
  * Deliver entity. `content` is the file bytes.
