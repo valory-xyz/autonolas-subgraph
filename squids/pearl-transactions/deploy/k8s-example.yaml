@@ -6,15 +6,18 @@
 #   Secret pearl-transactions-squid-db   (all three workloads):
 #     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS  -> squid Postgres
 #   Secret pearl-transactions-squid-data (processor ONLY):
-#     PEARL_TRANSACTIONS_CHAIN -> matic (default) | base | gnosis | optimism.
+#     PEARL_TRANSACTIONS_CHAIN -> matic (default) | base | gnosis | optimism
+#       | robinhood.
 #       One chain per deployment; give each its own DB and names, e.g.
 #       pearl-transactions-base-squid-*. An unknown value fails at startup.
 #     SQD_PORTAL_URL     -> private SQD Portal dataset URL for that chain
-#       (polygon-mainnet, base-mainnet, ...)
+#       (polygon-mainnet, base-mainnet, robinhood-mainnet, ...)
 #     SQD_PORTAL_API_KEY -> private portal key (x-api-key header).
 #       NOT optional here: the public portal answers a sustained backfill
 #       with HTTP 529 "Service is overloaded" + 10s backoffs, which alone
-#       roughly doubles the wall-clock of the ~12.8M-block backfill.
+#       roughly doubles the wall-clock of the ~12.8M-block backfill. On
+#       robinhood it is required whatever the backfill size: robinhood-mainnet
+#       is a private dataset, and startup fails without the key.
 #     RPC_HTTP           -> RPC for that chain, ARCHIVE-capable. Safe owners are read
 #       at each Safe's first-sighting block, which during backfill is millions
 #       of blocks old; a pruned node cannot serve it and the processor refuses

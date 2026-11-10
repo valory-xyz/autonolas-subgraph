@@ -158,6 +158,21 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
     }
   });
 
+  it("sends the trimmed key in the x-api-key header on Robinhood", async () => {
+    const { CHAINS, portalOptionsFor } = await load();
+    expect(portalOptionsFor(CHAINS.robinhood, undefined, " k\n")).toEqual({
+      url: "https://portal.sqd.dev/datasets/robinhood-mainnet",
+      http: { headers: { "x-api-key": "k" } },
+    });
+  });
+
+  it("uses the bare URL on a public-dataset chain with no key", async () => {
+    const { CHAINS, portalOptionsFor } = await load();
+    expect(portalOptionsFor(CHAINS.matic, undefined, undefined)).toBe(
+      "https://portal.sqd.dev/datasets/polygon-mainnet"
+    );
+  });
+
   it("is enforced when the processor loads, i.e. at startup", async () => {
     vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "robinhood");
     vi.stubEnv("SQD_PORTAL_URL", "");

@@ -12,6 +12,8 @@
 // address params to lowercase, and the handlers compare with `===`. A
 // mixed-case literal is a silent no-match, so keep them lowercase.
 
+import type { PortalClientOptions } from "@subsquid/portal-client";
+
 export type ChainName = "gnosis" | "matic" | "optimism" | "base" | "robinhood";
 
 export interface ChainConfig {
@@ -141,8 +143,8 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     stablecoins: {
       "0x5fc5360d0400a0fd4f2af552add042d716f1d168": "USDG",
     },
-    // No StakingProxy on Robinhood is indexed: Connect, the only agent there,
-    // never stakes.
+    // No StakingProxy implementation is allow-listed on Robinhood yet
+    // (Connect never stakes).
     allowedStakingImplementations: [],
   },
 };
@@ -217,6 +219,17 @@ export function portalApiKeyFor(
     );
   }
   return trimmed;
+}
+
+/** The portal client config: the checked URL, with the key as `x-api-key` when one is set. */
+export function portalOptionsFor(
+  chain: ChainConfig,
+  urlOverride = process.env.SQD_PORTAL_URL,
+  key = process.env.SQD_PORTAL_API_KEY
+): string | PortalClientOptions {
+  const url = portalUrlFor(chain, urlOverride);
+  const apiKey = portalApiKeyFor(chain, key);
+  return apiKey ? { url, http: { headers: { "x-api-key": apiKey } } } : url;
 }
 
 export const START_BLOCK = CHAIN.startBlock;
