@@ -210,6 +210,7 @@ type Service @entity {
   blockTimestamp: BigInt!
   global: Global!
   latestStakingContract: String
+  # Unique history-row count, including zero-reward and rebaseline rows; not reward eligibility.
   totalEpochsParticipated: Int!
   rewardsHistory: [ServiceRewardsHistory!]! @derivedFrom(field: "service")
 }
