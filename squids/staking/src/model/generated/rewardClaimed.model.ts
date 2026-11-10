@@ -1,10 +1,16 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class RewardClaimed {
     constructor(props?: Partial<RewardClaimed>) {
         Object.assign(this, props)
     }
+
+    @StringColumn_({array: true, nullable: true})
+    receivers!: (string)[] | undefined | null
+
+    @StringColumn_({array: true, nullable: true})
+    rewardAmounts!: (string)[] | undefined | null
 
     @PrimaryColumn_()
     id!: string

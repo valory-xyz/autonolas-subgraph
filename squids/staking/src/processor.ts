@@ -8,6 +8,7 @@ import { getIngestionConfig } from "@olas/squid-shared";
 import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import * as stakingFactory from "./abi/StakingFactory/events";
 import * as stakingProxy from "./abi/StakingProxy/events";
+import * as stakingV4 from "./abi/StakingTokenV4/events";
 import { assertPortalDataset, CHAIN } from "./constants";
 
 export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
@@ -29,7 +30,7 @@ export const LOG_QUERIES: LogQuery[] = [
     },
   },
   // Dynamic proxies: check membership BEFORE decoding in dispatch.ts.
-  { where: { topic0: Object.values(stakingProxy).map((e) => e.topic) } },
+  { where: { topic0: [...new Set([...Object.values(stakingProxy), ...Object.values(stakingV4)].map(e => e.topic))] } },
 ];
 
 function addQueries<B extends { addLog(q: LogQuery): B }>(builder: B): B {

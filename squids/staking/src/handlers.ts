@@ -164,7 +164,7 @@ export async function handleServiceStaked(
   ctx: Ctx,
   meta: EventMeta,
   contract: StakingContract,
-  params: EventParams<typeof stakingEvents.ServiceStaked>,
+  params: EventParams<typeof stakingEvents.ServiceStaked> & { rewardDistributionInfo?: bigint },
 ): Promise<void> {
   ctx.cache.set(
     ServiceStaked,
@@ -230,6 +230,7 @@ export async function handleCheckpoint(
   meta: EventMeta,
   contract: StakingContract,
   params: EventParams<typeof stakingEvents.Checkpoint>,
+  isRebaseline = false,
 ): Promise<void> {
   if (params.serviceIds.length !== params.rewards.length)
     throw new Error("Checkpoint reward array length mismatch");
@@ -237,6 +238,7 @@ export async function handleCheckpoint(
     ...eventFields(meta),
     ...params,
     contractAddress: meta.address,
+    isRebaseline,
     serviceIds: params.serviceIds.map(String),
     rewards: params.rewards.map(String),
   });
@@ -259,6 +261,7 @@ export async function handleCheckpoint(
       params.serviceIds[i],
       params.epoch,
     );
+    history.isRebaseline = isRebaseline;
     history.rewardAmount = reward;
     history.checkpoint = row;
     history.checkpointedAt = meta.blockTimestamp;
@@ -286,6 +289,7 @@ export async function handleCheckpoint(
         BigInt(id),
         params.epoch,
       );
+      history.isRebaseline = isRebaseline;
       history.rewardAmount = 0n;
       history.checkpoint = row;
       history.checkpointedAt = meta.blockTimestamp;
@@ -308,7 +312,7 @@ export async function handleCheckpoint(
     next.blockTimestamp = meta.blockTimestamp;
     ctx.cache.set(ActiveServiceEpoch, next);
   }
-  if (!contract.isOlasStaking) return;
+  if (isRebaseline || !contract.isOlasStaking) return;
   const global = await getOrCreateGlobal(ctx);
   global.totalRewards += total;
   const snapshot = await getOrCreateDailySnapshot(ctx, meta);
@@ -330,7 +334,7 @@ export async function handleRewardClaimed(
   ctx: Ctx,
   meta: EventMeta,
   contract: StakingContract,
-  params: EventParams<typeof stakingEvents.RewardClaimed>,
+  params: EventParams<typeof stakingEvents.RewardClaimed> & { receivers?: string[]; rewardAmounts?: bigint[] },
 ): Promise<void> {
   ctx.cache.set(
     RewardClaimed,
@@ -338,6 +342,7 @@ export async function handleRewardClaimed(
       ...eventFields(meta),
       ...params,
       nonces: params.nonces.map(String),
+      rewardAmounts: params.rewardAmounts?.map(String),
     }),
   );
   if (!contract.isOlasStaking) return;
@@ -355,16 +360,19 @@ export async function handleServiceUnstaked(
   contract: StakingContract,
   params: EventParams<typeof stakingEvents.ServiceUnstaked>,
   forced: boolean,
+  v4 = false,
 ): Promise<void> {
   const fields = {
     ...eventFields(meta),
     ...params,
     nonces: params.nonces.map(String),
   };
-  if (forced)
-    ctx.cache.set(ServiceForceUnstaked, new ServiceForceUnstaked(fields));
-  else ctx.cache.set(ServiceUnstaked, new ServiceUnstaked(fields));
-  const paid = !forced && contract.isOlasStaking;
+  // v0.4's different event shape is recorded by its decoder.
+  if (!v4) {
+    if (forced) ctx.cache.set(ServiceForceUnstaked, new ServiceForceUnstaked(fields));
+    else ctx.cache.set(ServiceUnstaked, new ServiceUnstaked(fields));
+  }
+  const paid = !v4 && !forced && contract.isOlasStaking;
   const service = ctx.services.get(String(params.serviceId));
   if (contract.isOlasStaking && !service)
     throw new Error(`Missing unstaked service ${params.serviceId} at ${meta.blockNumber}`);
@@ -382,7 +390,7 @@ export async function handleServiceUnstaked(
     params.serviceId,
     params.epoch,
   );
-  history.rewardAmount = params.reward;
+  if (!v4) history.rewardAmount = params.reward;
   ctx.cache.set(ServiceRewardsHistory, history);
   const global = await getOrCreateGlobal(ctx);
   global.cumulativeOlasUnstaked += amount;
