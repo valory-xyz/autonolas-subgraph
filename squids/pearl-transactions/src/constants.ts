@@ -3,8 +3,8 @@
 // A squid deployment is ONE chain (unlike the subgraph's 4-manifest
 // generator), so there is no `dataSource.network()` switch here — the chain
 // is picked once at startup from `PEARL_TRANSACTIONS_CHAIN` (see `CHAIN`
-// below). The per-chain table is kept in full so Gnosis / Optimism / Base
-// are brought up by env, not by rewriting this file. Addresses mirror
+// below). The per-chain table is kept in full so other chains are brought
+// up by env, not by rewriting this file. Addresses mirror
 // `subgraphs/pearl-transactions/networks.json` in autonolas-subgraph-studio,
 // except Robinhood's, which has no subgraph.
 //
@@ -18,6 +18,8 @@ export interface ChainConfig {
   name: ChainName;
   /** SQD Portal dataset for this chain. */
   portalDataset: string;
+  /** The dataset is private, so the processor refuses to start without a key. */
+  portalRequiresApiKey: boolean;
   /** Public RPC used when `RPC_HTTP` is unset. */
   defaultRpc: string;
   /** Earliest block any tracked contract was deployed at. */
@@ -42,6 +44,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   matic: {
     name: "matic",
     portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    portalRequiresApiKey: false,
     defaultRpc: "https://polygon-bor-rpc.publicnode.com",
     startBlock: 80_360_433,
     serviceRegistryL2: "0xe3607b00e75f6405248323a9417ff6b39b244b50",
@@ -62,6 +65,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   gnosis: {
     name: "gnosis",
     portalDataset: "https://portal.sqd.dev/datasets/gnosis-mainnet",
+    portalRequiresApiKey: false,
     defaultRpc: "https://gnosis-rpc.publicnode.com",
     startBlock: 27_871_084,
     serviceRegistryL2: "0x9338b5153ae39bb89f50468e608ed9d764b755fd",
@@ -81,6 +85,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   optimism: {
     name: "optimism",
     portalDataset: "https://portal.sqd.dev/datasets/optimism-mainnet",
+    portalRequiresApiKey: false,
     defaultRpc: "https://optimism-rpc.publicnode.com",
     startBlock: 116_423_039,
     serviceRegistryL2: "0x3d77596beb0f130a4415df3d2d8232b3d3d31e44",
@@ -100,6 +105,7 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
   base: {
     name: "base",
     portalDataset: "https://portal.sqd.dev/datasets/base-mainnet",
+    portalRequiresApiKey: false,
     defaultRpc: "https://mainnet.base.org",
     startBlock: 10_827_380,
     serviceRegistryL2: "0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe",
@@ -115,15 +121,12 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
       "0xeb5638eefe289691ece01943f768edbf96258a80",
     ],
   },
-  // Squid-only (graph-node does not serve Robinhood), so no Studio manifest
-  // to mirror. Addresses from autonolas-registries
-  // globals_robinhood_mainnet.json, as in squids/staking and
-  // squids/marketplace.
+  // Addresses from the autonolas-registries Robinhood mainnet deployment.
   robinhood: {
     name: "robinhood",
-    // Private dataset: the public portal answers 404, so SQD_PORTAL_API_KEY
-    // is required.
+    // Private: the public portal answers 404 for it.
     portalDataset: "https://portal.sqd.dev/datasets/robinhood-mainnet",
+    portalRequiresApiKey: true,
     // Archive-capable; the official rpc.mainnet.chain.robinhood.com is pruned.
     defaultRpc: "https://rpc-gate.autonolas.tech/robinhood-rpc/",
     // ServiceRegistryL2 deployment block; every other tracked contract is later.
@@ -194,6 +197,26 @@ export function portalUrlFor(
     );
   }
   return url;
+}
+
+/**
+ * `SQD_PORTAL_API_KEY`, trimmed (empty counts as unset). Throws on a chain
+ * whose dataset is private: without a key the portal answers 404 mid-stream
+ * instead of failing at startup.
+ */
+export function portalApiKeyFor(
+  chain: ChainConfig,
+  key = process.env.SQD_PORTAL_API_KEY
+): string | undefined {
+  const trimmed = key?.trim() || undefined;
+  if (trimmed == null && chain.portalRequiresApiKey) {
+    throw new Error(
+      `SQD_PORTAL_API_KEY is required for the private ` +
+        `${portalDatasetName(chain.portalDataset)} dataset ` +
+        `(PEARL_TRANSACTIONS_CHAIN="${chain.name}").`
+    );
+  }
+  return trimmed;
 }
 
 export const START_BLOCK = CHAIN.startBlock;

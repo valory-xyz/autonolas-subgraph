@@ -54,7 +54,7 @@ Key files:
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`, `robinhood`. An unknown name fails at startup |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL. Its `/datasets/<name>` must be the selected chain's (e.g. `base-mainnet`), or startup fails |
-| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal. Required on `robinhood`, whose dataset is private: startup fails without it |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
 | `RPC_HTTP_FALLBACK` | second archive endpoint, tried when the primary fails with a non-revert error and as the second check before any "not a Safe" verdict. **Always set it in production** — see below |
 | `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only on `matic` when `RPC_HTTP*` is unset, so existing Polygon deployments keep working. On any other chain, setting one fails at startup |
@@ -214,8 +214,7 @@ topic count; the raw decoder throws on those and kills the batch.
 
 ### Bringing up another chain
 
-`src/constants.ts` carries the full per-chain table (Gnosis, Polygon,
-Optimism, Base, Robinhood). Set `PEARL_TRANSACTIONS_CHAIN`, point `SQD_PORTAL_URL` and
+`src/constants.ts` carries the full per-chain table. Set `PEARL_TRANSACTIONS_CHAIN`, point `SQD_PORTAL_URL` and
 `RPC_HTTP*` at that chain, and deploy against a fresh database — a squid
 deployment is one chain. Nothing else in the code is Polygon-specific.
 
@@ -228,7 +227,7 @@ calls need a token). Validate with
 **Robinhood** (`PEARL_TRANSACTIONS_CHAIN=robinhood`, chain 4663) starts at
 block 58,564,789 on the `robinhood-mainnet` dataset. That dataset is
 private — the public portal answers 404 — so `SQD_PORTAL_API_KEY` is
-required even for a smoke test. The default `RPC_HTTP` is
+required even for a smoke test, and startup fails without it. The default `RPC_HTTP` is
 `https://rpc-gate.autonolas.tech/robinhood-rpc/`, which is archive-capable;
 the official `rpc.mainnet.chain.robinhood.com` is pruned and refused. Only
 OLAS, WETH and USDG transfers are indexed, so Stock Token transfers produce

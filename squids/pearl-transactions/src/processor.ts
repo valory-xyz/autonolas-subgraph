@@ -14,6 +14,7 @@ import {
   ERC20_TOKENS,
   START_BLOCK,
   portalUrlFor,
+  portalApiKeyFor,
 } from "./constants";
 
 // SQD Portal endpoint. The public portal needs no key but is aggressively
@@ -22,10 +23,11 @@ import {
 // vars to the private portal; the key goes in the x-api-key header. Keep
 // the private URL out of the repo — infra sets it via env.
 const portalUrl = portalUrlFor(CHAIN);
-const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
+const portalApiKey = portalApiKeyFor(CHAIN);
+const portal: string | PortalClientOptions = portalApiKey
   ? {
       url: portalUrl,
-      http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } },
+      http: { headers: { "x-api-key": portalApiKey } },
     }
   : portalUrl;
 

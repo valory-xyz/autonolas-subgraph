@@ -132,6 +132,44 @@ describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
   });
 });
 
+describe("SQD_PORTAL_API_KEY on a private dataset", () => {
+  beforeEach(() => vi.resetModules());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([undefined, "", "  "])(
+    "fails on Robinhood when the key is %j, naming the dataset",
+    async (key) => {
+      const { CHAINS, portalApiKeyFor } = await load();
+      expect(() => portalApiKeyFor(CHAINS.robinhood, key)).toThrow(
+        /SQD_PORTAL_API_KEY is required for the private robinhood-mainnet dataset/
+      );
+    }
+  );
+
+  it("returns the trimmed key on Robinhood", async () => {
+    const { CHAINS, portalApiKeyFor } = await load();
+    expect(portalApiKeyFor(CHAINS.robinhood, " k\n")).toBe("k");
+  });
+
+  it("stays optional on the public-dataset chains", async () => {
+    const { CHAINS, portalApiKeyFor } = await load();
+    for (const c of [CHAINS.matic, CHAINS.gnosis, CHAINS.optimism, CHAINS.base]) {
+      expect(portalApiKeyFor(c, undefined)).toBeUndefined();
+    }
+  });
+
+  it("is enforced when the processor loads, i.e. at startup", async () => {
+    vi.stubEnv("PEARL_TRANSACTIONS_CHAIN", "robinhood");
+    vi.stubEnv("SQD_PORTAL_URL", "");
+    vi.stubEnv("SQD_PORTAL_API_KEY", "");
+    await expect(import("../src/processor")).rejects.toThrow(/SQD_PORTAL_API_KEY is required/);
+
+    vi.resetModules();
+    vi.stubEnv("SQD_PORTAL_API_KEY", "test-key");
+    await expect(import("../src/processor")).resolves.toBeDefined();
+  });
+});
+
 describe("CHAINS table", () => {
   it("keeps every address lowercase (handlers compare with ===)", async () => {
     vi.resetModules();
