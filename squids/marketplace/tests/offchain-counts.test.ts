@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 
-it.each(["base", "robinhood"])("%s counts signed batches once across individual delivery logs", async (chain) => {
+it.each(["base", "robinhood", "polygon"])("%s counts signed batches once across individual delivery logs", async (chain) => {
   vi.resetModules();
   vi.stubEnv("MARKETPLACE_CHAIN", chain);
   const h = await import("../src/handlers");

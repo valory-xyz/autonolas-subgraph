@@ -4,7 +4,7 @@
 
 import { selectChain } from "@olas/squid-shared";
 
-export type ChainName = "robinhood" | "base";
+export type ChainName = "robinhood" | "base" | "polygon";
 
 // Fee unit names (schema enum FeeUnit). String constants rather than the
 // generated enum so logic.ts / fee.ts stay importable without the models.
@@ -105,6 +105,8 @@ export interface ChainConfig {
   nvmCredits: NvmCreditsConfig | null;
   /** TOKEN (OLAS) fee unit; null converts to $0 with a warning. */
   olasPool: OlasPoolConfig | null;
+  /** Explicit historical pricing gaps retained from the source subgraph. */
+  unpricedFeeUnits?: (typeof FEE_UNIT_TOKEN | typeof FEE_UNIT_CREDITS)[];
 }
 
 export const CHAINS: Record<ChainName, ChainConfig> = {
@@ -249,6 +251,72 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
       stableDecimals: 6,
     },
   },
+
+  // Polygon: subgraphs/marketplace/subgraph.polygon.yaml and its fee-utils.ts.
+  // The deployed marketplace has V2 events throughout the indexed history.
+  polygon: {
+    name: "polygon",
+    chainId: 137,
+    portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    // Production supplies an archive node via RPC_HTTP, overriding this public fallback.
+    defaultRpc: "https://polygon-rpc.com",
+    startBlock: 41_783_952,
+    serviceRegistryL2: {
+      address: "0xe3607b00e75f6405248323a9417ff6b39b244b50",
+      startBlock: 41_783_952,
+    },
+    complementaryServiceMetadata: {
+      address: "0xdc175e77d11246c79b23d7088750eb59160dd6b7",
+      startBlock: 81_433_108,
+    },
+    karma: {
+      address: "0x7fc0ddf4dfb61cfa5519db2a5ee7b2eb02de0140",
+      startBlock: 81_028_558,
+    },
+    mechMarketplace: {
+      address: "0x343f2b005cf6d70ba610cd9f1f1927049414b582",
+      startBlock: 81_028_558,
+    },
+    mechMarketplaceV1EndBlock: null,
+    mechFactories: [
+      {
+        address: "0x87f89f94033305791b6269ae2f9cf4e09983e56e",
+        event: "CreateMechFixedPriceNative",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+        feeUnit: FEE_UNIT_NATIVE,
+        startBlock: 81_028_558,
+      },
+      {
+        address: "0xa0da53447c0f6c4987964d8463da7e6628b30f82",
+        event: "CreateMechFixedPriceToken",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN,
+        feeUnit: FEE_UNIT_TOKEN,
+        startBlock: 81_028_558,
+      },
+      {
+        address: "0x85899f9d8c058a5bbbaf344ea0f0b63c0ccbe851",
+        event: "CreateMechFixedPriceTokenUSDC",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+        feeUnit: FEE_UNIT_USDC,
+        startBlock: 81_028_558,
+      },
+      {
+        address: "0x43fb32f25dce34eb76c78c7a42c8f40f84bcd237",
+        event: "CreateMechNvmSubscriptionTokenUSDC",
+        paymentType: PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC,
+        feeUnit: FEE_UNIT_CREDITS,
+        startBlock: 81_028_558,
+      },
+    ],
+    nativeUsdFeed: "0xab594600376ec9fd91f8e885dadf0ce036862de0", // POL/USD, 8 decimals
+    nativeDecimals: 18,
+    usdcDecimals: 6,
+    // The Graph marketplace returns $0 for these two historical fee units
+    // on Polygon. Keep raw charges; pricing them needs a separate backfill.
+    nvmCredits: null,
+    olasPool: null,
+    unpricedFeeUnits: [FEE_UNIT_TOKEN, FEE_UNIT_CREDITS],
+  },
 };
 
 /** `<name>` of a `.../datasets/<name>` portal URL, or null. */
@@ -279,7 +347,8 @@ export function assertPortalDataset(url: string, chain: ChainConfig): void {
  * - every address is lowercase (SQD lowercases log addresses and the code
  *   compares with ===; the OLAS pool's token match relies on it too);
  * - a factory with fee unit TOKEN needs `olasPool`, CREDITS needs `nvmCredits`,
- *   NATIVE needs `nativeUsdFeed`.
+ *   NATIVE needs `nativeUsdFeed`. Documented TOKEN/CREDITS gaps must be
+ *   explicitly listed in unpricedFeeUnits.
  */
 export function assertChainConfig(chain: ChainConfig): void {
   const addrs = JSON.stringify(chain).match(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g) ?? [];
@@ -294,7 +363,8 @@ export function assertChainConfig(chain: ChainConfig): void {
   ];
   for (const [unit, source] of needs) {
     const f = chain.mechFactories.find((x) => x.feeUnit === unit);
-    if (f != null && source == null) {
+    const intentionallyUnpriced = chain.unpricedFeeUnits?.some((x) => x === unit) ?? false;
+    if (f != null && source == null && !intentionallyUnpriced) {
       throw new Error(
         `${chain.name}: factory ${f.address} has fee unit ${unit} but the chain has no source for it`
       );
