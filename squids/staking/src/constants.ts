@@ -1,6 +1,6 @@
 import { selectChain, type Address } from "@olas/squid-shared";
 
-export type ChainName = "robinhood" | "base";
+export type ChainName = "robinhood" | "base" | "polygon";
 
 export interface ChainConfig {
   name: ChainName;
@@ -41,6 +41,17 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     stakingFactory: "0x1cee30d08943eb58eff84dd1ab44a6ee6feff63a",
     // studio shared/constants.ts OLAS_ADDRESS_BASE
     olas: "0x54330d28ca3357f294334bdc454a032e7f353416",
+  },
+  polygon: {
+    name: "polygon",
+    chainId: 137,
+    portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    portalRequiresApiKey: false,
+    defaultRpc: "https://rpc-gate.autonolas.tech/polygon-rpc/",
+    // Studio staking/subgraph.matic.yaml and shared/constants.ts.
+    startBlock: 62_213_142,
+    stakingFactory: "0x46c0d07f55d4f9b5eed2fc9680b5953e5fd7b461",
+    olas: "0xfef5d947472e72efbb2e388c730b7428406f2f95",
   },
 };
 

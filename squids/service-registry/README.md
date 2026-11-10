@@ -1,7 +1,7 @@
 # service-registry-squid
 
-Indexer for the Olas **Service Registry on Robinhood Chain** (chain id 4663)
-and **Base** (8453), built with the [SQD Squid SDK](https://docs.sqd.dev). It reads registry
+Indexer for the Olas **Service Registry on Robinhood Chain** (chain id 4663),
+**Base** (8453), and **Polygon** (137), built with the [SQD Squid SDK](https://docs.sqd.dev). It reads registry
 events from the chain, tracks services, their multisigs, ERC-8004 identity
 links and daily agent activity, stores the result in PostgreSQL, and serves
 it over a GraphQL API.
@@ -13,6 +13,24 @@ Robinhood also uses this squid; Gnosis uses the self-hosted
 [`service-registry` subgraph](../../subgraphs/service-registry).
 See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
 document for current endpoints and deployment versions.
+
+## Polygon migration
+
+Set `SERVICE_REGISTRY_CHAIN=polygon`. Registry
+`0xe3607b00e75f6405248323a9417ff6b39b244b50` starts at **41,783,952**;
+bridger `0x6f121552765424f0b2331b541c0938480ca314db` starts at **82,500,133**.
+These preserve Studio's `subgraphs/service-registry/subgraph.matic.yaml`
+boundaries, including historical bridger events. The public `polygon-mainnet`
+Portal dataset works without a key; private overrides require a key.
+
+The merged wallet-clearing handler applies to Polygon: both legacy nonzero-old
+multisig replacements and explicit clearing events invalidate authorization.
+Termination alone never invents a clearing event, and only `AgentWalletSet`
+authorizes a wallet. Identity links and metadata remain intact. No contract
+version or guessed upgrade block is needed for this event-driven behaviour.
+
+Use the [Polygon cutover guide](../POLYGON_STAKING_REGISTRY_MIGRATION.md) for
+fresh replay, query changes and deployment acceptance checks.
 
 ## How it works
 

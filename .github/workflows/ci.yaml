@@ -136,6 +136,14 @@ jobs:
         working-directory: squids/${{ matrix.squid }}
         run: npm test
 
+      - name: Test Polygon staking and registry configuration
+        if: matrix.squid == 'staking' || matrix.squid == 'service-registry'
+        working-directory: squids/${{ matrix.squid }}
+        env:
+          STAKING_CHAIN: polygon
+          SERVICE_REGISTRY_CHAIN: polygon
+        run: npm test
+
   all-checks-passed:
     name: All checks passed
     needs: [check, squid-tests]
