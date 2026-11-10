@@ -41,7 +41,7 @@ export class Token {
     priceStale!: boolean
 
     /**
-     * A stablecoin last priced below DEPEG_THRESHOLD (0.98)
+     * A stablecoin last priced below the depeg threshold
      */
     @BooleanColumn_({nullable: false})
     depegged!: boolean

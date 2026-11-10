@@ -141,8 +141,9 @@ function receiptHasInflowTo(safe: string, receipt: ReceiptLog[]): boolean {
 
 /**
  * isWithdrawalRecipient: the user side, or a contract when nothing came back
- * to the Safe in the same tx (e.g. an EIP-7702 wallet). Without a receipt a
- * contract outflow is not counted.
+ * to the Safe in the same tx (e.g. an EIP-7702 wallet). The subgraph skips a
+ * contract outflow with no receipt (a manifest bug there); the squid always
+ * has the receipt, so a missing one throws.
  */
 export async function isWithdrawalRecipient(
   ctx: Ctx,
@@ -156,8 +157,9 @@ export async function isWithdrawalRecipient(
   if (service == null || isServiceOwnAddress(address, serviceSafe, service)) return false;
   if (await isUserSideOther(ctx, address, service, meta, tx)) return true;
   if (receipt == null) {
-    ctx.log.error(`[WITHDRAWAL] No receipt for tx ${meta.txHash}; outflow from ${serviceSafe} to contract ${address} not counted`);
-    return false;
+    // The field selection (transactionLogs) or a fetched receipt always sets
+    // it; fail loudly, like a missing transaction, rather than skip an outflow.
+    throw new Error(`log ${meta.txHash}-${meta.logIndex} has no receipt; outflow from ${serviceSafe} to ${address} cannot be classified`);
   }
   return !receiptHasInflowTo(serviceSafe, receipt);
 }

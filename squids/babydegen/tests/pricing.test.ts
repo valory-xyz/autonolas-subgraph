@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AERO,
   AERO_PROTOCOL_AERO,
@@ -316,6 +316,15 @@ describe("pair-leg pricing", () => {
   });
 });
 
+
+/** Extra TOKENS entries for one test: TOKENS stays read-only, its lookups are stubbed. */
+function withTokens(...configs: TokenConfig[]) {
+  const extra = new Map(configs.map((c) => [c.address as string, c]));
+  const real = new Map(TOKENS);
+  vi.spyOn(TOKENS, "get").mockImplementation((k) => extra.get(k) ?? real.get(k));
+  vi.spyOn(TOKENS, "has").mockImplementation((k) => extra.has(k) || real.has(k));
+}
+
 describe("pair-leg hops", () => {
   const HOP_P = addr(0xa7);
   const HOP_Q = addr(0xa8);
@@ -329,13 +338,12 @@ describe("pair-leg hops", () => {
     priceSources: [{ address: hex(pool), sourceType: "velodrome_v2", priority: 1, confidence: 80, pairToken: hex(pairToken) }],
   });
   afterEach(() => {
-    TOKENS.delete(HOP_P);
-    TOKENS.delete(HOP_Q);
+    vi.restoreAllMocks();
   });
 
   it("a pair leg with no feed is priced through its own pool to a feed-priced token", async () => {
     const { ctx, chain } = setup();
-    TOKENS.set(HOP_P, config(HOP_P, "P", HOP_P_Q_POOL, USDC_NATIVE));
+    withTokens(config(HOP_P, "P", HOP_P_Q_POOL, USDC_NATIVE));
     imbalancedStablePool(chain, HOP_P_Q_POOL, HOP_P, USDC_NATIVE, 10n ** 18n, 1_000_000n);
     imbalancedStablePool(chain, HOP_T_P_POOL, BOLD, HOP_P, 10n ** 18n, 10n ** 18n);
     expect((await getVelodromeV2Price(ctx, BOLD, HOP_T_P_POOL, HOP_P, now())).toFixed()).toBe("1");
@@ -343,8 +351,7 @@ describe("pair-leg hops", () => {
 
   it("a pair leg is priced through its own pool only when that pool's pair leg has a feed", async () => {
     const { ctx, chain } = setup();
-    TOKENS.set(HOP_P, config(HOP_P, "P", HOP_P_Q_POOL, HOP_Q));
-    TOKENS.set(HOP_Q, config(HOP_Q, "Q", HOP_Q_USDC_POOL, USDC_NATIVE));
+    withTokens(config(HOP_P, "P", HOP_P_Q_POOL, HOP_Q), config(HOP_Q, "Q", HOP_Q_USDC_POOL, USDC_NATIVE));
     imbalancedStablePool(chain, HOP_Q_USDC_POOL, HOP_Q, USDC_NATIVE, 10n ** 18n, 1_000_000n);
     imbalancedStablePool(chain, HOP_P_Q_POOL, HOP_P, HOP_Q, 10n ** 18n, 10n ** 18n);
     imbalancedStablePool(chain, HOP_T_P_POOL, BOLD, HOP_P, 10n ** 18n, 10n ** 18n);
@@ -363,12 +370,12 @@ describe("source priority", () => {
     priceSources: sources.map(([address, priority]) => ({ address: hex(address), sourceType: "chainlink" as const, priority, confidence: 95, pairToken: null })),
   });
   afterEach(() => {
-    TOKENS.delete(PRIO_TOKEN);
+    vi.restoreAllMocks();
   });
 
   it("a priority-1 source listed after a priority-2 one replaces its price", async () => {
     const { ctx, chain } = setup();
-    TOKENS.set(PRIO_TOKEN, prio([[FEED_B, 2], [FEED_A, 1]]));
+    withTokens(prio([[FEED_B, 2], [FEED_A, 1]]));
     chain.feeds.set(FEED_B, feed(200_000_000n));
     chain.feeds.set(FEED_A, feed(300_000_000n));
     expect(await price(ctx, PRIO_TOKEN)).toBe("3");
@@ -376,7 +383,7 @@ describe("source priority", () => {
 
   it("sources sharing the best priority are averaged", async () => {
     const { ctx, chain } = setup();
-    TOKENS.set(PRIO_TOKEN, prio([[FEED_A, 1], [FEED_B, 1]]));
+    withTokens(prio([[FEED_A, 1], [FEED_B, 1]]));
     chain.feeds.set(FEED_A, feed(200_000_000n));
     chain.feeds.set(FEED_B, feed(300_000_000n));
     expect(await price(ctx, PRIO_TOKEN)).toBe("2.5");

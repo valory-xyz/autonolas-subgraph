@@ -102,8 +102,8 @@ const chainlinkStable = (address: Address, symbol: string, decimals: number, fee
   ],
 });
 
-/** tokenConfig.ts TOKENS (a Map, as in the subgraph; tests add tokens to it). */
-export const TOKENS: Map<string, TokenConfig> = new Map(
+/** tokenConfig.ts TOKENS. */
+export const TOKENS: ReadonlyMap<string, TokenConfig> = new Map(
   [
     {
       address: USDC_NATIVE,

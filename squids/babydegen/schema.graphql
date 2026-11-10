@@ -103,7 +103,7 @@ type Token @entity {
   priceConfidence: BigDecimal!
   "derivedUSD is the last valid price, not a fresh one"
   priceStale: Boolean!
-  "A stablecoin last priced below DEPEG_THRESHOLD (0.98)"
+  "A stablecoin last priced below the depeg threshold"
   depegged: Boolean!
 }
 

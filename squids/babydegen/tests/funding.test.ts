@@ -251,12 +251,19 @@ describe("withdrawals to contracts are decided by the receipt", () => {
     expect(await field(w, SAFE_CL, "totalWithdrawnUsd")).toBe("5");
   });
 
-  it("an outflow to a contract with no receipt is not counted", async () => {
+  it("an outflow to a contract with no receipt throws (the stream always carries it)", async () => {
     const w = tokenWorld();
     seedService(w, SAFE_CL);
     seedAddressType(w, SOME_CONTRACT, true, false);
-    await transfer(w, USDC_NATIVE, SAFE_CL, SOME_CONTRACT, 5_000_000n, null);
-    expect(await w.cache.get(FundingBalance, SAFE_CL)).toBeUndefined();
+    await expect(transfer(w, USDC_NATIVE, SAFE_CL, SOME_CONTRACT, 5_000_000n, null)).rejects.toThrow(/has no receipt/);
+  });
+
+  it("an outflow to the user side needs no receipt", async () => {
+    const w = tokenWorld();
+    seedService(w, SAFE_CL);
+    seedAddressType(w, USER_EOA, false, false);
+    await transfer(w, USDC_NATIVE, SAFE_CL, USER_EOA, 5_000_000n, null);
+    expect(await field(w, SAFE_CL, "totalWithdrawnUsd")).toBe("5");
   });
 
   it("EIP-7702 wallet, nothing back to the Safe (0xf2a832e7): withdrawal", async () => {
