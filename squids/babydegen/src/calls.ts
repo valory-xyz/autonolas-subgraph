@@ -22,24 +22,8 @@ export const slot0 = func(
   }),
 );
 
-/** CL pool token0() / token1() (same selectors as the v2 pool). */
-export const token0 = func("0x0dfe1681", {}, address);
-export const token1 = func("0xd21220a7", {}, address);
-
-const getThresholdFn = func("0xe75235b8", {}, uint256);
-
 /**
- * GnosisSafe getThreshold(): answers on a Safe, reverts elsewhere. It is
- * called on arbitrary contracts, so output that is not a uint256 (a fallback
- * returning a few bytes) reads as no answer instead of failing the batch.
+ * GnosisSafe getThreshold(): answers on a Safe, reverts elsewhere. Output
+ * shorter than a word reads as no answer in ChainReader.call.
  */
-export const getThreshold = {
-  encode: (args: {}) => getThresholdFn.encode(args),
-  decodeResult(output: string): bigint | null {
-    try {
-      return getThresholdFn.decodeResult(output);
-    } catch {
-      return null;
-    }
-  },
-};
+export const getThreshold = func("0xe75235b8", {}, uint256);

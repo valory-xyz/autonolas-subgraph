@@ -195,8 +195,8 @@ export async function getVelodromeCLPrice(ctx: PriceCtx, token: string, pool: st
   const slot = await ctx.chain.call(pool, block, calls.slot0, {});
   if (slot == null) return ZERO;
   const [t0, t1] = await Promise.all([
-    ctx.chain.call(pool, block, calls.token0, {}),
-    ctx.chain.call(pool, block, calls.token1, {}),
+    ctx.chain.call(pool, block, v2Pool.token0, {}),
+    ctx.chain.call(pool, block, v2Pool.token1, {}),
   ]);
   if (t0 == null || t1 == null) return ZERO;
   const token0 = t0.toLowerCase();
