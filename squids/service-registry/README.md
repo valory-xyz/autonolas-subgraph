@@ -165,3 +165,17 @@ Chain selection and the entity cache come from [`../_shared`](../_shared)
 (`@olas/squid-shared`, installed via `file:../_shared`). Build it before this
 squid: `cd ../_shared && npm ci && npm run build`. The shared `../Dockerfile` does
 the same, which is why the image build context is the repo root.
+
+
+## Wallet-clearing release readiness
+
+The configured Base and Robinhood bridger histories were checked on
+10 November 2026. `AgentMultisigUpdated` has the same wallet-clearing meaning
+throughout the indexed ranges, including Robinhood's implementation upgrade.
+The existing addresses, start blocks and ABI are sufficient; no extra activation
+block is needed. Deploy after merge without waiting for another contract
+release or new on-chain activity.
+
+Replay or backfill previously missed clearing events and validate wallet state
+before switching consumers. Resuming from a checkpoint carrying stale wallet
+state does not repair history. This change requires no schema migration.
