@@ -46,7 +46,7 @@ jobs:
           # Build-only for now; flip to `test: true` when tests are enabled.
           - { subgraph: mech,               manifest: subgraph.yaml,              test: false }
           - { subgraph: predict-omen,       manifest: subgraph.yaml,              test: true  }
-          - { subgraph: service-registry,   manifest: subgraph.gnosis.yaml,       test: false }
+          - { subgraph: service-registry,   manifest: subgraph.gnosis.yaml,       test: true  }
           - { subgraph: service-registry,   manifest: subgraph.mode-mainnet.yaml, test: false }
           - { subgraph: staking,            manifest: subgraph.mode-mainnet.yaml, test: false }
           - { subgraph: tokenomics,         manifest: subgraph.mode-mainnet.yaml, test: false }
