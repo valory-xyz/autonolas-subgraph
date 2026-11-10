@@ -143,8 +143,9 @@ These are intended. When the compare script flags them, they are not bugs.
 - **`ExecutionFromModuleSuccess` is not indexed at all.** Its subgraph
   handler is a no-op, and the squid drops the topic. `ExecutionSuccess` is
   subscribed with its transaction, as in the subgraph, to write the
-  `AGENT_SAFE_TO_AGENT_EOA` row decoded from the outer `execTransaction`
-  calldata. `ExecutionSuccess` and `ExecutionFromModuleSuccess` together
+  `AGENT_SAFE_TO_AGENT_EOA` row and the Pearl Safe → Agent Signer
+  `MASTER_TO_AGENT` rows (`signer-<txHash>-<legIndex>`), both decoded from
+  the outer `execTransaction` calldata. `ExecutionSuccess` and `ExecutionFromModuleSuccess` together
   are ~97% of Safe log volume (4.23 vs 0.12 logs/block without them).
 
 ### Known gap carried over, not fixed

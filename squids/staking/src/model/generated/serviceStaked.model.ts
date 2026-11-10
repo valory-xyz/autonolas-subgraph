@@ -6,6 +6,9 @@ export class ServiceStaked {
         Object.assign(this, props)
     }
 
+    @BigIntColumn_({nullable: true})
+    rewardDistributionInfo!: bigint | undefined | null
+
     @PrimaryColumn_()
     id!: string
 

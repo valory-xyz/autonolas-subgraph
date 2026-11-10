@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { BaseError } from "viem";
+import { bytesArg, leg } from "./encoding";
 import { FundsCategory } from "../src/model";
 import {
   BondQueue,
   ClassifyInput,
+  agentSignerLegId,
   TrackedInfo,
   classifyTransfer,
   dayTimestamp,
   evictionRowId,
   eventId,
+  isAfter,
   mergeUnique,
+  multiSendTransactions,
   pushUnique,
+  unpackMultiSend,
 } from "../src/logic";
 import {
   ROLE_AGENT,
@@ -273,6 +279,10 @@ describe("id helpers", () => {
     expect(evictionRowId("0xabc", 3, 1)).toBe("0xabc-3-1");
     expect(evictionRowId("0xabc", 3, 1)).not.toBe(eventId("0xabc", 4));
   });
+
+  it("builds Agent Signer leg ids from tx hash and leg position", () => {
+    expect(agentSignerLegId("0xabc", 1)).toBe("signer-0xabc-1");
+  });
 });
 
 describe("dedupe helpers", () => {
@@ -283,5 +293,79 @@ describe("dedupe helpers", () => {
 
   it("mergeUnique unions without duplicates and keeps order", () => {
     expect(mergeUnique([1, 2], [2, 3])).toEqual([1, 2, 3]);
+  });
+});
+
+describe("MultiSend decoding", () => {
+  const SIGNER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const SAFE = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  // The shape of a Fund Agent split: Agent Signer leg first, then the
+  // Agent Safe leg, adding up to 0.0004 ETH.
+  const split = `0x${leg(SIGNER, 321980789324419n)}${leg(SAFE, 78019210675581n)}`;
+
+  it("unpacks every native leg with its position", () => {
+    expect(unpackMultiSend(split)).toEqual([
+      { index: 0, to: SIGNER, value: 321980789324419n },
+      { index: 1, to: SAFE, value: 78019210675581n },
+    ]);
+  });
+
+  it("keeps positions but drops legs that are not plain native transfers", () => {
+    const buf =
+      `0x${leg(SAFE, 0n, "0xa9059cbb")}` + // ERC-20 call
+      leg(SAFE, 5n, "0x", 1) + // DELEGATECALL
+      leg(SAFE, 0n) + // no value
+      leg(SAFE, 5n, "0xa9059cbb") + // value AND data
+      leg(SIGNER, 7n);
+    expect(unpackMultiSend(buf)).toEqual([{ index: 4, to: SIGNER, value: 7n }]);
+  });
+
+  it("lowercases the recipient of an upper-case buffer", () => {
+    const to = "0xabcdef0123456789abcdef0123456789abcdef01";
+    expect(unpackMultiSend(`0x${leg(to, 1n).toUpperCase()}`)).toEqual([
+      { index: 0, to, value: 1n },
+    ]);
+  });
+
+  it("returns no legs for an empty buffer", () => {
+    expect(unpackMultiSend("0x")).toEqual([]);
+  });
+
+  it.each([
+    ["a truncated head", split.slice(0, split.length - 200)],
+    ["trailing bytes", `${split}00`],
+    ["a data length past the end", `0x${leg(SAFE, 1n, "0x1234").slice(0, -2)}`],
+    ["odd-length hex", `${split}0`],
+    ["non-hex characters", `0x${"zz".repeat(85)}`],
+  ])("returns null for %s", (_, buf) => {
+    expect(unpackMultiSend(buf)).toBeNull();
+  });
+
+  // `split` ABI-encoded as the lone `bytes` argument, without its selector.
+  const splitArg = bytesArg(split);
+
+  it("reads the packed buffer out of multiSend(bytes) calldata", () => {
+    expect(multiSendTransactions(`0x8d80ff0a${splitArg}`)).toBe(split);
+  });
+
+  it("returns null for another selector", () => {
+    expect(multiSendTransactions(`0xdeadbeef${splitArg}`)).toBeNull();
+  });
+
+  it("throws viem's decode error for an argument that is not bytes", () => {
+    expect(() => multiSendTransactions("0x8d80ff0a1234")).toThrow(BaseError);
+  });
+});
+
+describe("isAfter", () => {
+  it.each([
+    ["a later block", { block: 11n, logIndex: 0 }, { block: 10n, logIndex: 5 }, true],
+    ["an earlier block with a higher log index", { block: 10n, logIndex: 5 }, { block: 11n, logIndex: 0 }, false],
+    ["a later log in the same block", { block: 10n, logIndex: 6 }, { block: 10n, logIndex: 5 }, true],
+    ["an earlier log in the same block", { block: 10n, logIndex: 4 }, { block: 10n, logIndex: 5 }, false],
+    ["the same log", { block: 10n, logIndex: 5 }, { block: 10n, logIndex: 5 }, false],
+  ])("orders %s", (_, a, b, expected) => {
+    expect(isAfter(a, b)).toBe(expected);
   });
 });

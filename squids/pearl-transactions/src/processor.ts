@@ -114,9 +114,10 @@ export const dataSource = new DataSourceBuilder()
   //
   // ExecutionSuccess and ExecutionFromModuleSuccess together are ~97% of
   // Safe log volume (4.23 vs 0.12 logs/block without them). ExecutionSuccess
-  // is subscribed anyway, with its transaction: it is the only way to see an
-  // Agent Safe's native top-up of its own Agent Signer, decoded from the
-  // outer execTransaction calldata. ExecutionFromModuleSuccess stays
+  // is subscribed anyway, with its transaction: it is the only way to see a
+  // native transfer to an Agent Signer (an EOA, so no SafeReceived) — from
+  // its Agent Safe or from the Pearl Safe — decoded from the outer
+  // execTransaction calldata. ExecutionFromModuleSuccess stays
   // unsubscribed: a module call carries no decodable outer tx.
   .addLog({
     where: {
@@ -125,7 +126,7 @@ export const dataSource = new DataSourceBuilder()
         safe.AddedOwner.topic,
         safe.RemovedOwner.topic,
         safe.ChangedThreshold.topic,
-        safe.ExecutionSuccess.topic, // native out to the Agent Signer
+        safe.ExecutionSuccess.topic, // native out to an Agent Signer
       ],
     },
     include: { transaction: true },

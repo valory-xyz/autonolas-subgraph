@@ -7,8 +7,10 @@
 
 import {
   AgentFundingEvent,
+  AgentInstance,
   AgentSafe,
   BondMovement,
+  BufferedAgentInstance,
   DailyServiceFunds,
   FundsCategory,
   FundsMovement,
@@ -27,20 +29,28 @@ import {
 import { EntityCache } from "./entityCache";
 import {
   BondQueue,
+  LogPosition,
+  MULTISEND_V130,
+  NativeLeg,
   agentFundingEventId,
   agentSafeTopUpId,
+  agentSignerLegId,
   classifyTransfer,
   dailyServiceFundsId,
   dayTimestamp,
   eventId,
   evictionRowId,
+  isAfter,
   mergeUnique,
+  multiSendTransactions,
   pushUnique,
   safeDeployedId,
   serviceEntityId,
   tokenBalanceId,
+  unpackMultiSend,
 } from "./logic";
 import { FunctionCalldataDecodeError } from "@subsquid/evm-abi";
+import { BaseError as ViemError } from "viem";
 import { getSafeConfig } from "./rpc";
 import { execTransaction } from "./abi/GnosisSafe/functions";
 import {
@@ -394,10 +404,45 @@ async function attributeBond(
 
 // --- ServiceRegistryL2 ------------------------------------------------
 
+/**
+ * Point an Agent Signer at the service it registered with, unless a later
+ * registration already did: handleSafeExecutionSuccess attributes a Pearl
+ * Safe -> Agent Signer leg through this link. A buffered registration is
+ * linked late, at drain time, so the registration's own position (not the
+ * current block) decides which one is the latest. The log index breaks ties
+ * between two registrations in one block.
+ */
+async function linkAgentInstance(
+  ctx: Ctx,
+  signer: string,
+  service: Service,
+  registered: LogPosition
+): Promise<void> {
+  const current = await ctx.cache.get(AgentInstance, signer);
+  if (
+    current != null &&
+    isAfter(
+      { block: current.updatedBlock, logIndex: current.updatedLogIndex },
+      registered
+    )
+  ) {
+    return;
+  }
+  ctx.cache.set(
+    AgentInstance,
+    new AgentInstance({
+      id: signer,
+      service,
+      updatedBlock: registered.block,
+      updatedLogIndex: registered.logIndex,
+    })
+  );
+}
+
 export async function handleRegisterInstance(
   ctx: Ctx,
   meta: EventMeta,
-  e: { serviceId: bigint; agentId: bigint; operator: string }
+  e: { serviceId: bigint; agentId: bigint; operator: string; agentInstance: string }
 ): Promise<void> {
   const agentId = Number(e.agentId);
   const id = serviceEntityId(e.serviceId);
@@ -409,14 +454,35 @@ export async function handleRegisterInstance(
     existing.operators = pushUnique(existing.operators, e.operator);
     existing.updatedTimestamp = meta.blockTimestamp;
     ctx.cache.set(Service, existing);
+    await linkAgentInstance(ctx, e.agentInstance, existing, {
+      block: meta.blockNumber,
+      logIndex: meta.logIndex,
+    });
   } else {
-    // Buffer; drained at CreateMultisigWithAgents time.
+    // Buffer; drained at CreateMultisigWithAgents time. The Agent Signer
+    // link waits too: the foreign key would reject an AgentInstance whose
+    // Service row does not exist yet.
     let pending = await ctx.cache.get(PendingRegistration, id);
     if (pending == null) {
-      pending = new PendingRegistration({ id, agentIds: [], operators: [] });
+      pending = new PendingRegistration({
+        id,
+        agentIds: [],
+        operators: [],
+        agentInstances: [],
+      });
     }
     pending.agentIds = pushUnique(pending.agentIds, agentId);
     pending.operators = pushUnique(pending.operators, e.operator);
+    // A Signer registered again before the drain keeps only its latest
+    // position.
+    pending.agentInstances = [
+      ...pending.agentInstances.filter((b) => b.signer !== e.agentInstance),
+      new BufferedAgentInstance({
+        signer: e.agentInstance,
+        block: meta.blockNumber,
+        logIndex: meta.logIndex,
+      }),
+    ];
     ctx.cache.set(PendingRegistration, pending);
   }
 
@@ -464,6 +530,9 @@ export async function handleCreateMultisigWithAgents(
   if (pending != null) {
     service.agentIds = mergeUnique(service.agentIds, pending.agentIds);
     service.operators = mergeUnique(service.operators, pending.operators);
+    for (const buffered of pending.agentInstances) {
+      await linkAgentInstance(ctx, buffered.signer, service, buffered);
+    }
   }
   ctx.cache.set(Service, service);
 
@@ -888,6 +957,40 @@ export async function handleServicesEvicted(
 // --- Transfers (ERC-20 + native) --------------------------------------
 
 /**
+ * Add one MASTER_TO_AGENT leg to its tx's AgentFundingEvent, creating the
+ * event on the first leg.
+ */
+async function addToAgentFundingEvent(
+  ctx: Ctx,
+  meta: EventMeta,
+  masterSafeId: string,
+  serviceId: string,
+  token: string | null,
+  amount: bigint
+): Promise<AgentFundingEvent> {
+  const afeId = agentFundingEventId(meta.txHash, masterSafeId, serviceId);
+  let afe = await ctx.cache.get(AgentFundingEvent, afeId);
+  if (afe == null) {
+    afe = new AgentFundingEvent({
+      id: afeId,
+      service: new Service({ id: serviceId }),
+      masterSafe: new MasterSafe({ id: masterSafeId }),
+      txHash: meta.txHash,
+      blockTimestamp: meta.blockTimestamp,
+      totalNativeAmount: 0n,
+      totalOlasAmount: 0n,
+    });
+  }
+  // totalOlasAmount is OLAS-only and totalNativeAmount native-only, so a
+  // same-tx OLAS + stablecoin funding never sums mixed-decimal raw units
+  // into one number. Non-OLAS ERC-20 legs still link via `transfers`.
+  if (token === null) afe.totalNativeAmount += amount;
+  else if (token === OLAS) afe.totalOlasAmount += amount;
+  ctx.cache.set(AgentFundingEvent, afe);
+  return afe;
+}
+
+/**
  * Shared body for ERC-20 Transfer and Safe SafeReceived. `token` is null
  * for the native path.
  *
@@ -978,26 +1081,14 @@ async function handleTransfer(
     c.masterSafeId != null &&
     c.serviceId != null
   ) {
-    const afeId = agentFundingEventId(meta.txHash, c.masterSafeId, c.serviceId);
-    let afe = await ctx.cache.get(AgentFundingEvent, afeId);
-    if (afe == null) {
-      afe = new AgentFundingEvent({
-        id: afeId,
-        service: new Service({ id: c.serviceId }),
-        masterSafe: new MasterSafe({ id: c.masterSafeId }),
-        txHash: meta.txHash,
-        blockTimestamp: meta.blockTimestamp,
-        totalNativeAmount: 0n,
-        totalOlasAmount: 0n,
-      });
-    }
-    // totalOlasAmount is OLAS-only and totalNativeAmount native-only, so a
-    // same-tx OLAS + stablecoin funding never sums mixed-decimal raw units
-    // into one number. Non-OLAS ERC-20 legs still link via `transfers`.
-    if (token === null) afe.totalNativeAmount += amount;
-    else if (token === OLAS) afe.totalOlasAmount += amount;
-    ctx.cache.set(AgentFundingEvent, afe);
-    row.agentFundingEvent = afe;
+    row.agentFundingEvent = await addToAgentFundingEvent(
+      ctx,
+      meta,
+      c.masterSafeId,
+      c.serviceId,
+      token,
+      amount
+    );
   }
 
   ctx.cache.set(FundsMovement, row);
@@ -1059,19 +1150,25 @@ export async function handleSafeReceived(
 }
 
 /**
- * Native out: an Agent Safe paying its own Agent Signer through a plain
- * `execTransaction` the Signer submits itself. ExecutionSuccess carries no
- * amount or recipient, so both come from the outer tx calldata.
+ * Native out from a Safe's own `execTransaction`. ExecutionSuccess carries no
+ * amount or recipient, so both come from the outer tx calldata. Two shapes:
+ *
+ * - An Agent Safe paying its own Agent Signer through a plain CALL the
+ *   Signer submits itself -> one AGENT_SAFE_TO_AGENT_EOA row.
+ * - A Pearl Safe paying Agent Signers, through a plain CALL or a
+ *   DELEGATECALL to MultiSend v1.3.0 -> one MASTER_TO_AGENT row per leg
+ *   whose recipient is an Agent Signer of one of its services (see
+ *   writeAgentSignerLegs).
  *
  * Runs for every Safe execution on the chain (~4 per block on Polygon), so
  * every shape check runs before the one tracked lookup. A module execution
- * emits ExecutionFromModuleSuccess and never reaches here; a relayed
- * execTransaction is decoded but skipped, because its recipient is not the
- * tx sender.
+ * emits ExecutionFromModuleSuccess and never reaches here. A tx that does
+ * not call the Safe itself is skipped before decoding; for the Agent Safe, a
+ * call whose recipient is not the tx sender is also skipped.
  * Never routed through classifyTransfer, which would label an Agent Safe
  * -> untracked transfer AGENT_TO_APP.
  *
- * The row ID is one per tx, as in the studio subgraph: a reentrant
+ * Row IDs are fixed per tx, as in the studio subgraph: a reentrant
  * execTransaction from the same Safe (e.g. an Agent Signer with EIP-7702
  * code) emits a second ExecutionSuccess in the same tx, which reads the same
  * outer input and is skipped.
@@ -1100,14 +1197,24 @@ export async function handleSafeExecutionSuccess(
     }
     throw err;
   }
-  if (call.operation !== 0) return;
-  if (call.data !== "0x") return;
-  if (call.value <= 0n) return;
-  const signer = tx.from.toLowerCase();
-  if (call.to.toLowerCase() !== signer) return;
+  const target = call.to.toLowerCase();
+  const data = call.data.toLowerCase();
+  const plainNative = call.operation === 0 && data === "0x" && call.value > 0n;
+  const multiSend = call.operation === 1 && target === MULTISEND_V130;
+  if (!plainNative && !multiSend) return;
 
-  const agent = await ctx.cache.tracked(meta.address);
-  if (agent?.role !== ROLE_AGENT) return;
+  const safe = await ctx.cache.tracked(meta.address);
+  if (safe?.role === ROLE_MASTER) {
+    const legs = plainNative
+      ? [{ index: 0, to: target, value: call.value }]
+      : unpackMultiSendCall(ctx, meta, data);
+    if (legs != null) await writeAgentSignerLegs(ctx, meta, legs);
+    return;
+  }
+
+  const signer = tx.from.toLowerCase();
+  if (!plainNative || target !== signer) return;
+  if (safe?.role !== ROLE_AGENT) return;
 
   const id = agentSafeTopUpId(meta.txHash);
   if ((await ctx.cache.get(FundsMovement, id)) != null) return;
@@ -1116,11 +1223,11 @@ export async function handleSafeExecutionSuccess(
     FundsMovement,
     new FundsMovement({
       id,
-      service: agent.serviceId ? new Service({ id: agent.serviceId }) : null,
-      masterSafe: agent.masterSafeId
-        ? new MasterSafe({ id: agent.masterSafeId })
+      service: safe.serviceId ? new Service({ id: safe.serviceId }) : null,
+      masterSafe: safe.masterSafeId
+        ? new MasterSafe({ id: safe.masterSafeId })
         : null,
-      agentSafe: new AgentSafe({ id: agent.id }),
+      agentSafe: new AgentSafe({ id: safe.id }),
       stakingContract: null,
       epoch: null,
       category: FundsCategory.AGENT_SAFE_TO_AGENT_EOA,
@@ -1135,6 +1242,86 @@ export async function handleSafeExecutionSuccess(
       transactionHash: meta.txHash,
     })
   );
+}
+
+/** The native legs of a `multiSend(bytes)` call, or null (with a warning)
+ * when its calldata or packed buffer does not decode. */
+function unpackMultiSendCall(
+  ctx: Ctx,
+  meta: EventMeta,
+  data: string
+): NativeLeg[] | null {
+  const skip = (reason: string): null => {
+    ctx.log.warn(
+      `Pearl Safe ${meta.address} MultiSend calldata skipped ` +
+        `(tx=${meta.txHash}, ${data.length} hex chars): ${reason}`
+    );
+    return null;
+  };
+  let transactions;
+  try {
+    transactions = multiSendTransactions(data);
+  } catch (err) {
+    // Same rule as the execTransaction decode: an argument that is not
+    // valid bytes is foreign noise; anything else must crash the batch.
+    if (err instanceof ViemError) return skip(err.shortMessage);
+    throw err;
+  }
+  if (transactions == null) return skip("not a multiSend(bytes) call");
+  return unpackMultiSend(transactions) ?? skip("packed buffer does not unpack");
+}
+
+/**
+ * Write each Pearl Safe -> Agent Signer native leg as a MASTER_TO_AGENT row
+ * in the tx's AgentFundingEvent, next to the Agent Safe leg SafeReceived
+ * books. A leg counts only when its recipient is an Agent Signer of a
+ * service whose Pearl Safe is the emitter; other recipients (the Agent
+ * Safe, the Master EOA, anyone else) are left to their own handlers.
+ */
+async function writeAgentSignerLegs(
+  ctx: Ctx,
+  meta: EventMeta,
+  legs: NativeLeg[]
+): Promise<void> {
+  for (const leg of legs) {
+    const instance = await ctx.cache.getAgentInstance(leg.to);
+    if (instance == null) continue;
+    const service = await ctx.cache.getService(instance.service.id);
+    if (service?.masterSafe?.id !== meta.address) continue;
+
+    const id = agentSignerLegId(meta.txHash, leg.index);
+    if ((await ctx.cache.get(FundsMovement, id)) != null) continue;
+
+    const afe = await addToAgentFundingEvent(
+      ctx,
+      meta,
+      meta.address,
+      service.id,
+      null,
+      leg.value
+    );
+    ctx.cache.set(
+      FundsMovement,
+      new FundsMovement({
+        id,
+        service,
+        masterSafe: service.masterSafe,
+        agentSafe: service.agentSafe ?? null,
+        stakingContract: null,
+        epoch: null,
+        category: FundsCategory.MASTER_TO_AGENT,
+        source: FundsSource.SEMANTIC,
+        agentFundingEvent: afe,
+        token: null,
+        amount: leg.value,
+        from: meta.address,
+        to: leg.to,
+        blockNumber: meta.blockNumber,
+        blockTimestamp: meta.blockTimestamp,
+        transactionHash: meta.txHash,
+      })
+    );
+  }
 }
 
 // --- Safe owner upkeep ------------------------------------------------

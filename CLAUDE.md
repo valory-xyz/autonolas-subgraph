@@ -87,8 +87,9 @@ and are easy to trip over:
   address filter (SQD has no templates). Measured before committing to it:
   unfiltered Safe logs are 0.12 logs/block against 133 for the ERC-20
   sources — templates were never the expensive half. `pearl-transactions`
-  now also subscribes `ExecutionSuccess` (the Agent Safe → Agent Signer
-  top-up), which moves that towards 4.23. Any address-less
+  now also subscribes `ExecutionSuccess` (native transfers to an Agent
+  Signer, from its Agent Safe or the Pearl Safe), which moves that towards
+  4.23. Any address-less
   decode must go through `decodeForeignSafe`, since topic0 does not encode
   indexed-ness and foreign contracts collide.
 - **The tracked-address table is held fully in memory** (`EntityCache`),
