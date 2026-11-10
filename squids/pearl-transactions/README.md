@@ -1,14 +1,14 @@
 # pearl-transactions-squid
 
 Funds-movement indexer for Pearl **Master Safe / Agent Safe** accounts on
-Polygon and Base, built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
+Polygon, Base and Robinhood Chain, built with the [SQD Squid SDK](https://docs.sqd.dev). It reads
 events from the blockchain, classifies every fund movement in and out of a
 user's wallets, stores the result in PostgreSQL, and serves it over a
 GraphQL API. It powers Pearl's wallet transaction-history view.
 
 SQD port of
 [`subgraphs/pearl-transactions`](https://github.com/valory-xyz/autonolas-subgraph-studio)
-(in the `autonolas-subgraph-studio` repo). Base and Polygon use this squid;
+(in the `autonolas-subgraph-studio` repo). Base, Polygon and Robinhood use this squid;
 Gnosis and Optimism use the Studio subgraph. For Pearl's current consumer
 configuration, see [olas-operate-app](https://github.com/valory-xyz/olas-operate-app).
 Track deployment versions and migrations in the internal
@@ -52,7 +52,7 @@ Key files:
 | Var | What |
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
-| `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`. An unknown name fails at startup |
+| `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`, `robinhood`. An unknown name fails at startup |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL. Its `/datasets/<name>` must be the selected chain's (e.g. `base-mainnet`), or startup fails |
 | `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
@@ -215,7 +215,7 @@ topic count; the raw decoder throws on those and kills the batch.
 ### Bringing up another chain
 
 `src/constants.ts` carries the full per-chain table (Gnosis, Polygon,
-Optimism, Base). Set `PEARL_TRANSACTIONS_CHAIN`, point `SQD_PORTAL_URL` and
+Optimism, Base, Robinhood). Set `PEARL_TRANSACTIONS_CHAIN`, point `SQD_PORTAL_URL` and
 `RPC_HTTP*` at that chain, and deploy against a fresh database — a squid
 deployment is one chain. Nothing else in the code is Polygon-specific.
 
@@ -224,6 +224,16 @@ deployment is one chain. Nothing else in the code is Polygon-specific.
 and is the default `RPC_HTTP`; `base-rpc.publicnode.com` does not (archive
 calls need a token). Validate with
 `scripts/compare-vs-subgraph.py https://transactions-base.subgraph.autonolas.tech`.
+
+**Robinhood** (`PEARL_TRANSACTIONS_CHAIN=robinhood`, chain 4663) starts at
+block 58,564,789 on the `robinhood-mainnet` dataset. That dataset is
+private — the public portal answers 404 — so `SQD_PORTAL_API_KEY` is
+required even for a smoke test. The default `RPC_HTTP` is
+`https://rpc-gate.autonolas.tech/robinhood-rpc/`, which is archive-capable;
+the official `rpc.mainnet.chain.robinhood.com` is pruned and refused. Only
+OLAS, WETH and USDG transfers are indexed, so Stock Token transfers produce
+no movement. No StakingProxy is indexed there. There is no subgraph to run
+`scripts/compare-vs-subgraph.py` against.
 
 ## Migration from the subgraph
 
