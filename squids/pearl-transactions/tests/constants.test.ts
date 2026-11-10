@@ -77,7 +77,10 @@ describe("PEARL_TRANSACTIONS_CHAIN", () => {
 });
 
 describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
-  beforeEach(() => vi.resetModules());
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("SQD_PORTAL_URL", undefined);
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it("defaults to the chain's public dataset when unset or empty", async () => {
@@ -133,7 +136,13 @@ describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
 });
 
 describe("SQD_PORTAL_API_KEY on a private dataset", () => {
-  beforeEach(() => vi.resetModules());
+  // An explicit `undefined` argument falls back to process.env, so a key
+  // exported in the developer's shell must not leak into these cases.
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("SQD_PORTAL_API_KEY", undefined);
+    vi.stubEnv("SQD_PORTAL_URL", undefined);
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it.each([undefined, "", "  "])(
@@ -164,6 +173,16 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
       url: "https://portal.sqd.dev/datasets/robinhood-mainnet",
       http: { headers: { "x-api-key": "k" } },
     });
+  });
+
+  it("still sends the key on the public-dataset chains when one is set", async () => {
+    const { CHAINS, portalOptionsFor } = await load();
+    for (const c of [CHAINS.matic, CHAINS.gnosis, CHAINS.optimism, CHAINS.base]) {
+      expect(portalOptionsFor(c, undefined, " k\n")).toEqual({
+        url: c.portalDataset,
+        http: { headers: { "x-api-key": "k" } },
+      });
+    }
   });
 
   it("uses the bare URL on a public-dataset chain with no key", async () => {
