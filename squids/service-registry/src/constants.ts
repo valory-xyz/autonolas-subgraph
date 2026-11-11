@@ -4,13 +4,13 @@
 // (default `robinhood`). Adding a chain is a new CHAINS entry; nothing else
 // in the code names a chain. Addresses and start blocks mirror
 // `subgraphs/service-registry/networks.json` in autonolas-subgraph-studio
-// for the chains that live there (Base); Robinhood is squid-only.
+// for the chains that live there (Base and Polygon); Robinhood is squid-only.
 //
 // Addresses are lowercased on export: SQD normalizes log addresses to
 // lowercase and the dispatcher compares with `===`.
 import { selectChain } from "@olas/squid-shared";
 
-export type ChainName = "robinhood" | "base";
+export type ChainName = "robinhood" | "base" | "polygon";
 
 export interface ChainConfig {
   name: ChainName;
@@ -51,6 +51,17 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     serviceRegistryL2: "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
     identityRegistryBridger: "0x67722c823010ceb4bed5325fe109196c0f67d053",
     identityRegistryBridgerStartBlock: 41_675_072,
+  },
+  polygon: {
+    name: "polygon",
+    portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    portalRequiresApiKey: false,
+    // Studio service-registry/subgraph.matic.yaml. Retain the bridger's
+    // original deployment boundary to replay historical authorization events.
+    startBlock: 41_783_952,
+    serviceRegistryL2: "0xe3607b00e75f6405248323a9417ff6b39b244b50",
+    identityRegistryBridger: "0x6f121552765424f0b2331b541c0938480ca314db",
+    identityRegistryBridgerStartBlock: 82_500_133,
   },
 };
 

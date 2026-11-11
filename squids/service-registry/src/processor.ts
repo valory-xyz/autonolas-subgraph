@@ -1,4 +1,4 @@
-import { DataSourceBuilder, FieldSelection } from "@subsquid/evm-stream";
+import { DataSourceBuilder, FieldSelection, type LogRequest } from "@subsquid/evm-stream";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import * as bridger from "./abi/IdentityRegistryBridge/events";
 import * as safe from "./abi/GnosisSafe/events";
@@ -28,13 +28,11 @@ const fields = {
 
 export type Fields = typeof fields;
 
-export const dataSource = new DataSourceBuilder()
-  .setPortal(portal)
-  .setBlockRange({ from: START_BLOCK })
-  .setFields(fields)
-
+type LogQuery = LogRequest & { range?: { from: number; to?: number } };
+export const BLOCK_RANGE = { from: START_BLOCK };
+export const LOG_QUERIES: LogQuery[] = [
   // --- ServiceRegistryL2: service lifecycle ---------------------------
-  .addLog({
+  {
     where: {
       address: [SERVICE_REGISTRY_L2],
       topic0: [
@@ -46,10 +44,10 @@ export const dataSource = new DataSourceBuilder()
       ],
     },
     include: { transaction: true },
-  })
+  },
 
   // --- IdentityRegistryBridger: ERC-8004 links ------------------------
-  .addLog({
+  {
     where: {
       address: [IDENTITY_REGISTRY_BRIDGER],
       topic0: [
@@ -60,7 +58,7 @@ export const dataSource = new DataSourceBuilder()
       ],
     },
     range: { from: IDENTITY_REGISTRY_BRIDGER_START_BLOCK },
-  })
+  },
 
   // --- Safe execution events (replaces the GnosisSafe template) -------
   //
@@ -79,13 +77,19 @@ export const dataSource = new DataSourceBuilder()
   // that ever grows to Polygon levels, split this into an address-filtered
   // range up to a checkpoint plus a topic-only tail (the "factory
   // contracts" pattern in SQD's docs).
-  .addLog({
+  {
     where: {
       topic0: [
         safe.ExecutionSuccess.topic,
         safe.ExecutionFromModuleSuccess.topic,
       ],
     },
-  })
+  },
+];
 
-  .build();
+const builder = new DataSourceBuilder()
+  .setPortal(portal)
+  .setBlockRange(BLOCK_RANGE)
+  .setFields(fields);
+for (const query of LOG_QUERIES) builder.addLog(query);
+export const dataSource = builder.build();
