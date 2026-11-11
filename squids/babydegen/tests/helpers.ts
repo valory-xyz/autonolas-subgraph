@@ -1,5 +1,12 @@
-import type { EventMeta } from "@olas/squid-shared";
-import { TestCache } from "../src/entityCache";
+import { InMemoryCache, type EntityClass, type EventMeta } from "@olas/squid-shared";
+import type { Cache } from "../src/entityCache";
+
+/** InMemoryCache with graph-node's `store.remove`. */
+export class TestCache extends InMemoryCache implements Cache {
+  remove<T extends { id: string }>(cls: EntityClass<T>, id: string): void {
+    this.bucket(cls.name).delete(id);
+  }
+}
 import type { Ctx, Tx } from "../src/handlers";
 import type { ChainReader, RpcLog, RpcTransaction } from "../src/rpc";
 import { ETH_USD_FEED, USDC_USD_FEED } from "../src/constants";

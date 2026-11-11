@@ -2,7 +2,6 @@ import * as models from "./model";
 import type { Store } from "@subsquid/typeorm-store";
 import {
   EntityCache as SharedEntityCache,
-  InMemoryCache,
   assertFlushOrderExhaustive,
   type EntityClass,
   type IEntityCache,
@@ -102,12 +101,5 @@ export class EntityCache extends SharedEntityCache implements Cache {
       if (ids.size > 0) await (this.typeormStore as unknown as Removable).remove(cls, [...ids]);
       ids.clear();
     }
-  }
-}
-
-/** InMemoryCache with `remove`, for tests. */
-export class TestCache extends InMemoryCache implements Cache {
-  remove<T extends { id: string }>(cls: EntityClass<T>, id: string): void {
-    this.bucket(cls.name).delete(id);
   }
 }

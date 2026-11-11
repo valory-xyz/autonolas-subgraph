@@ -39,6 +39,7 @@ import {
   savePosition,
   type PosCtx,
 } from "./positions";
+import type { Ctx } from "./handlers";
 import { getTokenPriceUSD, v2PoolKind, type At } from "./pricing";
 import { associateSwapsWithPosition } from "./swaps";
 import { convertTokenAmount, getTokenSymbol } from "./tokenUtils";
@@ -46,10 +47,8 @@ import { convertTokenAmount, getTokenSymbol } from "./tokenUtils";
 const ZERO = GD.ZERO;
 const ZERO_ADDRESS = ETH_ADDRESS;
 
-/** Ctx plus the pool template instances created by the current log (block.ts defers their events). */
-export interface PoolCtx extends PosCtx {
-  spawnedPools: string[];
-}
+/** Ctx with the pool template instances created by the current log (block.ts defers their events). */
+export type PoolCtx = PosCtx & Pick<Ctx, "spawnedPools">;
 
 export async function v2ProtocolFor(ctx: PosCtx, pool: string): Promise<string> {
   const venue = await ctx.cache.get(V2PoolVenue, pool);

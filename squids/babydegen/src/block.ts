@@ -189,7 +189,9 @@ export async function processBlock(
     }
   }
 
-  // Block handlers run after the block's log triggers.
+  // Block handlers run after the block's log triggers. The data source
+  // always delivers the start block (processor.ts BOOTSTRAP_BLOCK), so the
+  // `once` handler runs exactly there, as in the subgraph.
   if (block.header.number === CHAIN.startBlock) {
     const at = { blockNumber: BigInt(block.header.number), blockTimestamp: BigInt(Math.floor(block.header.timestamp / 1000)) };
     await handleVeloV2Bootstrap(ctx, at);

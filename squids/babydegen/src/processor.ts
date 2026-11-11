@@ -27,11 +27,20 @@ export const BLOCK_RANGE = { from: CHAIN.startBlock, ...(to === undefined ? {} :
 
 export const INGEST_SOURCE = ingestion.source;
 
-function addQueries<B extends { addLog(q: LogRequest & { range?: { from: number; to?: number } }): B }>(
+/**
+ * The start block must reach the processor: block.ts runs the subgraph's
+ * `once` LpSugar bootstrap there. It carries service 607's registration
+ * today, but nothing guarantees a log-filtered stream delivers it, so it is
+ * requested on its own.
+ */
+export const BOOTSTRAP_BLOCK = { from: CHAIN.startBlock, to: CHAIN.startBlock };
+
+type Range = { from: number; to?: number };
+export function addQueries<B extends { addLog(q: LogRequest & { range?: Range }): B; includeAllBlocks(range?: Range): B }>(
   builder: B,
   queries: LogQuery[],
 ): B {
-  let b = builder;
+  let b = builder.includeAllBlocks(BOOTSTRAP_BLOCK);
   for (const { from, ...q } of queries) {
     if (from === undefined) {
       b = b.addLog(q);

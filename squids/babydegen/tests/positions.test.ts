@@ -3,11 +3,12 @@
 // tests/positionIncome.test.ts and the 2b sections of tests/mapping.test.ts,
 // with their receipts (tests/fixtures/receipts2b.ts) and expected values.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as aeroGaugeFns from "../src/abi/AeroCLGauge/functions";
 import * as sugarFns from "../src/abi/AerodromeLpSugar/functions";
 import * as aeroFactoryEvents from "../src/abi/AeroV2PoolFactory/events";
 import * as poolFactoryFns from "../src/abi/PoolFactory/functions";
+import * as veloGaugeFns from "../src/abi/VeloCLGauge/functions";
 import * as v2GaugeFns from "../src/abi/VeloV2Gauge/functions";
 import * as voterFns from "../src/abi/VeloVoter/functions";
 import * as clFactoryFns from "../src/abi/VelodromeCLFactory/functions";
@@ -1023,5 +1024,234 @@ describe("refreshAllActivePositions dispatch (snapshot refresh)", () => {
     expect((await pos(w, clId)).entryTxHash).toBe(TX);
     expect(w.chain.calls.some((c) => c.startsWith(nfpmFns.positions.selector) && c.includes(AERO_NFT_MANAGER))).toBe(true);
     expect(w.chain.calls.some((c) => c.includes(`@${ETH_ADDRESS}#`))).toBe(false); // the closed row's pool is not read
+  });
+});
+
+// --- #175 cases ported in the resend (appraisal-2333b finding 2) ----------------
+
+describe("#175 edge cases: CL exits, Collect and gauges", () => {
+  const exitDecrease = (w: W, logIndex = 3) =>
+    cl.handleDecreaseLiquidity(w.ctx, at(AERO_NFT_MANAGER, logIndex), { tokenId: AERO_TOKEN_ID, liquidity: E18, amount0: E18, amount1: 3n * E18 });
+  const aeroCollect = (w: W, amount0: bigint, amount1: bigint) =>
+    cl.handleCollect(w.ctx, at(AERO_NFT_MANAGER, 9), { tokenId: AERO_TOKEN_ID, recipient: SAFE, amount0, amount1 });
+  const refresh = (w: W, id: string) => cl.refreshVeloCLPosition(w.ctx, id, AERO_TOKEN_ID, at(AERO_NFT_MANAGER), TX, false);
+  const mockPositions = (w: W, manager: string, result: unknown) =>
+    w.chain.mock(manager, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, result);
+  const mockEarned = (w: W, amount: bigint | null, gauge = AERO_CL_GAUGE) =>
+    w.chain.mock(gauge, aeroGaugeFns.earned_1, { _account: SAFE, _tokenIds: [AERO_TOKEN_ID] }, amount);
+
+  it("a refresh later in the exit block keeps the DecreaseLiquidity exit", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    mockPositions(w, AERO_NFT_MANAGER, null);
+    await exitDecrease(w);
+    mockPositions(w, AERO_NFT_MANAGER, positionsResult(0n));
+    await refresh(w, id);
+    expect([await field(w, id, "isActive"), await field(w, id, "exitAmount0"), await field(w, id, "exitAmount1")]).toEqual(["false", "1", "3"]);
+  });
+
+  it("a refresh after a burn that recorded no exit writes the exit", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    await cl.handleNFTTransfer(w.ctx, at(AERO_NFT_MANAGER, 5), { from: SAFE, to: ETH_ADDRESS, tokenId: AERO_TOKEN_ID });
+    expect((await pos(w, id)).exitAmountUSD).toBeUndefined();
+    mockPositions(w, AERO_NFT_MANAGER, positionsResult(0n));
+    await refresh(w, id);
+    expect((await pos(w, id)).exitAmountUSD).not.toBeUndefined();
+  });
+
+  it("two decreases in the burn block add up to the exit", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    mockPositions(w, AERO_NFT_MANAGER, null);
+    await exitDecrease(w, 3);
+    await exitDecrease(w, 4);
+    expect([await field(w, id, "exitAmount0"), await field(w, id, "exitAmount1")]).toEqual(["2", "6"]);
+  });
+
+  it("a Collect after the full exit leaves the exit amounts its DecreaseLiquidity recorded", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    mockPositions(w, AERO_NFT_MANAGER, positionsResult(0n));
+    await exitDecrease(w);
+    await aeroCollect(w, E18, 3n * E18);
+    expect(await field(w, id, "exitAmount1")).toBe("3");
+  });
+
+  it("a Collect on an active position books its fee and refreshes the position", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    (await pos(w, id)).liquidity = 0n;
+    await aeroCollect(w, E18, 2n * E18);
+    expect([await field(w, id, "isActive"), await field(w, id, "collectedFees0"), await field(w, id, "collectedFees1")]).toEqual(["true", "1", "2"]);
+    expect(await field(w, id, "liquidity")).toBe(String(E18));
+  });
+
+  it("a pool with no gauge yet is not cached, and its gauge is picked up once created", async () => {
+    const w = clWorld();
+    w.chain.mock(AERO_CL_POOL, clPoolFns.gauge, {}, ETH_ADDRESS);
+    const id = await openCLPosition(w);
+    expect((await pos(w, id)).rewardsContract).toBeFalsy();
+    w.chain.mock(AERO_CL_POOL, clPoolFns.gauge, {}, AERO_CL_GAUGE);
+    mockAeroStaked(w, true);
+    mockEarned(w, 2n * E18);
+    await refresh(w, id);
+    expect([(await pos(w, id)).rewardsContract, await field(w, id, "claimableReward")]).toEqual([AERO_CL_GAUGE, "2"]);
+  });
+
+  it("a reverting gauge() is not cached, and the refresh still closes the position", async () => {
+    const w = clWorld();
+    w.chain.mock(AERO_CL_POOL, clPoolFns.gauge, {}, null);
+    const id = await openCLPosition(w);
+    mockPositions(w, AERO_NFT_MANAGER, positionsResult(0n));
+    await refresh(w, id);
+    expect([await field(w, id, "isActive"), await field(w, id, "claimableReward")]).toEqual(["false", "0"]);
+    expect((await pos(w, id)).rewardsContract).toBeFalsy();
+  });
+
+  it("an aero-cl gauge is re-read each refresh, and a gauge() revert falls back to the one known", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    const NEW_GAUGE = addr(0xe6);
+    w.chain.mock(AERO_CL_POOL, clPoolFns.gauge, {}, NEW_GAUGE);
+    w.chain.mock(NEW_GAUGE, aeroGaugeFns.stakedContains, { depositor: SAFE, tokenId: AERO_TOKEN_ID }, false);
+    await refresh(w, id);
+    expect((await pos(w, id)).rewardsContract).toBe(NEW_GAUGE);
+    w.chain.mock(AERO_CL_POOL, clPoolFns.gauge, {}, null);
+    w.chain.mock(NEW_GAUGE, aeroGaugeFns.stakedContains, { depositor: SAFE, tokenId: AERO_TOKEN_ID }, true);
+    mockEarned(w, 2n * E18, NEW_GAUGE);
+    await refresh(w, id);
+    expect([(await pos(w, id)).rewardsContract, await field(w, id, "claimableReward")]).toEqual([NEW_GAUGE, "2"]);
+  });
+
+  it("a staked position whose earned() reverts records 0 and stays active", async () => {
+    const w = clWorld();
+    mockAeroStaked(w, true);
+    mockEarned(w, 2n * E18);
+    const id = await openCLPosition(w);
+    expect(await field(w, id, "claimableReward")).toBe("2");
+    mockEarned(w, null);
+    await refresh(w, id);
+    expect([await field(w, id, "isActive"), await field(w, id, "claimableReward")]).toEqual(["true", "0"]);
+  });
+
+  it("a legacy CL gauge stays cached when the pool reports another one", async () => {
+    const w = clWorld();
+    const LEGACY_GAUGE = addr(0xf2);
+    mockCLVenuePosition(w, VELO_NFT_MANAGER, VELO_CL_FACTORY, VELO_CL_POOL, LEGACY_GAUGE);
+    w.chain.mock(LEGACY_GAUGE, veloGaugeFns.earned, { account: SAFE, tokenId: AERO_TOKEN_ID }, 2n * E18);
+    const id = await openCLPosition(w, VELO_NFT_MANAGER);
+    // legacy AERO at $0.05
+    expect([await field(w, id, "claimableReward"), await field(w, id, "claimableRewardUSD")]).toEqual(["2", "0.1"]);
+    w.chain.mock(VELO_CL_POOL, clPoolFns.gauge, {}, DUMMY1);
+    w.chain.mock(DUMMY1, veloGaugeFns.earned, { account: SAFE, tokenId: AERO_TOKEN_ID }, 5n * E18);
+    await cl.refreshVeloCLPosition(w.ctx, id, AERO_TOKEN_ID, at(VELO_NFT_MANAGER), TX, false);
+    expect([(await pos(w, id)).rewardsContract, await field(w, id, "claimableReward")]).toEqual([LEGACY_GAUGE, "2"]);
+  });
+});
+
+describe("#175 edge cases: rewards and claims", () => {
+  function rewardWorld(safe = SAFE_D12) {
+    const w = world();
+    seedTokenPrice(w, AERO, "AERO", 18, "0.05");
+    seedService(w, safe);
+    w.cache.set(AddressType, new AddressType({ id: GAUGE_D12, isContract: true, isSafe: false, checkedAt: BLOCK }));
+    return w;
+  }
+  const rewardTransfer = (w: W, safe: string, value: bigint, logIndex: number, receipt: h.ReceiptLog[]) =>
+    h.handleERC20Transfer(w.ctx, at(AERO, logIndex), { from: GAUGE_D12, to: safe, value }, tx(), receipt);
+
+  it("a Withdraw from another gauge or for another user does not take the reward", async () => {
+    const w = rewardWorld();
+    const unstaked = await seedPosition(w, SAFE_D12, PROTOCOL_VELODROME_V3, 1001n, USDC_NATIVE, BOLD, GAUGE_D12, 1n, "0");
+    const other = await seedPosition(w, SAFE_D12, PROTOCOL_VELODROME_V3, 1002n, USDC_NATIVE, BOLD, GAUGE_D12, 1n, "0");
+    const receipt = [gaugeWithdraw(OTHER, SAFE_D12, 1002n, 21), gaugeWithdraw(GAUGE_D12, OTHER, 1002n, 22), gaugeWithdraw(GAUGE_D12, SAFE_D12, 1001n, 23)];
+    await rewardTransfer(w, SAFE_D12, E18, 20, receipt);
+    expect([await field(w, unstaked.id, "claimedRewards"), await field(w, other.id, "claimedRewards")]).toEqual(["1", "0"]);
+  });
+
+  it("a closed position on the gauge takes no share of a split claim", async () => {
+    const w = rewardWorld(SAFE);
+    const active = await seedPosition(w, SAFE, PROTOCOL_VELODROME_V3, 1n, USDC_NATIVE, BOLD, GAUGE_D12, 1n, "1");
+    const closed = await seedPosition(w, SAFE, PROTOCOL_VELODROME_V3, 2n, USDC_NATIVE, BOLD, GAUGE_D12, 1n, "3");
+    closeAt(closed, "100");
+    await rewardTransfer(w, SAFE, 2n * E18, 1, []);
+    expect([await field(w, active.id, "claimedRewards"), await field(w, closed.id, "claimedRewards")]).toEqual(["2", "0"]);
+  });
+
+  it("a claim with no Withdraw and only closed CL positions on the gauge credits none of them", async () => {
+    const w = rewardWorld();
+    const p = await seedPosition(w, SAFE_D12, PROTOCOL_VELODROME_V3, 1001n, USDC_NATIVE, BOLD, GAUGE_D12, 1n, "0");
+    closeAt(p, "100");
+    p.exitTimestamp = TS;
+    await rewardTransfer(w, SAFE_D12, 20n * E18, 1, []);
+    expect(await field(w, p.id, "claimedRewards")).toBe("0");
+  });
+
+  it("a v2 gauge reward goes to the Safe's position on that gauge", async () => {
+    const w = rewardWorld(SAFE);
+    const p = await seedPosition(w, SAFE, PROTOCOL_VELODROME_V2, 0n, USDC_NATIVE, BOLD, GAUGE_D12, E18, "0");
+    await rewardTransfer(w, SAFE, 2n * E18, 1, []);
+    expect([await field(w, p.id, "claimedRewards"), await field(w, p.id, "claimedRewardsUSD")]).toEqual(["2", "0.1"]);
+  });
+
+  it("a claim the Transfer cannot cover is skipped and later ones are still credited", async () => {
+    const w = world();
+    seedTokenPrice(w, AERO_PROTOCOL_AERO, "AERO", 18, "0.6");
+    seedService(w, ACCOUNT_D14);
+    const a = await seedPosition(w, ACCOUNT_D14, PROTOCOL_AERO_CL, 1226169n, USDC_NATIVE, BOLD, AERO_CL_GAUGE_D14, 1n, "0");
+    const b = await seedPosition(w, ACCOUNT_D14, PROTOCOL_AERO_CL, 1226170n, USDC_NATIVE, BOLD, AERO_CL_GAUGE_D14, 1n, "0");
+    const receipt = [emissionsClaimed(1226169n, ACCOUNT_D14, 15n * 10n ** 17n, 11), emissionsClaimed(1226170n, ACCOUNT_D14, 25n * 10n ** 16n, 12)];
+    expect(await attributeRewardTransfer(w.ctx, at(AERO_PROTOCOL_AERO, 10), ETH_ADDRESS, ACCOUNT_D14, 25n * 10n ** 16n, receipt)).toBe(true);
+    expect([await field(w, a.id, "claimedRewards"), await field(w, b.id, "claimedRewards")]).toEqual(["0", "0.25"]);
+  });
+});
+
+describe("#175 edge cases: v2 pools and swaps", () => {
+  it("PoolCreated with only one whitelisted token is ignored", async () => {
+    const w = world();
+    await v2.handleAeroV2PoolCreated(w.ctx, at(AERO_V2_STABLE_FACTORY), { token0: USDC_NATIVE, token1: DUMMY1, pool: AERO_V2_POOL });
+    expect(w.cache.all(V2PoolVenue)).toHaveLength(0);
+    expect(w.ctx.spawnedPools).toEqual([]);
+  });
+
+  it("a top-up after a partial Burn keeps the open position's income", async () => {
+    const w = world();
+    seedService(w, SAFE);
+    await v2.handleAeroV2PoolCreated(w.ctx, at(AERO_V2_VOLATILE_FACTORY), { token0: USDC_NATIVE, token1: BOLD, pool: AERO_V2_POOL });
+    mockV2Pool(w, AERO_V2_POOL, 10n * E18);
+    await v2.handleVeloV2Transfer(w.ctx, at(AERO_V2_POOL, 1), { from: ETH_ADDRESS, to: SAFE, value: 500n });
+    await v2.handleV2Mint(w.ctx, at(AERO_V2_POOL, 2), { amount0: 2_000_000n, amount1: 6n * E18 });
+    const id = v2Id(PROTOCOL_AERO_V2, AERO_V2_POOL);
+    const p = await pos(w, id);
+    p.exitTimestamp = TS;
+    p.exitAmountUSD = gd("110").toStore();
+    p.collectedFeesUSD = gd("2").toStore();
+    p.claimedRewardsUSD = gd("5").toStore();
+    const topUp = { txHash: hash(0x70b0) };
+    await v2.handleVeloV2Transfer(w.ctx, at(AERO_V2_POOL, 5, topUp), { from: ETH_ADDRESS, to: SAFE, value: 500n });
+    await v2.handleV2Mint(w.ctx, at(AERO_V2_POOL, 6, topUp), { amount0: 2_000_000n, amount1: 6n * E18 });
+    expect([await field(w, id, "isActive"), await field(w, id, "entryAmountUSD"), await field(w, id, "investmentUSD")]).toEqual(["true", "16", "16"]);
+    expect([await field(w, id, "collectedFeesUSD"), await field(w, id, "claimedRewardsUSD")]).toEqual(["2", "5"]);
+  });
+
+  it("a backfilled entry with a matching buffered swap does not rewrite the immutable SwapTransaction", async () => {
+    const w = v2World();
+    await handleLiFiGenericSwapCompleted(w.ctx, at(LIFI_DIAMOND, 5), {
+      transactionId: LIFI_TX_ID,
+      integrator: "valory",
+      receiver: SAFE,
+      fromAssetId: USDC_NATIVE,
+      toAssetId: BOLD,
+      fromAmount: 8_000_000n,
+      toAmount: 79n * 10n ** 17n,
+    });
+    const swapId = swapTransactionId(TX, 5);
+    const before = { ...(await w.cache.get(SwapTransaction, swapId))! };
+    const sets = vi.spyOn(w.cache, "set");
+    await v2.handleVeloV2Transfer(w.ctx, at(V2_POOL, 9), { from: ETH_ADDRESS, to: SAFE, value: 10n * E18 });
+    expect(sets.mock.calls.some(([cls]) => cls === SwapTransaction)).toBe(false);
+    expect({ ...(await w.cache.get(SwapTransaction, swapId))! }).toEqual(before);
+    expect(await field(w, v2Id(PROTOCOL_VELODROME_V2, V2_POOL), "swapSlippageUSD")).toBe("0.1");
   });
 });
