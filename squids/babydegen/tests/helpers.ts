@@ -32,6 +32,13 @@ export class FakeChain {
   txs = new Map<string, RpcTransaction>();
   receipts = new Map<string, { address: string; topics: string[]; data?: string; logIndex?: number }[]>();
   calls: string[] = [];
+  /** Exact eth_call answers by `${to}:${calldata}`; null = revert. Checked first. */
+  mocks = new Map<string, unknown>();
+
+  mock<A>(to: string, fn: { encode(a: A): string }, args: A, result: unknown): this {
+    this.mocks.set(`${to}:${fn.encode(args)}`, result);
+    return this;
+  }
 
   constructor() {
     // $3000 ETH, $1 USDC, fresh at any timestamp used in the tests.
@@ -40,8 +47,10 @@ export class FakeChain {
   }
 
   async call(to: string, block: bigint, fn: { encode(a: any): string }, args: any): Promise<any> {
-    const sel = fn.encode(args).slice(0, 10);
+    const data = fn.encode(args);
+    const sel = data.slice(0, 10);
     this.calls.push(`${sel}@${to}#${block}`);
+    if (this.mocks.has(`${to}:${data}`)) return this.mocks.get(`${to}:${data}`);
     if (sel === "0xfeaf968c") {
       const r = this.feeds.get(to);
       if (r == null) return null;
