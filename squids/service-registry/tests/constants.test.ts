@@ -58,9 +58,9 @@ describe("SERVICE_REGISTRY_CHAIN", () => {
   });
 
   it("refuses an unknown chain and lists the known ones", async () => {
-    vi.stubEnv("SERVICE_REGISTRY_CHAIN", "polygon");
+    vi.stubEnv("SERVICE_REGISTRY_CHAIN", "unknown");
     await expect(load()).rejects.toThrow(
-      /SERVICE_REGISTRY_CHAIN="polygon" is not configured\. Known chains: robinhood, base/,
+      /SERVICE_REGISTRY_CHAIN="unknown" is not configured\. Known chains: robinhood, base/,
     );
   });
 });

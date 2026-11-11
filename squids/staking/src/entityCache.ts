@@ -25,10 +25,12 @@ import {
   ServiceUnstaked,
   ServicesEvicted,
   StakingContract,
+  ServiceUnstakedV4, ServicesRebaselined, ServiceBaselineEvent, ServiceBaselineState,
   VerifierUpdated,
   Withdraw,
 } from "./model";
 export const FLUSH_ORDER: EntityClass<{ id: string }>[] = [
+  ServiceUnstakedV4, ServicesRebaselined, ServiceBaselineEvent, ServiceBaselineState,
   Global,
   Service,
   Checkpoint,
