@@ -12,7 +12,7 @@ import * as calls from "./calls";
 import { ETH_USD_FEED, STABLECOINS, TOKENS, USDC_NATIVE, type PriceSourceConfig, type SourceType, type TokenConfig } from "./constants";
 import { GD, gd, pow10 } from "./decimal";
 import { priceUpdateId } from "./ids";
-import { PriceSource, PriceUpdate, Token } from "./model";
+import { PriceSource, PriceUpdate, Token, V2PoolVenue } from "./model";
 import type { ChainReader } from "./rpc";
 
 export interface PriceCtx {
@@ -111,14 +111,13 @@ function tens(n: number): GD {
 export type V2PoolKind = "volatile" | "stable" | "unknown";
 
 /**
- * priceAdapters.ts v2PoolKind: the pool's `stable()`, unknown on a revert.
- * The subgraph reads the pool's V2PoolVenue row first (Aero v2 pools have
- * no stable()); the Aero v2 factory handlers that write it come in slice 2b.
- * Until then an Aero v2 pool is "unknown", priced from its reserves, which
- * is also what a volatile venue row gives (the only Aero v2 pool priced
- * here, Aero AERO/USDC, is volatile).
+ * priceAdapters.ts v2PoolKind: the V2PoolVenue row the pool's Aero factory
+ * wrote (Aero v2 pools have no stable()), else the pool's `stable()`,
+ * unknown on a revert.
  */
 export async function v2PoolKind(ctx: PriceCtx, pool: string, at: At): Promise<V2PoolKind> {
+  const venue = await ctx.cache.get(V2PoolVenue, pool);
+  if (venue != null) return venue.stable ? "stable" : "volatile";
   const stable = await ctx.chain.call(pool, at.blockNumber, v2Pool.stable, {});
   if (stable == null) return "unknown";
   return stable ? "stable" : "volatile";

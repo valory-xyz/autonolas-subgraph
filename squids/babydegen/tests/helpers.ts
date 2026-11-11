@@ -1,4 +1,5 @@
-import { InMemoryCache, type EventMeta } from "@olas/squid-shared";
+import type { EventMeta } from "@olas/squid-shared";
+import { TestCache } from "../src/entityCache";
 import type { Ctx, Tx } from "../src/handlers";
 import type { ChainReader, RpcLog, RpcTransaction } from "../src/rpc";
 import { ETH_USD_FEED, USDC_USD_FEED } from "../src/constants";
@@ -29,7 +30,7 @@ export class FakeChain {
   safes = new Set<string>();
   logs: RpcLog[] = [];
   txs = new Map<string, RpcTransaction>();
-  receipts = new Map<string, { address: string; topics: string[] }[]>();
+  receipts = new Map<string, { address: string; topics: string[]; data?: string; logIndex?: number }[]>();
   calls: string[] = [];
 
   constructor() {
@@ -88,15 +89,15 @@ export class FakeChain {
     return tx;
   }
 
-  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[] }[]> {
+  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[]; data: string; logIndex: number }[]> {
     const r = this.receipts.get(hash);
     if (r == null) throw new Error(`no receipt ${hash}`);
-    return r;
+    return r as { address: string; topics: string[]; data: string; logIndex: number }[];
   }
 }
 
 export function setup() {
-  const cache = new InMemoryCache();
+  const cache = new TestCache();
   const chain = new FakeChain();
   const ctx: Ctx = {
     cache,
@@ -104,6 +105,7 @@ export function setup() {
     log: cache.log,
     spawnedSafes: [],
     newServices: [],
+    spawnedPools: [],
   };
   return { cache, chain, ctx };
 }

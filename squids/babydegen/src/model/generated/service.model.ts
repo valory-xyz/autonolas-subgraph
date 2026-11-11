@@ -1,5 +1,6 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_, BooleanColumn as BooleanColumn_, OneToMany as OneToMany_, Relation as Relation_} from "@subsquid/typeorm-store"
 import {TokenBalance} from "./tokenBalance.model"
+import {ProtocolPosition} from "./protocolPosition.model"
 
 @Entity_()
 export class Service {
@@ -52,8 +53,11 @@ export class Service {
     @OneToMany_(() => TokenBalance, e => e.service)
     balances!: Relation_<TokenBalance[]>
 
+    @OneToMany_(() => ProtocolPosition, e => e.service)
+    positions!: Relation_<ProtocolPosition[]>
+
     /**
-     * Position ids for iteration (filled from slice 2)
+     * ProtocolPosition ids, for iteration
      */
     @StringColumn_({array: true, nullable: false})
     positionIds!: (string)[]

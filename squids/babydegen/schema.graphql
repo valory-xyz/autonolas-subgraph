@@ -28,7 +28,8 @@ type Service @entity {
   updatedAt: BigInt!
 
   balances: [TokenBalance!]! @derivedFrom(field: "service")
-  "Position ids for iteration (filled from slice 2)"
+  positions: [ProtocolPosition!]! @derivedFrom(field: "service")
+  "ProtocolPosition ids, for iteration"
   positionIds: [String!]!
   "Agent EOAs (RegisterInstance.agentInstance); never the user side"
   agentInstances: [String!]!
@@ -179,7 +180,178 @@ type ServiceRegistry @entity {
   serviceAddresses: [String!]!
 }
 
+"""
+CL: utf8hex('<agent>-<protocol>-<tokenId>'), v2: utf8hex('<agent>-<protocol>-<pool>')
+"""
+type ProtocolPosition @entity {
+  id: ID!
+  agent: String! @index
+  service: Service
+  "aerodrome-cl, aerodrome-v2, aero-cl or aero-v2"
+  protocol: String! @index
+  pool: String!
+
+  isActive: Boolean!
+
+  usdCurrent: BigDecimal!
+  usdCurrentWithRewards: BigDecimal!
+  token0: String
+  token0Symbol: String
+  amount0: BigDecimal
+  amount0USD: BigDecimal!
+  token1: String
+  token1Symbol: String
+  amount1: BigDecimal
+  amount1USD: BigDecimal!
+  liquidity: BigInt
+
+  claimableReward: BigDecimal
+  claimableRewardUSD: BigDecimal
+
+  "Fee part of Collect in token0, principal excluded"
+  collectedFees0: BigDecimal!
+  collectedFees1: BigDecimal!
+  collectedFeesUSD: BigDecimal!
+  "Reward token units: legacy AERO or Aero's AERO"
+  claimedRewards: BigDecimal!
+  claimedRewardsUSD: BigDecimal!
+
+  tokenId: BigInt!
+  rewardsContract: String
+
+  tickLower: Int!
+  tickUpper: Int!
+  tickSpacing: Int
+  fee: Int
+
+  entryTxHash: String!
+  entryTimestamp: BigInt!
+  entryAmount0: BigDecimal!
+  entryAmount0USD: BigDecimal!
+  entryAmount1: BigDecimal!
+  entryAmount1USD: BigDecimal!
+  entryAmountUSD: BigDecimal!
+
+  exitTxHash: String
+  exitTimestamp: BigInt
+  exitAmount0: BigDecimal
+  exitAmount0USD: BigDecimal
+  exitAmount1: BigDecimal
+  exitAmount1USD: BigDecimal
+  exitAmountUSD: BigDecimal
+
+  totalCostsUSD: BigDecimal!
+  swapSlippageUSD: BigDecimal!
+
+  investmentUSD: BigDecimal!
+  grossGainUSD: BigDecimal!
+  netGainUSD: BigDecimal!
+  positionROI: BigDecimal!
+}
+
+"A v2 LP mint waiting for its Mint event (a String id in the subgraph too)"
+type PendingMintPosition @entity {
+  "'<txHash>-<pool>'"
+  id: ID!
+  txHash: String!
+  poolAddress: String!
+  positionId: String!
+  recipient: String!
+  "The LP mint found the row missing or closed: its Mint replaces the entry"
+  startsEntry: Boolean!
+}
+
+type SwapTransaction @entity {
+  "txHash ++ utf8hex('-' + logIndex)"
+  id: ID!
+  agent: String!
+  transactionId: String!
+  txHash: String!
+  timestamp: BigInt!
+  block: BigInt!
+  fromAssetId: String!
+  toAssetId: String!
+  fromAmount: BigInt!
+  toAmount: BigInt!
+  fromAmountUSD: BigDecimal!
+  toAmountUSD: BigDecimal!
+  expectedToAmountUSD: BigDecimal!
+  slippageUSD: BigDecimal!
+  slippagePercentage: BigDecimal!
+  isAssociated: Boolean!
+  expiresAt: BigInt!
+}
+
+type AgentSwapBuffer @entity {
+  "Service safe address"
+  id: ID!
+  agent: String!
+  bucket0Swaps: String!
+  bucket1Swaps: String!
+  bucket2Swaps: String!
+  bucket3Swaps: String!
+  totalSlippageUSD: BigDecimal!
+  lastUpdated: BigInt!
+  currentBucketIndex: BigInt!
+}
+
+type NFTPositionMapping @entity {
+  "utf8hex('<protocol>-<tokenId>')"
+  id: ID!
+  positionId: String!
+  protocol: String!
+}
+
+"Principal released by DecreaseLiquidity and not yet collected"
+type UncollectedPrincipal @entity {
+  "utf8hex('<protocol>-<tokenId>')"
+  id: ID!
+  amount0: BigInt!
+  amount1: BigInt!
+}
+
+"A position's claimableReward as it stood before the first refresh in a block"
+type ClaimableRewardBeforeBlock @entity {
+  "ProtocolPosition id"
+  id: ID!
+  block: BigInt!
+  claimableReward: BigDecimal!
+}
+
+"Reward claim logs already credited to a position"
+type CreditedRewardClaim @entity {
+  "txHash ++ logIndex as 4 little-endian bytes (graph-ts concatI32)"
+  id: ID!
+}
+
+"Aero pool -> gauge, from GaugeManager GaugeCreated"
+type AeroGauge @entity {
+  "pool"
+  id: ID!
+  gauge: String!
+  createdAtBlock: BigInt!
+}
+
+"Venue of a v2 pool, written by the Aero factory handler that created it (and its AeroV2Pool template)"
+type V2PoolVenue @entity {
+  "pool"
+  id: ID!
+  protocol: String!
+  stable: Boolean!
+}
+
 # --- squid-only ---------------------------------------------------------
+
+"""
+One row per Aerodrome v2 pool the subgraph attached a `VeloV2Pool` template
+to: the LpSugar bootstrap at the start block and whitelisted PoolFactory
+PoolCreated after it. (`AeroV2Pool` templates are the V2PoolVenue rows.)
+"""
+type VeloV2PoolDataSource @entity {
+  id: ID!
+  createdAtBlock: BigInt!
+}
+
 
 """
 One row per address the subgraph attached a `Safe` template to (service and

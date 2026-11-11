@@ -3,7 +3,7 @@ import { getIngestionConfig } from "@olas/squid-shared";
 // This adapter requires the SDK's optional evm-normalization and evm-rpc peers.
 import { EvmRpcDataSourceBuilder } from "@subsquid/squid-sdk/evm/rpc";
 import { assertPortalDataset, CHAIN } from "./constants";
-import { logQueries, type Tracked } from "./sources";
+import { logQueries, type LogQuery, type Tracked } from "./sources";
 
 export { selectIngestSource, type IngestSource } from "@olas/squid-shared";
 
@@ -29,10 +29,16 @@ export const INGEST_SOURCE = ingestion.source;
 
 function addQueries<B extends { addLog(q: LogRequest & { range?: { from: number; to?: number } }): B }>(
   builder: B,
-  queries: LogRequest[],
+  queries: LogQuery[],
 ): B {
   let b = builder;
-  for (const q of queries) b = b.addLog(q);
+  for (const { from, ...q } of queries) {
+    if (from === undefined) {
+      b = b.addLog(q);
+    } else if (BLOCK_RANGE.to === undefined || BLOCK_RANGE.to >= from) {
+      b = b.addLog({ ...q, range: { from, ...(BLOCK_RANGE.to === undefined ? {} : { to: BLOCK_RANGE.to }) } });
+    }
+  }
   return b;
 }
 

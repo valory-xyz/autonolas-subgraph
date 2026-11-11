@@ -54,10 +54,62 @@ export const AERO_PROTOCOL_AERO_USDC_POOL: Address = "0xf634058dc94e6bf8e828e276
 /** Aero USDC/USDT CL pool, USDT's priority-2 source. */
 export const USDT_USDC_CL_POOL: Address = "0xd448990883e3bf9cdd8ebca368a3ecf9d629aaf7";
 
+// ---- Aerodrome (legacy) and Aero venues ------------------------------------
+/** Aerodrome Slipstream NFPM (legacy CL positions). */
+export const VELO_NFT_MANAGER: Address = "0xe1f8cd9ac4e4a65f54f38a5cdafca44f6dd68b53";
+/** Aerodrome Slipstream CL factory. */
+export const VELO_CL_FACTORY: Address = "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef";
+/** Aerodrome v2 PoolFactory (VeloV2Factory data source). */
+export const VELO_V2_FACTORY: Address = "0x420dd381b31aef6683db6b902084cb0ffece40da";
+/** Aerodrome LpSugar v3 (VeloV2Sugar bootstrap at the start block). */
+export const VELO_V2_SUGAR: Address = "0x69dd9db6d8f8e7d83887a704f447b1a584b599a1";
+/** Aerodrome Voter: gauges(pool) for legacy v2 pools. */
+export const VELO_VOTER: Address = "0x16613524e02ad97edfef371bc883f2f5d6c480a5";
+export const AERO_NFT_MANAGER: Address = "0x4857db576ee0e45f10525ec59527bfd10beec60b";
+export const AERO_CL_FACTORY: Address = "0x9cb220581b91b0c83223012fe69688b92ad07a76";
+export const AERO_V2_STABLE_FACTORY: Address = "0x78589e876edcebdce72ee3436ab3c9ad3a7cef2d";
+export const AERO_V2_VOLATILE_FACTORY: Address = "0x8e6a9fcd1d638cc760ffba397605fe3355de76d2";
+/** Aero GaugeManager (Voter.GAUGE_MANAGER()). */
+export const AERO_GAUGE_MANAGER: Address = "0xbf234b32c5e58868243a4a14831626f3ede7b183";
+/** LiFi Diamond (same address on every EVM chain). */
+export const LIFI_DIAMOND: Address = "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae";
+
+/** subgraph.yaml startBlocks of the data sources that do not start at CHAIN.startBlock. */
+export const START_BLOCKS = {
+  aeroNftManager: 52_881_675,
+  aeroV2StableFactory: 52_880_046,
+  aeroV2VolatileFactory: 52_880_042,
+  aeroGaugeManager: 52_688_318,
+} as const;
+
+/** Consumer-facing ProtocolPosition.protocol values. */
+export const PROTOCOL_VELODROME_V2 = "aerodrome-v2";
+export const PROTOCOL_VELODROME_V3 = "aerodrome-cl";
+export const PROTOCOL_AERO_CL = "aero-cl";
+export const PROTOCOL_AERO_V2 = "aero-v2";
+
+/** rewardTokenFor: Aero gauges pay Aero's AERO, the legacy Aerodrome ones legacy AERO. */
+export function rewardTokenFor(protocol: string): Address {
+  if (protocol === PROTOCOL_AERO_CL || protocol === PROTOCOL_AERO_V2) return AERO_PROTOCOL_AERO;
+  if (protocol !== PROTOCOL_VELODROME_V2 && protocol !== PROTOCOL_VELODROME_V3) {
+    // log.critical in the subgraph: it stops there.
+    throw new Error(`rewardTokenFor: '${protocol}' is not a Velodrome-family venue`);
+  }
+  return AERO;
+}
+
+/** Default v2 pool swap fees, in basis points. */
+export const V2_STABLE_FEE_BPS = 5;
+export const V2_VOLATILE_FEE_BPS = 30;
+
 /** The Transfer data sources in subgraph.yaml, in manifest order. */
 export const TRACKED_TOKENS: Address[] = [
   USDC_NATIVE, WETH, AERO, BOLD, MSUSD, FRXUSD, EUSD, AXLUSDC, AERO_PROTOCOL_AERO, USDT, DAI, USDE, USDS,
 ];
+
+/** isPoolRelevant: both tokens are tracked (WHITELISTED_TOKENS = the tracked tokens). */
+export const isPoolRelevant = (token0: string, token1: string) =>
+  (TRACKED_TOKENS as string[]).includes(token0) && (TRACKED_TOKENS as string[]).includes(token1);
 
 /** No lower price bound (a depeg is recorded, not rejected) and the `depegged` flag. */
 export const STABLECOINS: string[] = [USDC_NATIVE, BOLD, MSUSD, FRXUSD, EUSD, AXLUSDC, USDT, DAI, USDE, USDS];
