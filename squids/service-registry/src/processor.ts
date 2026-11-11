@@ -73,10 +73,11 @@ export const LOG_QUERIES: LogQuery[] = [
   // 0 ExecutionFromModuleSuccess logs over 20,000 blocks (~34 min), from 7
   // Safes — about 470 logs a day chain-wide. On Base (SQD portal sample,
   // BDMARK-2310): 0.02 logs/block at 15M, 0.9 at 46M, ~10.7 at head — about
-  // 45M logs over the whole backfill, ~1% of pearl-transactions' load. If
-  // that ever grows to Polygon levels, split this into an address-filtered
-  // range up to a checkpoint plus a topic-only tail (the "factory
-  // contracts" pattern in SQD's docs).
+  // 45M logs over the whole backfill, ~1% of pearl-transactions' load.
+  // Polygon Portal samples from review of #174: ~0.8 / 1.3 / 1.1 combined
+  // execution logs/block at 45M / 70M / 96M, below that Base-head sample.
+  // If throughput becomes a bottleneck, use an address-filtered historical
+  // range plus a topic-only tail (SQD's "factory contracts" pattern).
   {
     where: {
       topic0: [

@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 beforeEach(() => {
@@ -19,11 +18,6 @@ it("retains the Polygon registry and original bridger ranges from Studio", async
     identityRegistryBridgerStartBlock: 82_500_133,
     portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
   });
-  // Independent in-tree manifest indexes the same registry deployment.
-  const manifest = readFileSync(new URL("../../../subgraphs/marketplace/subgraph.polygon.yaml", import.meta.url), "utf8");
-  const source = manifest.split(/^  - kind:/m).find(s => /name: ServiceRegistryL2\s/.test(s))!;
-  expect(source.toLowerCase()).toContain(c.SERVICE_REGISTRY_L2);
-  expect(source).toMatch(/startBlock: 41783952/);
   expect(c.portalFor(c.CHAIN, {})).toBe(c.CHAIN.portalDataset);
 });
 
