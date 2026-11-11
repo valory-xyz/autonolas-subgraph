@@ -9,7 +9,7 @@ export interface ChainConfig {
   portalRequiresApiKey: boolean;
   /** Archive RPC used for historical contract reads and optional ingestion. */
   defaultRpc: string;
-  /** Factory deployment block; indexing must include the full staking history. */
+  /** Replay boundary; must precede every factory-created staking instance. */
   startBlock: number;
   stakingFactory: Address;
   olas: Address;
@@ -48,7 +48,9 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
     portalRequiresApiKey: false,
     defaultRpc: "https://rpc-gate.autonolas.tech/polygon-rpc/",
-    // Studio staking/subgraph.matic.yaml and shared/constants.ts.
+    // Retain Studio's replay boundary: factory deployed at 59,560,456, but
+    // its nonce remained 1 through 70M (review #174), so no instances are skipped.
+    // OLAS matches Studio shared/constants.ts.
     startBlock: 62_213_142,
     stakingFactory: "0x46c0d07f55d4f9b5eed2fc9680b5953e5fd7b461",
     olas: "0xfef5d947472e72efbb2e388c730b7428406f2f95",
