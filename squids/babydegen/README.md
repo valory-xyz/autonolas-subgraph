@@ -7,13 +7,17 @@ Base, as corrected by studio #174 + #175. It is being ported in three slices
 
 | Slice | Content | Status |
 |---|---|---|
-| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | this package (2a: brought up to #175) |
-| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | next (2b) |
+| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | done (2a: brought up to #175) |
+| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | this package (2b) |
 | 3 | 1800-block snapshot scheduler, ROI/APR, `AgentPortfolioSnapshot`, `DailyPopulationMetric`, parity script, k8s example | last |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
-`PriceSource`, `PriceUpdate`, and `AgentPortfolio`. `AgentPortfolio` differs
+`PriceSource`, `PriceUpdate`, `AgentPortfolio`, and from slice 2
+`ProtocolPosition`, `NFTPositionMapping`, `UncollectedPrincipal`,
+`ClaimableRewardBeforeBlock`, `CreditedRewardClaim`, `PendingMintPosition`,
+`SwapTransaction`, `AgentSwapBuffer`, `AeroGauge` and `V2PoolVenue`
+(`SwapToEntryAssociation` is never written by the subgraph and is left out). `AgentPortfolio` differs
 from the subgraph until slice 3 ports `calculatePortfolioMetrics`: its metrics
 stay 0, `lastUpdated` stays at creation, and `firstTradingTimestamp` and
 `firstFundingEthPrice` come from registration or the first funding, where the
@@ -38,9 +42,11 @@ npm run serve                 # separate terminal, same .env (GQL_PORT=4350)
 Regenerate with `npm run codegen` (models) and `npm run typegen` (decoders).
 Typegen reads the shared `abis/` (ERC20Detailed, AggregatorV3Interface),
 babydegen-mode's `VelodromeV2Pool.json` (the ABI the studio subgraph uses), and
-this squid's `abis/`: event-only fragments of `GnosisSafe.json` and
-`ServiceRegistryL2.json` with just the five events handled, copied verbatim
-from the shared files.
+this squid's `abis/`: fragments of the studio ABIs with just the events
+handled and the functions called, copied verbatim (GnosisSafe,
+ServiceRegistryL2, both NFPMs, the CL pool/factory/gauges, the Voter and v2
+gauge, AeroV2Pool, the v2 factories, the GaugeManager, LiFiDiamond and
+AerodromeLpSugar).
 
 ## Ingestion: restart on a new Safe
 
@@ -59,9 +65,29 @@ The Transfer and Safe requests include the transaction (`from`, `to`,
 sender, the Safe's `execTransaction` calldata and the receipt, as the
 subgraph's `receipt: true` handlers do.
 
+Position, pool, gauge and LiFi events are not streamed chain-wide. Agents
+act through their Safe's `execTransaction`, so the transaction logs of the
+Safe and Transfer requests carry the NFPM, v2 pool, gauge and LiFi events
+the subgraph's handlers act on. Three small streams are chain-wide: the
+Aerodrome v2 and Aero v2 PoolFactory `PoolCreated` and the Aero GaugeManager
+`GaugeCreated` (they decide which pools are tracked and which gauge pays an
+Aero v2 pool). An agent's position event outside a Safe or tracked-token
+transaction would be missed (a one-off check over the Basius safes is in
+the BDMARK-2333 report).
+
+The subgraph's pool templates are rows: a `VeloV2Pool` instance is a
+squid-only `VeloV2PoolDataSource` row (the LpSugar `once` bootstrap at the
+start block, and whitelisted Aerodrome v2 `PoolCreated` after it), an
+`AeroV2Pool` instance a `V2PoolVenue` row. Pool events reach the handlers
+only from those addresses, and a pool created in a block runs that block's
+events after the others, as graph-node does for a new data source. The
+bootstrap reads LpSugar at the start block once (39 pools, about 2 min on
+`mainnet.base.org`).
+
 When a block registers a new Basius service, the stream ends after that
 block (`src/sources.ts`), the block's missing logs are fetched with
-`eth_getLogs` by block hash (`src/block.ts`), and `src/main.ts` starts a new
+`eth_getLogs` by block hash, with the other logs of their transactions from
+the receipts (`src/block.ts`), and `src/main.ts` starts a new
 processor run with the new safes in its filters, from the next block. A
 restart per new service is cheap; Basius has a handful.
 
@@ -120,6 +146,19 @@ is capped, which matters for RPC ingestion.
   pools with each side's decimals. No $1 fallback: without a valid price a
   token keeps its last one with `priceStale`, a stablecoin below $0.98 is
   `depegged`. `PriceUpdate.block` is 0, as in the subgraph. Aero v2 pools have
-  no `stable()`; the subgraph's `V2PoolVenue` lookup comes with the factories
-  in slice 2b, until then they price from reserves (the one priced here is
-  volatile).
+  no `stable()`; their kind comes from the `V2PoolVenue` row the Aero
+  factory wrote, as in the subgraph.
+- **Positions (#174 + #175).** CL ids are `utf8hex("<safe>-<protocol>-<tokenId>")`,
+  v2 ids `utf8hex("<safe>-<protocol>-<pool>")`, with protocol `aerodrome-cl`,
+  `aerodrome-v2`, `aero-cl` or `aero-v2` (the emitting NFPM or the pool's
+  factory picks it). Collected fees exclude principal released by
+  `DecreaseLiquidity`; gauge rewards are credited from `EmissionsClaimed`
+  (Aero CL), the gauge `Withdraw` after the reward (legacy CL), or split by
+  what each position had earned before the block, else by liquidity.
+  `SwapTransaction` and `CreditedRewardClaim` ids keep graph-node's bytes
+  (`txHash ++ "-" ++ logIndex` as UTF-8, `txHash ++ logIndex` as 4
+  little-endian bytes). The subgraph's in-memory pool caches (poolIndexCache,
+  discoveredPools) only save calls; they change no row and are not ported.
+- **Portfolio metrics.** `calculatePortfolioMetrics` is still a no-op at
+  every call site (part 3); `refreshAllActivePositions` (src/refresh.ts) is
+  the scheduler's protocol dispatch, exported for part 3.

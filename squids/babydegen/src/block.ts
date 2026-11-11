@@ -191,7 +191,8 @@ export async function processBlock(
 
   // Block handlers run after the block's log triggers.
   if (block.header.number === CHAIN.startBlock) {
-    await handleVeloV2Bootstrap(ctx, { blockNumber: BigInt(block.header.number), blockTimestamp: BigInt(Math.floor(block.header.timestamp / 1000)) });
+    const at = { blockNumber: BigInt(block.header.number), blockTimestamp: BigInt(Math.floor(block.header.timestamp / 1000)) };
+    await handleVeloV2Bootstrap(ctx, at);
     drainPools(queue.length);
   }
 
