@@ -104,9 +104,23 @@ Mech-analytics' Base fee totals ("accrual") come from the new-mech-fees
 subgraph, whose squid is `squids/mech-fees` (`MECH_FEES_CHAIN=base`), not
 from this one.
 
+## Polygon: cutting over from the subgraph
+
+Use `MARKETPLACE_CHAIN=polygon` with a fresh database. The config mirrors
+the Polygon manifest's sources and four factories, with one V2 Marketplace
+era and no V1 overlap. Native POL and USDC have USD pricing; historical OLAS
+and NVM-credit USD fields remain zero, matching the source subgraph.
+
+Check signed-batch counts against event logs before comparing totals: the
+old Polygon Graph deployment may contain duplicated counters. At a common
+indexed block, verify advertised maxima, actual raw charges, native/USDC USD
+charges and service activity. Update consumer query dialects and account for
+the removed IPFS fields before switching endpoints.
+
 ## Validating a deployment
 
-No subgraph to diff against, so validate against the chain:
+Robinhood has no subgraph to compare with; Base and Polygon do. Validate
+against chain logs as well, especially when an old subgraph has known errors:
 
 1. `indexerStatusById(id: "1").blockNumber` is within a few blocks of
    `eth_blockNumber`.
@@ -117,13 +131,14 @@ No subgraph to diff against, so validate against the chain:
    `CreateMultisigWithAgents` for that id in the registry logs.
 4. For a sampled delivery tx: one `Deliver` per delivered request id, the
    `DeliverForMarketplace.deliveryRate` equals the log's `deliveryRate`,
-   and `Request.finalFeeUSD` ≈ rate × ETH/USD at that block.
+   and `Request.finalFeeUSD` matches that chain's fee-unit conversion at the
+   event block (native/USD or USDC; see the documented historical pricing gaps).
 5. Processor logs contain no `Unknown mech factory` and no
    `PendingMechData not found` lines (both mean the factory table or a
    start block is wrong).
 
 ## Global off-chain request counter (#140)
 
-Both Base and Robinhood expose `Global.totalOffChainRequests`, incremented by the number of requests in each settled signed batch. It includes charged failed runs and excludes on-chain requests. It must equal the sum of signed-batch `numDeliveries` and the sum of sender off-chain counters at the same indexed block.
+Base, Polygon and Robinhood expose `Global.totalOffChainRequests`, incremented by the number of requests in each settled signed batch. It includes charged failed runs and excludes on-chain requests. It must equal the sum of signed-batch `numDeliveries` and the sum of sender off-chain counters at the same indexed block.
 
 Migration `1793012400000-OffChainRequests.js` adds the required column. If rows already exist, it initializes the counter from stored signed batch events before enforcing NOT NULL; it does not silently initialize historical totals to zero. Apply migrations with the processor stopped. The coordinated release still uses a fresh database and full replay for each active squid, after final factory configuration is available. The migration is not a substitute for correcting/replaying historical handler behavior.

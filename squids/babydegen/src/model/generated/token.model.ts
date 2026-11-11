@@ -1,5 +1,5 @@
 import {BigDecimal} from "@subsquid/big-decimal"
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_, BigDecimalColumn as BigDecimalColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_, BigDecimalColumn as BigDecimalColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Token {
@@ -33,4 +33,16 @@ export class Token {
 
     @BigDecimalColumn_({nullable: false})
     priceConfidence!: BigDecimal
+
+    /**
+     * derivedUSD is the last valid price, not a fresh one
+     */
+    @BooleanColumn_({nullable: false})
+    priceStale!: boolean
+
+    /**
+     * A stablecoin last priced below the depeg threshold
+     */
+    @BooleanColumn_({nullable: false})
+    depegged!: boolean
 }

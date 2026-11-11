@@ -1,6 +1,6 @@
 # Staking squid
 
-Robinhood Chain and Base staking indexer, ported from **autonolas-subgraph-studio main
+Polygon, Robinhood Chain and Base staking indexer, ported from **autonolas-subgraph-studio main
 `ab3ac860ada32aa16121c3637816cba3f8075f1b`** (PR #169). It tracks factory events,
 dynamically discovered staking proxies, services, rewards by epoch, OLAS stake
 and claimed-reward totals, and cumulative daily snapshots.
@@ -26,6 +26,23 @@ block; no bytecode at 17,310,018) and `shared/constants.ts` `OLAS_ADDRESS_BASE`.
 Base migration to this squid is complete. Robinhood also uses this squid.
 See the internal **[WD] Subgraph&Squids Development and Deployment Tracking**
 document for current endpoints and versions.
+
+### Polygon migration
+
+Set `STAKING_CHAIN=polygon` and use the `polygon-mainnet` Portal dataset
+(`INGEST_SOURCE=portal`) or Polygon RPC ingestion. Factory
+`0x46c0d07f55d4f9b5eed2fc9680b5953e5fd7b461` starts at **62,213,142**;
+OLAS is `0xfef5d947472e72efbb2e388c730b7428406f2f95`. These match Studio's
+`subgraphs/staking/subgraph.matic.yaml` and `shared/constants.ts`.
+The default Polygon RPC is the Olas rpc-gate; archive `eth_call` support is
+required even when ingestion uses Portal. Do not reuse a Base/Robinhood RPC
+or Portal override.
+
+The merged v0.4 handlers apply to Polygon too: factory discovery selects the
+event interface using `VERSION()`, so no speculative implementation address or
+activation block is needed. Legacy history, zero-reward rows and epoch counters
+retain their existing meanings. See the [Polygon cutover guide](../POLYGON_STAKING_REGISTRY_MIGRATION.md)
+for replay, GraphQL changes and deployment acceptance checks.
 
 ### Robinhood
 
@@ -109,7 +126,7 @@ unstaked services from epoch rollover or treat a null `latestStakingContract` as
 reason to skip them.
 
 Version gating also matches studio: absent VERSION, `0.1.0`, `0.2.0`, and externally
-managed `0.3.0` instances are indexed. Other versions are recorded with
+managed `0.3.0`, and `0.4.0` instances are indexed. Other versions are recorded with
 `eventsIndexed=false` and a warning. Supporting new event signatures requires an
 explicit ABI/handler update; do not just remove the guard.
 
@@ -159,3 +176,8 @@ findings remain in the inherited dependency stack).
 
 The RPC adapter's optional `evm-normalization` and `evm-rpc` peer dependencies
 are explicitly pinned and covered by a source-import test for fresh installs.
+
+
+## Staking v0.4
+
+See [source ABI, event semantics and release requirements](../../abis/StakingTokenV4.README.md).

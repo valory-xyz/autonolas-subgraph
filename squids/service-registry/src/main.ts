@@ -104,6 +104,13 @@ run(
               serviceId: e.serviceId,
               agentId: e.agentId,
             });
+          } else if (topic0 === bridger.AgentMultisigUpdated.topic) {
+            const e = bridger.AgentMultisigUpdated.decode(log);
+            await h.handleAgentMultisigUpdated(cache, meta, {
+              agentId: e.agentId,
+              oldMultisig: lc(e.oldMultisig),
+              newMultisig: lc(e.newMultisig),
+            });
           } else if (topic0 === bridger.AgentWalletSet.topic) {
             const e = bridger.AgentWalletSet.decode(log);
             await h.handleAgentWalletSet(cache, meta, {
