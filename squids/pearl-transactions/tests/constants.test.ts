@@ -131,6 +131,11 @@ describe("SQD_PORTAL_URL must match PEARL_TRANSACTIONS_CHAIN", () => {
 
     vi.resetModules();
     vi.stubEnv("SQD_PORTAL_URL", "https://shared.portal.sqd.dev/datasets/base-mainnet");
+    vi.stubEnv("SQD_PORTAL_API_KEY", "");
+    await expect(import("../src/processor")).rejects.toThrow(/SQD_PORTAL_URL override/);
+
+    vi.resetModules();
+    vi.stubEnv("SQD_PORTAL_API_KEY", "test-key");
     await expect(import("../src/processor")).resolves.toBeDefined();
   });
 });
@@ -183,6 +188,25 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
         http: { headers: { "x-api-key": "k" } },
       });
     }
+  });
+
+  it.each([undefined, "", "  "])(
+    "fails on a public-dataset chain whose SQD_PORTAL_URL is overridden when the key is %j",
+    async (key) => {
+      const { CHAINS, portalApiKeyFor, portalOptionsFor } = await load();
+      const override = "https://shared.portal.sqd.dev/datasets/base-mainnet";
+      const message = /SQD_PORTAL_API_KEY is required with a SQD_PORTAL_URL override/;
+      expect(() => portalApiKeyFor(CHAINS.base, key, override)).toThrow(message);
+      expect(() => portalOptionsFor(CHAINS.base, override, key)).toThrow(message);
+    }
+  );
+
+  it("stays optional when SQD_PORTAL_URL is just the chain's public dataset", async () => {
+    const { CHAINS, portalOptionsFor } = await load();
+    expect(portalOptionsFor(CHAINS.matic, " " + CHAINS.matic.portalDataset + " ", undefined)).toBe(
+      CHAINS.matic.portalDataset
+    );
+    expect(portalOptionsFor(CHAINS.matic, "", undefined)).toBe(CHAINS.matic.portalDataset);
   });
 
   it("uses the bare URL on a public-dataset chain with no key", async () => {

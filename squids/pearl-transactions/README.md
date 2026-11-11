@@ -54,7 +54,7 @@ Key files:
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | PostgreSQL connection |
 | `PEARL_TRANSACTIONS_CHAIN` | which chain this deployment indexes: `matic` (default when unset), `base`, `gnosis`, `optimism`, `robinhood`. An unknown name fails at startup |
 | `SQD_PORTAL_URL` | SQD Portal dataset URL. Defaults to the public portal — see the warning below. Production uses the private portal URL. Its `/datasets/<name>` must be the selected chain's (e.g. `base-mainnet`), or startup fails |
-| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal. Required on `robinhood`, whose dataset is private: startup fails without it |
+| `SQD_PORTAL_API_KEY` | key for the private portal (secret, sent as the `x-api-key` header). Leave empty for the public portal. Required on `robinhood`, whose dataset is private, and whenever `SQD_PORTAL_URL` differs from the chain's public dataset URL: startup fails without it |
 | `RPC_HTTP` | an RPC endpoint for the selected chain. **Must be archive-capable** — see below. Defaults to a public endpoint per chain (smoke tests only) |
 | `RPC_HTTP_FALLBACK` | second archive endpoint, tried when the primary fails with a non-revert error and as the second check before any "not a Safe" verdict. **Always set it in production** — see below |
 | `RPC_POLYGON_HTTP` `RPC_POLYGON_HTTP_FALLBACK` | legacy aliases for the two above, read only on `matic` when `RPC_HTTP*` is unset, so existing Polygon deployments keep working. On any other chain, setting one fails at startup |

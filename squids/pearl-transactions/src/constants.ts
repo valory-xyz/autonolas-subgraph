@@ -202,23 +202,35 @@ export function portalUrlFor(
 }
 
 /**
- * `SQD_PORTAL_API_KEY`, trimmed (empty counts as unset). Throws on a chain
- * whose dataset is private: without a key the portal answers 404 mid-stream
- * instead of failing at startup.
+ * `SQD_PORTAL_API_KEY`, trimmed (empty counts as unset). Throws without one
+ * on a chain whose dataset is private, where the portal answers 404
+ * mid-stream instead of failing at startup, and when `SQD_PORTAL_URL`
+ * overrides the chain's dataset URL: an override is the private portal in
+ * production, which does not refuse a keyless client up front either.
  */
 export function portalApiKeyFor(
   chain: ChainConfig,
-  key = process.env.SQD_PORTAL_API_KEY
+  key = process.env.SQD_PORTAL_API_KEY,
+  urlOverride = process.env.SQD_PORTAL_URL
 ): string | undefined {
   const trimmed = key?.trim() || undefined;
-  if (trimmed == null && chain.portalRequiresApiKey) {
+  if (trimmed != null) return trimmed;
+  const dataset = portalDatasetName(chain.portalDataset);
+  if (chain.portalRequiresApiKey) {
     throw new Error(
-      `SQD_PORTAL_API_KEY is required for the private ` +
-        `${portalDatasetName(chain.portalDataset)} dataset ` +
+      `SQD_PORTAL_API_KEY is required for the private ${dataset} dataset ` +
         `(PEARL_TRANSACTIONS_CHAIN="${chain.name}").`
     );
   }
-  return trimmed;
+  const override = urlOverride?.trim();
+  if (override && override !== chain.portalDataset) {
+    throw new Error(
+      `SQD_PORTAL_API_KEY is required with a SQD_PORTAL_URL override ` +
+        `("${override}"); unset SQD_PORTAL_URL to use the public ${dataset} ` +
+        `dataset keyless.`
+    );
+  }
+  return undefined;
 }
 
 /** The portal client config: the checked URL, with the key as `x-api-key` when one is set. */
@@ -228,7 +240,7 @@ export function portalOptionsFor(
   key = process.env.SQD_PORTAL_API_KEY
 ): string | PortalClientOptions {
   const url = portalUrlFor(chain, urlOverride);
-  const apiKey = portalApiKeyFor(chain, key);
+  const apiKey = portalApiKeyFor(chain, key, urlOverride);
   return apiKey ? { url, http: { headers: { "x-api-key": apiKey } } } : url;
 }
 
