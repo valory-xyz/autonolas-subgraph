@@ -1,5 +1,7 @@
 # Marketplace Subgraph
 
+> **Deprecated Polygon deployment:** Migration to the [Marketplace squid](../../squids/marketplace) is planned; Polygon squid support is prepared. Check **[WD] Subgraph&Squids Development and Deployment Tracking** to confirm whether deployment and consumer cutover are already complete before deploying.
+
 This document provides context for the marketplace subgraph, the most complex subgraph in the Autonolas ecosystem.
 
 ## Overview
