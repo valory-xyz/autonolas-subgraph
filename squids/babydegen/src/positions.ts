@@ -287,7 +287,11 @@ async function attributeEmissionsClaims(
   return credited;
 }
 
-/** Aero v2 gauge rewards are not attributed to a position yet: say so rather than drop them silently. */
+/**
+ * Aero v2 gauges pay through LeafEmissionsHandler (Optimism) or by mint (Base), not from
+ * the gauge, so the Transfer's `from` never matches rewardsContract and the claim is not
+ * attributed to a position yet: say so rather than drop the reward silently (as studio).
+ */
 async function warnIfAeroV2Reward(ctx: PosCtx, meta: EventMeta, safe: string, service: Service): Promise<void> {
   if (meta.address !== rewardTokenFor(PROTOCOL_AERO_V2)) return;
   for (const id of service.positionIds) {

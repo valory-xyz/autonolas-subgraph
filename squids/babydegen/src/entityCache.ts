@@ -94,7 +94,11 @@ export class EntityCache extends SharedEntityCache implements Cache {
     entry.ids.add(id);
   }
 
-  /** Upserts first (a row set and then removed in the batch is written), then deletes. */
+  /**
+   * Upserts first (a row set and then removed in the batch is written), then deletes.
+   * main.ts builds a fresh cache per batch and flushes it once at the end, so
+   * tombstones need not outlive the flush: nothing reads this cache afterwards.
+   */
   override async flush(): Promise<void> {
     await super.flush();
     for (const { cls, ids } of this.removed.values()) {

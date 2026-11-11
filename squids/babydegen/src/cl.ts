@@ -266,6 +266,7 @@ async function refreshOrCreateCLPosition(
   let owner: string;
   let poolAddress: string;
   let venue: CLVenue;
+  let first: Awaited<ReturnType<typeof readPosition>> = null;
 
   if (position == null) {
     if (create === null) return;
@@ -273,7 +274,7 @@ async function refreshOrCreateCLPosition(
     venue = create.venue;
     const service = await ctx.cache.get(Service, owner);
     if (service == null) return;
-    const first = await readPosition(ctx, venue.manager, tokenId, at);
+    first = await readPosition(ctx, venue.manager, tokenId, at);
     if (first == null) {
       ctx.log.error(`CL create: positions() reverted for position ${positionId} (tokenId ${tokenId}, venue ${venue.protocol}, manager ${venue.manager}) — not created.`);
       return;
@@ -317,7 +318,8 @@ async function refreshOrCreateCLPosition(
     poolAddress = position.pool;
   }
 
-  const data: PositionData | null = await readPosition(ctx, venue.manager, tokenId, at);
+  // The create path already read positions() at this block.
+  const data: PositionData | null = first ?? (await readPosition(ctx, venue.manager, tokenId, at));
   if (data == null) return;
   const slot0 = await ctx.chain.call(poolAddress, at.blockNumber, calls.slot0, {});
   if (slot0 == null) return;
