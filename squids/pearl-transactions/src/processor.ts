@@ -15,10 +15,11 @@ import {
   portalOptionsFor,
 } from "./constants";
 
-// SQD Portal endpoint. On a public-dataset chain the key is optional, but
-// the public portal is aggressively rate-limited — a backfill run against it
-// spends most of its time in 10s HTTP 529 ("Service is overloaded")
-// backoffs. A chain with `portalRequiresApiKey` (today robinhood) has no
+// SQD Portal endpoint. On a public-dataset chain the key is optional against
+// the public portal (SQD_PORTAL_URL unset or equal to the chain's dataset);
+// any other SQD_PORTAL_URL requires it, see `portalApiKeyFor`. The public
+// portal is aggressively rate-limited — a backfill run against it spends
+// most of its time in 10s HTTP 529 ("Service is overloaded") backoffs. A chain with `portalRequiresApiKey` (today robinhood) has no
 // public dataset at all and needs the private portal and a key even for a
 // smoke test. Production sets both vars to the private portal; the key goes
 // in the x-api-key header. Keep the private URL out of the repo — infra sets
