@@ -22,7 +22,7 @@ subgraphs/
 
 squids/
 ├── predict-polymarket/  # Active Polystrat/Polymarket trader squid (Polygon)
-├── pearl-transactions/  # Active SQD indexer for Pearl wallet history on Base and Polygon
+├── pearl-transactions/  # Active SQD indexer for Pearl wallet history on Base, Polygon and Robinhood
 ├── service-registry/    # SQD indexer for the Service Registry (Robinhood first; chain via SERVICE_REGISTRY_CHAIN)
 ├── marketplace/         # SQD marketplace indexer: Robinhood, Base and Polygon configurations
 ├── liquidity/           # SQD indexer for the OLAS PoL pools, Uniswap V2 + Balancer V2 (Robinhood first; chain via LIQUIDITY_CHAIN)
@@ -73,7 +73,8 @@ node lib/main.js               # processor (single instance only)
 npx squid-graphql-server       # GraphQL API
 ```
 
-`squids/pearl-transactions` serves Pearl wallet history on **Base and Polygon**.
+`squids/pearl-transactions` serves Pearl wallet history on **Base, Polygon
+and Robinhood**.
 Gnosis and Optimism use `pearl-transactions` in the separate
 `autonolas-subgraph-studio` repo.
 See the [squid README](squids/pearl-transactions/README.md) for current
