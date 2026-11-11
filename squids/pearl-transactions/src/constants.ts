@@ -210,11 +210,11 @@ export function portalUrlFor(
  */
 export function portalApiKeyFor(
   chain: ChainConfig,
-  key = process.env.SQD_PORTAL_API_KEY,
-  urlOverride = process.env.SQD_PORTAL_URL
+  urlOverride = process.env.SQD_PORTAL_URL,
+  key = process.env.SQD_PORTAL_API_KEY
 ): string | undefined {
-  const trimmed = key?.trim() || undefined;
-  if (trimmed != null) return trimmed;
+  const trimmed = key?.trim();
+  if (trimmed) return trimmed;
   const dataset = portalDatasetName(chain.portalDataset);
   if (chain.portalRequiresApiKey) {
     throw new Error(
@@ -240,7 +240,7 @@ export function portalOptionsFor(
   key = process.env.SQD_PORTAL_API_KEY
 ): string | PortalClientOptions {
   const url = portalUrlFor(chain, urlOverride);
-  const apiKey = portalApiKeyFor(chain, key, urlOverride);
+  const apiKey = portalApiKeyFor(chain, urlOverride, key);
   return apiKey ? { url, http: { headers: { "x-api-key": apiKey } } } : url;
 }
 

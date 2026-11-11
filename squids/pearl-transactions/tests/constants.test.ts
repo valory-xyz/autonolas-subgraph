@@ -154,7 +154,7 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
     "fails on Robinhood when the key is %j, naming the dataset",
     async (key) => {
       const { CHAINS, portalApiKeyFor } = await load();
-      expect(() => portalApiKeyFor(CHAINS.robinhood, key)).toThrow(
+      expect(() => portalApiKeyFor(CHAINS.robinhood, undefined, key)).toThrow(
         /SQD_PORTAL_API_KEY is required for the private robinhood-mainnet dataset/
       );
     }
@@ -162,13 +162,13 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
 
   it("returns the trimmed key on Robinhood", async () => {
     const { CHAINS, portalApiKeyFor } = await load();
-    expect(portalApiKeyFor(CHAINS.robinhood, " k\n")).toBe("k");
+    expect(portalApiKeyFor(CHAINS.robinhood, undefined, " k\n")).toBe("k");
   });
 
   it("stays optional on the public-dataset chains", async () => {
     const { CHAINS, portalApiKeyFor } = await load();
     for (const c of [CHAINS.matic, CHAINS.gnosis, CHAINS.optimism, CHAINS.base]) {
-      expect(portalApiKeyFor(c, undefined)).toBeUndefined();
+      expect(portalApiKeyFor(c, undefined, undefined)).toBeUndefined();
     }
   });
 
@@ -196,7 +196,7 @@ describe("SQD_PORTAL_API_KEY on a private dataset", () => {
       const { CHAINS, portalApiKeyFor, portalOptionsFor } = await load();
       const override = "https://shared.portal.sqd.dev/datasets/base-mainnet";
       const message = /SQD_PORTAL_API_KEY is required with a SQD_PORTAL_URL override/;
-      expect(() => portalApiKeyFor(CHAINS.base, key, override)).toThrow(message);
+      expect(() => portalApiKeyFor(CHAINS.base, override, key)).toThrow(message);
       expect(() => portalOptionsFor(CHAINS.base, override, key)).toThrow(message);
     }
   );
