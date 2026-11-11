@@ -1,5 +1,4 @@
 import { DataSourceBuilder, FieldSelection } from "@subsquid/evm-stream";
-import type { PortalClientOptions } from "@subsquid/portal-client";
 import * as serviceRegistry from "./abi/ServiceRegistryL2/events";
 import * as srtu from "./abi/ServiceRegistryTokenUtility/events";
 import * as stakingFactory from "./abi/StakingFactory/events";
@@ -13,21 +12,19 @@ import {
   STAKING_FACTORY,
   ERC20_TOKENS,
   START_BLOCK,
-  portalUrlFor,
+  portalOptionsFor,
 } from "./constants";
 
-// SQD Portal endpoint. The public portal needs no key but is aggressively
-// rate-limited — a backfill run against it spends most of its time in 10s
-// HTTP 529 ("Service is overloaded") backoffs. Production must set both
-// vars to the private portal; the key goes in the x-api-key header. Keep
-// the private URL out of the repo — infra sets it via env.
-const portalUrl = portalUrlFor(CHAIN);
-const portal: string | PortalClientOptions = process.env.SQD_PORTAL_API_KEY
-  ? {
-      url: portalUrl,
-      http: { headers: { "x-api-key": process.env.SQD_PORTAL_API_KEY } },
-    }
-  : portalUrl;
+// SQD Portal endpoint. On a public-dataset chain the key is optional against
+// the public portal (SQD_PORTAL_URL unset or equal to the chain's dataset);
+// any other SQD_PORTAL_URL requires it, see `portalApiKeyFor`. The public
+// portal is aggressively rate-limited — a backfill run against it spends
+// most of its time in 10s HTTP 529 ("Service is overloaded") backoffs. A chain with `portalRequiresApiKey` (today robinhood) has no
+// public dataset at all and needs the private portal and a key even for a
+// smoke test. Production sets both vars to the private portal; the key goes
+// in the x-api-key header. Keep the private URL out of the repo — infra sets
+// it via env.
+const portal = portalOptionsFor(CHAIN);
 
 // The modern SDK has no implicit field defaults: every field the handlers
 // read must be listed here, or the property does not exist at runtime.
