@@ -21,12 +21,21 @@ export class FundingBalance {
     @BigDecimalColumn_({nullable: false})
     totalInUsd!: BigDecimal
 
+    /**
+     * Deprecated: no longer written, stays 0
+     */
     @BigDecimalColumn_({nullable: false})
     totalOutUsd!: BigDecimal
 
+    /**
+     * Tracked tokens and ETH withdrawn to the user side, or to a contract when nothing came back in the same tx
+     */
     @BigDecimalColumn_({nullable: false})
     totalWithdrawnUsd!: BigDecimal
 
+    /**
+     * Equals totalInUsd
+     */
     @BigDecimalColumn_({nullable: false})
     netUsd!: BigDecimal
 
@@ -39,6 +48,9 @@ export class FundingBalance {
     @StringColumn_({array: true, nullable: false})
     fundingInTxs!: (string)[]
 
+    /**
+     * Deprecated: no longer written, stays empty
+     */
     @StringColumn_({array: true, nullable: false})
     fundingOutTxs!: (string)[]
 }

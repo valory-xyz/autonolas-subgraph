@@ -1,3 +1,5 @@
+# DEPRECATED: Polygon Marketplace migration to squids/marketplace is planned; squid support is prepared.
+# Check [WD] Subgraph&Squids Development and Deployment Tracking for completed deployment and consumer cutover before deploying.
 specVersion: 1.2.0
 indexerHints:
   prune: 300

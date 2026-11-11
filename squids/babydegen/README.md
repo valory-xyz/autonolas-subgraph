@@ -2,12 +2,13 @@
 
 SQD port of autonolas-subgraph-studio `subgraphs/babydegen/babydegen-base`
 (Studio `olas-babydegen-base`), which tracks the Basius agent (agentId 115) on
-Base. It is being ported in three slices (BDMARK-2311):
+Base, as corrected by studio #174 + #175. It is being ported in three slices
+(BDMARK-2311):
 
 | Slice | Content | Status |
 |---|---|---|
-| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | this package |
-| 2 | Aerodrome Slipstream (CL) and v2 positions, gauges, LiFi swaps | next |
+| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | this package (2a: brought up to #175) |
+| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | next (2b) |
 | 3 | 1800-block snapshot scheduler, ROI/APR, `AgentPortfolioSnapshot`, `DailyPopulationMetric`, parity script, k8s example | last |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
@@ -15,8 +16,8 @@ Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `PriceSource`, `PriceUpdate`, and `AgentPortfolio`. `AgentPortfolio` differs
 from the subgraph until slice 3 ports `calculatePortfolioMetrics`: its metrics
 stay 0, `lastUpdated` stays at creation, and `firstTradingTimestamp` and
-`firstFundingEthPrice` come from the first funding, where the subgraph falls
-back to the registration timestamp first. Consumers read only
+`firstFundingEthPrice` come from registration or the first funding, where the
+subgraph can also fall back to the registration timestamp from that call. Consumers read only
 `dailyPopulationMetrics`, so nothing switches before slice 3.
 
 ## Running locally
@@ -48,10 +49,15 @@ the squid does not stream all USDC/WETH Transfers or every Safe event on
 Base. It subscribes to:
 
 - ServiceRegistryL2 `RegisterInstance` / `CreateMultisigWithAgents`;
-- `Transfer` on the 8 tracked tokens with `from` or `to` = a service safe;
+- `Transfer` on the 13 tracked tokens with `from` or `to` = a service safe;
 - `SafeReceived` / `ExecutionSuccess` / `ExecutionFromModuleSuccess` emitted
   by a service or operator safe (the subgraph's `Safe` template instances,
   kept in the squid-only `SafeDataSource` table).
+
+The Transfer and Safe requests include the transaction (`from`, `to`,
+`value`, `input`) and all its logs (`transactionLogs`): the handlers read the
+sender, the Safe's `execTransaction` calldata and the receipt, as the
+subgraph's `receipt: true` handlers do.
 
 When a block registers a new Basius service, the stream ends after that
 block (`src/sources.ts`), the block's missing logs are fetched with
@@ -98,7 +104,22 @@ is capped, which matters for RPC ingestion.
   Safe 1.4.1 indexes `txHash`, so its log has two topics and graph-node skips
   it; the squid skips it too. ETH sent out by a 1.4.1 service safe through
   `execTransaction` is therefore missing from funding and ETH balance in both.
-- **Prices.** The subgraph's own rules are kept: Chainlink at 1e8 with a 24h
-  staleness cut-off (pricing) or none (`getEthUsd`), a 300 s cache on the
-  `Token` row, $1 fallback for the critical stablecoins, and AERO from the
-  AERO/USDC v2 pool. `PriceUpdate.block` is 0, as in the subgraph.
+- **Funding (#175).** Every tracked token and ETH counts. The user side is
+  the operator Safe, the tx sender, any Safe (`getThreshold()` answers,
+  cached as `AddressType.isSafe`) or an EOA; never the service Safe, its
+  `agentInstances` or the zero address. An outflow to another contract is a
+  withdrawal only when the receipt shows nothing coming back to the Safe.
+  ETH out is decoded from the Safe's own `execTransaction` (a Call or the
+  Calls of a `multiSend` it delegatecalls). Withdrawals go to
+  `totalWithdrawnUsd`; `netUsd` equals `totalInUsd`; `totalOutUsd` and
+  `fundingOutTxs` stay empty.
+- **Prices (#175).** Chainlink at 1e8 with a 90000 s staleness cut-off
+  against the block (pricing) or none (`getEthUsd`), a 300 s cache on the
+  `Token` row, sources read by priority, pool pair legs priced from their
+  own feed (never $1 / $3000), stable v2 pools quoted with `getAmountOut`, CL
+  pools with each side's decimals. No $1 fallback: without a valid price a
+  token keeps its last one with `priceStale`, a stablecoin below $0.98 is
+  `depegged`. `PriceUpdate.block` is 0, as in the subgraph. Aero v2 pools have
+  no `stable()`; the subgraph's `V2PoolVenue` lookup comes with the factories
+  in slice 2b, until then they price from reserves (the one priced here is
+  volatile).

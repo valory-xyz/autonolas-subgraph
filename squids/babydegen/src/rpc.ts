@@ -12,6 +12,35 @@ import { BlockMemo } from "@olas/squid-shared";
 export type Transport = (method: string, params: unknown[]) => Promise<unknown>;
 export class ContractRevert extends Error {}
 
+/**
+ * graph-node's RPC_EXECUTION_ERRORS (chain/ethereum call_helper.rs): an
+ * eth_call error whose message contains one of these (any case) is the
+ * contract failing, i.e. `try_*().reverted`, not a node problem.
+ */
+const RPC_EXECUTION_ERRORS = [
+  "revert",
+  "invalid jump destination",
+  "invalid opcode",
+  "stack limit reached 1024",
+  "out of gas",
+  "stack underflow",
+  "vm execution error",
+  "invalidjump",
+  "notactivated",
+  "invalidfeopcode",
+  "stackunderflow",
+  "stackoverflow",
+  "opcodenotfound",
+];
+/** Parity / OpenEthereum's code for a reverted or failed execution. */
+const PARITY_VM_EXECUTION_ERROR = -32015;
+
+export function isExecutionError(error: { code: number; message: string }): boolean {
+  if (error.code === 3 || error.code === PARITY_VM_EXECUTION_ERROR) return true;
+  const message = String(error.message).toLowerCase();
+  return RPC_EXECUTION_ERRORS.some((e) => message.includes(e));
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** fetch-based transport; retries throttling / 5xx / network errors a few times. */
@@ -40,7 +69,7 @@ export function transport(url: string, attempts = 6): Transport {
       if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
       const body = (await response.json()) as { result?: unknown; error?: { code: number; message: string } };
       if (body.error) {
-        if (body.error.code === 3 || /execution reverted|revert/i.test(body.error.message)) {
+        if (isExecutionError(body.error)) {
           throw new ContractRevert(body.error.message);
         }
         if (body.error.code === -32005 || /rate limit|too many/i.test(body.error.message)) {
@@ -72,6 +101,7 @@ export interface RpcTransaction {
   from: string;
   to: string | null;
   value: bigint;
+  input: string;
 }
 
 export interface Fn<A, R> {
@@ -85,7 +115,11 @@ export class ChainReader {
 
   constructor(private readonly request: Transport) {}
 
-  /** eth_call at `block`; null on revert or empty return data. */
+  /**
+   * eth_call at `block`; null on revert, or on output shorter than one ABI
+   * word (graph-node's decode fails there and it reads the call as reverted;
+   * evm-codec would decode the short bytes as a number).
+   */
   async call<A, R>(to: string, block: bigint, fn: Fn<A, R>, args: A): Promise<R | null> {
     const data = fn.encode(args);
     const key = `${to}:${data}`;
@@ -98,7 +132,7 @@ export class ChainReader {
       if (err instanceof ContractRevert) return this.calls.set(key, block, null) as null;
       throw err;
     }
-    const result = output === "0x" ? null : fn.decodeResult(output);
+    const result = output.length < 66 ? null : fn.decodeResult(output);
     return this.calls.set(key, block, result) as R | null;
   }
 
@@ -134,7 +168,19 @@ export class ChainReader {
       from: String(tx.from).toLowerCase(),
       to: tx.to == null ? null : tx.to.toLowerCase(),
       value: BigInt(tx.value ?? "0x0"),
+      input: String(tx.input ?? "0x"),
     };
+  }
+
+  /** The receipt's logs (graph-node's `event.receipt.logs`), in log order. */
+  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[] }[]> {
+    const receipt = (await this.request("eth_getTransactionReceipt", [hash])) as {
+      logs: Array<{ address: string; topics: string[]; logIndex: string }>;
+    } | null;
+    if (receipt == null) throw new Error(`eth_getTransactionReceipt(${hash}) returned null`);
+    return [...receipt.logs]
+      .sort((a, b) => Number(a.logIndex) - Number(b.logIndex))
+      .map((l) => ({ address: l.address.toLowerCase(), topics: l.topics.map((t) => t.toLowerCase()) }));
   }
 }
 
