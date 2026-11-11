@@ -13,7 +13,7 @@ const ingestion = getIngestionConfig(CHAIN);
 const fields = {
   block: { timestamp: true },
   log: { address: true, topics: true, data: true, transactionHash: true },
-  transaction: { to: true, value: true },
+  transaction: { from: true, to: true, value: true, input: true },
 } satisfies FieldSelection;
 export type Fields = typeof fields;
 

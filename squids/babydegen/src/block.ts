@@ -19,7 +19,7 @@
 
 import { eventMeta, type EventMeta } from "@olas/squid-shared";
 import { TRACKED_TOKENS } from "./constants";
-import { dispatch, isSafeTopic, needsTransaction, SAFE_TOPICS, TRANSFER_TOPIC, type RawLog } from "./dispatch";
+import { dispatch, isSafeTopic, needsReceipt, needsTransaction, SAFE_TOPICS, TRANSFER_TOPIC, type RawLog } from "./dispatch";
 import type { Ctx } from "./handlers";
 import type { ChainReader } from "./rpc";
 
@@ -53,17 +53,41 @@ export async function fetchMissingLogs(
     requests.push(chain.getLogs({ blockHash, address: hosts, topics: [SAFE_TOPICS] }));
   }
   const logs = (await Promise.all(requests)).flat();
-  const txs = new Map<string, Promise<{ to: string | null; value: bigint }>>();
+  const txs = new Map<string, ReturnType<ChainReader["getTransaction"]>>();
+  const receipts = new Map<string, ReturnType<ChainReader["getReceiptLogs"]>>();
+  const memo = <T>(m: Map<string, T>, hash: string, get: () => T) => {
+    if (!m.has(hash)) m.set(hash, get());
+    return m.get(hash)!;
+  };
   const out: RawLog[] = [];
   for (const l of logs) {
-    let transaction: RawLog["transaction"];
-    if (needsTransaction(l)) {
-      if (!txs.has(l.transactionHash)) txs.set(l.transactionHash, chain.getTransaction(l.transactionHash));
-      transaction = await txs.get(l.transactionHash)!;
-    }
-    out.push({ ...l, transaction });
+    const hash = l.transactionHash;
+    const transaction = needsTransaction(l) ? await memo(txs, hash, () => chain.getTransaction(hash)) : undefined;
+    const receipt = needsReceipt(l) ? await memo(receipts, hash, () => chain.getReceiptLogs(hash)) : undefined;
+    out.push({ ...l, transaction, receipt });
   }
   return out;
+}
+
+/**
+ * graph-node's `event.receipt` for the streamed logs: every log of the same
+ * transaction. The Transfer and Safe requests set `transactionLogs`, so the
+ * block carries the whole transaction for any log that reads its receipt.
+ */
+export function attachReceipts(logs: RawLog[]): void {
+  const byTx = new Map<string, RawLog[]>();
+  for (const l of logs) {
+    const group = byTx.get(l.transactionHash);
+    if (group) group.push(l);
+    else byTx.set(l.transactionHash, [l]);
+  }
+  for (const l of logs) {
+    if (l.receipt !== undefined || !needsReceipt(l)) continue;
+    l.receipt = byTx
+      .get(l.transactionHash)!
+      .sort((a, b) => a.logIndex - b.logIndex)
+      .map((r) => ({ address: r.address, topics: r.topics }));
+  }
 }
 
 export type FetchMissing = (blockHash: string, services: string[], hosts: string[]) => Promise<RawLog[]>;
@@ -74,6 +98,7 @@ export async function processBlock(
   stream: StreamState,
   fetchMissing: FetchMissing,
 ): Promise<void> {
+  attachReceipts(block.logs);
   const queue = [...block.logs].sort((a, b) => a.logIndex - b.logIndex);
   const seen = new Set(queue.map((l) => l.logIndex));
   const newHosts = new Set<string>();

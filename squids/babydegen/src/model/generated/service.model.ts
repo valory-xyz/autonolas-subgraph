@@ -57,4 +57,10 @@ export class Service {
      */
     @StringColumn_({array: true, nullable: false})
     positionIds!: (string)[]
+
+    /**
+     * Agent EOAs (RegisterInstance.agentInstance); never the user side
+     */
+    @StringColumn_({array: true, nullable: false})
+    agentInstances!: (string)[]
 }

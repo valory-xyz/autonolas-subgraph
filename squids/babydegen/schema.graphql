@@ -1,7 +1,7 @@
 # Port of autonolas-subgraph-studio subgraphs/babydegen/babydegen-base
-# (Basius on Base), slice 1 of 3: service discovery, Safe/funding flows,
-# token balances and token pricing. Positions, swaps, snapshots and
-# population metrics arrive in slices 2 and 3.
+# (Basius on Base) as of studio #174 + #175, slice 1 of 3: service
+# discovery, Safe/funding flows, token balances and token pricing.
+# Positions, swaps, snapshots and population metrics arrive in slices 2 and 3.
 #
 # Ids and Bytes fields keep graph-node's lowercase hex output, including the
 # UTF-8-encoded ids (e.g. ServiceRegistration "607" -> "0x363037"); see
@@ -30,6 +30,8 @@ type Service @entity {
   balances: [TokenBalance!]! @derivedFrom(field: "service")
   "Position ids for iteration (filled from slice 2)"
   positionIds: [String!]!
+  "Agent EOAs (RegisterInstance.agentInstance); never the user side"
+  agentInstances: [String!]!
 }
 
 type ServiceRegistration @entity {
@@ -40,6 +42,8 @@ type ServiceRegistration @entity {
   registrationBlock: BigInt!
   registrationTimestamp: BigInt!
   registrationTxHash: String!
+  "Every agentInstance registered for this serviceId"
+  agentInstances: [String!]!
 }
 
 type ServiceIndex @entity {
@@ -52,6 +56,8 @@ type ServiceIndex @entity {
 type AddressType @entity {
   id: ID!
   isContract: Boolean!
+  "A contract that answers getThreshold(): a Safe, so the user side"
+  isSafe: Boolean!
   checkedAt: BigInt!
 }
 
@@ -60,12 +66,16 @@ type FundingBalance @entity {
   id: ID!
   service: Service
   totalInUsd: BigDecimal!
+  "Deprecated: no longer written, stays 0"
   totalOutUsd: BigDecimal!
+  "Tracked tokens and ETH withdrawn to the user side, or to a contract when nothing came back in the same tx"
   totalWithdrawnUsd: BigDecimal!
+  "Equals totalInUsd"
   netUsd: BigDecimal!
   firstInTimestamp: BigInt!
   lastChangeTs: BigInt!
   fundingInTxs: [String!]!
+  "Deprecated: no longer written, stays empty"
   fundingOutTxs: [String!]!
 }
 
@@ -91,6 +101,10 @@ type Token @entity {
   priceSources: [String!]!
   lastPriceUpdate: BigInt!
   priceConfidence: BigDecimal!
+  "derivedUSD is the last valid price, not a fresh one"
+  priceStale: Boolean!
+  "A stablecoin last priced below the depeg threshold"
+  depegged: Boolean!
 }
 
 type PriceUpdate @entity {
