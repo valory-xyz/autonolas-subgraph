@@ -1,5 +1,7 @@
 # Marketplace Subgraph
 
+> **Deprecated Polygon deployment:** Migration to the [Marketplace squid](../../squids/marketplace) is planned; Polygon squid support is prepared. Check **[WD] Subgraph&Squids Development and Deployment Tracking** to confirm whether deployment and consumer cutover are already complete before deploying.
+
 > **Deprecated Base deployment:** Base Marketplace is migrating to the [Marketplace squid](../../squids/marketplace). Its subgraph manifest remains during migration until replacement data and consumer cutover are validated.
 
 A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis**, **Base**, **Polygon**, **Optimism**, **Ethereum**, **Arbitrum**, and **Celo** networks.
