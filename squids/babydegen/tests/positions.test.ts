@@ -1273,3 +1273,59 @@ describe("#175 edge cases: v2 pools and swaps", () => {
     expect(await field(w, v2Id(PROTOCOL_VELODROME_V2, V2_POOL), "swapSlippageUSD")).toBe("0.1");
   });
 });
+
+// --- review fixes on #177 (Tanya #2-#4), made in studio too -------------------
+
+describe("exit proceeds and CL entry swaps", () => {
+  it("a second v2 Burn adds to the cycle's exit instead of replacing it", async () => {
+    const w = v2World();
+    await v2.handleVeloV2Transfer(w.ctx, at(V2_POOL, 1), { from: ETH_ADDRESS, to: SAFE, value: 10n * E18 });
+    await v2.handleV2Mint(w.ctx, at(V2_POOL, 2), { amount0: 10_000_000n, amount1: 10n * E18 });
+    const id = v2Id(PROTOCOL_VELODROME_V2, V2_POOL);
+    w.chain.mock(V2_POOL, v2PoolFns.balanceOf, { account: SAFE }, 5n * E18);
+    await v2.handleVeloV2Burn(w.ctx, at(V2_POOL, 5), { sender: OTHER, to: SAFE, amount0: 5_000_000n, amount1: 5n * E18 });
+    expect([await field(w, id, "isActive"), await field(w, id, "exitAmountUSD")]).toEqual(["true", "10"]);
+    w.chain.mock(V2_POOL, v2PoolFns.balanceOf, { account: SAFE }, 0n);
+    await v2.handleVeloV2Burn(w.ctx, at(V2_POOL, 6), { sender: OTHER, to: SAFE, amount0: 5_000_000n, amount1: 5n * E18 });
+    expect([await field(w, id, "isActive"), await field(w, id, "exitAmount0"), await field(w, id, "exitAmount1")]).toEqual(["false", "10", "10"]);
+    // break-even: $20 in, $20 out
+    expect([await field(w, id, "exitAmountUSD"), await field(w, id, "positionROI")]).toEqual(["20", "0"]);
+  });
+
+  it("principal from an earlier partial CL decrease is in the exit", async () => {
+    const w = clWorld();
+    const id = await openCLPosition(w);
+    w.chain.mock(AERO_NFT_MANAGER, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, positionsResult(E18 / 2n));
+    await cl.handleDecreaseLiquidity(w.ctx, at(AERO_NFT_MANAGER, 3), { tokenId: AERO_TOKEN_ID, liquidity: E18 / 2n, amount0: 4n * 10n ** 17n, amount1: E18 });
+    expect(await field(w, id, "isActive")).toBe("true");
+    w.chain.mock(AERO_NFT_MANAGER, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, null);
+    const later = at(AERO_NFT_MANAGER, 3, { blockNumber: BLOCK + 30n, blockTimestamp: TS + 60n });
+    await cl.handleDecreaseLiquidity(w.ctx, later, { tokenId: AERO_TOKEN_ID, liquidity: E18 / 2n, amount0: 6n * 10n ** 17n, amount1: E18 });
+    expect([await field(w, id, "isActive"), await field(w, id, "exitAmount0"), await field(w, id, "exitAmount1")]).toEqual(["false", "1", "2"]);
+  });
+
+  it("the first IncreaseLiquidity of a CL position takes the agent's buffered swap slippage", async () => {
+    const w = clWorld();
+    w.cache.set(
+      AgentSwapBuffer,
+      new AgentSwapBuffer({
+        id: SAFE,
+        agent: SAFE,
+        bucket0Swaps: `${TS},0x01,5,${TS + 1200n},0x01`,
+        bucket1Swaps: "",
+        bucket2Swaps: "",
+        bucket3Swaps: "",
+        totalSlippageUSD: gd("5").toStore(),
+        lastUpdated: TS,
+        currentBucketIndex: 0n,
+      }),
+    );
+    const id = await openCLPosition(w);
+    expect([await field(w, id, "swapSlippageUSD"), await field(w, id, "totalCostsUSD"), await field(w, id, "entryTimestamp")]).toEqual([
+      "5",
+      "5",
+      String(TS),
+    ]);
+    expect((await w.cache.get(AgentSwapBuffer, SAFE))!.bucket0Swaps).toBe("");
+  });
+});

@@ -401,9 +401,40 @@ export function closedWithNoExitThisBlock(p: ProtocolPosition, at: At): boolean 
 }
 
 /**
- * recordFullExit: closes the position on a full-exit DecreaseLiquidity, valued
- * from the event amounts; a second one in the same block adds to the exit.
- * False when the position has no tokens on record.
+ * addToExit: withdrawn amounts add to the exit proceeds; the first ones start
+ * them. Every partial decrease and Burn of a position (or v2 cycle) is exit.
+ */
+export function addToExit(p: ProtocolPosition, amount0: GD, usd0: GD, amount1: GD, usd1: GD): void {
+  if (p.exitAmountUSD != null) {
+    p.exitAmount0 = d(p.exitAmount0!).plus(amount0).toStore();
+    p.exitAmount0USD = d(p.exitAmount0USD!).plus(usd0).toStore();
+    p.exitAmount1 = d(p.exitAmount1!).plus(amount1).toStore();
+    p.exitAmount1USD = d(p.exitAmount1USD!).plus(usd1).toStore();
+    p.exitAmountUSD = d(p.exitAmountUSD).plus(usd0.plus(usd1)).toStore();
+  } else {
+    p.exitAmount0 = amount0.toStore();
+    p.exitAmount0USD = usd0.toStore();
+    p.exitAmount1 = amount1.toStore();
+    p.exitAmount1USD = usd1.toStore();
+    p.exitAmountUSD = usd0.plus(usd1).toStore();
+  }
+}
+
+/** recordDecreaseInExit: a DecreaseLiquidity's amounts, valued now, added to the exit. False with no tokens on record. */
+export async function recordDecreaseInExit(ctx: PosCtx, p: ProtocolPosition, amount0: bigint, amount1: bigint, at: At): Promise<boolean> {
+  if (p.token0 == null || p.token1 == null) return false;
+  const exit0 = convertTokenAmount(amount0, p.token0, ctx.log);
+  const exit1 = convertTokenAmount(amount1, p.token1, ctx.log);
+  const usd0 = exit0.times(await getTokenPriceUSD(ctx, p.token0, at));
+  const usd1 = exit1.times(await getTokenPriceUSD(ctx, p.token1, at));
+  addToExit(p, exit0, usd0, exit1, usd1);
+  return true;
+}
+
+/**
+ * recordFullExit: closes the position on a full-exit DecreaseLiquidity; the
+ * exit adds up every decrease of the position, partial ones in earlier blocks
+ * included. False when the position has no tokens on record.
  */
 export async function recordFullExit(
   ctx: PosCtx,
@@ -413,24 +444,7 @@ export async function recordFullExit(
   at: At,
   txHash: string,
 ): Promise<boolean> {
-  if (p.token0 == null || p.token1 == null) return false;
-  const exit0 = convertTokenAmount(amount0, p.token0, ctx.log);
-  const exit1 = convertTokenAmount(amount1, p.token1, ctx.log);
-  const usd0 = exit0.times(await getTokenPriceUSD(ctx, p.token0, at));
-  const usd1 = exit1.times(await getTokenPriceUSD(ctx, p.token1, at));
-  if (exitClosedInBlock(p, at)) {
-    p.exitAmount0 = d(p.exitAmount0!).plus(exit0).toStore();
-    p.exitAmount0USD = d(p.exitAmount0USD!).plus(usd0).toStore();
-    p.exitAmount1 = d(p.exitAmount1!).plus(exit1).toStore();
-    p.exitAmount1USD = d(p.exitAmount1USD!).plus(usd1).toStore();
-    p.exitAmountUSD = d(p.exitAmountUSD!).plus(usd0.plus(usd1)).toStore();
-  } else {
-    p.exitAmount0 = exit0.toStore();
-    p.exitAmount0USD = usd0.toStore();
-    p.exitAmount1 = exit1.toStore();
-    p.exitAmount1USD = usd1.toStore();
-    p.exitAmountUSD = usd0.plus(usd1).toStore();
-  }
+  if (!(await recordDecreaseInExit(ctx, p, amount0, amount1, at))) return false;
   p.isActive = false;
   p.exitTxHash = txHash;
   p.exitTimestamp = at.blockTimestamp;

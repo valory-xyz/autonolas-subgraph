@@ -32,6 +32,7 @@ import { AeroGauge, PendingMintPosition, ProtocolPosition, Service, V2PoolVenue,
 import { calculatePortfolioMetrics } from "./portfolio";
 import {
   addServicePosition,
+  addToExit,
   calculatePositionROI,
   d,
   initializePositionCosts,
@@ -245,13 +246,10 @@ async function refreshVeloV2PositionWithBurnAmounts(
   const price1 = await getTokenPriceUSD(ctx, pp.token1!, at);
   const usd0 = price0.times(human0);
   const usd1 = price1.times(human1);
+  // The cycle's Burns add up (startNewCycle clears the exit).
   pp.exitTxHash = txHash;
   pp.exitTimestamp = at.blockTimestamp;
-  pp.exitAmount0 = human0.toStore();
-  pp.exitAmount0USD = usd0.toStore();
-  pp.exitAmount1 = human1.toStore();
-  pp.exitAmount1USD = usd1.toStore();
-  pp.exitAmountUSD = usd0.plus(usd1).toStore();
+  addToExit(pp, human0, usd0, human1, usd1);
   calculatePositionROI(ctx, pp);
   savePosition(ctx, pp);
   await refreshVeloV2Position(ctx, user, pool, at, txHash);

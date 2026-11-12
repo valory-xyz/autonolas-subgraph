@@ -26,6 +26,7 @@ import { NFTPositionMapping, ProtocolPosition, Service } from "./model";
 import { calculatePortfolioMetrics } from "./portfolio";
 import {
   addServicePosition,
+  addToExit,
   calculatePositionROI,
   clPositionId,
   closedWithNoExitThisBlock,
@@ -38,6 +39,7 @@ import {
   nftPositionMappingId,
   recordClaimableRewardBeforeBlock,
   recordCollectedFees,
+  recordDecreaseInExit,
   recordFullExit,
   recordReleasedPrincipal,
   savePosition,
@@ -235,6 +237,8 @@ export async function refreshVeloCLPositionWithExitAmounts(
     savePosition(ctx, pp);
     await calculatePortfolioMetrics(ctx, pp.agent, at); // refreshPortfolio
   } else {
+    // A partial decrease's principal is exit proceeds too, whenever it is collected.
+    if (!isFullExit && (await recordDecreaseInExit(ctx, pp, eventAmount0, eventAmount1, at))) savePosition(ctx, pp);
     await refreshVeloCLPosition(ctx, positionId, tokenId, at, txHash);
   }
 }
@@ -301,7 +305,8 @@ async function refreshOrCreateCLPosition(
     position.token0Symbol = getTokenSymbol(first.token0, ctx.log);
     position.token1Symbol = getTokenSymbol(first.token1, ctx.log);
     position.entryTxHash = txHash;
-    position.entryTimestamp = at.blockTimestamp;
+    // 0 until the first IncreaseLiquidity records the entry and links its buffered swaps
+    position.entryTimestamp = 0n;
     position.entryAmount0 = ZERO.toStore();
     position.entryAmount0USD = ZERO.toStore();
     position.entryAmount1 = ZERO.toStore();
@@ -380,11 +385,7 @@ async function refreshOrCreateCLPosition(
     if (!exitClosedInBlock(position, at)) {
       position.exitTxHash = txHash;
       position.exitTimestamp = at.blockTimestamp;
-      position.exitAmount0 = human0.toStore();
-      position.exitAmount0USD = usd0.toStore();
-      position.exitAmount1 = human1.toStore();
-      position.exitAmount1USD = usd1.toStore();
-      position.exitAmountUSD = usd.toStore();
+      addToExit(position, human0, usd0, human1, usd1);
     }
     position.isActive = false;
     calculatePositionROI(ctx, position);
