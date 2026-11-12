@@ -1,5 +1,5 @@
 import { InMemoryCache, type EventMeta } from "@olas/squid-shared";
-import type { Ctx } from "../src/handlers";
+import type { Ctx, Tx } from "../src/handlers";
 import type { ChainReader, RpcLog, RpcTransaction } from "../src/rpc";
 import { ETH_USD_FEED, USDC_USD_FEED } from "../src/constants";
 
@@ -10,18 +10,26 @@ export interface Round {
 export interface Pool {
   token0: string;
   token1: string;
-  r0: bigint;
-  r1: bigint;
-  ts?: bigint;
+  r0?: bigint;
+  r1?: bigint;
+  /** stable(); undefined = the call reverts (Aero v2 pools have none). */
+  stable?: boolean;
+  /** getAmountOut(amountIn, tokenIn) by `${amountIn}:${tokenIn}`; missing = revert. */
+  quotes?: Map<string, bigint>;
+  /** CL slot0().sqrtPriceX96. */
+  sqrtPriceX96?: bigint;
 }
 
-/** A ChainReader stand-in: Chainlink feeds, v2 pools and code by address. */
+/** A ChainReader stand-in: Chainlink feeds, pools, Safes and code by address. */
 export class FakeChain {
   feeds = new Map<string, Round | null>();
   pools = new Map<string, Pool | null>();
   contracts = new Set<string>();
+  /** Contracts whose getThreshold() answers. */
+  safes = new Set<string>();
   logs: RpcLog[] = [];
   txs = new Map<string, RpcTransaction>();
+  receipts = new Map<string, { address: string; topics: string[] }[]>();
   calls: string[] = [];
 
   constructor() {
@@ -38,11 +46,28 @@ export class FakeChain {
       if (r == null) return null;
       return { roundId: 1n, answer: r.answer, startedAt: r.updatedAt, updatedAt: r.updatedAt, answeredInRound: 1n };
     }
+    if (sel === "0xe75235b8") return this.safes.has(to) ? 1n : null;
     const pool = this.pools.get(to);
     if (pool == null) return null;
     if (sel === "0x0dfe1681") return pool.token0;
     if (sel === "0xd21220a7") return pool.token1;
-    if (sel === "0x0902f1ac") return { _reserve0: pool.r0, _reserve1: pool.r1, _blockTimestampLast: pool.ts ?? 0n };
+    if (sel === "0x0902f1ac") {
+      if (pool.r0 === undefined) return null;
+      return { _reserve0: pool.r0, _reserve1: pool.r1!, _blockTimestampLast: 0n };
+    }
+    if (sel === "0x22be3de1") return pool.stable ?? null;
+    if (sel === "0xf140a35a") return pool.quotes?.get(`${args.amountIn}:${args.tokenIn}`) ?? null;
+    if (sel === "0x3850c7bd") {
+      if (pool.sqrtPriceX96 === undefined) return null;
+      return {
+        sqrtPriceX96: pool.sqrtPriceX96,
+        tick: 0,
+        observationIndex: 0,
+        observationCardinality: 0,
+        observationCardinalityNext: 0,
+        unlocked: true,
+      };
+    }
     throw new Error(`unexpected call ${sel} to ${to}`);
   }
 
@@ -62,6 +87,12 @@ export class FakeChain {
     if (tx == null) throw new Error(`no tx ${hash}`);
     return tx;
   }
+
+  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[] }[]> {
+    const r = this.receipts.get(hash);
+    if (r == null) throw new Error(`no receipt ${hash}`);
+    return r;
+  }
 }
 
 export function setup() {
@@ -79,6 +110,12 @@ export function setup() {
 
 export const addr = (n: number) => "0x" + n.toString(16).padStart(40, "0");
 export const hash = (n: number) => "0x" + n.toString(16).padStart(64, "0");
+
+/** A tx sent by an unrelated relayer to an unrelated contract, no calldata. */
+export const RELAYER = addr(0xfff1);
+export function tx(over: Partial<Tx> = {}): Tx {
+  return { from: RELAYER, to: addr(0xfff2), value: 0n, input: "0x", ...over };
+}
 
 export function meta(over: Partial<EventMeta> = {}): EventMeta {
   return {

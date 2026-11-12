@@ -1,3 +1,5 @@
+# DEPRECATED: Base Marketplace is migrating to squids/marketplace.
+# Retained during migration; switch consumers only after the replacement is validated.
 specVersion: 1.2.0
 indexerHints:
   prune: 300

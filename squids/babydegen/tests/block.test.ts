@@ -11,23 +11,26 @@ import { FLUSH_ORDER } from "../src/entityCache";
 import { ETH_ADDRESS, tokenBalanceId } from "../src/ids";
 import { FundingBalance, SafeDataSource, Service, ServiceRegistration, TokenBalance } from "../src/model";
 import { cutAtSpawn, emptyTracked, firstSpawnIndex, logQueries, serviceIdFromKey, type Tracked } from "../src/sources";
-import { addr, hash, meta, setup } from "./helpers";
+import { EXEC_ETH_TO_USER } from "./fixtures/receipts175";
+import { addr, hash, meta, setup, tx } from "./helpers";
 
 const OPERATOR = addr(0x0a);
 const SAFE = addr(0x5a);
 const EOA = addr(0xe0);
+const AGENT = addr(0xa1);
 const TX = hash(0x77);
 
+/** Every log carries the tx (from an unrelated relayer, no calldata) unless given one. */
 const log = (logIndex: number, address: string, e: { topics: string[]; data: string }, transaction?: RawLog["transaction"]): RawLog => ({
   address,
   logIndex,
   transactionHash: TX,
   topics: e.topics,
   data: e.data,
-  ...(transaction === undefined ? {} : { transaction }),
+  transaction: transaction ?? tx(),
 });
 const registerInstance = (i: number, serviceId = 607n, agentId = 115n) =>
-  log(i, SERVICE_REGISTRY, registry.RegisterInstance.encode({ operator: OPERATOR, serviceId, agentInstance: EOA, agentId }));
+  log(i, SERVICE_REGISTRY, registry.RegisterInstance.encode({ operator: OPERATOR, serviceId, agentInstance: AGENT, agentId }));
 const createMultisig = (i: number, serviceId = 607n, multisig = SAFE) =>
   log(i, SERVICE_REGISTRY, registry.CreateMultisigWithAgents.encode({ serviceId, multisig }));
 const usdcTransfer = (i: number, from: string, to: string, value: bigint) =>
@@ -89,16 +92,30 @@ describe("processBlock: a Basius service registered mid-block", () => {
     expect((await cache.get(TokenBalance, tokenBalanceId(SAFE, ETH_ADDRESS)))!.balance.toFixed()).toBe("1");
   });
 
-  it("fetches the transaction for Safe executions only", async () => {
+  it("fetches the transaction for every Safe log and the receipt where the handler reads it", async () => {
     const { chain } = setup();
     chain.logs = [
       { ...safeReceived(1, SAFE, EOA, 1n), transactionIndex: 0 },
       { ...log(2, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n })), transactionIndex: 0 },
     ];
-    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n });
+    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n, input: "0x6a761202" });
+    const receipt = [{ address: SAFE, topics: [safe.SafeReceived.topic] }];
+    chain.receipts.set(TX, receipt);
     const got = await fetchMissingLogs(chain as any, header.hash, [], [SAFE]);
-    expect(got.find((l) => l.logIndex === 1)!.transaction).toBeUndefined();
-    expect(got.find((l) => l.logIndex === 2)!.transaction).toMatchObject({ to: SAFE, value: 5n });
+    expect(got.find((l) => l.logIndex === 1)).toMatchObject({ transaction: { from: EOA, input: "0x6a761202" }, receipt: undefined });
+    expect(got.find((l) => l.logIndex === 2)).toMatchObject({ transaction: { to: SAFE, value: 5n }, receipt });
+  });
+
+  it("gives each streamed Transfer / ExecutionSuccess its transaction's logs as the receipt", async () => {
+    const { ctx, cache, chain } = setup();
+    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [] }));
+    const CONTRACT = addr(0xc0);
+    chain.contracts.add(CONTRACT);
+    // USDC out to a contract, and USDC back to the Safe later in the same tx: a swap, not a withdrawal
+    const logs = [usdcTransfer(1, SAFE, CONTRACT, 5_000_000n), usdcTransfer(2, CONTRACT, SAFE, 4_000_000n)];
+    await processBlock(ctx, { header, logs }, { serviceSafes: new Set([SAFE]), safeHosts: new Set([SAFE]) }, async () => []);
+    expect(logs[0].receipt!.map((l) => l.topics[2])).toEqual([addressTopic(CONTRACT), addressTopic(SAFE)]);
+    expect(await cache.get(FundingBalance, SAFE)).toBeUndefined();
   });
 
   it("fetchMissingLogs asks for Transfers both ways plus the hosts' Safe events, with their transactions", async () => {
@@ -109,7 +126,8 @@ describe("processBlock: a Basius service registered mid-block", () => {
       { ...usdcTransfer(3, EOA, EOA, 1n), transactionIndex: 0 },
       { ...log(4, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n })), transactionIndex: 0 },
     ];
-    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n });
+    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n, input: "0x" });
+    chain.receipts.set(TX, []);
     const got = await fetchMissingLogs(chain as any, header.hash, [SAFE], [SAFE]);
     expect(got.map((l) => l.logIndex).sort()).toEqual([1, 2, 4]);
     expect(got.find((l) => l.logIndex === 4)!.transaction).toMatchObject({ to: SAFE, value: 5n });
@@ -120,17 +138,18 @@ describe("dispatch", () => {
   it("skips a Safe 1.4.1 ExecutionSuccess (indexed txHash: two topics), as graph-node does with this ABI", async () => {
     const { ctx, cache } = setup();
     for (const l of [registerInstance(1), createMultisig(2)]) await dispatch(ctx, meta({ address: l.address }), l);
-    const v13 = log(3, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n }), { to: EOA, value: 10n ** 18n });
+    // execTransaction sending 0.5 ETH to 0x…e0 (EOA)
+    const v13 = log(3, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n }), tx({ to: SAFE, input: EXEC_ETH_TO_USER }));
     const v141: RawLog = { ...v13, logIndex: 4, topics: [v13.topics[0], hash(1)], data: "0x" + "00".repeat(32) };
     await dispatch(ctx, meta({ address: SAFE, logIndex: 4 }), v141);
     expect(await cache.get(FundingBalance, SAFE)).toBeUndefined();
     await dispatch(ctx, meta({ address: SAFE, logIndex: 3 }), v13);
-    expect((await cache.get(FundingBalance, SAFE))!.totalOutUsd.toFixed()).toBe("3000");
+    expect((await cache.get(FundingBalance, SAFE))!.totalWithdrawnUsd.toFixed()).toBe("1500");
   });
 
   it("ignores Safe events from an address without a Safe instance", async () => {
     const { ctx, cache } = setup();
-    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR }));
+    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [] }));
     await dispatch(ctx, meta({ address: SAFE }), safeReceived(1, SAFE, EOA, 1n));
     expect(cache.all(TokenBalance)).toHaveLength(0);
     cache.set(SafeDataSource, new SafeDataSource({ id: SAFE, createdAtBlock: 1n }));
@@ -243,7 +262,9 @@ describe("restart-on-new-Safe source", () => {
     expect(reg.where!.address).toEqual([SERVICE_REGISTRY]);
     expect(from.where).toMatchObject({ address: TRACKED_TOKENS, topic0: [erc20.Transfer.topic], topic1: [addressTopic(SAFE)] });
     expect(to.where).toMatchObject({ topic2: [addressTopic(SAFE)] });
-    expect(safes).toMatchObject({ where: { address: [OPERATOR, SAFE] }, include: { transaction: true } });
+    expect(from.include).toEqual({ transaction: true, transactionLogs: true });
+    expect(to.include).toEqual({ transaction: true, transactionLogs: true });
+    expect(safes).toMatchObject({ where: { address: [OPERATOR, SAFE] }, include: { transaction: true, transactionLogs: true } });
     expect(safes.where!.topic0).toHaveLength(3);
   });
 

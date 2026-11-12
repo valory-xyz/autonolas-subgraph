@@ -1,10 +1,13 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BooleanColumn as BooleanColumn_, BigIntColumn as BigIntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Checkpoint {
     constructor(props?: Partial<Checkpoint>) {
         Object.assign(this, props)
     }
+
+    @BooleanColumn_({nullable: true})
+    isRebaseline!: boolean | undefined | null
 
     @PrimaryColumn_()
     id!: string

@@ -1,5 +1,9 @@
 # Marketplace Subgraph
 
+> **Deprecated Polygon deployment:** Migration to the [Marketplace squid](../../squids/marketplace) is planned; Polygon squid support is prepared. Check **[WD] Subgraph&Squids Development and Deployment Tracking** to confirm whether deployment and consumer cutover are already complete before deploying.
+
+> **Deprecated Base deployment:** Base Marketplace is migrating to the [Marketplace squid](../../squids/marketplace). Its subgraph manifest remains during migration until replacement data and consumer cutover are validated.
+
 A Graph Protocol subgraph for indexing the Olas Mech Marketplace on **Gnosis**, **Base**, **Polygon**, **Optimism**, **Ethereum**, **Arbitrum**, and **Celo** networks.
 
 ## When to Read This
@@ -211,13 +215,41 @@ Or query parsed delivery content directly:
 
 ### IPFS Metadata Is Asynchronous
 
-Request/delivery IPFS metadata is fetched by background file data sources (`handleParsedRequest`/`handleParsedDelivery`), off the block-indexing critical path. Consequences for consumers:
+Request/delivery IPFS metadata, including legacy Gnosis AgentMech events, is fetched by background file data sources (`handleParsedRequest`/`handleParsedDelivery`), off the block-indexing critical path. Consequences for consumers:
 
 - `ParsedRequest`/`ParsedDelivery` can lag arbitrarily behind the chain head and never appear at all if the IPFS hash is unreachable. `parsedRequest: null` does not mean no prompt existed.
 - The IPFS-parsed `response`/`model`/`tool`/`toolHash` live on `ParsedDelivery`, read via `deliver.parsedDelivery`. Delivery IPFS metadata is parsed in a file-data-source causality region that writes only `ParsedDelivery`, not the chain-owned `Deliver`. `tool` (`metadata.tool`) and `toolHash` (`metadata.tool_hash`, an IPFS CID) are `[unhandled type]` when the payload omits the keys.
-- `Global.totalPredictRequests` / `Sender.totalPredictRequests` are not incremented for marketplace requests (the background handler cannot write `Global`/`Sender`); only the legacy Gnosis AgentMech path increments them. Compute predict-request counts as `parsedRequests(where: {questionTitle_not: ""})` instead.
+- `Global.totalPredictRequests` / `Sender.totalPredictRequests` are deprecated and no longer increment for either legacy or marketplace requests: background handlers cannot write `Global`/`Sender`. A graft preserves the old values as historical snapshots; new entities initialize them to zero. Compute prediction counts by paginating `parsedRequests(where: {questionTitle_not: ""})`, joining to `Request.sender` for per-sender counts. Counts reflect available metadata, not all on-chain requests.
 - `questionTitle` is extracted by matching the `With the given question "..."` prompt template (`src/marketplace/request-metadata.ts`). If the trader prompt template changes, `QUESTION_CLOSING_DELIMITERS` must be extended or new requests get `questionTitle: ""`.
-- Request/delivery payloads that are not exactly 32 bytes (a raw IPFS digest) are skipped entirely — no IPFS parse, only a log warning.
+- Request/delivery metadata payloads that are not exactly 32 bytes (a raw IPFS digest) are skipped with a warning; the chain event and its counters are still indexed.
+- Legacy requests schedule both `CID/metadata.json` and `CID`; legacy deliveries schedule both `CID/<full decimal requestId>/metadata.json` and `CID/<full decimal requestId>`. Availability of one path does not cancel polling of the other. File-source backlog cleanup remains an operator concern; this change does not expire sources.
+
+### Gnosis legacy-IPFS recovery graft
+
+`subgraph.gnosis.yaml` is prepared to graft from the v6.3.0 deployment
+`QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh` at block **38,459,986**,
+the reported paused indexed head. The reported oldest retained block was
+38,459,672, so the selected block is within the available history. The chain head
+49,206,027 has not been indexed by this deployment and is not a graft point.
+
+1. Keep the base deployment paused until the graft copy completes, so the
+   selected block does not age out of its retained history.
+2. Before deployment, confirm block 38,459,986 is still indexed, retained, and
+   canonical. Both manifests use `prune: 300`; if the base resumes, recheck the point.
+3. Run `yarn graph codegen subgraph.gnosis.yaml`,
+   `yarn build`, `yarn test:manifests`, and the Matchstick tests.
+4. Confirm the deployed base schema is compatible and there is enough database
+   space for the copy. Deploy to a new version; grafting copies existing entities
+   and dynamic sources, and can temporarily add load to the shared database.
+5. Verify copied chain counts, existing parsed metadata, and async enrichment of
+   new legacy requests/deliveries before switching consumers. Prediction-counter
+   consumers must use the derived counts described above.
+
+Grafting does not retry metadata previously missed by the synchronous handler,
+discard existing pending sources, or cancel other deployments' polling. Update
+the cleanup job's schema targets for the new deployment separately. No Graph Node
+or shared database configuration changes are required for this mapping change.
+Remove `graft` and the `grafting` feature for a future intentional full replay.
 
 ### Query Semantics
 

@@ -12,6 +12,12 @@ export class AddressType {
     @BooleanColumn_({nullable: false})
     isContract!: boolean
 
+    /**
+     * A contract that answers getThreshold(): a Safe, so the user side
+     */
+    @BooleanColumn_({nullable: false})
+    isSafe!: boolean
+
     @BigIntColumn_({nullable: false})
     checkedAt!: bigint
 }

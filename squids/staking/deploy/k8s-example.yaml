@@ -4,6 +4,8 @@
 # Secret staking-robinhood-squid-data: RPC_HTTP (archive REQUIRED), STAKING_CHAIN=robinhood,
 # INGEST_SOURCE=portal|rpc, SQD_PORTAL_URL and SQD_PORTAL_API_KEY for private portal access.
 # For Base, copy with names staking-base-* and STAKING_CHAIN=base, SQD_PORTAL_URL=.../datasets/base-mainnet.
+# For Polygon, use names staking-polygon-*, STAKING_CHAIN=polygon,
+# SQD_PORTAL_URL=.../datasets/polygon-mainnet and a Polygon archive RPC_HTTP.
 # Run the migration job successfully before starting the processor/API.
 apiVersion: batch/v1
 kind: Job

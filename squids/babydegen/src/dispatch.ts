@@ -12,14 +12,27 @@ import { SERVICE_REGISTRY, TOKENS } from "./constants";
 import * as h from "./handlers";
 import { SafeDataSource } from "./model";
 
+/** The top-level transaction, as the stream or eth_getTransactionByHash gives it. */
+export interface RawTransaction {
+  from?: string;
+  to?: string | null;
+  value?: bigint;
+  input?: string;
+}
+
 export interface RawLog {
   address: string;
   topics: string[];
   data: string;
   logIndex: number;
   transactionHash: string;
-  /** Present for Safe-topic logs (`include: {transaction: true}` or fetched). */
-  transaction?: { to?: string | null; value?: bigint } | null;
+  /** Present for Transfer and Safe-topic logs (`include: {transaction: true}` or fetched). */
+  transaction?: RawTransaction | null;
+  /**
+   * Every log of the transaction (graph-node's `event.receipt`), for the
+   * handlers that set `receipt: true`: token Transfers and ExecutionSuccess.
+   */
+  receipt?: h.ReceiptLog[] | null;
 }
 
 export const TRANSFER_TOPIC = erc20.Transfer.topic;
@@ -34,9 +47,22 @@ export const SAFE_TOPICS = [safe.SafeReceived.topic, safe.ExecutionSuccess.topic
 
 export const isSafeTopic = (log: { topics: string[] }) => SAFE_TOPICS.includes(log.topics[0]);
 
-/** Only the execution events read the top-level transaction's to/value. */
-export const needsTransaction = (log: { topics: string[] }) =>
-  log.topics[0] === safe.ExecutionSuccess.topic || log.topics[0] === safe.ExecutionFromModuleSuccess.topic;
+/** Logs whose handlers read `event.transaction` (from / to / value / input). */
+export const needsTransaction = (log: { topics: string[] }) => isSafeTopic(log) || log.topics[0] === TRANSFER_TOPIC;
+
+/** Logs whose handlers read `event.receipt`. */
+export const needsReceipt = (log: { topics: string[] }) =>
+  log.topics[0] === TRANSFER_TOPIC || log.topics[0] === safe.ExecutionSuccess.topic;
+
+function txOf(meta: EventMeta, log: RawLog): h.Tx {
+  const tx = log.transaction;
+  if (tx == null || tx.from == null || tx.value === undefined || tx.input == null) {
+    // Cannot happen with the field selection in processor.ts or a fetched
+    // transaction; guard so a selection regression is loud, not silent.
+    throw new Error(`log ${meta.txHash}-${meta.logIndex} has no transaction from/to/value/input`);
+  }
+  return { from: lc(tx.from), to: tx.to == null ? null : lc(tx.to), value: tx.value, input: tx.input };
+}
 
 export async function dispatch(ctx: h.Ctx, meta: EventMeta, log: RawLog): Promise<void> {
   const topic = log.topics[0];
@@ -44,7 +70,12 @@ export async function dispatch(ctx: h.Ctx, meta: EventMeta, log: RawLog): Promis
     if (topic === registry.RegisterInstance.topic) {
       const e = tryDecode(ctx, meta, registry.RegisterInstance, log);
       if (e == null) return;
-      await h.handleRegisterInstance(ctx, meta, { operator: lc(e.operator), serviceId: e.serviceId, agentId: e.agentId });
+      await h.handleRegisterInstance(ctx, meta, {
+        operator: lc(e.operator),
+        serviceId: e.serviceId,
+        agentInstance: lc(e.agentInstance),
+        agentId: e.agentId,
+      });
     } else if (topic === registry.CreateMultisigWithAgents.topic) {
       const e = tryDecode(ctx, meta, registry.CreateMultisigWithAgents, log);
       if (e == null) return;
@@ -55,7 +86,8 @@ export async function dispatch(ctx: h.Ctx, meta: EventMeta, log: RawLog): Promis
 
   if (topic === TRANSFER_TOPIC && TOKENS.has(meta.address)) {
     const e = tryDecode(ctx, meta, erc20.Transfer, log);
-    if (e != null) await h.handleERC20Transfer(ctx, meta, { from: lc(e.from), to: lc(e.to), value: e.value });
+    if (e == null) return;
+    await h.handleERC20Transfer(ctx, meta, { from: lc(e.from), to: lc(e.to), value: e.value }, txOf(meta, log), log.receipt ?? null);
     return;
   }
 
@@ -63,21 +95,16 @@ export async function dispatch(ctx: h.Ctx, meta: EventMeta, log: RawLog): Promis
   if ((await ctx.cache.get(SafeDataSource, meta.address)) == null) return;
   if (topic === safe.SafeReceived.topic) {
     const e = tryDecode(ctx, meta, safe.SafeReceived, log);
-    if (e != null) await h.handleSafeReceived(ctx, meta, { sender: lc(e.sender), value: e.value });
+    if (e != null) await h.handleSafeReceived(ctx, meta, { sender: lc(e.sender), value: e.value }, txOf(meta, log));
     return;
   }
-  const decoded =
-    topic === safe.ExecutionSuccess.topic
-      ? tryDecode(ctx, meta, safe.ExecutionSuccess, log)
-      : tryDecode(ctx, meta, safe.ExecutionFromModuleSuccess, log);
-  if (decoded == null) return;
-  const tx = log.transaction;
-  if (tx == null || tx.value === undefined) {
-    // Cannot happen with the field selection in processor.ts or a fetched
-    // transaction; guard so a selection regression is loud, not $0.
-    throw new Error(`Safe execution log ${meta.txHash}-${meta.logIndex} has no transaction to/value`);
+  if (topic === safe.ExecutionSuccess.topic) {
+    if (tryDecode(ctx, meta, safe.ExecutionSuccess, log) == null) return;
+    await h.handleExecutionSuccess(ctx, meta, txOf(meta, log), log.receipt ?? null);
+    return;
   }
-  await h.handleSafeExecution(ctx, meta, { to: tx.to == null ? null : lc(tx.to), value: tx.value });
+  const e = tryDecode(ctx, meta, safe.ExecutionFromModuleSuccess, log);
+  if (e != null) await h.handleExecutionFromModuleSuccess(ctx, meta, { module: lc(e.module) });
 }
 
 function tryDecode<T>(

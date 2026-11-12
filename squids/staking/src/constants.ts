@@ -1,6 +1,6 @@
 import { selectChain, type Address } from "@olas/squid-shared";
 
-export type ChainName = "robinhood" | "base";
+export type ChainName = "robinhood" | "base" | "polygon";
 
 export interface ChainConfig {
   name: ChainName;
@@ -9,7 +9,7 @@ export interface ChainConfig {
   portalRequiresApiKey: boolean;
   /** Archive RPC used for historical contract reads and optional ingestion. */
   defaultRpc: string;
-  /** Factory deployment block; indexing must include the full staking history. */
+  /** Replay boundary; must precede every factory-created staking instance. */
   startBlock: number;
   stakingFactory: Address;
   olas: Address;
@@ -41,6 +41,19 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
     stakingFactory: "0x1cee30d08943eb58eff84dd1ab44a6ee6feff63a",
     // studio shared/constants.ts OLAS_ADDRESS_BASE
     olas: "0x54330d28ca3357f294334bdc454a032e7f353416",
+  },
+  polygon: {
+    name: "polygon",
+    chainId: 137,
+    portalDataset: "https://portal.sqd.dev/datasets/polygon-mainnet",
+    portalRequiresApiKey: false,
+    defaultRpc: "https://rpc-gate.autonolas.tech/polygon-rpc/",
+    // Retain Studio's replay boundary: factory deployed at 59,560,456, but
+    // its nonce remained 1 through 70M (review #174), so no instances are skipped.
+    // OLAS matches Studio shared/constants.ts.
+    startBlock: 62_213_142,
+    stakingFactory: "0x46c0d07f55d4f9b5eed2fc9680b5953e5fd7b461",
+    olas: "0xfef5d947472e72efbb2e388c730b7428406f2f95",
   },
 };
 

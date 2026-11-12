@@ -6,11 +6,11 @@ import { CTX_BASE_HASH, CTX_REQUEST_ID, parseRequestPayload } from './request-me
 /**
  * Offchain file-data-source handler for a request's IPFS metadata.json.
  *
- * Spawned by processOnChainRequest (marketplace/utils.ts) via
+ * Spawned by processOnChainRequest and legacy AgentMech request handlers via
  * `ParsedRequestFile.createWithContext(<baseHash>[/metadata.json], ctx)`. graph-node fetches
- * the file in the BACKGROUND, off the block-indexing critical path — so unreachable/abusive
- * IPFS hashes (staking-reward farming) can no longer stall the chain head; they simply never
- * trigger this handler and the request is left unenriched.
+ * the file in the BACKGROUND, so an unavailable file does not block an individual chain
+ * handler. Pending sources still consume resources and need operational backlog
+ * management; this handler only runs when bytes are available.
  *
  * Runs in its own causality region: it may only write entities declared for this template
  * (ParsedRequest) and cannot touch chain entities (Global/Sender/Request). The former
@@ -23,7 +23,8 @@ export function handleParsedRequest(content: Bytes): void {
   let requestId = ctx.getString(CTX_REQUEST_ID);
   let baseHash = ctx.getString(CTX_BASE_HASH);
 
-  // Idempotent on reorg/re-run and across the two spawns (metadata.json + bare hash).
+  // Guard against a repeat invocation in this causality region. Sibling file
+  // sources are isolated; this does not cancel the alternate path's polling.
   if (ParsedRequest.load(requestId) !== null) {
     return;
   }
