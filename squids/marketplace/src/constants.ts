@@ -159,6 +159,20 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
         feeUnit: FEE_UNIT_USDC,
         startBlock: 59_579_676,
       },
+      {
+        address: "0xc14e191a64a7fb0e5790a8a0b9a58683dffce04d",
+        event: "CreateMechFixedPriceNative",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+        feeUnit: FEE_UNIT_NATIVE,
+        startBlock: 59_579_034,
+      },
+      {
+        address: "0x24f792d51b398928459dfbb4181bdb4d5d2cd472",
+        event: "CreateMechFixedPriceToken",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+        feeUnit: FEE_UNIT_USDC,
+        startBlock: 59_579_034,
+      },
     ],
     // Chainlink ETH / USD on Robinhood Chain mainnet, 8 decimals, 24h
     // heartbeat (reference-data-directory feeds-robinhood-mainnet.json).
@@ -235,6 +249,20 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
         feeUnit: FEE_UNIT_CREDITS,
         startBlock: 26_642_705,
       },
+      {
+        address: "0xf8a8c985f46ab6204e6a40845e73a6119f0458ed",
+        event: "CreateMechFixedPriceNative",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+        feeUnit: FEE_UNIT_NATIVE,
+        startBlock: 26_642_705,
+      },
+      {
+        address: "0x17d8b863f6c4601d67a87fda04d53849c5f9ce00",
+        event: "CreateMechFixedPriceToken",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+        feeUnit: FEE_UNIT_USDC,
+        startBlock: 26_642_705,
+      },
     ],
     // Chainlink ETH / USD on Base, 8 decimals.
     nativeUsdFeed: "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70",
@@ -305,6 +333,20 @@ export const CHAINS: Record<ChainName, ChainConfig> = {
         event: "CreateMechNvmSubscriptionTokenUSDC",
         paymentType: PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC,
         feeUnit: FEE_UNIT_CREDITS,
+        startBlock: 81_028_558,
+      },
+      {
+        address: "0x40dabcf2deec7241749b320cbc5ca69544a90d68",
+        event: "CreateMechFixedPriceNative",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+        feeUnit: FEE_UNIT_NATIVE,
+        startBlock: 81_028_558,
+      },
+      {
+        address: "0x749cdf4bf2e55269b3d1bc4b4408e34689c96b67",
+        event: "CreateMechFixedPriceToken",
+        paymentType: PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+        feeUnit: FEE_UNIT_USDC,
         startBlock: 81_028_558,
       },
     ],

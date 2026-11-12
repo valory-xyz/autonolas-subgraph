@@ -29,7 +29,7 @@ describe("Polygon source coverage", () => {
     // historical factories or shift one of the source ranges during the port.
     const manifest = readFileSync(new URL("../../../subgraphs/marketplace/subgraph.polygon.yaml", import.meta.url), "utf8");
     const sources = manifest.split("\ntemplates:")[0].split(/^  - kind: ethereum\s*$/m).slice(1);
-    expect(sources).toHaveLength(8);
+    expect(sources).toHaveLength(10);
     const contracts = new Map([
       ["ServiceRegistryL2", CHAIN.serviceRegistryL2],
       ["ComplementaryServiceMetadata", CHAIN.complementaryServiceMetadata!],
@@ -51,7 +51,7 @@ describe("Polygon source coverage", () => {
     }
     const pricing = readFileSync(new URL("../../../subgraphs/marketplace/src/marketplace/constants.ts", import.meta.url), "utf8");
     expect(CHAIN.nativeUsdFeed).toBe(pricing.match(/CHAINLINK_PRICE_FEED_ADDRESS_POLYGON_POL_USD = '([^']+)'/)![1].toLowerCase());
-    expect(CHAIN.mechFactories.map((f) => f.feeUnit)).toEqual(["NATIVE", "TOKEN", "USDC", "CREDITS"]);
+    expect(CHAIN.mechFactories.map((f) => f.feeUnit)).toEqual(["NATIVE", "TOKEN", "USDC", "CREDITS", "NATIVE", "USDC"]);
   });
 
   it("subscribes to one V2 era, all four factories, and advertised-rate updates", async () => {
@@ -62,7 +62,7 @@ describe("Polygon source coverage", () => {
     expect(marketplace[0].where.topic0).toEqual(marketplaceTopics(v2));
     const factories = LOG_QUERIES.find((q) => q.where.address?.includes(POLYGON.mechFactories[0].address))!;
     expect(factories.where.address).toEqual(POLYGON.mechFactories.map((f) => f.address));
-    expect(factories.where.topic0).toEqual(POLYGON.mechFactories.map((f) => FACTORY_EVENTS[f.event as keyof typeof FACTORY_EVENTS].topic));
+    expect(factories.where.topic0).toEqual([...new Set(POLYGON.mechFactories.map((f) => FACTORY_EVENTS[f.event as keyof typeof FACTORY_EVENTS].topic))]);
     const mechs = LOG_QUERIES.find((q) => q.where.address == null)!;
     expect(mechs.where.topic0).toContain(mechAbi.MaxDeliveryRateUpdated.topic);
     for (const factory of POLYGON.mechFactories) {

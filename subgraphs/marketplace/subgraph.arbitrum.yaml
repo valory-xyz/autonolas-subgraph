@@ -27,6 +27,47 @@ dataSources:
         - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
+  # Conservative replay boundary retained from historical factory source.
+  - kind: ethereum
+    name: MechFactoryReplacementNative
+    network: arbitrum-one
+    source:
+      address: "0xa0DA53447C0f6C4987964d8463da7e6628B30f82"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 430647628
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/marketplace-1.2.0/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryReplacementUSDC
+    network: arbitrum-one
+    source:
+      address: "0x1521918961bDBC9Ed4C67a7103D5999e4130E6CB"
+      abi: MechFactoryFixedPriceTokenUSDC
+      startBlock: 430647628
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceTokenUSDC
+          file: ../../abis/marketplace-1.2.0/MechFactoryFixedPriceTokenUSDC.json
+      eventHandlers:
+        - event: CreateMechFixedPriceToken(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceToken
     network: arbitrum-one

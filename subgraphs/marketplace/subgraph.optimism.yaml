@@ -27,6 +27,47 @@ dataSources:
         - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
+  # Conservative replay boundary retained from historical factory source.
+  - kind: ethereum
+    name: MechFactoryReplacementNative
+    network: optimism
+    source:
+      address: "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/marketplace-1.2.0/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+  - kind: ethereum
+    name: MechFactoryReplacementUSDC
+    network: optimism
+    source:
+      address: "0xf78b3C22A204Da5d9a0B080C5D3d695AF4918886"
+      abi: MechFactoryFixedPriceTokenUSDC
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceTokenUSDC
+          file: ../../abis/marketplace-1.2.0/MechFactoryFixedPriceTokenUSDC.json
+      eventHandlers:
+        - event: CreateMechFixedPriceToken(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceToken
     network: optimism

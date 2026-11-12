@@ -39,6 +39,23 @@ export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
   // Using Map<string, Bytes> keyed by "network:factoryAddress"
   const factoryMap = new Map<string, Bytes>();
 
+  // Replacement factories: autonolas-marketplace#211. Retain historical entries.
+  factoryMap.set('mainnet:0xf5648bb207ce909d76c219c709433d3ac05e8b86', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('mainnet:0x1f7f307ecd0ea3778de3eb961dec5a0f814afccf', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('gnosis:0x5270c0797a9d0c59163cf570129e5808be7927fa', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('base:0xf8a8c985f46ab6204e6a40845e73a6119f0458ed', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('base:0x17d8b863f6c4601d67a87fda04d53849c5f9ce00', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('matic:0x40dabcf2deec7241749b320cbc5ca69544a90d68', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('matic:0x749cdf4bf2e55269b3d1bc4b4408e34689c96b67', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('optimism:0xaafbeef195bdab1bb6f3dc9ceba875cd72499230', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('optimism:0xf78b3c22a204da5d9a0b080c5d3d695af4918886', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('arbitrum-one:0xa0da53447c0f6c4987964d8463da7e6628b30f82', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('arbitrum-one:0x1521918961bdbc9ed4c67a7103d5999e4130e6cb', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('celo:0x0a9a74274b1c30845af98683ca7f843795f6dfa6', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('celo:0x16184fcf1940dfb8aa5eba7e1effefad49c733f5', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+  factoryMap.set('robinhood:0xc14e191a64a7fb0e5790a8a0b9a58683dffce04d', PAYMENT_TYPE_FIXED_PRICE_NATIVE);
+  factoryMap.set('robinhood:0x24f792d51b398928459dfbb4181bdb4d5d2cd472', PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC);
+
   // Gnosis factories (3)
   factoryMap.set(
     'gnosis:' + GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase(),
