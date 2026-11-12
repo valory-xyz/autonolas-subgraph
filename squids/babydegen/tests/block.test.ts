@@ -11,7 +11,6 @@ import {
   AERO_V2_STABLE_FACTORY,
   AERO_V2_VOLATILE_FACTORY,
   SERVICE_REGISTRY,
-  TRACKED_TOKENS,
   USDC_NATIVE,
   VELO_V2_FACTORY,
 } from "../src/constants";
@@ -292,8 +291,8 @@ describe("restart-on-new-Safe source", () => {
     expect(aeroFactories).toMatchObject({ where: { address: [AERO_V2_VOLATILE_FACTORY, AERO_V2_STABLE_FACTORY] }, from: 52_880_042 });
     expect(gauges).toMatchObject({ where: { address: [AERO_GAUGE_MANAGER] }, from: 52_688_318 });
     expect(veloFactory.include ?? aeroFactories.include ?? gauges.include).toBeUndefined();
-    expect(from.where).toMatchObject({ address: TRACKED_TOKENS, topic0: [erc20.Transfer.topic], topic1: [addressTopic(SAFE)] });
-    expect(to.where).toMatchObject({ topic2: [addressTopic(SAFE)] });
+    expect(from.where).toEqual({ topic0: [erc20.Transfer.topic], topic1: [addressTopic(SAFE)] });
+    expect(to.where).toEqual({ topic0: [erc20.Transfer.topic], topic2: [addressTopic(SAFE)] });
     expect(from.include).toEqual({ transaction: true, transactionLogs: true });
     expect(to.include).toEqual({ transaction: true, transactionLogs: true });
     expect(safes).toMatchObject({ where: { address: [OPERATOR, SAFE] }, include: { transaction: true, transactionLogs: true } });

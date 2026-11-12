@@ -64,6 +64,7 @@ import {
   VeloV2PoolDataSource,
 } from "../src/model";
 import { attributeRewardTransfer, clPositionId, nftPositionMappingId } from "../src/positions";
+import { logQueries } from "../src/sources";
 import { refreshAllActivePositions } from "../src/refresh";
 import { handleLiFiGenericSwapCompleted, swapTransactionId } from "../src/swaps";
 import * as v2 from "../src/v2";
@@ -984,6 +985,23 @@ describe("position events through processBlock", () => {
     expect((await pos(w, v2Id(PROTOCOL_AERO_V2, AERO_V2_POOL))).isActive).toBe(true);
     expect(w.cache.all(ProtocolPosition)).toHaveLength(1);
     expect(w.ctx.spawnedPools).toEqual([]);
+  });
+
+  it("an LP sent to the Safe by another wallet is subscribed and opens the position", async () => {
+    const w = world();
+    seedService(w, SAFE);
+    w.cache.set(VeloV2PoolDataSource, new VeloV2PoolDataSource({ id: V2_POOL, createdAtBlock: BLOCK }));
+    mockV2Pool(w, V2_POOL, 10n * E18, true);
+    w.chain.mock(VELO_VOTER, voterFns.gauges, { pool: V2_POOL }, ETH_ADDRESS);
+    const lp = raw(1, V2_POOL, v2PoolEvents.Transfer.encode({ from: OTHER, to: SAFE, value: 10n * E18 }));
+    const tracked = { basiusServiceIds: new Set<bigint>(), serviceSafes: new Set([SAFE]), safeHosts: new Set([SAFE]) };
+    const subscribed = logQueries(tracked).some(({ where = {} }) =>
+      (!where.address || where.address.includes(lp.address)) &&
+      (["topic0", "topic1", "topic2"] as const).every((k, i) => !where[k] || where[k]!.includes(lp.topics[i])),
+    );
+    expect(subscribed).toBe(true);
+    await processBlock(w.ctx, { header, logs: [lp] }, stream(), async () => []);
+    expect((await pos(w, v2Id(PROTOCOL_VELODROME_V2, V2_POOL))).isActive).toBe(true);
   });
 
   it("a factory log before its data source's startBlock is ignored", async () => {

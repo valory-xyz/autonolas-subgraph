@@ -5,7 +5,10 @@
 // squid asks the portal for exactly the tracked safes' logs:
 //
 // - ServiceRegistryL2 RegisterInstance / CreateMultisigWithAgents;
-// - Transfer on the 13 tracked tokens with topic1 or topic2 = a service safe;
+// - Transfer on any address with topic1 or topic2 = a service safe: the 13
+//   tracked tokens, plus v2 LP and NFPM NFTs sent from or to a Safe outside a
+//   Safe transaction (studio's pool templates see every LP Transfer); dispatch
+//   drops tokens no handler tracks;
 // - Safe events emitted by an address that has a Safe instance;
 // - the Aerodrome v2 and Aero v2 PoolFactory PoolCreated and the Aero
 //   GaugeManager GaugeCreated, chain-wide (few logs; they decide which pools
@@ -36,7 +39,6 @@ import {
   EXCLUDED_SERVICE_IDS,
   SERVICE_REGISTRY,
   START_BLOCKS,
-  TRACKED_TOKENS,
   VELO_V2_FACTORY,
 } from "./constants";
 import { SAFE_TOPICS, TRANSFER_TOPIC } from "./dispatch";
@@ -86,8 +88,9 @@ export function logQueries(tracked: Tracked): LogQuery[] {
     const topics = services.map(addressTopic);
     // Transfer handlers read the transaction (its sender) and the receipt.
     const include = { transaction: true, transactionLogs: true };
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic1: topics }, include });
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic2: topics }, include });
+    // No address filter: an LP or NFT sent straight to the Safe by another wallet emits no Safe event.
+    queries.push({ where: { topic0: [TRANSFER_TOPIC], topic1: topics }, include });
+    queries.push({ where: { topic0: [TRANSFER_TOPIC], topic2: topics }, include });
   }
   const hosts = [...tracked.safeHosts].sort();
   if (hosts.length > 0) {
