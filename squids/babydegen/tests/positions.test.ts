@@ -207,10 +207,10 @@ function closeAt(p: ProtocolPosition, exitUSD: string) {
   p.exitAmountUSD = gd(exitUSD).toStore();
 }
 
-const positionsResult = (liquidity: bigint) => ({
+const positionsResult = (liquidity: bigint, token0 = DUMMY0) => ({
   nonce: 0n,
   operator: ETH_ADDRESS,
-  token0: DUMMY0,
+  token0,
   token1: DUMMY1,
   tickSpacing: 1,
   tickLower: -10,
@@ -249,10 +249,10 @@ const AERO_CL_POOL = addr(0xc1);
 const AERO_CL_GAUGE = addr(0xc2);
 const VELO_CL_POOL = addr(0xc3);
 
-function mockCLVenuePosition(w: W, manager: string, factory: string, pool: string, gauge: string, liquidity = E18) {
-  w.chain.mock(manager, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, positionsResult(liquidity));
-  w.chain.mock(factory, clFactoryFns.getPool, { _0: DUMMY0, _1: DUMMY1, _2: 1 }, pool);
-  w.chain.pools.set(pool, { token0: DUMMY0, token1: DUMMY1, sqrtPriceX96: Q96 });
+function mockCLVenuePosition(w: W, manager: string, factory: string, pool: string, gauge: string, liquidity = E18, token0 = DUMMY0) {
+  w.chain.mock(manager, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, positionsResult(liquidity, token0));
+  w.chain.mock(factory, clFactoryFns.getPool, { _0: token0, _1: DUMMY1, _2: 1 }, pool);
+  w.chain.pools.set(pool, { token0, token1: DUMMY1, sqrtPriceX96: Q96 });
   w.chain.mock(pool, clPoolFns.gauge, {}, gauge);
 }
 
@@ -1294,14 +1294,25 @@ describe("exit proceeds and CL entry swaps", () => {
 
   it("principal from an earlier partial CL decrease is in the exit", async () => {
     const w = clWorld();
+    // token0 = WETH so the exit is valued: entry 1 WETH at $2000
+    seedTokenPrice(w, WETH, "WETH", 18, "2000");
+    mockCLVenuePosition(w, AERO_NFT_MANAGER, AERO_CL_FACTORY, AERO_CL_POOL, AERO_CL_GAUGE, E18, WETH);
     const id = await openCLPosition(w);
-    w.chain.mock(AERO_NFT_MANAGER, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, positionsResult(E18 / 2n));
+    // half the liquidity out at $2000; the position stays open
+    w.chain.mock(AERO_NFT_MANAGER, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, positionsResult(E18 / 2n, WETH));
     await cl.handleDecreaseLiquidity(w.ctx, at(AERO_NFT_MANAGER, 3), { tokenId: AERO_TOKEN_ID, liquidity: E18 / 2n, amount0: 4n * 10n ** 17n, amount1: E18 });
     expect(await field(w, id, "isActive")).toBe("true");
     w.chain.mock(AERO_NFT_MANAGER, nfpmFns.positions, { tokenId: AERO_TOKEN_ID }, null);
-    const later = at(AERO_NFT_MANAGER, 3, { blockNumber: BLOCK + 30n, blockTimestamp: TS + 60n });
+    // the rest in a later block at $3000, burning the NFT
+    const token = (await w.cache.get(Token, WETH))!;
+    token.derivedUSD = gd("3000").toStore();
+    token.lastPriceUpdate = TS + 600n;
+    w.cache.set(Token, token);
+    const later = at(AERO_NFT_MANAGER, 3, { blockNumber: BLOCK + 300n, blockTimestamp: TS + 600n });
     await cl.handleDecreaseLiquidity(w.ctx, later, { tokenId: AERO_TOKEN_ID, liquidity: E18 / 2n, amount0: 6n * 10n ** 17n, amount1: E18 });
     expect([await field(w, id, "isActive"), await field(w, id, "exitAmount0"), await field(w, id, "exitAmount1")]).toEqual(["false", "1", "2"]);
+    // each decrease at its own price: 0.4 x 2000 + 0.6 x 3000 (all at the closing price would be 3000)
+    expect([await field(w, id, "exitAmountUSD"), await field(w, id, "positionROI")]).toEqual(["2600", "30"]);
   });
 
   it("the first IncreaseLiquidity of a CL position takes the agent's buffered swap slippage", async () => {
