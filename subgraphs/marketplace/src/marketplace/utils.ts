@@ -26,38 +26,19 @@ import {
 } from '../../generated/templates';
 import { MechFixedPriceNative as MechFixedPriceNativeContract } from '../../generated/templates/MechFixedPriceNative/MechFixedPriceNative';
 import {
-  BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
-  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   BASE_MECH_MARKETPLACE_ADDRESS,
-  GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
   GNOSIS_MECH_MARKETPLACE_ADDRESS,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   POLYGON_MECH_MARKETPLACE_ADDRESS,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
   OPTIMISM_MECH_MARKETPLACE_ADDRESS,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   ETHEREUM_MECH_MARKETPLACE_ADDRESS,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   ARBITRUM_MECH_MARKETPLACE_ADDRESS,
-  CELO_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
   CELO_MECH_MARKETPLACE_ADDRESS,
+  findPaymentTypeFromFactory,
+  PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+  PAYMENT_TYPE_FIXED_PRICE_TOKEN,
+  PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+  PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE,
+  PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC,
 } from './constants';
 import { getFeeUnitFromMechFactory, convertFeeToUsd, calculateBaseNvmCreditsToUsd, calculateGnosisNvmCreditsToUsd } from './fee-utils';
 import {
@@ -287,224 +268,22 @@ function isMarketplaceTransaction(transactionTo: Address | null): boolean {
   return toAddress == marketplaceAddress;
 }
 
-function createGnosisMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
+// Template and payment accounting share the same factory configuration, including
+// historical factories. Native and token mechs have different event bindings.
+export function createDataSourceForMechContract(mech: Address, mechFactory: Address): void {
+  const paymentType = findPaymentTypeFromFactory(mechFactory);
+  if (paymentType === null) {
+    log.warning('Unknown mech factory: {} on {}', [mechFactory.toHexString(), dataSource.network()]);
+    return;
+  }
+  if (paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_NATIVE)) {
     MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
+  } else if (paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_TOKEN) || paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC)) {
     MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() == mechFactoryAddress) {
+  } else if (paymentType.equals(PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE)) {
     MechNvmSubscriptionNative.create(mech);
-    log.info('Created MechNvmSubscriptionNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Gnosis: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createBaseMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (BASE_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
+  } else if (paymentType.equals(PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC)) {
     MechNvmSubscriptionTokenUSDC.create(mech);
-    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechNvmSubscriptionNative.create(mech);
-    log.info('Created MechNvmSubscriptionNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Base: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createPolygonMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechNvmSubscriptionTokenUSDC.create(mech);
-    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Polygon: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createOptimismMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechNvmSubscriptionTokenUSDC.create(mech);
-    log.info('Created MechNvmSubscriptionTokenUSDC data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Optimism: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createEthereumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Ethereum: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createArbitrumMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Arbitrum: {}', [mechFactoryAddress]);
-  return false;
-}
-
-function createCeloMechFromFactory(mech: Address, mechFactoryAddress: string): boolean {
-  if (CELO_MECH_FACTORY_FIXED_PRICE_NATIVE.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceNative.create(mech);
-    log.info('Created MechFixedPriceNative data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  if (CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC.toLowerCase() == mechFactoryAddress) {
-    MechFixedPriceToken.create(mech);
-    log.info('Created MechFixedPriceToken data source for mech: {}', [mech.toHexString()]);
-    return true;
-  }
-
-  log.warning('Unknown mech factory address on Celo: {}', [mechFactoryAddress]);
-  return false;
-}
-
-/* Create dynamic data source for the new Mech contract based on factory address */
-export function createDataSourceForMechContract(
-  mech: Address,
-  mechFactory: Address
-): void {
-  const network = dataSource.network();
-  const chainId = getChainId(network);
-  const mechFactoryAddress = mechFactory.toHexString().toLowerCase();
-
-  log.info(
-    'Creating data source for mech: {}, factory: {}, network: {}, chainId: {}',
-    [mech.toHexString(), mechFactoryAddress, network, chainId.toString()]
-  );
-
-  if (chainId == 100) {
-    createGnosisMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 8453) {
-    createBaseMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 137) {
-    createPolygonMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 10) {
-    createOptimismMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 1) {
-    createEthereumMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 42161) {
-    createArbitrumMechFromFactory(mech, mechFactoryAddress);
-  } else if (chainId == 42220) {
-    createCeloMechFromFactory(mech, mechFactoryAddress);
-  } else {
-    log.warning("Unsupported chain ID: {} for network: '{}'", [
-      chainId.toString(),
-      network,
-    ]);
   }
 }
 

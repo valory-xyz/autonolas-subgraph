@@ -23,7 +23,7 @@ export const PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC = Bytes.fromHexString(
  * Format: "network:factoryAddress" (e.g., "gnosis:0x8b299c20f87e3fcbff0e1b86dc0acc06ab6993ef")
  */
 export function getFactoryKey(network: string, factory: Address): string {
-  return network + ':' + factory.toHexString().toLowerCase();
+  return (network == 'xdai' ? 'gnosis' : network) + ':' + factory.toHexString().toLowerCase();
 }
 
 /**
@@ -31,7 +31,7 @@ export function getFactoryKey(network: string, factory: Address): string {
  * Uses static factory→paymentType mapping to avoid RPC calls.
  * Throws error if factory address is unknown.
  */
-export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
+export function findPaymentTypeFromFactory(mechFactory: Address): Bytes | null {
   const network = dataSource.network();
   const factoryKey = getFactoryKey(network, mechFactory);
 
@@ -171,13 +171,15 @@ export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
     PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC
   );
 
-  if (!factoryMap.has(factoryKey)) {
-    throw new Error(
-      'Unknown factory address: ' + mechFactory.toHexString() + ' on network ' + network
-    );
-  }
+  return factoryMap.has(factoryKey) ? factoryMap.get(factoryKey) : null;
+}
 
-  return factoryMap.get(factoryKey);
+export function getPaymentTypeFromFactory(mechFactory: Address): Bytes {
+  const paymentType = findPaymentTypeFromFactory(mechFactory);
+  if (paymentType === null) {
+    throw new Error('Unknown factory address: ' + mechFactory.toHexString() + ' on network ' + dataSource.network());
+  }
+  return paymentType;
 }
 
 // Mech Factory addresses
