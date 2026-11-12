@@ -3,10 +3,11 @@
 // Same gating, call order and side effects (AddressType rows, Token/PriceUpdate
 // refreshes) as the subgraph, so entity values match row for row.
 
-import type { EventMeta, IEntityCache } from "@olas/squid-shared";
+import type { EventMeta } from "@olas/squid-shared";
 import * as calls from "./calls";
 import { BASIUS_AGENT_ID, EXCLUDED_SERVICE_IDS, TOKENS, WETH } from "./constants";
 import { GD, pow10 } from "./decimal";
+import type { Cache } from "./entityCache";
 import { ETH_ADDRESS, serviceKey, tokenBalanceId } from "./ids";
 import {
   AddressType,
@@ -18,20 +19,17 @@ import {
   ServiceRegistration,
   TokenBalance,
 } from "./model";
-import {
-  attributeRewardTransfer,
-  calculatePortfolioMetrics,
-  ensureAgentPortfolio,
-  registerServiceForSnapshots,
-} from "./portfolio";
+import { calculatePortfolioMetrics, ensureAgentPortfolio, registerServiceForSnapshots } from "./portfolio";
+import { attributeRewardTransfer } from "./positions";
 import { getEthUsd, getTokenPriceUSD } from "./pricing";
 import type { ChainReader } from "./rpc";
 import { addressAt, decodedSendOf, ethSentBySafe } from "./safeCalldata";
+import { convertTokenAmount } from "./tokenUtils";
 
 export type Logger = { warn(msg: string): void; info(msg: string): void; error(msg: string): void };
 
 export interface Ctx {
-  cache: IEntityCache;
+  cache: Cache;
   chain: ChainReader;
   log: Logger;
   /**
@@ -41,6 +39,8 @@ export interface Ctx {
   spawnedSafes: string[];
   /** Service safes created by the current log (they join the Transfer filter). */
   newServices: string[];
+  /** VeloV2Pool / AeroV2Pool template instances created by the current log (src/block.ts defers their events). */
+  spawnedPools: string[];
 }
 
 /** The top-level transaction graph-node exposes as `event.transaction`. */
@@ -55,6 +55,9 @@ export interface Tx {
 export interface ReceiptLog {
   address: string;
   topics: string[];
+  data: string;
+  /** Block-level log index, as graph-node's receipt logs carry it. */
+  logIndex: number;
 }
 
 const ZERO = GD.ZERO;
@@ -272,10 +275,6 @@ export async function handleCreateMultisigWithAgents(
 }
 
 // --- tokenBalances.ts -------------------------------------------------------
-
-/** tokenUtils.ts convertTokenAmount: whole tokens by the token's decimals (18 when unknown, i.e. ETH as WETH). */
-const convertTokenAmount = (amount: bigint, token: string) =>
-  GD.fromBigInt(amount).div(pow10(TOKENS.get(token)?.decimals ?? 18));
 
 /** transferUsdValue: valued at the token's price (ETH at WETH's); an unpriced token is $0. */
 export async function transferUsdValue(ctx: Ctx, value: bigint, token: string, safe: string, meta: EventMeta): Promise<GD> {

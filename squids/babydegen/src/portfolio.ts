@@ -2,7 +2,8 @@
 // babydegen-base src/helpers.ts (ensureAgentPortfolio) and
 // src/portfolioScheduler.ts (registerServiceForSnapshots).
 
-import type { EventMeta, IEntityCache } from "@olas/squid-shared";
+import type { IEntityCache } from "@olas/squid-shared";
+import type { At } from "./pricing";
 import { GD } from "./decimal";
 import { SERVICE_REGISTRY_ID } from "./ids";
 import { AgentPortfolio, Service, ServiceRegistry } from "./model";
@@ -60,9 +61,11 @@ export async function registerServiceForSnapshots(ctx: PortfolioCtx, serviceAddr
 /**
  * helpers.ts calculatePortfolioMetrics, called wherever #175 calls it: after
  * every ERC-20 inflow (after its funding update) and outflow of a service
- * safe, after both SafeReceived branches, and after an ExecutionSuccess that
- * sent ETH. It is ported with ROI and snapshots in slice 3 of BDMARK-2311.
- * Its non-snapshot path writes only AgentPortfolio and its price reads
+ * safe, after both SafeReceived branches, after an ExecutionSuccess that
+ * sent ETH, after every CL Collect, and from the position refreshes
+ * (refreshPortfolio in the CL path, refreshVeloV2Position in the v2 path)
+ * unless their caller turns it off. It is ported with ROI and snapshots in
+ * slice 3 of BDMARK-2311. Its non-snapshot path writes only AgentPortfolio and its price reads
  * (getEthUsd) touch no entity, so every other entity is unaffected, but
  * AgentPortfolio differs until then:
  *
@@ -76,19 +79,4 @@ export async function registerServiceForSnapshots(ctx: PortfolioCtx, serviceAddr
  *   registration timestamp, so a service whose first event is an outflow or
  *   a non-funding inflow gets them from that call first.
  */
-export async function calculatePortfolioMetrics(_ctx: PortfolioCtx, _serviceSafe: string, _meta: EventMeta): Promise<void> {}
-
-/**
- * positionIncome.ts attributeRewardTransfer, the first step of a tracked
- * token's inflow to a service safe: credits a gauge reward claim to the
- * position it came from. It acts only on ProtocolPosition rows (and reads a
- * price only for one), which slice 2b adds with it, so it is a no-op here.
- */
-export async function attributeRewardTransfer(
-  _ctx: PortfolioCtx,
-  _meta: EventMeta,
-  _from: string,
-  _safe: string,
-  _amount: bigint,
-  _receipt: unknown,
-): Promise<void> {}
+export async function calculatePortfolioMetrics(_ctx: PortfolioCtx, _serviceSafe: string, _at: At): Promise<void> {}

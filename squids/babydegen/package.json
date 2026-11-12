@@ -5,7 +5,7 @@
   "scripts": {
     "build": "rm -rf lib && tsc",
     "codegen": "squid-typeorm-codegen",
-    "typegen": "squid-evm-typegen src/abi abis/ServiceRegistryL2.json ../../abis/ERC20Detailed.json abis/GnosisSafe.json ../../abis/AggregatorV3Interface.json ../../subgraphs/babydegen-mode/abis/defi/VelodromeV2Pool.json",
+    "typegen": "squid-evm-typegen src/abi abis/AeroCLGauge.json abis/AeroGaugeManager.json abis/AeroPositionNFTManager.json abis/AeroV2Pool.json abis/AeroV2PoolFactory.json abis/AerodromeLpSugar.json abis/GnosisSafe.json abis/LiFiDiamond.json abis/PoolFactory.json abis/ServiceRegistryL2.json abis/VeloCLGauge.json abis/VeloV2Gauge.json abis/VeloVoter.json abis/VelodromeCLFactory.json abis/VelodromeCLPool.json abis/VelodromePositionNFTManager.json ../../abis/ERC20Detailed.json ../../abis/AggregatorV3Interface.json ../../subgraphs/babydegen-mode/abis/defi/VelodromeV2Pool.json",
     "migration:generate": "squid-typeorm-migration generate",
     "migration:apply": "squid-typeorm-migration apply",
     "process": "node lib/main.js",

@@ -5,8 +5,20 @@
 // squid asks the portal for exactly the tracked safes' logs:
 //
 // - ServiceRegistryL2 RegisterInstance / CreateMultisigWithAgents;
-// - Transfer on the 13 tracked tokens with topic1 or topic2 = a service safe;
-// - Safe events emitted by an address that has a Safe instance.
+// - Transfer on any address with topic1 or topic2 = a service safe: the 13
+//   tracked tokens, plus v2 LP and NFPM NFTs sent from or to a Safe outside a
+//   Safe transaction (studio's pool templates see every LP Transfer); dispatch
+//   drops tokens no handler tracks;
+// - Safe events emitted by an address that has a Safe instance;
+// - the Aerodrome v2 and Aero v2 PoolFactory PoolCreated and the Aero
+//   GaugeManager GaugeCreated, chain-wide (few logs; they decide which pools
+//   are tracked and which gauge pays an Aero v2 pool).
+//
+// The Transfer and Safe requests include every log of their transactions
+// (`transactionLogs`). Agents act through their Safe's execTransaction, so
+// that carries the NFPM, pool, gauge and LiFi events the position handlers
+// read without streaming those contracts chain-wide; an agent position
+// event outside a Safe or tracked-token transaction is not seen.
 //
 // The address lists come from the database (Service, SafeDataSource) when
 // a stream starts. `cutAtSpawn` ends the stream right after the first block
@@ -16,7 +28,19 @@
 import type { LogRequest } from "@subsquid/evm-stream";
 import * as registry from "./abi/ServiceRegistryL2/events";
 import { addressTopic } from "./block";
-import { BASIUS_AGENT_ID, EXCLUDED_SERVICE_IDS, SERVICE_REGISTRY, TRACKED_TOKENS } from "./constants";
+import * as gaugeManager from "./abi/AeroGaugeManager/events";
+import * as aeroFactory from "./abi/AeroV2PoolFactory/events";
+import * as poolFactory from "./abi/PoolFactory/events";
+import {
+  AERO_GAUGE_MANAGER,
+  AERO_V2_STABLE_FACTORY,
+  AERO_V2_VOLATILE_FACTORY,
+  BASIUS_AGENT_ID,
+  EXCLUDED_SERVICE_IDS,
+  SERVICE_REGISTRY,
+  START_BLOCKS,
+  VELO_V2_FACTORY,
+} from "./constants";
 import { SAFE_TOPICS, TRANSFER_TOPIC } from "./dispatch";
 
 export interface Tracked {
@@ -38,13 +62,25 @@ export const emptyTracked = (): Tracked => ({
 export const serviceIdFromKey = (key: string): bigint =>
   BigInt(Buffer.from(key.slice(2), "hex").toString("utf8"));
 
-export function logQueries(tracked: Tracked): LogRequest[] {
-  const queries: LogRequest[] = [
+/** A log request, with the block it starts at when that is not the start block. */
+export type LogQuery = LogRequest & { from?: number };
+
+export function logQueries(tracked: Tracked): LogQuery[] {
+  const queries: LogQuery[] = [
     {
       where: {
         address: [SERVICE_REGISTRY],
         topic0: [registry.RegisterInstance.topic, registry.CreateMultisigWithAgents.topic],
       },
+    },
+    { where: { address: [VELO_V2_FACTORY], topic0: [poolFactory.PoolCreated.topic] } },
+    {
+      where: { address: [AERO_V2_VOLATILE_FACTORY, AERO_V2_STABLE_FACTORY], topic0: [aeroFactory.PoolCreated.topic] },
+      from: Math.min(START_BLOCKS.aeroV2VolatileFactory, START_BLOCKS.aeroV2StableFactory),
+    },
+    {
+      where: { address: [AERO_GAUGE_MANAGER], topic0: [gaugeManager.GaugeCreated.topic] },
+      from: START_BLOCKS.aeroGaugeManager,
     },
   ];
   const services = [...tracked.serviceSafes].sort();
@@ -52,8 +88,9 @@ export function logQueries(tracked: Tracked): LogRequest[] {
     const topics = services.map(addressTopic);
     // Transfer handlers read the transaction (its sender) and the receipt.
     const include = { transaction: true, transactionLogs: true };
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic1: topics }, include });
-    queries.push({ where: { address: TRACKED_TOKENS, topic0: [TRANSFER_TOPIC], topic2: topics }, include });
+    // No address filter: an LP or NFT sent straight to the Safe by another wallet emits no Safe event.
+    queries.push({ where: { topic0: [TRANSFER_TOPIC], topic1: topics }, include });
+    queries.push({ where: { topic0: [TRANSFER_TOPIC], topic2: topics }, include });
   }
   const hosts = [...tracked.safeHosts].sort();
   if (hosts.length > 0) {

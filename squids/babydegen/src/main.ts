@@ -77,7 +77,7 @@ async function runOnce(): Promise<boolean> {
     // No entity state survives a batch: a retry or hot-block rollback reloads it.
     const cache = new EntityCache(ctx.store);
     cache.log = log;
-    const hctx: Ctx = { cache, chain, log, spawnedSafes: [], newServices: [] };
+    const hctx: Ctx = { cache, chain, log, spawnedSafes: [], newServices: [], spawnedPools: [] };
     for (const block of ctx.blocks.map(augmentBlock)) {
       await processBlock(hctx, { header: block.header, logs: block.logs }, stream, (hash, services, hosts) =>
         fetchMissingLogs(chain, hash, services, hosts),

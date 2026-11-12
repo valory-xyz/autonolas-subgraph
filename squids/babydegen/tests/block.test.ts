@@ -5,7 +5,15 @@ import * as erc20 from "../src/abi/ERC20Detailed/events";
 import * as safe from "../src/abi/GnosisSafe/events";
 import * as registry from "../src/abi/ServiceRegistryL2/events";
 import { addressTopic, fetchMissingLogs, processBlock, type StreamState } from "../src/block";
-import { SERVICE_REGISTRY, TRACKED_TOKENS, USDC_NATIVE } from "../src/constants";
+import * as poolFactory from "../src/abi/PoolFactory/events";
+import {
+  AERO_GAUGE_MANAGER,
+  AERO_V2_STABLE_FACTORY,
+  AERO_V2_VOLATILE_FACTORY,
+  SERVICE_REGISTRY,
+  USDC_NATIVE,
+  VELO_V2_FACTORY,
+} from "../src/constants";
 import { dispatch, type RawLog } from "../src/dispatch";
 import { FLUSH_ORDER } from "../src/entityCache";
 import { ETH_ADDRESS, tokenBalanceId } from "../src/ids";
@@ -99,16 +107,34 @@ describe("processBlock: a Basius service registered mid-block", () => {
       { ...log(2, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n })), transactionIndex: 0 },
     ];
     chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 5n, input: "0x6a761202" });
-    const receipt = [{ address: SAFE, topics: [safe.SafeReceived.topic] }];
+    const receipt = [
+      { address: SAFE, topics: [safe.SafeReceived.topic], data: "0x", logIndex: 1 },
+      { address: SAFE, topics: [safe.ExecutionSuccess.topic], data: "0x", logIndex: 2 },
+    ];
     chain.receipts.set(TX, receipt);
     const got = await fetchMissingLogs(chain as any, header.hash, [], [SAFE]);
     expect(got.find((l) => l.logIndex === 1)).toMatchObject({ transaction: { from: EOA, input: "0x6a761202" }, receipt: undefined });
     expect(got.find((l) => l.logIndex === 2)).toMatchObject({ transaction: { to: SAFE, value: 5n }, receipt });
+    expect(got).toHaveLength(2);
+  });
+
+  it("adds the other logs of the fetched transactions, as transactionLogs does", async () => {
+    const { chain } = setup();
+    const POOL = addr(0xd0);
+    chain.logs = [{ ...log(2, SAFE, safe.ExecutionSuccess.encode({ txHash: hash(1), payment: 0n })), transactionIndex: 0 }];
+    chain.txs.set(TX, { hash: TX, from: EOA, to: SAFE, value: 0n, input: "0x" });
+    chain.receipts.set(TX, [
+      { address: POOL, topics: [hash(0xab)], data: "0x01", logIndex: 1 },
+      { address: SAFE, topics: [safe.ExecutionSuccess.topic], data: "0x", logIndex: 2 },
+    ]);
+    const got = await fetchMissingLogs(chain as any, header.hash, [], [SAFE]);
+    expect(got.map((l) => l.logIndex).sort()).toEqual([1, 2]);
+    expect(got.find((l) => l.logIndex === 1)).toMatchObject({ address: POOL, data: "0x01", transactionHash: TX });
   });
 
   it("gives each streamed Transfer / ExecutionSuccess its transaction's logs as the receipt", async () => {
     const { ctx, cache, chain } = setup();
-    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [] }));
+    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [], positionIds: [] }));
     const CONTRACT = addr(0xc0);
     chain.contracts.add(CONTRACT);
     // USDC out to a contract, and USDC back to the Safe later in the same tx: a swap, not a withdrawal
@@ -149,7 +175,7 @@ describe("dispatch", () => {
 
   it("ignores Safe events from an address without a Safe instance", async () => {
     const { ctx, cache } = setup();
-    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [] }));
+    cache.set(Service, new Service({ id: SAFE, operatorSafe: OPERATOR, agentInstances: [], positionIds: [] }));
     await dispatch(ctx, meta({ address: SAFE }), safeReceived(1, SAFE, EOA, 1n));
     expect(cache.all(TokenBalance)).toHaveLength(0);
     cache.set(SafeDataSource, new SafeDataSource({ id: SAFE, createdAtBlock: 1n }));
@@ -254,14 +280,19 @@ describe("restart-on-new-Safe source", () => {
   });
 
   it("subscribes the registry, then Transfers both ways and Safe events for tracked safes", () => {
-    expect(logQueries(emptyTracked())).toHaveLength(1);
+    // The registry, the Aerodrome v2 factory, both Aero v2 factories, the GaugeManager.
+    expect(logQueries(emptyTracked())).toHaveLength(4);
     const tracked = emptyTracked();
     tracked.serviceSafes.add(SAFE);
     tracked.safeHosts.add(SAFE).add(OPERATOR);
-    const [reg, from, to, safes] = logQueries(tracked);
+    const [reg, veloFactory, aeroFactories, gauges, from, to, safes] = logQueries(tracked);
     expect(reg.where!.address).toEqual([SERVICE_REGISTRY]);
-    expect(from.where).toMatchObject({ address: TRACKED_TOKENS, topic0: [erc20.Transfer.topic], topic1: [addressTopic(SAFE)] });
-    expect(to.where).toMatchObject({ topic2: [addressTopic(SAFE)] });
+    expect(veloFactory).toEqual({ where: { address: [VELO_V2_FACTORY], topic0: [poolFactory.PoolCreated.topic] } });
+    expect(aeroFactories).toMatchObject({ where: { address: [AERO_V2_VOLATILE_FACTORY, AERO_V2_STABLE_FACTORY] }, from: 52_880_042 });
+    expect(gauges).toMatchObject({ where: { address: [AERO_GAUGE_MANAGER] }, from: 52_688_318 });
+    expect(veloFactory.include ?? aeroFactories.include ?? gauges.include).toBeUndefined();
+    expect(from.where).toEqual({ topic0: [erc20.Transfer.topic], topic1: [addressTopic(SAFE)] });
+    expect(to.where).toEqual({ topic0: [erc20.Transfer.topic], topic2: [addressTopic(SAFE)] });
     expect(from.include).toEqual({ transaction: true, transactionLogs: true });
     expect(to.include).toEqual({ transaction: true, transactionLogs: true });
     expect(safes).toMatchObject({ where: { address: [OPERATOR, SAFE] }, include: { transaction: true, transactionLogs: true } });
