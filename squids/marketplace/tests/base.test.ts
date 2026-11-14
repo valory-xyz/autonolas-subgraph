@@ -55,6 +55,8 @@ describe("Base chain table", () => {
       "0x5b70a66fe68c4c86ffd724b58cc56049c70e9d3d",
       "0x847bbe8b474e0820215f818858e23f5f5591855a",
       "0x7bed01f8482ff686f025628e7780ca6c1f0559fc",
+      "0xf8a8c985f46ab6204e6a40845e73a6119f0458ed",
+      "0x17d8b863f6c4601d67a87fda04d53849c5f9ce00",
     ]);
     expect(c.CHAIN.mechFactories.map((f) => f.feeUnit)).toEqual([
       "NATIVE",
@@ -62,6 +64,8 @@ describe("Base chain table", () => {
       "USDC",
       "CREDITS",
       "CREDITS",
+      "NATIVE",
+      "USDC",
     ]);
   });
 

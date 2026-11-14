@@ -1,10 +1,18 @@
 import { ContractBase } from '../abi.support.js'
-import { DOMAIN_SEPARATOR_TYPE_HASH, MAX_FEE_FACTOR, MECH_MARKETPLACE_PROXY, VERSION, chainId, checkMech, create, deliverMarketplace, domainSeparator, fee, getDomainSeparator, getRequestId, getRequestStatus, karma, mapAgentMechFactories, mapDeliveryCounts, mapMechDeliveryCounts, mapMechFactories, mapMechServiceDeliveryCounts, mapNonces, mapPaymentTypeBalanceTrackers, mapRequestCounts, mapRequestIdInfos, maxResponseTimeout, minResponseTimeout, numMechs, numTotalRequests, numUndeliveredRequests, owner, request, requestBatch, serviceRegistry } from './functions.js'
-import type { CheckMechParams, CreateParams, DeliverMarketplaceParams, GetRequestIdParams, GetRequestStatusParams, MapAgentMechFactoriesParams, MapDeliveryCountsParams, MapMechDeliveryCountsParams, MapMechFactoriesParams, MapMechServiceDeliveryCountsParams, MapNoncesParams, MapPaymentTypeBalanceTrackersParams, MapRequestCountsParams, MapRequestIdInfosParams, RequestBatchParams, RequestParams } from './functions.js'
+import { DOMAIN_SEPARATOR_TYPE_HASH, EXPLICIT_NONCE_TAG, EXPLICIT_NONCE_TYPE_HASH, MAX_FEE_FACTOR, MECH_MARKETPLACE_PROXY, VERSION, chainId, checkMech, create, deliverMarketplace, domainSeparator, fee, getDomainSeparator, getDomainSeparatorWithNonce, getRequestId, getRequestIdWithNonce, getRequestStatus, karma, mapAgentMechFactories, mapDeliveryCounts, mapMechDeliveryCounts, mapMechFactories, mapMechServiceDeliveryCounts, mapNonces, mapPaymentTypeBalanceTrackers, mapRequestCounts, mapRequestIdInfos, maxResponseTimeout, minResponseTimeout, numMechs, numTotalRequests, numUndeliveredRequests, owner, request, requestBatch, serviceRegistry } from './functions.js'
+import type { CheckMechParams, CreateParams, DeliverMarketplaceParams, GetRequestIdParams, GetRequestIdWithNonceParams, GetRequestStatusParams, MapAgentMechFactoriesParams, MapDeliveryCountsParams, MapMechDeliveryCountsParams, MapMechFactoriesParams, MapMechServiceDeliveryCountsParams, MapNoncesParams, MapPaymentTypeBalanceTrackersParams, MapRequestCountsParams, MapRequestIdInfosParams, RequestBatchParams, RequestParams } from './functions.js'
 
 export class Contract extends ContractBase {
     DOMAIN_SEPARATOR_TYPE_HASH() {
         return this.eth_call(DOMAIN_SEPARATOR_TYPE_HASH, {})
+    }
+
+    EXPLICIT_NONCE_TAG() {
+        return this.eth_call(EXPLICIT_NONCE_TAG, {})
+    }
+
+    EXPLICIT_NONCE_TYPE_HASH() {
+        return this.eth_call(EXPLICIT_NONCE_TYPE_HASH, {})
     }
 
     MAX_FEE_FACTOR() {
@@ -47,8 +55,16 @@ export class Contract extends ContractBase {
         return this.eth_call(getDomainSeparator, {})
     }
 
+    getDomainSeparatorWithNonce() {
+        return this.eth_call(getDomainSeparatorWithNonce, {})
+    }
+
     getRequestId(mech: GetRequestIdParams["mech"], requester: GetRequestIdParams["requester"], data: GetRequestIdParams["data"], deliveryRate: GetRequestIdParams["deliveryRate"], paymentType: GetRequestIdParams["paymentType"], nonce: GetRequestIdParams["nonce"]) {
         return this.eth_call(getRequestId, {mech, requester, data, deliveryRate, paymentType, nonce})
+    }
+
+    getRequestIdWithNonce(mech: GetRequestIdWithNonceParams["mech"], requester: GetRequestIdWithNonceParams["requester"], data: GetRequestIdWithNonceParams["data"], maxDeliveryRate: GetRequestIdWithNonceParams["maxDeliveryRate"], paymentType: GetRequestIdWithNonceParams["paymentType"], nonce: GetRequestIdWithNonceParams["nonce"], deadline: GetRequestIdWithNonceParams["deadline"]) {
+        return this.eth_call(getRequestIdWithNonce, {mech, requester, data, maxDeliveryRate, paymentType, nonce, deadline})
     }
 
     getRequestStatus(requestId: GetRequestStatusParams["requestId"]) {

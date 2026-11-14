@@ -33,31 +33,12 @@ import {
   CHAINLINK_PRICE_FEED_ADDRESS_ETHEREUM_ETH_USD,
   CHAINLINK_PRICE_FEED_ADDRESS_ARBITRUM_ETH_USD,
   CHAINLINK_PRICE_FEED_ADDRESS_CELO_CELO_USD,
-  GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
-  BASE_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE,
-  BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
-  CELO_MECH_FACTORY_FIXED_PRICE_NATIVE,
-  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN,
-  CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC,
+  findPaymentTypeFromFactory,
+  PAYMENT_TYPE_FIXED_PRICE_NATIVE,
+  PAYMENT_TYPE_FIXED_PRICE_TOKEN,
+  PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC,
+  PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE,
+  PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC,
 } from './constants';
 
 // Fee unit type (matches schema FeeUnit enum)
@@ -68,105 +49,14 @@ export const FEE_UNIT_CREDITS = 'CREDITS';
 
 // Detect fee unit from mech factory address
 export function getFeeUnitFromMechFactory(mechFactory: Bytes): string {
-  const network = dataSource.network();
-
-  if (network == 'gnosis' || network == 'xdai') {
-    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(GNOSIS_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE))) {
-      return FEE_UNIT_CREDITS;
-    }
+  const paymentType = findPaymentTypeFromFactory(Address.fromBytes(mechFactory));
+  if (paymentType !== null) {
+    if (paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_NATIVE)) return FEE_UNIT_NATIVE;
+    if (paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_TOKEN)) return FEE_UNIT_TOKEN;
+    if (paymentType.equals(PAYMENT_TYPE_FIXED_PRICE_TOKEN_USDC)) return FEE_UNIT_USDC;
+    if (paymentType.equals(PAYMENT_TYPE_NVM_SUBSCRIPTION_NATIVE) || paymentType.equals(PAYMENT_TYPE_NVM_SUBSCRIPTION_TOKEN_USDC)) return FEE_UNIT_CREDITS;
   }
-
-  if (network == 'base') {
-    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_NATIVE))) {
-      return FEE_UNIT_CREDITS;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(BASE_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
-      return FEE_UNIT_CREDITS;
-    }
-  }
-
-  if (network == 'matic') {
-    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(POLYGON_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
-      return FEE_UNIT_CREDITS;
-    }
-  }
-
-  if (network == 'optimism') {
-    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(OPTIMISM_MECH_FACTORY_NVM_SUBSCRIPTION_TOKEN_USDC))) {
-      return FEE_UNIT_CREDITS;
-    }
-  }
-
-  if (network == 'mainnet') {
-    if (mechFactory.equals(Bytes.fromHexString(ETHEREUM_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(ETHEREUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-  }
-
-  if (network == 'arbitrum-one') {
-    if (mechFactory.equals(Bytes.fromHexString(ARBITRUM_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(ARBITRUM_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-  }
-
-  if (network == 'celo') {
-    if (mechFactory.equals(Bytes.fromHexString(CELO_MECH_FACTORY_FIXED_PRICE_NATIVE))) {
-      return FEE_UNIT_NATIVE;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(CELO_MECH_FACTORY_FIXED_PRICE_TOKEN))) {
-      return FEE_UNIT_TOKEN;
-    }
-    if (mechFactory.equals(Bytes.fromHexString(CELO_MECH_FACTORY_FIXED_PRICE_TOKEN_USDC))) {
-      return FEE_UNIT_USDC;
-    }
-  }
-
-  log.warning('Unknown mechFactory for fee unit detection: {} on network: {}', [mechFactory.toHexString(), network]);
+  log.warning('Unknown mechFactory for fee unit detection: {} on network: {}', [mechFactory.toHexString(), dataSource.network()]);
   return FEE_UNIT_NATIVE;
 }
 
