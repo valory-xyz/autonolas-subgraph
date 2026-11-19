@@ -1,6 +1,6 @@
 // MARKETPLACE_CHAIN=base against the Base marketplace subgraph
 // (subgraphs/marketplace/subgraph.base.yaml + src/marketplace/*): the chain
-// table, the V1/V2 ABI split at 33,907,400, the five factories, the
+// table, the V1/V2 ABI split at 33,907,400, the legacy and replacement factories, the
 // subscription set, and the fee conversions — CREDITS (NVM) at
 // feeRaw × 0.99 / 1e6, NATIVE via Chainlink, TOKEN via the OLAS/USDC pool —
 // in graph-node's 34-digit BigDecimal arithmetic. Expected numbers are the
@@ -11,6 +11,7 @@ import * as v1 from "../src/abi/MechMarketplaceV1/events";
 import * as v2 from "../src/abi/MechMarketplaceV2/events";
 import * as mechAbi from "../src/abi/MechFixedPriceNative/events";
 import { CHAINS, assertChainConfig } from "../src/constants";
+import deployment from "./fixtures/marketplace-factories-946eade.json";
 import {
   FACTORY_EVENTS,
   assertDecodedIfSubscribed,
@@ -55,6 +56,8 @@ describe("Base chain table", () => {
       "0x5b70a66fe68c4c86ffd724b58cc56049c70e9d3d",
       "0x847bbe8b474e0820215f818858e23f5f5591855a",
       "0x7bed01f8482ff686f025628e7780ca6c1f0559fc",
+      "0xf8a8c985f46ab6204e6a40845e73a6119f0458ed",
+      "0x17d8b863f6c4601d67a87fda04d53849c5f9ce00",
     ]);
     expect(c.CHAIN.mechFactories.map((f) => f.feeUnit)).toEqual([
       "NATIVE",
@@ -62,7 +65,26 @@ describe("Base chain table", () => {
       "USDC",
       "CREDITS",
       "CREDITS",
+      "NATIVE",
+      "USDC",
     ]);
+  });
+
+  it("covers every factory in the pinned Base deployment globals", () => {
+    const addresses = BASE.mechFactories.map((factory) => factory.address);
+    for (const [key, address] of Object.entries(deployment.chains.base)) {
+      if (key.startsWith("mechFactory")) expect(addresses).toContain(address.toLowerCase());
+    }
+  });
+
+  it.each([
+    ["0xf8a8c985f46ab6204e6a40845e73a6119f0458ed", "CreateMechFixedPriceNative"],
+    ["0x17d8b863f6c4601d67a87fda04d53849c5f9ce00", "CreateMechFixedPriceToken"],
+  ] as const)("decodes the deployed creation event for replacement factory %s", (address, event) => {
+    const config = BASE.mechFactories.find((factory) => factory.address === address)!;
+    expect(config.event).toBe(event);
+    const args = { mech: "0x" + "ab".repeat(20), serviceId: 123n, maxDeliveryRate: 456n };
+    expect(decodeFactoryLog(FACTORY_EVENTS[event].encode(args))).toEqual(args);
   });
 
   it("every chain passes the load-time config check (lowercase addresses, a source per fee unit)", () => {
@@ -497,7 +519,7 @@ describe("balancerOlasPool (rpc.ts)", () => {
   });
 });
 
-describe("Base handlers: NATIVE and TOKEN mechs end to end", () => {
+describe("Base handlers: legacy and replacement NATIVE, TOKEN and USDC mechs end to end", () => {
   const MARKETPLACE = "0xf24ee42eda0fc9b33b7d41b06ee8ccd2ef7c5020";
   const MECH = "0x723f6a7fc401a8d2eade269b5c65643b9ad3719f";
   const MULTISIG = "0x0000000000000000000000000000000000000011";
@@ -512,6 +534,8 @@ describe("Base handlers: NATIVE and TOKEN mechs end to end", () => {
     // unit, factory, maxDeliveryRate -> USD, deliveryRate -> USD
     ["NATIVE", "0x2e008211f34b25a7d7c102403c6c2c3b665a1abe", 10n ** 16n, "20", 5n * 10n ** 15n, "10"],
     ["TOKEN", "0x97371b1c0cda1d04dfc43dfb50a04645b7bc9bee", 10n * 10n ** 18n, "2", 5n * 10n ** 18n, "1"],
+    ["NATIVE", "0xf8a8c985f46ab6204e6a40845e73a6119f0458ed", 10n ** 16n, "20", 5n * 10n ** 15n, "10"],
+    ["USDC", "0x17d8b863f6c4601d67a87fda04d53849c5f9ce00", 1_000_000n, "1", 500_000n, "0.5"],
   ] as const)(
     "%s: feeUSD at the advertised rate, finalFeeUSD at the delivered rate, totals",
     async (unit, factory, maxRate, maxUsd, rate, rateUsd) => {

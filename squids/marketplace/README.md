@@ -310,6 +310,18 @@ exhaustive at load, so forgetting is a startup error, not silent data loss.
 
 ### Adding a mech factory (the checklist that matters)
 
+Base, Polygon and Robinhood include the replacement native and USDC factories
+from the [pinned deployment globals](https://github.com/valory-xyz/autonolas-marketplace/tree/946eade0ce561e005636b9b68573b594c339b7e1/scripts/deployment),
+while retaining all legacy factories. The replacement USDC factories emit
+`CreateMechFixedPriceToken`, with the USDC payment type and six-decimal fees
+(USDG on Robinhood). The deployment fixture in
+`tests/fixtures/marketplace-factories-946eade.json` records the checked addresses.
+
+After deploying this configuration fix, restart each processor with its existing
+database. Base retries the failed batch; no schema migration or database reset
+is required for this change. Source start blocks are conservative subscription
+bounds, not the replacement factories' deployment blocks.
+
 The subgraph's CLAUDE.md lists three files to touch per factory. Here it
 is **one table entry** in `src/constants.ts` (`CHAINS.<chain>.mechFactories`):
 address, the event name it emits, payment type hash, fee unit, start

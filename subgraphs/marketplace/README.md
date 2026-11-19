@@ -380,3 +380,23 @@ Run `yarn test:manifests` to check event coverage and historical boundaries, alo
 ## License
 
 MIT
+
+## Replacement factory coverage
+
+Ethereum, Gnosis, Optimism, Arbitrum and Celo retain historical factory sources
+and include the replacement factories from the
+[946eade deployment globals](https://github.com/valory-xyz/autonolas-marketplace/tree/946eade0ce561e005636b9b68573b594c339b7e1/scripts/deployment).
+New native factories emit `CreateMechFixedPriceNative`; new USDC factories emit
+`CreateMechFixedPriceToken`. Factory payment types, fee units and mech templates
+share the mapping in `src/marketplace/constants.ts`, so USDC uses token handlers
+and six-decimal pricing. The source start blocks are conservative bounds copied
+from the existing factories, not verified deployment blocks.
+
+Base, Polygon and Robinhood use the Marketplace squid. Their new factories are
+covered there; the historical Base/Polygon Graph manifests remain unchanged.
+Mode is excluded and its existing deployment remains unchanged.
+
+For self-hosted Graph deployments, graft from a compatible checkpoint before
+the first replacement-factory activity. If the checkpoint is already past that
+activity, select an earlier compatible checkpoint or replay the affected history.
+Factory coverage does not by itself complete the Marketplace 1.2.0 ABI work.

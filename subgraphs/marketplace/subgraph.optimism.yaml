@@ -213,6 +213,48 @@ dataSources:
         - event: MechKarmaChanged(indexed address,int256)
           handler: handleMechKarmaChanged
       file: ./src/marketplace/karma.ts
+  - kind: ethereum
+    name: MechFactoryFixedPriceNativeReplacement
+    network: optimism
+    source:
+      address: "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+
+  - kind: ethereum
+    name: MechFactoryFixedPriceTokenUSDCReplacement
+    network: optimism
+    source:
+      address: "0xf78b3C22A204Da5d9a0B080C5D3d695AF4918886"
+      abi: MechFactoryFixedPriceToken
+      startBlock: 145788454
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceToken
+          file: ../../abis/MechFactoryFixedPriceToken.json
+      eventHandlers:
+        - event: CreateMechFixedPriceToken(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
+
 templates:
   - kind: ethereum
     name: MechFixedPriceNative

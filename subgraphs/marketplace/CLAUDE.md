@@ -426,3 +426,12 @@ Tests use Matchstick framework. Key patterns:
 - MechFactory (FixedPriceNative): `0xDd1252c5a75be568B5E6e50bA542680b38dbd68f`
 - MechFactory (FixedPriceToken/OLAS): `0xA123748Ce7609F507060F947b70298D0bde621E6`
 - MechFactory (FixedPriceTokenUSDC): `0xE3e5Df46060370af5Fd37B2aA11e7dac3cCB4bd0`
+
+## Replacement factories
+
+Replacement native/USDC factories are pinned to the deployment globals at
+`946eade0ce561e005636b9b68573b594c339b7e1`; see README "Replacement factory coverage".
+Keep legacy sources. `findPaymentTypeFromFactory` drives payment types, fee units
+and dynamic mech templates; Graph factory subscriptions still need manifest
+entries. The new USDC factories emit `CreateMechFixedPriceToken`. Mode stays
+unchanged. The pinned cross-chain fixture and manifest tests guard coverage.
