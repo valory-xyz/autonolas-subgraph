@@ -15,13 +15,32 @@
 //   the end of the block, in log order.
 //
 // The source then ends the stream after this block and the processor
-// restarts with the new safes in its filters (main.ts).
+// restarts with the new safes in its filters (main.ts). The fetched logs
+// come with every other log of their transactions, as `transactionLogs`
+// gives the stream, so the position, pool, gauge and LiFi events of those
+// transactions run too.
+//
+// Pool templates (VeloV2Pool / AeroV2Pool) created in a block follow the
+// same graph-node rule as Safe instances: their events in that block run
+// after the block's other events. The streamed transaction logs already
+// carry them, so nothing is fetched. The start block also runs the
+// subgraph's `once` block handler (the LpSugar bootstrap), after its logs.
 
 import { eventMeta, type EventMeta } from "@olas/squid-shared";
-import { TRACKED_TOKENS } from "./constants";
-import { dispatch, isSafeTopic, needsReceipt, needsTransaction, SAFE_TOPICS, TRANSFER_TOPIC, type RawLog } from "./dispatch";
-import type { Ctx } from "./handlers";
+import { CHAIN, TRACKED_TOKENS } from "./constants";
+import {
+  dispatch,
+  isPoolTopic,
+  isSafeTopic,
+  needsReceipt,
+  needsTransaction,
+  SAFE_TOPICS,
+  TRANSFER_TOPIC,
+  type RawLog,
+} from "./dispatch";
+import type { Ctx, ReceiptLog } from "./handlers";
 import type { ChainReader } from "./rpc";
+import { handleVeloV2Bootstrap } from "./v2";
 
 /** What the running stream subscribes to. Grows in memory as safes are added. */
 export interface StreamState {
@@ -60,11 +79,19 @@ export async function fetchMissingLogs(
     return m.get(hash)!;
   };
   const out: RawLog[] = [];
-  for (const l of logs) {
+  const seen = new Set<number>();
+  const add = async (l: Omit<RawLog, "transaction" | "receipt">) => {
+    if (seen.has(l.logIndex)) return;
+    seen.add(l.logIndex);
     const hash = l.transactionHash;
     const transaction = needsTransaction(l) ? await memo(txs, hash, () => chain.getTransaction(hash)) : undefined;
     const receipt = needsReceipt(l) ? await memo(receipts, hash, () => chain.getReceiptLogs(hash)) : undefined;
     out.push({ ...l, transaction, receipt });
+  };
+  for (const l of logs) await add(l);
+  // `transactionLogs`: every other log of those transactions.
+  for (const hash of new Set(logs.map((l) => l.transactionHash))) {
+    for (const r of await memo(receipts, hash, () => chain.getReceiptLogs(hash))) await add({ ...r, transactionHash: hash });
   }
   return out;
 }
@@ -81,12 +108,18 @@ export function attachReceipts(logs: RawLog[]): void {
     if (group) group.push(l);
     else byTx.set(l.transactionHash, [l]);
   }
+  const receipts = new Map<string, ReceiptLog[]>();
   for (const l of logs) {
     if (l.receipt !== undefined || !needsReceipt(l)) continue;
-    l.receipt = byTx
-      .get(l.transactionHash)!
-      .sort((a, b) => a.logIndex - b.logIndex)
-      .map((r) => ({ address: r.address, topics: r.topics }));
+    let receipt = receipts.get(l.transactionHash);
+    if (receipt == null) {
+      receipt = byTx
+        .get(l.transactionHash)!
+        .sort((a, b) => a.logIndex - b.logIndex)
+        .map((r) => ({ address: r.address, topics: r.topics, data: r.data, logIndex: r.logIndex }));
+      receipts.set(l.transactionHash, receipt);
+    }
+    l.receipt = receipt;
   }
 }
 
@@ -102,16 +135,29 @@ export async function processBlock(
   const queue = [...block.logs].sort((a, b) => a.logIndex - b.logIndex);
   const seen = new Set(queue.map((l) => l.logIndex));
   const newHosts = new Set<string>();
+  const newPools = new Set<string>();
   const deferred: RawLog[] = [];
   const metaOf = (log: RawLog): EventMeta => eventMeta(block.header, log);
+  const isNewTemplateLog = (log: RawLog) =>
+    (newHosts.has(log.address) && isSafeTopic(log)) || (newPools.has(log.address) && isPoolTopic(log));
+  /** Pools created so far: their events in this block, earlier ones included, run after it. */
+  const drainPools = (upTo: number) => {
+    const pools = ctx.spawnedPools.splice(0);
+    if (pools.length === 0) return;
+    pools.forEach((a) => newPools.add(a));
+    for (const past of queue.slice(0, upTo)) {
+      if (pools.includes(past.address) && isPoolTopic(past) && !deferred.includes(past)) deferred.push(past);
+    }
+  };
 
   for (let i = 0; i < queue.length; i++) {
     const log = queue[i];
-    if (newHosts.has(log.address) && isSafeTopic(log)) {
+    if (isNewTemplateLog(log)) {
       deferred.push(log);
       continue;
     }
     await dispatch(ctx, metaOf(log), log);
+    drainPools(i);
     if (ctx.spawnedSafes.length === 0 && ctx.newServices.length === 0) continue;
 
     const hosts = ctx.spawnedSafes.splice(0);
@@ -141,6 +187,15 @@ export async function processBlock(
       while (at < queue.length && queue[at].logIndex < extra.logIndex) at++;
       queue.splice(at, 0, extra);
     }
+  }
+
+  // Block handlers run after the block's log triggers. The data source
+  // always delivers the start block (processor.ts BOOTSTRAP_BLOCK), so the
+  // `once` handler runs exactly there, as in the subgraph.
+  if (block.header.number === CHAIN.startBlock) {
+    const at = { blockNumber: BigInt(block.header.number), blockTimestamp: BigInt(Math.floor(block.header.timestamp / 1000)) };
+    await handleVeloV2Bootstrap(ctx, at);
+    drainPools(queue.length);
   }
 
   deferred.sort((a, b) => a.logIndex - b.logIndex);

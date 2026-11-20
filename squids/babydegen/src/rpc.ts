@@ -172,15 +172,20 @@ export class ChainReader {
     };
   }
 
-  /** The receipt's logs (graph-node's `event.receipt.logs`), in log order. */
-  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[] }[]> {
+  /** The receipt's logs (graph-node's `event.receipt.logs`), in log order, with block-level log indexes. */
+  async getReceiptLogs(hash: string): Promise<{ address: string; topics: string[]; data: string; logIndex: number }[]> {
     const receipt = (await this.request("eth_getTransactionReceipt", [hash])) as {
-      logs: Array<{ address: string; topics: string[]; logIndex: string }>;
+      logs: Array<{ address: string; topics: string[]; data: string; logIndex: string }>;
     } | null;
     if (receipt == null) throw new Error(`eth_getTransactionReceipt(${hash}) returned null`);
     return [...receipt.logs]
       .sort((a, b) => Number(a.logIndex) - Number(b.logIndex))
-      .map((l) => ({ address: l.address.toLowerCase(), topics: l.topics.map((t) => t.toLowerCase()) }));
+      .map((l) => ({
+        address: l.address.toLowerCase(),
+        topics: l.topics.map((t) => t.toLowerCase()),
+        data: l.data,
+        logIndex: Number(l.logIndex),
+      }));
   }
 }
 

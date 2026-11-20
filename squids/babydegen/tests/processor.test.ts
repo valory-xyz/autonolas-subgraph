@@ -25,6 +25,26 @@ describe("processor", () => {
     expect(portal.buildDataSource(tracked)).toBeDefined();
   });
 
+  it("always requests the start block, where the LpSugar bootstrap runs", async () => {
+    const { addQueries, BOOTSTRAP_BLOCK } = await import("../src/processor");
+    const { logQueries, emptyTracked } = await import("../src/sources");
+    const calls: string[] = [];
+    const fake = {
+      includeAllBlocks(range?: { from: number; to?: number }) {
+        calls.push(`all:${range?.from}-${range?.to}`);
+        return fake;
+      },
+      addLog() {
+        calls.push("log");
+        return fake;
+      },
+    };
+    addQueries(fake, logQueries(emptyTracked()));
+    expect(BOOTSTRAP_BLOCK).toEqual({ from: 47_163_056, to: 47_163_056 });
+    expect(calls[0]).toBe("all:47163056-47163056");
+    expect(calls.filter((c) => c === "log")).toHaveLength(4);
+  });
+
   it("honours BABYDEGEN_TO_BLOCK and refuses one before the start block", async () => {
     vi.stubEnv("BABYDEGEN_TO_BLOCK", "47200000");
     expect((await import("../src/processor")).BLOCK_RANGE).toEqual({ from: 47_163_056, to: 47_200_000 });

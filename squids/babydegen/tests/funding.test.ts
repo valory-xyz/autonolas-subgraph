@@ -96,14 +96,19 @@ const funding = async (w: W, safe: string) => (await w.cache.get(FundingBalance,
 const field = async (w: W, safe: string, f: "totalInUsd" | "totalWithdrawnUsd" | "netUsd") => (await funding(w, safe))[f].toFixed();
 const ethBalance = async (w: W, safe: string) => (await w.cache.get(TokenBalance, tokenBalanceId(safe, ETH_ADDRESS)))!.balance.toFixed();
 
-const transfer = (w: W, token: string, from: string, to: string, value: bigint, receipt: h.ReceiptLog[] | null, sender?: string) =>
-  h.handleERC20Transfer(w.ctx, at(token), { from, to, value }, tx(sender ? { from: sender } : {}), receipt);
+/** The fixtures keep address + topics, all the funding rule reads; the rest of each log is filler. */
+type LooseReceipt = { address: string; topics: string[] }[];
+const full = (receipt: LooseReceipt | null): h.ReceiptLog[] | null =>
+  receipt?.map((l, i) => ({ data: "0x", logIndex: 100 + i, ...l })) ?? null;
+
+const transfer = (w: W, token: string, from: string, to: string, value: bigint, receipt: LooseReceipt | null, sender?: string) =>
+  h.handleERC20Transfer(w.ctx, at(token), { from, to, value }, tx(sender ? { from: sender } : {}), full(receipt));
 
 const received = (w: W, safe: string, sender: string, value: bigint, over: Partial<h.Tx> = {}) =>
   h.handleSafeReceived(w.ctx, at(safe), { sender, value }, tx(over));
 
-const execution = (w: W, safe: string, input: string, value: bigint, receipt: h.ReceiptLog[] | null, over: Partial<h.Tx> = {}) =>
-  h.handleExecutionSuccess(w.ctx, at(safe, 22), tx({ to: safe, value, input, ...over }), receipt);
+const execution = (w: W, safe: string, input: string, value: bigint, receipt: LooseReceipt | null, over: Partial<h.Tx> = {}) =>
+  h.handleExecutionSuccess(w.ctx, at(safe, 22), tx({ to: safe, value, input, ...over }), full(receipt));
 
 /** execTransaction Call of 0.5 ETH to `to` (EXEC_ETH_TO_USER with its `to` word replaced). */
 const execCallTo = (to: string) => fx.EXEC_ETH_TO_USER.slice(0, 10) + "0".repeat(24) + to.slice(2) + fx.EXEC_ETH_TO_USER.slice(74);
