@@ -263,17 +263,17 @@
   integrity sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==
 
 "@libp2p/crypto@^5.0.0", "@libp2p/crypto@^5.1.8":
-  version "5.1.12"
-  resolved "https://registry.yarnpkg.com/@libp2p/crypto/-/crypto-5.1.12.tgz#dd5937d0142a24a89310b84bd37f1dd93505db90"
-  integrity sha512-1yJS0BZj+HF4M3Uv/92y3oIbMcCar218accFBcX+nKVhBlwDbx6fkUURhs5GilIhMgDtir+qQ8Un1hwF4CgGzw==
+  version "5.1.22"
+  resolved "https://registry.yarnpkg.com/@libp2p/crypto/-/crypto-5.1.22.tgz#319eca0f013c36f557e0a44f7a12589795b268da"
+  integrity sha512-yVk4BefSiEz044kjsiLSEoJTbhRoyamqx4kFI9LnX8/asr4wnqDWKTXcn6mSx/RVNEzmDO70l3vOvcMCl4aLCQ==
   dependencies:
-    "@libp2p/interface" "^3.0.2"
+    "@libp2p/interface" "^3.2.5"
     "@noble/curves" "^2.0.1"
     "@noble/hashes" "^2.0.1"
-    multiformats "^13.4.0"
-    protons-runtime "^5.6.0"
-    uint8arraylist "^2.4.8"
-    uint8arrays "^5.1.0"
+    "multiformats" "^14.0.0"
+    "protons-runtime" "^7.0.0"
+    "uint8arraylist" "^3.0.2"
+    "uint8arrays" "^6.1.1"
 
 "@libp2p/interface@^2.0.0", "@libp2p/interface@^2.11.0":
   version "2.11.0"
@@ -3142,3 +3142,66 @@ zod@^3.21.4:
   version "3.25.76"
   resolved "https://registry.yarnpkg.com/zod/-/zod-3.25.76.tgz#26841c3f6fd22a6a2760e7ccb719179768471e34"
   integrity sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==
+
+"@libp2p/interface@^3.2.5":
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/@libp2p/interface/-/interface-3.2.5.tgz#fe951a4f864f9012e5b9ae9495ebebdf20c0e4b7"
+  integrity sha512-RdTchTdakBBc4ShKKsvoME/bJYsrCoVDpdYQVdd4TQ30TCb8QwWKGClqAtw7gfLNuaUKm41xz06kASW6AZpbDA==
+  dependencies:
+    "@multiformats/dns" "^1.0.6"
+    "@multiformats/multiaddr" "^13.0.3"
+    "main-event" "^1.0.1"
+    "multiformats" "^14.0.0"
+    "progress-events" "^1.1.0"
+    "uint8arraylist" "^3.0.2"
+
+"@multiformats/multiaddr@^13.0.3":
+  version "13.0.3"
+  resolved "https://registry.yarnpkg.com/@multiformats/multiaddr/-/multiaddr-13.0.3.tgz#f33a69879bd817fb67bab8ceb976c5d7dec38e7b"
+  integrity sha512-mEqqJ4r3a/uuFMTpRkU316wGNIDQNhuVWpm+ebKTQeYsfv9jXbPONWM6VVnj3KGUrwfsX7GZOyp4TFqEA2SPCw==
+  dependencies:
+    "@chainsafe/is-ip" "^2.0.1"
+    "multiformats" "^14.0.0"
+    "uint8-varint" "^3.0.0"
+    "uint8arrays" "^6.1.1"
+
+"multiformats@^14.0.0":
+  version "14.0.0"
+  resolved "https://registry.yarnpkg.com/multiformats/-/multiformats-14.0.0.tgz#4818a926e4cbec76bacffdf81f9c74019538fd20"
+  integrity sha512-iWK1RrAS58p2NDfeZFuSUSv3ZPewTIhsGbh/5NgeGGJwJmRljLxGtjRR3nkn+loG3zl+IrfR/W1590QnrSK+Gg==
+
+"progress-events@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/progress-events/-/progress-events-1.1.0.tgz#32c5c3cbce3d6465a31ca088e088aef8a44841df"
+  integrity sha512-82DVc5tI36neVB3IjdXR11ztwGuoBc98em9ijzubeZKxI47OlV2Znq6mlPqE5xPDzO2Uw98GHiQSjj2favBCRQ==
+
+"protons-runtime@^7.0.0":
+  version "7.0.0"
+  resolved "https://registry.yarnpkg.com/protons-runtime/-/protons-runtime-7.0.0.tgz#4d4a851f873ed91620965661642aa75b88f04a4b"
+  integrity sha512-r/e72006xoVND4Uvf1aIs4OQOkJaASBU3ip4DzOWAktoKAkTiOYqKoS3TYMBm8HnnYU8+h0uEzr5gIRwk/pmTg==
+  dependencies:
+    "uint8-varint" "^3.0.0"
+    "uint8arraylist" "^3.0.0"
+    "uint8arrays" "^6.0.0"
+
+"uint8-varint@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/uint8-varint/-/uint8-varint-3.0.0.tgz#073d9a1eb24fcb52fae6763511722b7c60b4a951"
+  integrity sha512-S4DdpXBaLwKcFo7f0bWzWfHjbZ/i3QhM842qn+ZvHjxqFCfUcEB9SQNcmI69S+zMlcmIcKxsk9Iyw77S2Kxv6Q==
+  dependencies:
+    "uint8arraylist" "^3.0.1"
+    "uint8arrays" "^6.1.0"
+
+"uint8arraylist@^3.0.1", "uint8arraylist@^3.0.2", "uint8arraylist@^3.0.0":
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/uint8arraylist/-/uint8arraylist-3.0.2.tgz#ca67cba700d0aafec34f8f547f40adc3ee769a57"
+  integrity sha512-LDVoq9BQaGJzGDUovEnoX6rpKCvnY/Jbtws4ikwnBzjRbq5qBAFpBZevUEbSmMM87aO0Sp+wOZy2ZXf5yODmXQ==
+  dependencies:
+    "uint8arrays" "^6.0.0"
+
+"uint8arrays@^6.0.0", "uint8arrays@^6.1.0", "uint8arrays@^6.1.1":
+  version "6.1.1"
+  resolved "https://registry.yarnpkg.com/uint8arrays/-/uint8arrays-6.1.1.tgz#c2b59dddacc69ac4813ea29ac4b8d727189de522"
+  integrity sha512-iz7JN0XCSZYA111lhFG2Ui9EhFvTNekqSRHw3lvMHq+dzwWy1OQftxFQREEh4rffU0oSoXdQHsk2TiHKVm4fsA==
+  dependencies:
+    "multiformats" "^14.0.0"

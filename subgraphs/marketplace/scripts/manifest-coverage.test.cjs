@@ -107,3 +107,29 @@ test('coverage check detects the original overlapping V1/V2 registrations', () =
   // Indexed-ness does not change topic0.
   assert(conflicts.some((x) => x.includes('MarketplaceDelivery(')));
 });
+
+const deploymentFactories = require('../../../squids/marketplace/tests/fixtures/marketplace-factories-946eade.json');
+for (const [deploymentChain, manifestChain] of Object.entries({ eth: 'mainnet', gnosis: 'gnosis', optimism: 'optimism', arbitrum: 'arbitrum', celo: 'celo' })) {
+  test(`${manifestChain}: every pinned deployed factory is subscribed with its creation event`, () => {
+    const manifest = read(manifestChain);
+    for (const [key, address] of Object.entries(deploymentFactories.chains[deploymentChain])) {
+      const source = manifest.dataSources.find((s) => s.source?.address?.toLowerCase() === address.toLowerCase());
+      assert(source, `${key}: ${address} is missing from ${manifestChain}`);
+      if (source.name.endsWith('Replacement')) {
+        const event = key.includes('Native') ? 'CreateMechFixedPriceNative' : 'CreateMechFixedPriceToken';
+        assert.equal(source.mapping.eventHandlers[0].event, `${event}(indexed address,indexed uint256,uint256)`);
+        assert.equal(source.mapping.eventHandlers[0].handler, 'handleMechFactoryCreate');
+        const abi = source.mapping.abis.find((abi) => abi.name === source.source.abi);
+        assert(abi);
+        const events = JSON.parse(fs.readFileSync(path.resolve(root, abi.file), 'utf8'));
+        const item = (Array.isArray(events) ? events : events.abi).find((entry) => entry.type === 'event' && entry.name === event);
+        assert(item);
+        assert.deepEqual(item.inputs.map(({ name, type, indexed }) => ({ name, type, indexed })), [
+          { name: 'mech', type: 'address', indexed: true },
+          { name: 'serviceId', type: 'uint256', indexed: true },
+          { name: 'maxDeliveryRate', type: 'uint256', indexed: false },
+        ]);
+      }
+    }
+  });
+}

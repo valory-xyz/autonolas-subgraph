@@ -180,6 +180,27 @@ dataSources:
         - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
           handler: handleMechFactoryCreate
       file: ./src/marketplace/mech-factory.ts
+  # Conservative replay boundary retained from historical factory source.
+  - kind: ethereum
+    name: MechFactoryReplacementNative
+    network: gnosis
+    source:
+      address: "0x5270c0797a9D0c59163cF570129E5808BE7927FA"
+      abi: MechFactoryFixedPriceNative
+      startBlock: 38661963
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - PendingMechData
+      abis:
+        - name: MechFactoryFixedPriceNative
+          file: ../../abis/marketplace-1.2.0/MechFactoryFixedPriceNative.json
+      eventHandlers:
+        - event: CreateMechFixedPriceNative(indexed address,indexed uint256,uint256)
+          handler: handleMechFactoryCreate
+      file: ./src/marketplace/mech-factory.ts
   - kind: ethereum
     name: MechFactoryFixedPriceToken
     network: gnosis
@@ -258,7 +279,7 @@ dataSources:
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
+          file: ../../abis/marketplace-1.2.0/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
         - name: BalancerV2Vault
@@ -305,12 +326,12 @@ dataSources:
         - Global
       abis:
         - name: MechMarketplaceV2
-          file: ../../abis/MechMarketplaceV2.json
+          file: ../../abis/marketplace-1.2.0/MechMarketplaceV2.json
         # ABI only: the shared mapping imports MechMarketplaceV1 types.
         - name: MechMarketplaceV1
           file: ../../abis/MechMarketplaceV1.json
         - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
+          file: ../../abis/marketplace-1.2.0/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
         - name: BalancerV2Vault
@@ -417,7 +438,7 @@ templates:
         - Mech
       abis:
         - name: MechFixedPriceNative
-          file: ../../abis/MechFixedPriceNative.json
+          file: ../../abis/marketplace-1.2.0/MechFixedPriceNative.json
         - name: AggregatorV3Interface
           file: ../../abis/AggregatorV3Interface.json
       eventHandlers:
