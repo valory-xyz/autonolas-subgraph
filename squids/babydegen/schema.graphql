@@ -1,7 +1,7 @@
 # Port of autonolas-subgraph-studio subgraphs/babydegen/babydegen-base
 # (Basius on Base) as of studio #174 + #175: service discovery, Safe/funding
-# flows, token balances, token pricing, positions, swaps, portfolio metrics
-# and snapshots. Population metrics (DailyPopulationMetric) arrive in 3b.
+# flows, token balances, token pricing, positions, swaps, portfolio metrics,
+# snapshots and population metrics.
 #
 # Ids and Bytes fields keep graph-node's lowercase hex output, including the
 # UTF-8-encoded ids (e.g. ServiceRegistration "607" -> "0x363037"); see
@@ -192,6 +192,78 @@ type AgentPortfolioSnapshot @entity {
   block: BigInt!
   totalPositions: Int!
   totalClosedPositions: Int!
+}
+
+"""
+Population metrics of the day's snapshots (globalMetrics.ts), written on the
+first poll block that takes a snapshot on a UTC day (immutable). The ethAdjusted
+fields are deprecated and equal the unadjusted ones. The historicalMedian*
+lists are decimal strings: SQD cannot store BigDecimal arrays, and graph-node
+serves [BigDecimal!] as strings too.
+"""
+type DailyPopulationMetric @entity {
+  "utf8hex('<UTC midnight timestamp>')"
+  id: ID!
+
+  medianPopulationROI: BigDecimal!
+  medianPopulationAPR: BigDecimal!
+  medianUnrealisedPnL: BigDecimal!
+  medianProjectedUnrealisedPnL: BigDecimal!
+  medianUnrealisedPnLWithRewards: BigDecimal
+  medianProjectedUnrealisedPnLWithRewards: BigDecimal
+  medianEthAdjustedROI: BigDecimal!
+  medianEthAdjustedAPR: BigDecimal!
+  medianEthAdjustedUnrealisedPnL: BigDecimal!
+  medianEthAdjustedProjectedUnrealisedPnL: BigDecimal!
+
+  medianLifetimeActiveUnrealisedPnL: BigDecimal
+  medianLifetimeActiveProjectedUnrealisedPnL: BigDecimal
+  medianLifetimeActiveEthAdjustedUnrealisedPnL: BigDecimal
+  medianLifetimeActiveEthAdjustedProjectedUnrealisedPnL: BigDecimal
+  medianLifetimeActiveAUM: BigDecimal
+  totalLifetimeActiveFundedAUM: BigDecimal
+  totalLifetimeActiveAgents: Int
+
+  totalFundedAUM: BigDecimal!
+  medianAUM: BigDecimal!
+  averageAgentDaysActive: BigDecimal!
+
+  sma7dROI: BigDecimal!
+  sma7dAPR: BigDecimal!
+  sma7dUnrealisedPnL: BigDecimal!
+  sma7dProjectedUnrealisedPnL: BigDecimal!
+  sma7dUnrealisedPnLWithRewards: BigDecimal
+  sma7dProjectedUnrealisedPnLWithRewards: BigDecimal
+  sma7dAUM: BigDecimal!
+  sma7dEthAdjustedROI: BigDecimal!
+  sma7dEthAdjustedAPR: BigDecimal!
+  sma7dEthAdjustedUnrealisedPnL: BigDecimal!
+  sma7dEthAdjustedProjectedUnrealisedPnL: BigDecimal!
+  sma7dLifetimeActiveUnrealisedPnL: BigDecimal
+  sma7dLifetimeActiveProjectedUnrealisedPnL: BigDecimal
+  sma7dLifetimeActiveEthAdjustedUnrealisedPnL: BigDecimal
+  sma7dLifetimeActiveEthAdjustedProjectedUnrealisedPnL: BigDecimal
+  sma7dLifetimeActiveAUM: BigDecimal
+
+  "UTC midnight"
+  timestamp: BigInt! @index
+  block: BigInt!
+  totalAgents: Int!
+
+  historicalMedianROI: [String!]!
+  historicalMedianAPR: [String!]!
+  historicalMedianUnrealisedPnL: [String!]!
+  historicalMedianProjectedUnrealisedPnL: [String!]!
+  historicalMedianAUM: [String!]!
+  historicalMedianEthAdjustedROI: [String!]!
+  historicalMedianEthAdjustedAPR: [String!]!
+  historicalMedianEthAdjustedUnrealisedPnL: [String!]!
+  historicalMedianEthAdjustedProjectedUnrealisedPnL: [String!]!
+  historicalMedianLifetimeActiveUnrealisedPnL: [String!]
+  historicalMedianLifetimeActiveProjectedUnrealisedPnL: [String!]
+  historicalMedianLifetimeActiveEthAdjustedUnrealisedPnL: [String!]
+  historicalMedianLifetimeActiveEthAdjustedProjectedUnrealisedPnL: [String!]
+  historicalMedianLifetimeActiveAUM: [String!]
 }
 
 type TokenBalance @entity {

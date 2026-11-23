@@ -17,6 +17,7 @@
 // several blocks per second), so it is never derived from block numbers.
 
 import { CHAIN } from "./constants";
+import { calculateGlobalMetrics } from "./globalMetrics";
 import { AgentPortfolio, Service, ServiceRegistry } from "./model";
 import { SERVICE_REGISTRY_ID } from "./ids";
 import { calculatePortfolioMetrics, refreshAllUSDValues } from "./portfolio";
@@ -71,8 +72,8 @@ export async function snapshotPortfolio(ctx: PosCtx, serviceSafe: string, at: At
 
 /**
  * handleBlock (checkServicesForSnapshot). Call only on a poll block.
- * Returns whether any snapshot was taken (where the subgraph then runs
- * calculateGlobalMetrics, part 3b).
+ * After the snapshots, if any was taken, calculateGlobalMetrics. Returns
+ * whether any snapshot was taken.
  */
 export async function handleSchedulerBlock(ctx: PosCtx, at: At): Promise<boolean> {
   let created = false;
@@ -88,6 +89,7 @@ export async function handleSchedulerBlock(ctx: PosCtx, at: At): Promise<boolean
     }
     created = true;
   }
+  if (created) await calculateGlobalMetrics(ctx, at);
   return created;
 }
 
