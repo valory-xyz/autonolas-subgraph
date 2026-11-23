@@ -1,5 +1,5 @@
-module.exports = class Data1794396785116 {
-    name = 'Data1794396785116'
+module.exports = class Data1795427469070 {
+    name = 'Data1795427469070'
 
     async up(db) {
         await db.query(`CREATE TABLE "token_balance" ("id" character varying NOT NULL, "token" text NOT NULL, "symbol" text NOT NULL, "decimals" integer NOT NULL, "balance" numeric NOT NULL, "balance_usd" numeric NOT NULL, "last_updated" numeric NOT NULL, "last_block" numeric NOT NULL, "service_id" character varying, CONSTRAINT "PK_dc23ea262a0188977523d90ae7f" PRIMARY KEY ("id"))`)
@@ -22,6 +22,10 @@ module.exports = class Data1794396785116 {
         await db.query(`CREATE INDEX "idx_price_update_source_af84fe31" ON "price_update" ("source_id") `)
         await db.query(`CREATE TABLE "agent_portfolio" ("id" character varying NOT NULL, "final_value" numeric NOT NULL, "final_value_without_rewards" numeric NOT NULL, "initial_value" numeric NOT NULL, "positions_value" numeric NOT NULL, "uninvested_value" numeric NOT NULL, "total_withdrawn_usd" numeric NOT NULL, "unrealised_pn_l" numeric NOT NULL, "roi" numeric NOT NULL, "apr" numeric NOT NULL, "projected_unrealised_pn_l" numeric NOT NULL, "unrealised_pn_l_with_rewards" numeric NOT NULL, "projected_unrealised_pn_l_with_rewards" numeric NOT NULL, "eth_adjusted_roi" numeric NOT NULL, "eth_adjusted_apr" numeric NOT NULL, "eth_adjusted_unrealised_pn_l" numeric NOT NULL, "eth_adjusted_projected_unrealised_pn_l" numeric NOT NULL, "first_funding_eth_price" numeric NOT NULL, "current_eth_price" numeric NOT NULL, "total_investments" numeric NOT NULL, "total_gross_gains" numeric NOT NULL, "total_costs" numeric NOT NULL, "first_trading_timestamp" numeric NOT NULL, "last_updated" numeric NOT NULL, "last_snapshot_timestamp" numeric NOT NULL, "last_snapshot_block" numeric NOT NULL, "total_positions" integer NOT NULL, "total_closed_positions" integer NOT NULL, "service_id" character varying, CONSTRAINT "PK_e9fc097d4b5c50d54b2533dc554" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "idx_agent_portfolio_service_18f99bbf" ON "agent_portfolio" ("service_id") `)
+        await db.query(`CREATE TABLE "agent_portfolio_snapshot" ("id" character varying NOT NULL, "final_value" numeric NOT NULL, "initial_value" numeric NOT NULL, "positions_value" numeric NOT NULL, "uninvested_value" numeric NOT NULL, "total_withdrawn_usd" numeric NOT NULL, "roi" numeric NOT NULL, "apr" numeric NOT NULL, "unrealised_pn_l" numeric NOT NULL, "projected_unrealised_pn_l" numeric NOT NULL, "eth_adjusted_roi" numeric NOT NULL, "eth_adjusted_apr" numeric NOT NULL, "eth_adjusted_unrealised_pn_l" numeric NOT NULL, "eth_adjusted_projected_unrealised_pn_l" numeric NOT NULL, "timestamp" numeric NOT NULL, "block" numeric NOT NULL, "total_positions" integer NOT NULL, "total_closed_positions" integer NOT NULL, "service_id" character varying, "portfolio_id" character varying, CONSTRAINT "PK_ed8b888626cc4d8d0373148e647" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "idx_agent_portfolio_snapshot_service_b541ed42" ON "agent_portfolio_snapshot" ("service_id") `)
+        await db.query(`CREATE INDEX "idx_agent_portfolio_snapshot_portfolio_422af5b4" ON "agent_portfolio_snapshot" ("portfolio_id") `)
+        await db.query(`CREATE INDEX "idx_agent_portfolio_snapshot_timestamp_bb9db4d1" ON "agent_portfolio_snapshot" ("timestamp") `)
         await db.query(`CREATE TABLE "service_registry" ("id" character varying NOT NULL, "service_addresses" text array NOT NULL, CONSTRAINT "PK_f93340662fb52510dc0e287d2db" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "pending_mint_position" ("id" character varying NOT NULL, "tx_hash" text NOT NULL, "pool_address" text NOT NULL, "position_id" text NOT NULL, "recipient" text NOT NULL, "starts_entry" boolean NOT NULL, CONSTRAINT "PK_6ab785fd95516d4bc1aecf4be88" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "swap_transaction" ("id" character varying NOT NULL, "agent" text NOT NULL, "transaction_id" text NOT NULL, "tx_hash" text NOT NULL, "timestamp" numeric NOT NULL, "block" numeric NOT NULL, "from_asset_id" text NOT NULL, "to_asset_id" text NOT NULL, "from_amount" numeric NOT NULL, "to_amount" numeric NOT NULL, "from_amount_usd" numeric NOT NULL, "to_amount_usd" numeric NOT NULL, "expected_to_amount_usd" numeric NOT NULL, "slippage_usd" numeric NOT NULL, "slippage_percentage" numeric NOT NULL, "is_associated" boolean NOT NULL, "expires_at" numeric NOT NULL, CONSTRAINT "PK_78506c4050ae7cedd50b08c0dc5" PRIMARY KEY ("id"))`)
@@ -41,9 +45,13 @@ module.exports = class Data1794396785116 {
         await db.query(`ALTER TABLE "price_update" ADD CONSTRAINT "FK_6f6580ac8d9f20e2d0bf84b11e5" FOREIGN KEY ("token_id") REFERENCES "token"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "price_update" ADD CONSTRAINT "FK_b0829d024f176af7110574186f7" FOREIGN KEY ("source_id") REFERENCES "price_source"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "agent_portfolio" ADD CONSTRAINT "FK_ea84f8e9a1e0de36bdf3760cc6d" FOREIGN KEY ("service_id") REFERENCES "service"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "agent_portfolio_snapshot" ADD CONSTRAINT "FK_d8df0e8b233a18ffe8912d031ec" FOREIGN KEY ("service_id") REFERENCES "service"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "agent_portfolio_snapshot" ADD CONSTRAINT "FK_9a13b9c5836f819646807b6e403" FOREIGN KEY ("portfolio_id") REFERENCES "agent_portfolio"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
     }
 
     async down(db) {
+        await db.query(`ALTER TABLE "agent_portfolio_snapshot" DROP CONSTRAINT "FK_9a13b9c5836f819646807b6e403"`)
+        await db.query(`ALTER TABLE "agent_portfolio_snapshot" DROP CONSTRAINT "FK_d8df0e8b233a18ffe8912d031ec"`)
         await db.query(`ALTER TABLE "agent_portfolio" DROP CONSTRAINT "FK_ea84f8e9a1e0de36bdf3760cc6d"`)
         await db.query(`ALTER TABLE "price_update" DROP CONSTRAINT "FK_b0829d024f176af7110574186f7"`)
         await db.query(`ALTER TABLE "price_update" DROP CONSTRAINT "FK_6f6580ac8d9f20e2d0bf84b11e5"`)
@@ -63,6 +71,10 @@ module.exports = class Data1794396785116 {
         await db.query(`DROP TABLE "swap_transaction"`)
         await db.query(`DROP TABLE "pending_mint_position"`)
         await db.query(`DROP TABLE "service_registry"`)
+        await db.query(`DROP INDEX "public"."idx_agent_portfolio_snapshot_timestamp_bb9db4d1"`)
+        await db.query(`DROP INDEX "public"."idx_agent_portfolio_snapshot_portfolio_422af5b4"`)
+        await db.query(`DROP INDEX "public"."idx_agent_portfolio_snapshot_service_b541ed42"`)
+        await db.query(`DROP TABLE "agent_portfolio_snapshot"`)
         await db.query(`DROP INDEX "public"."idx_agent_portfolio_service_18f99bbf"`)
         await db.query(`DROP TABLE "agent_portfolio"`)
         await db.query(`DROP INDEX "public"."idx_price_update_source_af84fe31"`)

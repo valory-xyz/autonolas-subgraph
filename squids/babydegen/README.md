@@ -8,21 +8,20 @@ Base, as corrected by studio #174 + #175. It is being ported in three slices
 | Slice | Content | Status |
 |---|---|---|
 | 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | done (2a: brought up to #175) |
-| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | this package (2b) |
-| 3 | 1800-block snapshot scheduler, ROI/APR, `AgentPortfolioSnapshot`, `DailyPopulationMetric`, parity script, k8s example | last |
+| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | done (2b) |
+| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC memos | this package |
+| 3b | `DailyPopulationMetric`, parity script, k8s example | last |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
 `PriceSource`, `PriceUpdate`, `AgentPortfolio`, and from slice 2
 `ProtocolPosition`, `NFTPositionMapping`, `UncollectedPrincipal`,
 `ClaimableRewardBeforeBlock`, `CreditedRewardClaim`, `PendingMintPosition`,
-`SwapTransaction`, `AgentSwapBuffer`, `AeroGauge` and `V2PoolVenue`
-(`SwapToEntryAssociation` is never written by the subgraph and is left out). `AgentPortfolio` differs
-from the subgraph until slice 3 ports `calculatePortfolioMetrics`: its metrics
-stay 0, `lastUpdated` stays at creation, and `firstTradingTimestamp` and
-`firstFundingEthPrice` come from registration or the first funding, where the
-subgraph can also fall back to the registration timestamp from that call. Consumers read only
-`dailyPopulationMetrics`, so nothing switches before slice 3.
+`SwapTransaction`, `AgentSwapBuffer`, `AeroGauge` and `V2PoolVenue`, and
+from 3a `AgentPortfolioSnapshot`
+(`SwapToEntryAssociation` is never written by the subgraph and is left out).
+`DailyPopulationMetric` arrives in 3b. Consumers read only
+`dailyPopulationMetrics`, so nothing switches before 3b's parity check.
 
 ## Running locally
 
@@ -159,6 +158,23 @@ is capped, which matters for RPC ingestion.
   (`txHash ++ "-" ++ logIndex` as UTF-8, `txHash ++ logIndex` as 4
   little-endian bytes). The subgraph's in-memory pool caches (poolIndexCache,
   discoveredPools) only save calls; they change no row and are not ported.
-- **Portfolio metrics.** `calculatePortfolioMetrics` is still a no-op at
-  every call site (part 3); `refreshAllActivePositions` (src/refresh.ts) is
-  the scheduler's protocol dispatch, exported for part 3.
+- **Portfolio metrics (3a).** `calculatePortfolioMetrics` runs at every
+  call site the subgraph has. `unrealisedPnL` / `projectedUnrealisedPnL`
+  are the portfolio-value ROI/APR, `roi` / `apr` the closed-position ROI and
+  its APR (positive ROI only); the `ethAdjusted*` fields equal the
+  unadjusted ones, as in the subgraph.
+- **Snapshots (3a).** The PortfolioScheduler polls every 1800 blocks from
+  the start block (graph-node: `(n - start) % 1800 == 0`), after the
+  block's events and before the events of Safes created in it. A service
+  is snapshotted on its first poll block and then on the first poll block
+  of each later UTC day. The stream only carries blocks with tracked logs,
+  so before each streamed block `src/scheduler.ts` finds the earliest due
+  poll block from the entities and runs it there. A day's first poll block
+  is found by bisecting poll-block headers: Base's block time changed from
+  2 s to 200 ms at block 53,556,128 (2026-11-05), so it is never derived
+  from block numbers (1800 blocks is now 6 minutes, not an hour). With `BABYDEGEN_TO_BLOCK` the end block is always streamed, so every poll
+  block up to it runs. At the live head a due poll block runs when the next
+  tracked block arrives (same values, later).
+- **RPC memos.** `eth_call` and `eth_getCode` answers are memoised per
+  block hash (`ChainReader.enterBlock`), so a hot-block fork replay of the
+  same height re-reads them.

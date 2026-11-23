@@ -1,7 +1,7 @@
 # Port of autonolas-subgraph-studio subgraphs/babydegen/babydegen-base
-# (Basius on Base) as of studio #174 + #175, slice 1 of 3: service
-# discovery, Safe/funding flows, token balances and token pricing.
-# Positions, swaps, snapshots and population metrics arrive in slices 2 and 3.
+# (Basius on Base) as of studio #174 + #175: service discovery, Safe/funding
+# flows, token balances, token pricing, positions, swaps, portfolio metrics
+# and snapshots. Population metrics (DailyPopulationMetric) arrive in 3b.
 #
 # Ids and Bytes fields keep graph-node's lowercase hex output, including the
 # UTF-8-encoded ids (e.g. ServiceRegistration "607" -> "0x363037"); see
@@ -157,6 +157,39 @@ type AgentPortfolio @entity {
   lastSnapshotTimestamp: BigInt!
   lastSnapshotBlock: BigInt!
 
+  totalPositions: Int!
+  totalClosedPositions: Int!
+}
+
+"Daily portfolio state, written by the PortfolioScheduler on UTC-day crossings (immutable)"
+type AgentPortfolioSnapshot @entity {
+  "utf8hex('<serviceSafe>-<timestamp>')"
+  id: ID!
+  service: Service!
+  portfolio: AgentPortfolio!
+
+  finalValue: BigDecimal!
+  initialValue: BigDecimal!
+  positionsValue: BigDecimal!
+  uninvestedValue: BigDecimal!
+  totalWithdrawnUsd: BigDecimal!
+
+  roi: BigDecimal!
+  apr: BigDecimal!
+  unrealisedPnL: BigDecimal!
+  projectedUnrealisedPnL: BigDecimal!
+
+  "Deprecated: equals the unadjusted value"
+  ethAdjustedRoi: BigDecimal!
+  "Deprecated: equals the unadjusted value"
+  ethAdjustedApr: BigDecimal!
+  "Deprecated: equals the unadjusted value"
+  ethAdjustedUnrealisedPnL: BigDecimal!
+  "Deprecated: equals the unadjusted value"
+  ethAdjustedProjectedUnrealisedPnL: BigDecimal!
+
+  timestamp: BigInt! @index
+  block: BigInt!
   totalPositions: Int!
   totalClosedPositions: Int!
 }

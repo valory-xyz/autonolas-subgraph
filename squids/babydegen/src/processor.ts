@@ -41,6 +41,9 @@ export function addQueries<B extends { addLog(q: LogRequest & { range?: Range })
   queries: LogQuery[],
 ): B {
   let b = builder.includeAllBlocks(BOOTSTRAP_BLOCK);
+  // A pinned end block always arrives, so the scheduler (block.ts) runs the
+  // due poll blocks up to it even when it carries no tracked log.
+  if (BLOCK_RANGE.to !== undefined) b = b.includeAllBlocks({ from: BLOCK_RANGE.to, to: BLOCK_RANGE.to });
   for (const { from, ...q } of queries) {
     if (from === undefined) {
       b = b.addLog(q);

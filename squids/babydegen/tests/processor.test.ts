@@ -45,6 +45,24 @@ describe("processor", () => {
     expect(calls.filter((c) => c === "log")).toHaveLength(4);
   });
 
+  it("requests a pinned end block too, so the scheduler runs the poll blocks up to it", async () => {
+    vi.stubEnv("BABYDEGEN_TO_BLOCK", "47200000");
+    const { addQueries } = await import("../src/processor");
+    const { logQueries, emptyTracked } = await import("../src/sources");
+    const calls: string[] = [];
+    const fake = {
+      includeAllBlocks(range?: { from: number; to?: number }) {
+        calls.push(`all:${range?.from}-${range?.to}`);
+        return fake;
+      },
+      addLog() {
+        return fake;
+      },
+    };
+    addQueries(fake, logQueries(emptyTracked()));
+    expect(calls).toEqual(["all:47163056-47163056", "all:47200000-47200000"]);
+  });
+
   it("honours BABYDEGEN_TO_BLOCK and refuses one before the start block", async () => {
     vi.stubEnv("BABYDEGEN_TO_BLOCK", "47200000");
     expect((await import("../src/processor")).BLOCK_RANGE).toEqual({ from: 47_163_056, to: 47_200_000 });

@@ -88,6 +88,20 @@ export class FakeChain {
     throw new Error(`unexpected call ${sel} to ${to}`);
   }
 
+  /** Blocks entered (ChainReader.enterBlock), in order. */
+  entered: { number: bigint; hash: string }[] = [];
+  enterBlock(block: { number: bigint; hash: string }): void {
+    this.entered.push({ number: block.number, hash: block.hash });
+  }
+
+  /** Block timestamps (seconds); 2 s blocks from 47,163,056 at 1,781,000,000 unless replaced. */
+  timestampOf = (n: bigint): bigint => 1_781_000_000n + (n - 47_163_056n) * 2n;
+  headerReads: bigint[] = [];
+  async getBlockHeader(number: bigint): Promise<{ number: bigint; hash: string; timestamp: bigint }> {
+    this.headerReads.push(number);
+    return { number, hash: "0x" + number.toString(16).padStart(64, "0"), timestamp: this.timestampOf(number) };
+  }
+
   async hasCode(address: string): Promise<boolean> {
     return this.contracts.has(address);
   }
