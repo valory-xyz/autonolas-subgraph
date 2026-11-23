@@ -229,6 +229,18 @@ describe("calculateGlobalMetrics", () => {
     expect(m.historicalMedianROI).toEqual(["5"]);
   });
 
+  it("counts as lifetime active only agents with more than 2 positions (exactly 2 is out)", async () => {
+    const w = world([
+      { roi: "1", upnl: "10", positions: 2, netUsd: "100" },
+      { roi: "1", upnl: "20", positions: 3, netUsd: "300" },
+    ]);
+    await calculateGlobalMetrics(w.ctx, at);
+    const m = await read(w);
+    expect(m.totalLifetimeActiveAgents).toBe(1);
+    expect(m.medianLifetimeActiveUnrealisedPnL!.toFixed()).toBe("20");
+    expect(m.totalLifetimeActiveFundedAUM!.toFixed()).toBe("300");
+  });
+
   it("extends the previous day's history (last 7), leaves that row alone, and skips a day that exists", async () => {
     const w = world([{ roi: "8", upnl: "1", netUsd: "1" }]);
     const prevHistory = ["1", "2", "3", "4", "5", "6", "7"];

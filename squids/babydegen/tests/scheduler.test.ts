@@ -9,7 +9,8 @@ import * as registry from "../src/abi/ServiceRegistryL2/events";
 import { processBlock, type StreamState } from "../src/block";
 import { SERVICE_REGISTRY, USDC_NATIVE } from "../src/constants";
 import type { RawLog } from "../src/dispatch";
-import { AgentPortfolio, AgentPortfolioSnapshot } from "../src/model";
+import { AgentPortfolio, AgentPortfolioSnapshot, DailyPopulationMetric } from "../src/model";
+import { dailyPopulationMetricId } from "../src/globalMetrics";
 import { snapshotId } from "../src/portfolio";
 import { earliestDuePollBefore, firstPollAtOrAfter, isPollBlock, POLL_START } from "../src/scheduler";
 import { addr, hash, setup, tx } from "./helpers";
@@ -90,6 +91,16 @@ describe("the scheduler over a log-filtered stream", () => {
     expect(snap.uninvestedValue.toFixed()).toBe("7"); // the deferred ETH is not
     const p = (await w.cache.get(AgentPortfolio, SAFE))!;
     expect(p.uninvestedValue.toFixed()).toBe("3007"); // it runs after the snapshot
+  });
+
+  it("writes the day's DailyPopulationMetric after a poll block that took a snapshot", async () => {
+    const w = world();
+    await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
+    await w.run(poll(1) + 5n, []); // first snapshot at poll 1 (day 0)
+    const day0 = (ts(poll(1)) / 86400n) * 86400n;
+    const m = (await w.cache.get(DailyPopulationMetric, dailyPopulationMetricId(day0)))!;
+    expect(m).toBeDefined();
+    expect([m.block, m.totalAgents]).toEqual([poll(1), 1]);
   });
 
   it("takes nothing on a streamed poll block when no service is due", async () => {
