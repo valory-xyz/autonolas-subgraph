@@ -143,13 +143,20 @@ export class ChainReader {
   constructor(private readonly request: Transport) {}
 
   /**
-   * The block being processed. eth_call and eth_getCode answers at its
-   * number are memoised under its hash, so replaying the same height on
-   * another branch after a fork never reuses the old branch's answers.
-   * Reads at any other number are not memoised.
+   * The block being processed. eth_call and eth_getCode at its number are
+   * requested by its hash (EIP-1898 `{ blockHash }`) and memoised under it,
+   * so replaying the same height on another branch after a fork never reuses
+   * the old branch's answers, and a node still on the old branch cannot
+   * answer for the new hash (it errors "block not found" and the batch is
+   * retried). Reads at any other number go by number and are not memoised.
    */
   enterBlock(block: BlockRef): void {
     this.current = { number: block.number, hash: block.hash.toLowerCase() };
+  }
+
+  /** The block parameter for a read at `block`: the entered block's hash, else the number. */
+  private blockParam(block: bigint): string | { blockHash: string } {
+    return this.current !== undefined && this.current.number === block ? { blockHash: this.current.hash } : hex(block);
   }
 
   private memoKey(key: string, block: bigint): string | undefined {
@@ -169,7 +176,7 @@ export class ChainReader {
     const remember = (r: R | null) => (key === undefined ? r : (this.calls.set(key, r) as R | null));
     let output: string;
     try {
-      output = (await this.request("eth_call", [{ to, data }, hex(block)])) as string;
+      output = (await this.request("eth_call", [{ to, data }, this.blockParam(block)])) as string;
     } catch (err) {
       if (err instanceof ContractRevert) return remember(null);
       throw err;
@@ -182,7 +189,7 @@ export class ChainReader {
     const key = this.memoKey(address, block);
     const hit = key === undefined ? undefined : this.codes.get(key);
     if (hit !== undefined) return hit;
-    const code = (await this.request("eth_getCode", [address, hex(block)])) as string;
+    const code = (await this.request("eth_getCode", [address, this.blockParam(block)])) as string;
     const has = code != null && code !== "0x";
     return key === undefined ? has : this.codes.set(key, has);
   }
