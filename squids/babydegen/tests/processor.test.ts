@@ -63,6 +63,32 @@ describe("processor", () => {
     expect(calls).toEqual(["all:47163056-47163056", "all:47200000-47200000"]);
   });
 
+  it("delivers every block from the head at start, unless the range is pinned", async () => {
+    const record = (calls: string[]) => {
+      const fake = {
+        includeAllBlocks(range?: { from: number; to?: number }) {
+          calls.push(`all:${range?.from}-${range?.to}`);
+          return fake;
+        },
+        addLog() {
+          return fake;
+        },
+      };
+      return fake;
+    };
+    const live: string[] = [];
+    const { addQueries } = await import("../src/processor");
+    const { logQueries, emptyTracked } = await import("../src/sources");
+    addQueries(record(live), logQueries(emptyTracked()), 61_000_000);
+    expect(live).toEqual(["all:47163056-47163056", "all:61000000-undefined"]);
+    vi.resetModules();
+    vi.stubEnv("BABYDEGEN_TO_BLOCK", "47200000");
+    const pinned: string[] = [];
+    const p = await import("../src/processor");
+    p.addQueries(record(pinned), (await import("../src/sources")).logQueries(emptyTracked()), 61_000_000);
+    expect(pinned).toEqual(["all:47163056-47163056", "all:47200000-47200000"]);
+  });
+
   it("honours BABYDEGEN_TO_BLOCK and refuses one before the start block", async () => {
     vi.stubEnv("BABYDEGEN_TO_BLOCK", "47200000");
     expect((await import("../src/processor")).BLOCK_RANGE).toEqual({ from: 47_163_056, to: 47_200_000 });

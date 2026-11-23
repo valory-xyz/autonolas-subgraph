@@ -4,6 +4,7 @@
 // with their receipts (tests/fixtures/receipts2b.ts) and expected values.
 
 import { describe, expect, it, vi } from "vitest";
+import * as safeEvents from "../src/abi/GnosisSafe/events";
 import * as aeroGaugeFns from "../src/abi/AeroCLGauge/functions";
 import * as sugarFns from "../src/abi/AerodromeLpSugar/functions";
 import * as aeroFactoryEvents from "../src/abi/AeroV2PoolFactory/events";
@@ -62,6 +63,7 @@ import {
   TokenBalance,
   V2PoolVenue,
   VeloV2PoolDataSource,
+  SafeDataSource,
 } from "../src/model";
 import { attributeRewardTransfer, clPositionId, nftPositionMappingId } from "../src/positions";
 import { logQueries } from "../src/sources";
@@ -1012,11 +1014,18 @@ describe("position events through processBlock", () => {
     expect(w.cache.all(V2PoolVenue)).toHaveLength(0);
   });
 
-  it("the start block runs the LpSugar bootstrap after its logs", async () => {
+  it("the start block runs the LpSugar bootstrap before its logs (graph-node's `once` = Start trigger)", async () => {
     const w = world();
     w.chain.mock(VELO_V2_FACTORY, poolFactoryFns.allPoolsLength, {}, 1n);
     w.chain.mock(VELO_V2_SUGAR, sugarFns.forSwaps, { _limit: 500n, _offset: 0n }, [sugarPool(addr(0x101), 0, USDC_NATIVE, BOLD)]);
-    await processBlock(w.ctx, { header: { ...header, number: CHAIN.startBlock }, logs: [] }, stream(), async () => []);
+    seedService(w, SAFE);
+    w.cache.set(SafeDataSource, new SafeDataSource({ id: SAFE, createdAtBlock: 1n }));
+    // An ETH deposit into the service Safe in the same block prices ETH (a Chainlink read).
+    const deposit = raw(1, SAFE, safeEvents.SafeReceived.encode({ sender: addr(0xe0), value: 10n ** 18n }));
+    await processBlock(w.ctx, { header: { ...header, number: CHAIN.startBlock }, logs: [deposit] }, stream(), async () => []);
+    const first = (sel: string) => w.chain.calls.findIndex((c) => c.startsWith(sel));
+    expect(first(poolFactoryFns.allPoolsLength.selector)).toBe(0);
+    expect(first("0xfeaf968c")).toBeGreaterThan(first(sugarFns.forSwaps.selector)); // latestRoundData after the bootstrap
     expect(w.cache.all(VeloV2PoolDataSource).map((r) => r.id)).toEqual([addr(0x101)]);
     await processBlock(w.ctx, { header: { ...header, number: CHAIN.startBlock + 1 }, logs: [] }, stream(), async () => []);
     expect(w.chain.calls.filter((c) => c.startsWith(poolFactoryFns.allPoolsLength.selector))).toHaveLength(1);

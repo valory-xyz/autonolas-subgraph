@@ -106,6 +106,23 @@ describe("the scheduler over a log-filtered stream", () => {
     expect([...w.snapshots().keys()].sort()).toEqual([poll(1), poll(14)].map((n) => snapshotId(SAFE, ts(n))).sort());
   });
 
+  it("skips the search when no poll block lies since the last processed block, and searches again after a rollback", async () => {
+    const w = world();
+    await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
+    await w.run(poll(1) + 5n, []); // first snapshot at poll 1
+    // Day 1 starts at block +24,800 (between polls 13 and 14): the last
+    // snapshot's day is over, but no poll block of day 1 precedes these.
+    const b1 = POLL_START + 24_900n;
+    await w.run(b1, []);
+    const reads = w.chain.headerReads.length;
+    expect(reads).toBeGreaterThan(0); // searched: poll 13 is new since poll 1 + 5
+    await w.run(b1 + 50n, []);
+    expect(w.chain.headerReads).toHaveLength(reads); // nothing new to search
+    await w.run(b1, []); // a hot-block rollback replays b1
+    expect(w.chain.headerReads.length).toBeGreaterThan(reads);
+    expect(w.cache.all(AgentPortfolioSnapshot)).toHaveLength(1);
+  });
+
   it("finds each day's first poll block from headers when the block time changes (2 s, then 200 ms)", async () => {
     const w = world();
     w.chain.timestampOf = tsFast;

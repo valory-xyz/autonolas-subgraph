@@ -194,6 +194,11 @@ export class ChainReader {
     return key === undefined ? has : this.codes.set(key, has);
   }
 
+  /** eth_blockNumber. */
+  async blockNumber(): Promise<bigint> {
+    return BigInt((await this.request("eth_blockNumber", [])) as string);
+  }
+
   /** eth_getBlockByNumber header fields (the scheduler's poll blocks). */
   async getBlockHeader(number: bigint): Promise<BlockHeader> {
     const b = (await this.request("eth_getBlockByNumber", [hex(number), false])) as Record<string, string> | null;
