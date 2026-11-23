@@ -7,8 +7,6 @@
 // `Rpc.at()` has one, which would silently price history at today's state
 // and break parity — so RPC_HTTP must be archive-capable.
 
-import { BlockMemo } from "@olas/squid-shared";
-
 export type Transport = (method: string, params: unknown[]) => Promise<unknown>;
 export class ContractRevert extends Error {}
 
@@ -109,11 +107,54 @@ export interface Fn<A, R> {
   decodeResult(data: string): R;
 }
 
+/** A block by number and hash. */
+export interface BlockRef {
+  number: bigint;
+  hash: string;
+}
+
+export interface BlockHeader extends BlockRef {
+  /** Seconds. */
+  timestamp: bigint;
+}
+
+/** Bounded memo keyed by `<key>@<block hash>`; the oldest entry goes first. */
+class HashMemo<V> {
+  private readonly map = new Map<string, V>();
+  constructor(private readonly max: number) {}
+  get(key: string): V | undefined {
+    return this.map.get(key);
+  }
+  set(key: string, value: V): V {
+    this.map.set(key, value);
+    if (this.map.size > this.max) {
+      const oldest = this.map.keys().next().value;
+      if (oldest != null) this.map.delete(oldest);
+    }
+    return value;
+  }
+}
+
 export class ChainReader {
-  private readonly calls = new BlockMemo<unknown>(8192);
-  private readonly codes = new BlockMemo<boolean>(8192);
+  private readonly calls = new HashMemo<unknown>(8192);
+  private readonly codes = new HashMemo<boolean>(8192);
+  private current?: BlockRef;
 
   constructor(private readonly request: Transport) {}
+
+  /**
+   * The block being processed. eth_call and eth_getCode answers at its
+   * number are memoised under its hash, so replaying the same height on
+   * another branch after a fork never reuses the old branch's answers.
+   * Reads at any other number are not memoised.
+   */
+  enterBlock(block: BlockRef): void {
+    this.current = { number: block.number, hash: block.hash.toLowerCase() };
+  }
+
+  private memoKey(key: string, block: bigint): string | undefined {
+    return this.current !== undefined && this.current.number === block ? `${key}@${this.current.hash}` : undefined;
+  }
 
   /**
    * eth_call at `block`; null on revert, or on output shorter than one ABI
@@ -122,26 +163,35 @@ export class ChainReader {
    */
   async call<A, R>(to: string, block: bigint, fn: Fn<A, R>, args: A): Promise<R | null> {
     const data = fn.encode(args);
-    const key = `${to}:${data}`;
-    const hit = this.calls.get(key, block);
+    const key = this.memoKey(`${to}:${data}`, block);
+    const hit = key === undefined ? undefined : this.calls.get(key);
     if (hit !== undefined) return hit as R | null;
+    const remember = (r: R | null) => (key === undefined ? r : (this.calls.set(key, r) as R | null));
     let output: string;
     try {
       output = (await this.request("eth_call", [{ to, data }, hex(block)])) as string;
     } catch (err) {
-      if (err instanceof ContractRevert) return this.calls.set(key, block, null) as null;
+      if (err instanceof ContractRevert) return remember(null);
       throw err;
     }
-    const result = output.length < 66 ? null : fn.decodeResult(output);
-    return this.calls.set(key, block, result) as R | null;
+    return remember(output.length < 66 ? null : fn.decodeResult(output));
   }
 
   /** `ethereum.hasCode(addr).inner` at `block`. */
   async hasCode(address: string, block: bigint): Promise<boolean> {
-    const hit = this.codes.get(address, block);
+    const key = this.memoKey(address, block);
+    const hit = key === undefined ? undefined : this.codes.get(key);
     if (hit !== undefined) return hit;
     const code = (await this.request("eth_getCode", [address, hex(block)])) as string;
-    return this.codes.set(address, block, code != null && code !== "0x");
+    const has = code != null && code !== "0x";
+    return key === undefined ? has : this.codes.set(key, has);
+  }
+
+  /** eth_getBlockByNumber header fields (the scheduler's poll blocks). */
+  async getBlockHeader(number: bigint): Promise<BlockHeader> {
+    const b = (await this.request("eth_getBlockByNumber", [hex(number), false])) as Record<string, string> | null;
+    if (b == null) throw new Error(`eth_getBlockByNumber(${number}) returned null`);
+    return { number: BigInt(b.number), hash: String(b.hash).toLowerCase(), timestamp: BigInt(b.timestamp) };
   }
 
   async getLogs(filter: {

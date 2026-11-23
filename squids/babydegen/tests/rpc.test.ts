@@ -67,3 +67,79 @@ describe("isExecutionError (graph-node RPC_EXECUTION_ERRORS + Parity -32015)", (
     expect(isExecutionError({ code: -32000, message: "header not found" })).toBe(false);
   });
 });
+
+describe("ChainReader caches: keyed by block hash (AC4, fork replay)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** fetch answering eth_call / eth_getCode from per-branch state; counts requests by method. */
+  function forkedChain() {
+    const state = { branch: "a" as "a" | "b" };
+    const answers = {
+      a: { threshold: 1n, code: "0x6080" },
+      b: { threshold: 2n, code: "0x" },
+    };
+    const seen: string[] = [];
+    const fetch = vi.fn(async (_url: string, init: { body: string }) => {
+      const { method, params } = JSON.parse(init.body) as { method: string; params: unknown[] };
+      seen.push(`${method}@${params[1]}`);
+      const a = answers[state.branch];
+      const result = method === "eth_call" ? "0x" + a.threshold.toString(16).padStart(64, "0") : a.code;
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+    });
+    vi.stubGlobal("fetch", fetch);
+    return { reader: new ChainReader(transport("http://rpc.test", 1)), state, seen };
+  }
+
+  const N = 47_200_000n;
+  const A = { number: N, hash: "0x" + "aa".repeat(32) };
+  const B = { number: N, hash: "0x" + "bb".repeat(32) };
+
+  it("replaying a height on another branch re-reads eth_call and eth_getCode instead of reusing the first branch", async () => {
+    const { reader, state, seen } = forkedChain();
+    reader.enterBlock(A);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    expect(await reader.hasCode(SAFE, N)).toBe(true);
+    // Same block hash: memoised.
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    expect(await reader.hasCode(SAFE, N)).toBe(true);
+    expect(seen).toHaveLength(2);
+
+    // The processor rolls back and replays height N on branch b.
+    state.branch = "b";
+    reader.enterBlock(B);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(2n);
+    expect(await reader.hasCode(SAFE, N)).toBe(false);
+    expect(seen).toHaveLength(4);
+
+    // Back on a: its own answers, still memoised under its hash.
+    reader.enterBlock(A);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    expect(await reader.hasCode(SAFE, N)).toBe(true);
+    expect(seen).toHaveLength(4);
+  });
+
+  it("a read at a height other than the entered block is never memoised", async () => {
+    const { reader, seen } = forkedChain();
+    reader.enterBlock(A);
+    await reader.call(SAFE, N - 1n, calls.getThreshold, {});
+    await reader.call(SAFE, N - 1n, calls.getThreshold, {});
+    await reader.hasCode(SAFE, N - 1n);
+    await reader.hasCode(SAFE, N - 1n);
+    expect(seen).toHaveLength(4);
+  });
+
+  it("a revert is memoised per hash too", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted" } })));
+    vi.stubGlobal("fetch", fetch);
+    const reader = new ChainReader(transport("http://rpc.test", 1));
+    reader.enterBlock(A);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBeNull();
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    reader.enterBlock(B);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});
