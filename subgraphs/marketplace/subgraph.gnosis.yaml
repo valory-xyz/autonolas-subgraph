@@ -1,9 +1,11 @@
 specVersion: 1.2.0
-# Recovery graft from marketplace-gnosis-v6_3_0 at its paused indexed head.
-# Keep the base paused until the graft copy completes (prune: 300).
+# v6.4.0 recovery graft from marketplace-gnosis-v6_3_1, paused at 39,999,795.
+# Block = head - 250 (graph-node's default reorg threshold); must stay >= the
+# base's earliest retained block (prune: 300). Keep the base paused until the
+# copy completes, and clear its pending file data sources first (they are copied).
 graft:
-  base: QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh
-  block: 38459986
+  base: QmTYBZDSicxdC3eyvWEx1rCar4vetTKg19XhfrMXFfGGeE
+  block: 39999545
 indexerHints:
   prune: 300
 schema:

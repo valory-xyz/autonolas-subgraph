@@ -226,16 +226,21 @@ Request/delivery IPFS metadata, including legacy Gnosis AgentMech events, is fet
 
 ### Gnosis legacy-IPFS recovery graft
 
-`subgraph.gnosis.yaml` is prepared to graft from the v6.3.0 deployment
-`QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh` at block **38,459,986**,
-the reported paused indexed head. The reported oldest retained block was
-38,459,672, so the selected block is within the available history. The chain head
-49,206,027 has not been indexed by this deployment and is not a graft point.
+`subgraph.gnosis.yaml` (v6.4.0) grafts from the v6.3.1 deployment
+`QmTYBZDSicxdC3eyvWEx1rCar4vetTKg19XhfrMXFfGGeE` at block **39,999,545**.
+v6.3.1 was paused at 39,999,795. Graph Node rejects a graft block within
+`ETHEREUM_REORG_THRESHOLD` (default 250) of the base head and below the base's
+earliest retained block (`prune: 300`), so the block is head − 250.
+v6.3.1 stalled on ~4.3M pending file data sources on paths that never resolve.
+A graft copies pending file sources, so delete them from the base first.
+v6.4.0 no longer creates the legacy delivery `/metadata.json` path.
+(The previous v6.3.0 graft used `QmZncnn5…` at 38,459,986.)
 
 1. Keep the base deployment paused until the graft copy completes, so the
    selected block does not age out of its retained history.
-2. Before deployment, confirm block 38,459,986 is still indexed, retained, and
-   canonical. Both manifests use `prune: 300`; if the base resumes, recheck the point.
+2. Before deployment, confirm block 39,999,545 is still indexed, retained, and
+   canonical, and that the node's reorg threshold is ≤ 250. If the base
+   resumes, recheck the point.
 3. Run `yarn graph codegen subgraph.gnosis.yaml`,
    `yarn build`, `yarn test:manifests`, and the Matchstick tests.
 4. Confirm the deployed base schema is compatible and there is enough database
