@@ -142,14 +142,7 @@ export class ChainReader {
 
   constructor(private readonly request: Transport) {}
 
-  /**
-   * The block being processed. eth_call and eth_getCode at its number are
-   * requested by its hash (EIP-1898 `{ blockHash }`) and memoised under it,
-   * so replaying the same height on another branch after a fork never reuses
-   * the old branch's answers, and a node still on the old branch cannot
-   * answer for the new hash (it errors "block not found" and the batch is
-   * retried). Reads at any other number go by number and are not memoised.
-   */
+  /** Reads at this block go by hash (EIP-1898) and are memoised under it, so a fork replay re-reads. */
   enterBlock(block: BlockRef): void {
     this.current = { number: block.number, hash: block.hash.toLowerCase() };
   }
@@ -203,6 +196,7 @@ export class ChainReader {
   async getBlockHeader(number: bigint): Promise<BlockHeader> {
     const b = (await this.request("eth_getBlockByNumber", [hex(number), false])) as Record<string, string> | null;
     if (b == null) throw new Error(`eth_getBlockByNumber(${number}) returned null`);
+    if (BigInt(b.number) !== number) throw new Error(`eth_getBlockByNumber(${number}) returned block ${BigInt(b.number)}`);
     return { number: BigInt(b.number), hash: String(b.hash).toLowerCase(), timestamp: BigInt(b.timestamp) };
   }
 

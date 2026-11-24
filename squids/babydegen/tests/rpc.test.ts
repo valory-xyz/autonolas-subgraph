@@ -68,7 +68,7 @@ describe("isExecutionError (graph-node RPC_EXECUTION_ERRORS + Parity -32015)", (
   });
 });
 
-describe("ChainReader caches: keyed by block hash (AC4, fork replay)", () => {
+describe("ChainReader caches: keyed by block hash (fork replay)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -135,6 +135,15 @@ describe("ChainReader caches: keyed by block hash (AC4, fork replay)", () => {
       `eth_call@hash:${B.hash}`,
       `eth_getCode@hash:${B.hash}`,
     ]);
+  });
+
+  it("lowercases the entered hash: the request carries it lowercase and a lowercase re-entry hits the memo", async () => {
+    const { reader, seen } = forkedChain();
+    reader.enterBlock({ number: N, hash: A.hash.toUpperCase().replace("0X", "0x") });
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    reader.enterBlock(A);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    expect(seen).toEqual([`eth_call@hash:${A.hash}`]);
   });
 
   it("asks for the entered block by hash, so a node still on the old branch cannot answer for the new one", async () => {

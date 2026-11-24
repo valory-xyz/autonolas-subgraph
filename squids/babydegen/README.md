@@ -2,15 +2,15 @@
 
 SQD port of autonolas-subgraph-studio `subgraphs/babydegen/babydegen-base`
 (Studio `olas-babydegen-base`), which tracks the Basius agent (agentId 115) on
-Base, as corrected by studio #174 + #175. It was ported in three slices
+Base, as corrected by studio #174 + #175. It is ported in slices
 (BDMARK-2311):
 
-| Slice | Content | Status |
-|---|---|---|
-| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | done (2a: brought up to #175) |
-| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | done (2b) |
-| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC reads | done |
-| 3b | `DailyPopulationMetric`, parity script (`scripts/parity.mjs`), `deploy/k8s-example.yaml` | done |
+| Slice | Content |
+|---|---|
+| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing (2a: brought up to #175) |
+| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps |
+| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC reads |
+| 3b | `DailyPopulationMetric`, parity script (`scripts/parity.mjs`), `deploy/k8s-example.yaml` |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
@@ -194,7 +194,7 @@ is capped, which matters for RPC ingestion.
   unadjusted ones, as in the subgraph.
 - **Snapshots (3a).** The PortfolioScheduler polls every 1800 blocks from
   the start block (graph-node: `(n - start) % 1800 == 0`), after the
-  block's events and before the events of Safes created in it. A service
+  block's events and before the events of data sources (Safes, pools) created in it. A service
   is snapshotted on its first poll block and then on the first poll block
   of each later UTC day. The stream only carries blocks with tracked logs,
   so before each streamed block `src/scheduler.ts` finds the earliest due

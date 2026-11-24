@@ -277,7 +277,8 @@ function createPortfolioSnapshot(ctx: PosCtx, portfolio: AgentPortfolio, at: At)
     AgentPortfolioSnapshot,
     new AgentPortfolioSnapshot({
       id: snapshotId(portfolio.id, at.blockTimestamp),
-      service: portfolio.service,
+      // A portfolio from an earlier batch has `service` unloaded; the id is the safe (as in the subgraph).
+      service: new Service({ id: portfolio.id }),
       portfolio,
       finalValue: portfolio.finalValue,
       initialValue: portfolio.initialValue,

@@ -151,7 +151,6 @@ export async function processBlock(
   const lastPoll = lastPollBefore(header.number);
   const pollSince = stream.lastBlock === undefined || stream.lastBlock >= block.header.number || (lastPoll != null && lastPoll > BigInt(stream.lastBlock));
   if (pollSince) await runDuePollsBefore(ctx, header);
-  // eth_call / eth_getCode answers are memoised per block hash (rpc.ts).
   ctx.chain.enterBlock(header);
 
   attachReceipts(block.logs);
