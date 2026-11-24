@@ -2,7 +2,7 @@
 // roiCalculation.ts, portfolioScheduler.ts in studio babydegen-base).
 
 import { describe, expect, it } from "vitest";
-import { USDC_NATIVE, WETH } from "../src/constants";
+import { BOLD, USDC_NATIVE, WETH } from "../src/constants";
 import { gd } from "../src/decimal";
 import { ETH_ADDRESS, SERVICE_REGISTRY_ID, tokenBalanceId, utf8Hex } from "../src/ids";
 import {
@@ -50,6 +50,10 @@ function position(id: string, over: Partial<ProtocolPosition>): ProtocolPosition
  * One active position ($200, $250 with rewards; an unknown venue, so the
  * snapshot's position refresh skips it) and one closed: in $100, out $120
  * plus $5 fees.
+ *
+ * Rows every filter must ignore: a drained BOLD balance whose balanceUSD is
+ * stale ($999), and the closed position's stale usdCurrent ($77 / $88 with
+ * rewards) and token0 leg (5 USDC booked at $1).
  */
 function world() {
   const w = setup();
@@ -70,12 +74,17 @@ function world() {
     id: tokenBalanceId(SAFE, ETH_ADDRESS), service, token: ETH_ADDRESS, symbol: "ETH", decimals: 18,
     balance: s("0.1"), balanceUSD: s("300"), lastUpdated: REGISTERED, lastBlock: 1n,
   }));
+  w.cache.set(TokenBalance, new TokenBalance({
+    id: tokenBalanceId(SAFE, BOLD), service, token: BOLD, symbol: "BOLD", decimals: 18,
+    balance: s("0"), balanceUSD: s("999"), lastUpdated: REGISTERED, lastBlock: 1n,
+  }));
   w.cache.set(ProtocolPosition, position("0x01", {
     usdCurrent: s("200"), usdCurrentWithRewards: s("250"),
     token0: USDC_NATIVE, amount0: s("150"), amount0USD: s("150"), token1: WETH, amount1: s("0"), amount1USD: s("50"),
   }));
   w.cache.set(ProtocolPosition, position("0x02", {
     isActive: false, entryAmountUSD: s("100"), exitAmountUSD: s("120"), collectedFeesUSD: s("5"),
+    usdCurrent: s("77"), usdCurrentWithRewards: s("88"), token0: USDC_NATIVE, amount0: s("5"), amount0USD: s("1"),
   }));
   return { ...w, service };
 }
@@ -148,6 +157,28 @@ describe("calculatePortfolioMetrics", () => {
   });
 });
 
+describe("division guards (a zero would stall the processor)", () => {
+  it("leaves every APR at 0 when no time has passed since the start (funded in the registration block)", async () => {
+    const w = world();
+    const p = await ensureAgentPortfolio(w.ctx, SAFE, REGISTERED);
+    p.firstTradingTimestamp = REGISTERED;
+    await calculatePortfolioMetrics(w.ctx, SAFE, at(REGISTERED));
+    const got = (await w.cache.get(AgentPortfolio, SAFE))!;
+    expect(got.unrealisedPnL.toFixed()).toBe("15"); // the ROI itself is still computed
+    expect([got.projectedUnrealisedPnL, got.projectedUnrealisedPnLWithRewards, got.apr, got.ethAdjustedApr].map((x) => x.toFixed())).toEqual(["0", "0", "0", "0"]);
+  });
+
+  it("keeps actual ROI at 0 for closed positions with no investment and no costs", async () => {
+    const w = world();
+    const closed = (await w.cache.get(ProtocolPosition, "0x02"))!;
+    closed.entryAmountUSD = z;
+    closed.totalCostsUSD = z;
+    expect((await calculateActualROI(w.ctx, SAFE)).toString()).toBe("0");
+    await calculatePortfolioMetrics(w.ctx, SAFE, at());
+    expect((await w.cache.get(AgentPortfolio, SAFE))!.roi.toFixed()).toBe("0");
+  });
+});
+
 describe("actual ROI (roiCalculation.ts)", () => {
   it("is 0 with no closed position and keeps a loss negative; APR only for a positive ROI", async () => {
     const w = world();
@@ -173,6 +204,7 @@ describe("snapshots (portfolioScheduler.ts)", () => {
     w.cache.set(ServiceRegistry, new ServiceRegistry({ id: SERVICE_REGISTRY_ID, serviceAddresses: [SAFE] }));
     w.cache.set(Token, token(USDC_NATIVE, "USDC", 6n, "1", NOW));
     w.cache.set(Token, token(WETH, "WETH", 18n, "3100", NOW));
+    w.cache.set(Token, token(BOLD, "BOLD", 18n, "1", NOW));
     return w;
   }
 
@@ -189,9 +221,23 @@ describe("snapshots (portfolioScheduler.ts)", () => {
     expect(snap.id).toBe(utf8Hex(`${SAFE}-${NOW}`));
     expect(snap.uninvestedValue.toFixed()).toBe("810");
     const portfolio = (await w.cache.get(AgentPortfolio, SAFE))!;
-    for (const k of ["finalValue", "initialValue", "positionsValue", "roi", "apr", "unrealisedPnL", "projectedUnrealisedPnL", "ethAdjustedRoi"] as const) {
-      expect(snap[k].toFixed()).toBe(portfolio[k].toFixed());
-    }
+    const copied = [
+      "finalValue", "initialValue", "positionsValue", "uninvestedValue", "totalWithdrawnUsd",
+      "roi", "apr", "unrealisedPnL", "projectedUnrealisedPnL",
+      "ethAdjustedRoi", "ethAdjustedApr", "ethAdjustedUnrealisedPnL", "ethAdjustedProjectedUnrealisedPnL",
+    ] as const;
+    expect(copied.map((k) => [k, snap[k].toFixed()])).toEqual(copied.map((k) => [k, portfolio[k].toFixed()]));
+    // Distinct values, so a field copied from the wrong source shows.
+    expect(copied.map((k) => snap[k].toFixed())).toEqual([
+      "1160", "1000", "250", "810", "100", "25", "912.5", "16", "584", "25", "912.5", "16", "584",
+    ]);
+    expect([snap.portfolio.id, snap.service.id]).toEqual([SAFE, SAFE]);
+
+    // Ignored rows: the drained BOLD balance is not repriced, the closed position's leg is not repriced.
+    const bold = (await w.cache.get(TokenBalance, tokenBalanceId(SAFE, BOLD)))!;
+    expect([bold.balanceUSD.toFixed(), bold.lastUpdated]).toEqual(["999", REGISTERED]);
+    const closed = (await w.cache.get(ProtocolPosition, "0x02"))!;
+    expect([closed.amount0USD.toFixed(), closed.usdCurrent.toFixed()]).toEqual(["1", "77"]);
     expect([snap.timestamp, snap.block, snap.totalPositions, snap.totalClosedPositions]).toEqual([NOW, 48_000_000n, 1, 1]);
     expect([portfolio.lastSnapshotTimestamp, portfolio.lastSnapshotBlock]).toEqual([NOW, 48_000_000n]);
   });
@@ -213,6 +259,24 @@ describe("snapshots (portfolioScheduler.ts)", () => {
     await handleSchedulerBlock(w.ctx, at());
     expect([active.amount0USD.toFixed(), active.amount1USD.toFixed(), active.usdCurrent.toFixed()]).toEqual(["180", "50", "230"]);
     expect(active.usdCurrentWithRewards.toFixed()).toBe("250"); // not touched by the USD refresh
+  });
+
+  it("reprices leg 1 (token1) too", async () => {
+    const w = registered();
+    await ensureAgentPortfolio(w.ctx, SAFE, REGISTERED);
+    const active = (await w.cache.get(ProtocolPosition, "0x01"))!;
+    active.amount1 = s("0.01"); // 0.01 WETH at $3100 = $31, was booked at $50
+    await handleSchedulerBlock(w.ctx, at());
+    expect([active.amount0USD.toFixed(), active.amount1USD.toFixed(), active.usdCurrent.toFixed()]).toEqual(["150", "31", "181"]);
+  });
+
+  it("does not save a position whose legs' USD did not change (usdCurrent is left as it was)", async () => {
+    const w = registered();
+    await ensureAgentPortfolio(w.ctx, SAFE, REGISTERED);
+    const active = (await w.cache.get(ProtocolPosition, "0x01"))!;
+    active.usdCurrent = s("999"); // not the legs' sum; a save would reset it to 200
+    await handleSchedulerBlock(w.ctx, at());
+    expect(active.usdCurrent.toFixed()).toBe("999");
   });
 
   it("takes one snapshot per UTC day: none later the same day, one on the next", async () => {

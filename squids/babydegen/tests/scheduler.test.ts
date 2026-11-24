@@ -9,9 +9,10 @@ import * as registry from "../src/abi/ServiceRegistryL2/events";
 import { processBlock, type StreamState } from "../src/block";
 import { SERVICE_REGISTRY, USDC_NATIVE } from "../src/constants";
 import type { RawLog } from "../src/dispatch";
-import { AgentPortfolio, AgentPortfolioSnapshot } from "../src/model";
-import { snapshotId } from "../src/portfolio";
+import { AgentPortfolio, AgentPortfolioSnapshot, Service, ServiceRegistry } from "../src/model";
+import { ensureAgentPortfolio, snapshotId } from "../src/portfolio";
 import { earliestDuePoll, firstPollAtOrAfter, isPollBlock, POLL_START } from "../src/scheduler";
+import { SERVICE_REGISTRY_ID } from "../src/ids";
 import { addr, hash, setup, tx } from "./helpers";
 
 
@@ -104,6 +105,47 @@ describe("the scheduler over a log-filtered stream", () => {
     await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
     await w.run(poll(14), []); // processor.ts includes the end block in the stream
     expect([...w.snapshots().keys()].sort()).toEqual([poll(1), poll(14)].map((n) => snapshotId(SAFE, ts(n))).sort());
+  });
+
+  it("runs several services' due poll blocks in block order: an earlier one found after a later one wins", async () => {
+    const w = world();
+    const [A, B, C] = [addr(0x5a1), addr(0x5b1), addr(0x5c1)];
+    const service = (id: string, multisigBlock: bigint) =>
+      w.cache.set(Service, new Service({ id, positionIds: [], agentInstances: [], latestRegistrationTimestamp: T0, latestMultisigBlock: multisigBlock }));
+    // B first in the registry: due at poll 6 (no snapshot yet, created after poll 5).
+    // A and C: last snapshot on day 0 (polls 1 and 2), both due at poll 14, day 1's first.
+    w.cache.set(ServiceRegistry, new ServiceRegistry({ id: SERVICE_REGISTRY_ID, serviceAddresses: [B, A, C] }));
+    service(A, POLL_START);
+    service(B, poll(5) + 10n);
+    service(C, POLL_START);
+    for (const [id, k] of [[A, 1], [C, 2]] as const) {
+      const p = await ensureAgentPortfolio(w.ctx, id, T0);
+      [p.lastSnapshotTimestamp, p.lastSnapshotBlock] = [ts(poll(k)), poll(k)];
+    }
+    await ensureAgentPortfolio(w.ctx, B, ts(poll(5) + 10n));
+
+    const next = poll(20) + 3n;
+    expect(await earliestDuePoll(w.ctx, { number: next, timestamp: ts(next) })).toBe(poll(6));
+    await w.run(next, []);
+    const taken = w.cache
+      .all(AgentPortfolioSnapshot)
+      .map((x) => `${x.portfolio.id}@${x.block - POLL_START}`)
+      .sort();
+    expect(taken).toEqual([`${A}@${poll(14) - POLL_START}`, `${B}@${poll(14) - POLL_START}`, `${B}@${poll(6) - POLL_START}`, `${C}@${poll(14) - POLL_START}`].sort());
+    expect(w.chain.entered.map((b) => b.number)).toEqual([poll(6), poll(14), next]);
+  });
+
+  it("takes a poll block whose timestamp is exactly UTC midnight as that day's first", async () => {
+    const w = world();
+    // Poll 14 lands exactly on a midnight (polls are 3600 s apart here).
+    const D = 1_781_049_600n;
+    const tsMid = (n: bigint) => D - 14n * 3600n + (n - POLL_START) * 2n;
+    w.chain.timestampOf = tsMid;
+    expect(tsMid(poll(14)) % 86400n).toBe(0n);
+    await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
+    await w.run(poll(20) + 5n, []);
+    const blocks = w.cache.all(AgentPortfolioSnapshot).map((x) => x.block).sort((a, b) => (a < b ? -1 : 1));
+    expect(blocks).toEqual([poll(1), poll(14)]);
   });
 
   it("finds each day's first poll block from headers when the block time changes (2 s, then 200 ms)", async () => {

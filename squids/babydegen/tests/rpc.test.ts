@@ -137,6 +137,15 @@ describe("ChainReader caches: keyed by block hash (fork replay)", () => {
     ]);
   });
 
+  it("lowercases the entered hash: the request carries it lowercase and a lowercase re-entry hits the memo", async () => {
+    const { reader, seen } = forkedChain();
+    reader.enterBlock({ number: N, hash: A.hash.toUpperCase().replace("0X", "0x") });
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    reader.enterBlock(A);
+    expect(await reader.call(SAFE, N, calls.getThreshold, {})).toBe(1n);
+    expect(seen).toEqual([`eth_call@hash:${A.hash}`]);
+  });
+
   it("asks for the entered block by hash, so a node still on the old branch cannot answer for the new one", async () => {
     const { reader, state, seen } = forkedChain();
     // The node lags: it follows branch a and has not seen b yet.
