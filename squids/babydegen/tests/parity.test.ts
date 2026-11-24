@@ -1,4 +1,4 @@
-// scripts/parity.mjs: the AC1 comparison (exact strings, relations by id).
+// scripts/parity.mjs: the parity comparison (exact strings, relations by id).
 
 import { describe, expect, it } from "vitest";
 // @ts-expect-error plain ESM script without types

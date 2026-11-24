@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Parity check (BDMARK-2334 AC1): every AgentPortfolio, AgentPortfolioSnapshot
+// Parity check (BDMARK-2334): every AgentPortfolio, AgentPortfolioSnapshot
 // and DailyPopulationMetric row of this squid against the babydegen-base
 // subgraph at one pinned block, field by field, as exact strings.
 //

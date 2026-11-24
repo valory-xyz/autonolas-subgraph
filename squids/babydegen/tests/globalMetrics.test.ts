@@ -1,4 +1,4 @@
-// globalMetrics.ts: median / SMA arithmetic (AC3) and DailyPopulationMetric.
+// globalMetrics.ts: median / SMA arithmetic and DailyPopulationMetric.
 
 import { describe, expect, it } from "vitest";
 import { GD, gd } from "../src/decimal";
@@ -48,7 +48,7 @@ describe("calculateMedian / calculate7DaysSMA", () => {
   });
 });
 
-// --- AC3: against an independent rational reference --------------------------
+// --- Against an independent rational reference -------------------------------
 
 /** Exact rational n / d, d > 0. */
 type Q = { n: bigint; d: bigint };
@@ -111,7 +111,7 @@ function randomDecimal(r: () => number, sign: 1 | -1 | 0): string {
   return (neg ? "-" : "") + body;
 }
 
-describe("AC3: median and SMA use graph-node's 34-digit division (rational reference, 100k cases)", () => {
+describe("median and SMA use graph-node's 34-digit division (rational reference, 100k cases)", () => {
   // 100k cases on BigInt arithmetic take ~15 s.
   const SLOW = 120_000;
   it("positives: bit-exact against half-up-at-34-digits after every plus and div", () => {
