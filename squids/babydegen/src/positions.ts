@@ -90,6 +90,39 @@ export function calculatePositionROI(ctx: PosCtx, p: ProtocolPosition): GD {
   return roi;
 }
 
+export interface PositionAggregates {
+  totalInvestments: GD;
+  totalGrossGains: GD;
+  totalCosts: GD;
+}
+
+/** aggregateClosedPositionMetrics: sums over the service's closed positions, in positionIds order. */
+export async function aggregateClosedPositionMetrics(ctx: PosCtx, agent: string): Promise<PositionAggregates> {
+  const agg = { totalInvestments: ZERO, totalGrossGains: ZERO, totalCosts: ZERO };
+  const service = await ctx.cache.get(Service, agent);
+  if (service == null) return agg;
+  for (const id of service.positionIds) {
+    const p = await ctx.cache.get(ProtocolPosition, id);
+    if (p == null || p.isActive) continue;
+    agg.totalInvestments = agg.totalInvestments.plus(d(p.entryAmountUSD));
+    agg.totalCosts = agg.totalCosts.plus(d(p.totalCostsUSD));
+    agg.totalGrossGains = agg.totalGrossGains.plus(positionGrossGain(p));
+  }
+  return agg;
+}
+
+/**
+ * calculateActualROI: (sum G - sum I - sum C) / (sum I + sum C) * 100 over
+ * closed positions, 0 when the denominator is not positive. Same sums, in
+ * the same order, as aggregateClosedPositionMetrics.
+ */
+export async function calculateActualROI(ctx: PosCtx, agent: string): Promise<GD> {
+  const { totalInvestments, totalGrossGains, totalCosts } = await aggregateClosedPositionMetrics(ctx, agent);
+  const denominator = totalInvestments.plus(totalCosts);
+  if (!denominator.gt(ZERO)) return ZERO;
+  return totalGrossGains.minus(totalInvestments).minus(totalCosts).div(denominator).times(HUNDRED);
+}
+
 export function saveWithROI(ctx: PosCtx, p: ProtocolPosition): void {
   calculatePositionROI(ctx, p);
   savePosition(ctx, p);

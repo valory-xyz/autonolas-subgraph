@@ -1,4 +1,4 @@
-// AC3: calculatePortfolioMetrics stays a no-op but is called wherever #175
+// calculatePortfolioMetrics (mocked here) is called wherever #175
 // calls it in the part-2 handlers (Collect, a CL full exit, every position
 // refresh unless the caller turns it off).
 
