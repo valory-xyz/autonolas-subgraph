@@ -66,10 +66,9 @@ function queueDeliveryMetadata(
   ctx.setString(CTX_DELIVER_REQUEST, requestId.toHexString());
   ctx.setString(CTX_BASE_HASH, baseHash);
   // Legacy uint256 IDs must keep their full decimal representation in the path.
-  // Both layouts were supported by the old synchronous fallback.
-  let route = baseHash + '/' + requestId.toString();
-  ParsedDeliveryFile.createWithContext(route + '/metadata.json', ctx);
-  ParsedDeliveryFile.createWithContext(route, ctx);
+  // Only `<hash>/<reqId>` resolves on Gnosis: `<hash>/<reqId>/metadata.json` never
+  // did (0 of 2.18M resolved), and graph-node retries a failing file source forever.
+  ParsedDeliveryFile.createWithContext(baseHash + '/' + requestId.toString(), ctx);
 }
 
 export function handleRequest(event: RequestEvent): void {
