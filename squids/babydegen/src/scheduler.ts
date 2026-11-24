@@ -1,20 +1,7 @@
-// The PortfolioScheduler data source: studio babydegen-base
-// src/portfolioScheduler.ts, a `polling every: 1800` block handler from the
-// start block. graph-node fires a polling handler at block n when
-// n >= startBlock and (n - startBlock) % every == 0
-// (chain/ethereum/src/ethereum_adapter.rs block_trigger_types_from_intervals),
-// after the block's event handlers (an `End` block trigger) and before the
-// events of data sources created in that block.
-//
-// The squid's stream only carries blocks with tracked logs, so most poll
-// blocks never arrive. A poll block only writes when a registered service
-// is due (a first snapshot, or a new UTC day since its last one), and that
-// follows from the entities alone. So before each streamed block, block.ts
-// asks for the earliest due poll block before it and runs the handler
-// there, until none is left. Finding the first poll block of a UTC day
-// bisects poll-block headers (timestamps never decrease): Base's block time
-// is not fixed (2 s until block 53,556,128 on 2026-11-05, 200 ms after it,
-// several blocks per second), so it is never derived from block numbers.
+// PortfolioScheduler (studio portfolioScheduler.ts). graph-node polls at
+// n >= start && (n - start) % 1800 == 0, after the block's events; skipped
+// poll blocks run before the next streamed block. Never derive time from
+// block numbers (Base's block time changes): bisect poll-block headers.
 
 import { CHAIN } from "./constants";
 import { AgentPortfolio, Service, ServiceRegistry } from "./model";
@@ -72,7 +59,7 @@ export async function snapshotPortfolio(ctx: PosCtx, serviceSafe: string, at: At
 /**
  * handleBlock (checkServicesForSnapshot). Call only on a poll block.
  * Returns whether any snapshot was taken (where the subgraph then runs
- * calculateGlobalMetrics, part 3b).
+ * calculateGlobalMetrics).
  */
 export async function handleSchedulerBlock(ctx: PosCtx, at: At): Promise<boolean> {
   let created = false;
@@ -103,10 +90,7 @@ class Headers {
   get(n: bigint): Promise<BlockHeader> {
     let h = this.memo.get(n);
     if (h == null) {
-      h = this.chain.getBlockHeader(n).then((header) => {
-        if (header.number !== n) throw new Error(`eth_getBlockByNumber(${n}) returned block ${header.number}`);
-        return header;
-      });
+      h = this.chain.getBlockHeader(n);
       this.memo.set(n, h);
     }
     return h;
@@ -133,7 +117,11 @@ async function firstPollAtOrAfterTime(headers: Headers, lo: bigint, hi: bigint, 
  * - otherwise at the first poll block after its last snapshot whose
  *   timestamp is on a later UTC day.
  */
-async function earliestDuePoll(ctx: PosCtx, headers: Headers, block: { number: bigint; timestamp: bigint }): Promise<bigint | null> {
+export async function earliestDuePoll(
+  ctx: PosCtx & { chain: SchedulerChain },
+  block: { number: bigint; timestamp: bigint },
+  headers = new Headers(ctx.chain),
+): Promise<bigint | null> {
   const last = lastPollBefore(block.number);
   if (last == null) return null;
   let earliest: bigint | null = null;
@@ -159,13 +147,6 @@ async function earliestDuePoll(ctx: PosCtx, headers: Headers, block: { number: b
   return earliest;
 }
 
-export async function earliestDuePollBefore(
-  ctx: PosCtx & { chain: SchedulerChain },
-  block: { number: bigint; timestamp: bigint },
-): Promise<bigint | null> {
-  return earliestDuePoll(ctx, new Headers(ctx.chain), block);
-}
-
 /**
  * Runs, in block order, every due poll block strictly before `block`. The
  * chain reader is left on the last poll block; the caller re-enters `block`.
@@ -174,7 +155,7 @@ export async function runDuePollsBefore(ctx: PosCtx & { chain: SchedulerChain },
   const headers = new Headers(ctx.chain);
   let ran = 0;
   for (;;) {
-    const poll = await earliestDuePoll(ctx, headers, block);
+    const poll = await earliestDuePoll(ctx, block, headers);
     if (poll == null) return ran;
     const header = await headers.get(poll);
     ctx.chain.enterBlock(header);

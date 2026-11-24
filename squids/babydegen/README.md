@@ -2,15 +2,15 @@
 
 SQD port of autonolas-subgraph-studio `subgraphs/babydegen/babydegen-base`
 (Studio `olas-babydegen-base`), which tracks the Basius agent (agentId 115) on
-Base, as corrected by studio #174 + #175. It is being ported in three slices
+Base, as corrected by studio #174 + #175. It is ported in slices
 (BDMARK-2311):
 
-| Slice | Content | Status |
-|---|---|---|
-| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing | done (2a: brought up to #175) |
-| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps | done (2b) |
-| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC memos | this package |
-| 3b | `DailyPopulationMetric`, parity script, k8s example | last |
+| Slice | Content |
+|---|---|
+| 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing (2a: brought up to #175) |
+| 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps |
+| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC memos |
+| 3b | `DailyPopulationMetric`, parity script, k8s example |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
@@ -20,8 +20,8 @@ Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `SwapTransaction`, `AgentSwapBuffer`, `AeroGauge` and `V2PoolVenue`, and
 from 3a `AgentPortfolioSnapshot`
 (`SwapToEntryAssociation` is never written by the subgraph and is left out).
-`DailyPopulationMetric` arrives in 3b. Consumers read only
-`dailyPopulationMetrics`, so nothing switches before 3b's parity check.
+Consumers read only `dailyPopulationMetrics`, so nothing switches before
+the parity check against the subgraph.
 
 ## Running locally
 
@@ -165,7 +165,7 @@ is capped, which matters for RPC ingestion.
   unadjusted ones, as in the subgraph.
 - **Snapshots (3a).** The PortfolioScheduler polls every 1800 blocks from
   the start block (graph-node: `(n - start) % 1800 == 0`), after the
-  block's events and before the events of Safes created in it. A service
+  block's events and before the events of data sources (Safes, pools) created in it. A service
   is snapshotted on its first poll block and then on the first poll block
   of each later UTC day. The stream only carries blocks with tracked logs,
   so before each streamed block `src/scheduler.ts` finds the earliest due

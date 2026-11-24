@@ -68,7 +68,7 @@ describe("isExecutionError (graph-node RPC_EXECUTION_ERRORS + Parity -32015)", (
   });
 });
 
-describe("ChainReader caches: keyed by block hash (AC4, fork replay)", () => {
+describe("ChainReader caches: keyed by block hash (fork replay)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });

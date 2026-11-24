@@ -1,4 +1,4 @@
-// AC2: snapshots fire on polling blocks (every 1800 from 47,163,056), after
+// Snapshots fire on polling blocks (every 1800 from 47,163,056), after
 // that block's events, on UTC-day crossings, including poll blocks the
 // stream never delivers.
 
@@ -11,7 +11,7 @@ import { SERVICE_REGISTRY, USDC_NATIVE } from "../src/constants";
 import type { RawLog } from "../src/dispatch";
 import { AgentPortfolio, AgentPortfolioSnapshot } from "../src/model";
 import { snapshotId } from "../src/portfolio";
-import { earliestDuePollBefore, firstPollAtOrAfter, isPollBlock, POLL_START } from "../src/scheduler";
+import { earliestDuePoll, firstPollAtOrAfter, isPollBlock, POLL_START } from "../src/scheduler";
 import { addr, hash, setup, tx } from "./helpers";
 
 
@@ -30,10 +30,10 @@ const createMultisig = (i: number) => log(i, SERVICE_REGISTRY, registry.CreateMu
 const usdcIn = (i: number, value: bigint) => log(i, USDC_NATIVE, erc20.Transfer.encode({ from: EOA, to: SAFE, value }));
 const ethIn = (i: number, value: bigint) => log(i, SAFE, safe.SafeReceived.encode({ sender: EOA, value }));
 
-/** Block POLL_START at 10:13:20 UTC; 2 s blocks after it (as on Base until 53,556,128). */
+/** Synthetic: block POLL_START at 10:13:20 UTC, 2 s blocks after it. */
 const T0 = 1_781_000_000n;
 const ts = (n: bigint) => T0 + (n - POLL_START) * 2n;
-/** Base after 2026-11-05: five blocks per second, so several share a timestamp. */
+/** Synthetic stand-in for Base's 2 s -> 200 ms switch (really at 53,556,128): five blocks per second after it, so several share a timestamp. */
 const SWITCH = POLL_START + 1_000_000n;
 const tsFast = (n: bigint) => (n < SWITCH ? ts(n) : ts(SWITCH) + (n - SWITCH) / 5n);
 const poll = (k: number) => POLL_START + 1800n * BigInt(k);
@@ -75,7 +75,7 @@ describe("the scheduler over a log-filtered stream", () => {
     expect(w.chain.entered.map((b) => b.number)).toEqual([registeredAt, poll(1), poll(14), poll(38), next]);
     const p = (await w.cache.get(AgentPortfolio, SAFE))!;
     expect([p.lastSnapshotBlock, p.lastSnapshotTimestamp]).toEqual([poll(38), ts(poll(38))]);
-    expect(await earliestDuePollBefore(w.ctx, { number: next, timestamp: ts(next) })).toBeNull();
+    expect(await earliestDuePoll(w.ctx, { number: next, timestamp: ts(next) })).toBeNull();
   });
 
   it("runs on a streamed poll block after its events and before the events of Safes created in it", async () => {

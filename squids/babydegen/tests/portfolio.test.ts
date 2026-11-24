@@ -196,6 +196,15 @@ describe("snapshots (portfolioScheduler.ts)", () => {
     expect([portfolio.lastSnapshotTimestamp, portfolio.lastSnapshotBlock]).toEqual([NOW, 48_000_000n]);
   });
 
+  it("links the snapshot to its Service when the portfolio came from an earlier batch (relation not loaded)", async () => {
+    const w = registered();
+    const p = await ensureAgentPortfolio(w.ctx, SAFE, REGISTERED);
+    (p as { service?: unknown }).service = undefined; // a store.get() without relations
+    expect(await handleSchedulerBlock(w.ctx, at())).toBe(true);
+    const snap = (await w.cache.get(AgentPortfolioSnapshot, snapshotId(SAFE, NOW)))!;
+    expect([snap.service?.id, snap.portfolio?.id]).toEqual([SAFE, SAFE]);
+  });
+
   it("reprices a position leg whose USD changed and resets usdCurrent to the legs' sum", async () => {
     const w = registered();
     await ensureAgentPortfolio(w.ctx, SAFE, REGISTERED);

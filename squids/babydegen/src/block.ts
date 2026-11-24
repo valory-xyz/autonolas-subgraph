@@ -143,7 +143,6 @@ export async function processBlock(
   };
   const at = { blockNumber: header.number, blockTimestamp: header.timestamp };
   await runDuePollsBefore(ctx, header);
-  // eth_call / eth_getCode answers are memoised per block hash (rpc.ts).
   ctx.chain.enterBlock(header);
 
   attachReceipts(block.logs);
