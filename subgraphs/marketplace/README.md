@@ -246,9 +246,16 @@ v6.4.0 no longer creates the legacy delivery `/metadata.json` path.
 4. Confirm the deployed base schema is compatible and there is enough database
    space for the copy. Deploy to a new version; grafting copies existing entities
    and dynamic sources, and can temporarily add load to the shared database.
-5. Verify copied chain counts, existing parsed metadata, and async enrichment of
-   new legacy requests/deliveries before switching consumers. Prediction-counter
-   consumers must use the derived counts described above.
+5. Point infra's pending file data source cleanup job at v6.4.0 before it starts
+   indexing. It must delete only sources that failed with an IPFS error, not by
+   age: an age-based delete can remove the resolvable twin before it is fetched.
+   From the graft block to head, requests add ~7M more never-resolving sources
+   (legacy +3.9M, marketplace +3.35M), more than the 4.3M that stalled v6.3.1.
+6. Wait until v6.4.0 reaches chain head (right after the copy it is ~9.4M blocks,
+   about 18 months, behind), then compare it with v6.2.0 at a common block.
+   Verify chain counts, existing parsed metadata, and async enrichment of new
+   legacy requests/deliveries; only then switch the `marketplace-gnosis` proxy.
+   Prediction-counter consumers must use the derived counts described above.
 
 Grafting does not retry metadata previously missed by the synchronous handler,
 discard existing pending sources, or cancel other deployments' polling. Update
