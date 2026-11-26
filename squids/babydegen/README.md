@@ -23,6 +23,10 @@ from 3 `AgentPortfolioSnapshot` and `DailyPopulationMetric`
 Consumers (olas-website, valory-apps kpis) read only `dailyPopulationMetrics`;
 they switch only after the parity check below passes against the corrected
 subgraph.
+Query dialect is OpenReader, not The Graph, so the consumers must rewrite
+their `dailyPopulationMetrics` query, not just swap the URL: `limit` /
+`offset` instead of `first` / `skip`, `orderBy: timestamp_DESC` instead of
+`orderBy` + `orderDirection`, and no `block:` argument.
 
 ## Parity check (before any consumer switch)
 
