@@ -25,6 +25,10 @@
 // after the block's other events. The streamed transaction logs already
 // carry them, so nothing is fetched. The start block also runs the
 // subgraph's `once` block handler (the LpSugar bootstrap), after its logs.
+//
+// The PortfolioScheduler polling handler (scheduler.ts) runs on poll blocks
+// after the block's events and before the deferred template events; due
+// poll blocks the stream skipped run before the next streamed block.
 
 import { eventMeta, type EventMeta } from "@olas/squid-shared";
 import { CHAIN, TRACKED_TOKENS } from "./constants";
@@ -40,6 +44,7 @@ import {
 } from "./dispatch";
 import type { Ctx, ReceiptLog } from "./handlers";
 import type { ChainReader } from "./rpc";
+import { handleSchedulerBlock, isPollBlock, runDuePollsBefore } from "./scheduler";
 import { handleVeloV2Bootstrap } from "./v2";
 
 /** What the running stream subscribes to. Grows in memory as safes are added. */
@@ -131,6 +136,15 @@ export async function processBlock(
   stream: StreamState,
   fetchMissing: FetchMissing,
 ): Promise<void> {
+  const header = {
+    number: BigInt(block.header.number),
+    hash: block.header.hash,
+    timestamp: BigInt(Math.floor(block.header.timestamp / 1000)),
+  };
+  const at = { blockNumber: header.number, blockTimestamp: header.timestamp };
+  await runDuePollsBefore(ctx, header);
+  ctx.chain.enterBlock(header);
+
   attachReceipts(block.logs);
   const queue = [...block.logs].sort((a, b) => a.logIndex - b.logIndex);
   const seen = new Set(queue.map((l) => l.logIndex));
@@ -193,8 +207,11 @@ export async function processBlock(
   // always delivers the start block (processor.ts BOOTSTRAP_BLOCK), so the
   // `once` handler runs exactly there, as in the subgraph.
   if (block.header.number === CHAIN.startBlock) {
-    const at = { blockNumber: BigInt(block.header.number), blockTimestamp: BigInt(Math.floor(block.header.timestamp / 1000)) };
     await handleVeloV2Bootstrap(ctx, at);
+    drainPools(queue.length);
+  }
+  if (isPollBlock(header.number)) {
+    await handleSchedulerBlock(ctx, at);
     drainPools(queue.length);
   }
 
