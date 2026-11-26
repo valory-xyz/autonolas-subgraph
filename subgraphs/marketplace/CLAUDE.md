@@ -354,9 +354,10 @@ yarn codegen:celo
 
 All 7 manifests set `indexerHints: prune: 300` — graph-node retains only ~300 blocks of entity history. Time-travel queries (`block: {number: N}`) older than that fail; do not build tooling that relies on historical block state.
 
-Recovery grafts have been used to redeploy without a full resync (e.g. shipping the offchain-IPFS file-data-source parsing past a stalled IPFS region on Gnosis — see commit `7e63591`). The Gnosis manifest now carries a recovery graft from v6.3.0 for async legacy AgentMech metadata at block `38459986`, the reported paused indexed head. Keep the base paused until the copy completes and confirm the block remains retained and canonical before deployment. See the README recovery instructions. When adding a `graft:` block:
+Recovery grafts have been used to redeploy without a full resync (e.g. shipping the offchain-IPFS file-data-source parsing past a stalled IPFS region on Gnosis — see commit `7e63591`). The Gnosis manifest (v6.4.0) now carries a recovery graft from v6.3.1 (`QmTYBZ…`) at block `39999545`, 250 blocks below its paused head 39,999,795. Keep the base paused until the copy completes and confirm the block remains retained and canonical before deployment. See the README recovery instructions. When adding a `graft:` block:
 
 - `graft.block` must be within the prune window (~300 blocks) of the base deployment's head at deploy time, or graph-node cannot copy the base's entity history.
+- `graft.block` must also be at least `ETHEREUM_REORG_THRESHOLD` (default 250) below the base's head, or graph-node rejects it as "within the reorg threshold". With `prune: 300` that leaves a ~50-block window.
 - The base deployment must be schema-compatible with the current schema — a base predating a schema field fails graph-node's compatibility check.
 - Add `grafting` to the manifest's `features:` list or the build fails.
 - Grafts are temporary: drop the `graft:` block (and the `grafting` feature) on the next clean redeploy once the recovery purpose is served.

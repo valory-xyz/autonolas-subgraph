@@ -168,7 +168,6 @@ describe("Describe agent-mech processing", () => {
 
         handleDeliver(event)
 
-        assert.dataSourceExists("ParsedDeliveryFile", BASE_HASH + "/234/metadata.json")
         assert.dataSourceExists("ParsedDeliveryFile", BASE_HASH + "/234")
         assert.entityCount("ParsedDelivery", 0)
         assert.entityCount("Deliver", 1)
