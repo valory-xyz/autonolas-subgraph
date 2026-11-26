@@ -24,8 +24,8 @@ test("legacy file sources preserve layouts and uint256 IDs, reject malformed dig
   const delivery = createMechDeliveryEvent(sender, requestId, Bytes.fromHexString(DIGEST));
   handleDeliver(delivery);
   handleDeliver(delivery);
-  assert.dataSourceCount("ParsedDeliveryFile", 2);
-  assert.dataSourceExists("ParsedDeliveryFile", BASE_HASH + "/" + decimalId + "/metadata.json");
+  // One delivery source only: `<hash>/<reqId>/metadata.json` never resolves on Gnosis.
+  assert.dataSourceCount("ParsedDeliveryFile", 1);
   assert.dataSourceExists("ParsedDeliveryFile", BASE_HASH + "/" + decimalId);
   assert.entityCount("ParsedDelivery", 0);
   assert.entityCount("Deliver", 1);
@@ -48,7 +48,7 @@ test("legacy file sources preserve layouts and uint256 IDs, reject malformed dig
   // Malformed hashes must never reach file-source creation (which Graph Node
   // rejects), but must still preserve the events and their chain counters.
   assert.dataSourceCount("ParsedRequestFile", 2);
-  assert.dataSourceCount("ParsedDeliveryFile", 2);
+  assert.dataSourceCount("ParsedDeliveryFile", 1);
   assert.entityCount("Request", 4);
   assert.entityCount("Deliver", 4);
   assert.entityCount("ParsedRequest", 0);

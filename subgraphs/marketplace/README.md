@@ -222,28 +222,40 @@ Request/delivery IPFS metadata, including legacy Gnosis AgentMech events, is fet
 - `Global.totalPredictRequests` / `Sender.totalPredictRequests` are deprecated and no longer increment for either legacy or marketplace requests: background handlers cannot write `Global`/`Sender`. A graft preserves the old values as historical snapshots; new entities initialize them to zero. Compute prediction counts by paginating `parsedRequests(where: {questionTitle_not: ""})`, joining to `Request.sender` for per-sender counts. Counts reflect available metadata, not all on-chain requests.
 - `questionTitle` is extracted by matching the `With the given question "..."` prompt template (`src/marketplace/request-metadata.ts`). If the trader prompt template changes, `QUESTION_CLOSING_DELIMITERS` must be extended or new requests get `questionTitle: ""`.
 - Request/delivery metadata payloads that are not exactly 32 bytes (a raw IPFS digest) are skipped with a warning; the chain event and its counters are still indexed.
-- Legacy requests schedule both `CID/metadata.json` and `CID`; legacy deliveries schedule both `CID/<full decimal requestId>/metadata.json` and `CID/<full decimal requestId>`. Availability of one path does not cancel polling of the other. File-source backlog cleanup remains an operator concern; this change does not expire sources.
+- Legacy requests schedule both `CID/metadata.json` and `CID`; legacy deliveries schedule only `CID/<full decimal requestId>` (the `/metadata.json` subpath never resolved on Gnosis and graph-node retries failing file sources forever, so v6.4.0 dropped it). Availability of one path does not cancel polling of the other. File-source backlog cleanup remains an operator concern; this change does not expire sources.
 
 ### Gnosis legacy-IPFS recovery graft
 
-`subgraph.gnosis.yaml` is prepared to graft from the v6.3.0 deployment
-`QmZncnn5C7cFyFScydZvgwZmXu4r1fCK5JN6JLsZiBLJEh` at block **38,459,986**,
-the reported paused indexed head. The reported oldest retained block was
-38,459,672, so the selected block is within the available history. The chain head
-49,206,027 has not been indexed by this deployment and is not a graft point.
+`subgraph.gnosis.yaml` (v6.4.0) grafts from the v6.3.1 deployment
+`QmTYBZDSicxdC3eyvWEx1rCar4vetTKg19XhfrMXFfGGeE` at block **39,999,545**.
+v6.3.1 was paused at 39,999,795. Graph Node rejects a graft block within
+`ETHEREUM_REORG_THRESHOLD` (default 250) of the base head and below the base's
+earliest retained block (`prune: 300`), so the block is head − 250.
+v6.3.1 stalled on ~4.3M pending file data sources on paths that never resolve.
+A graft copies pending file sources, so delete them from the base first.
+v6.4.0 no longer creates the legacy delivery `/metadata.json` path.
+(The previous v6.3.0 graft used `QmZncnn5…` at 38,459,986.)
 
 1. Keep the base deployment paused until the graft copy completes, so the
    selected block does not age out of its retained history.
-2. Before deployment, confirm block 38,459,986 is still indexed, retained, and
-   canonical. Both manifests use `prune: 300`; if the base resumes, recheck the point.
+2. Before deployment, confirm block 39,999,545 is still indexed, retained, and
+   canonical, and that the node's reorg threshold is ≤ 250. If the base
+   resumes, recheck the point.
 3. Run `yarn graph codegen subgraph.gnosis.yaml`,
    `yarn build`, `yarn test:manifests`, and the Matchstick tests.
 4. Confirm the deployed base schema is compatible and there is enough database
    space for the copy. Deploy to a new version; grafting copies existing entities
    and dynamic sources, and can temporarily add load to the shared database.
-5. Verify copied chain counts, existing parsed metadata, and async enrichment of
-   new legacy requests/deliveries before switching consumers. Prediction-counter
-   consumers must use the derived counts described above.
+5. Point infra's pending file data source cleanup job at v6.4.0 before it starts
+   indexing. It must delete only sources that failed with an IPFS error, not by
+   age: an age-based delete can remove the resolvable twin before it is fetched.
+   From the graft block to head, requests add ~7M more never-resolving sources
+   (legacy +3.9M, marketplace +3.35M), more than the 4.3M that stalled v6.3.1.
+6. Wait until v6.4.0 reaches chain head (right after the copy it is ~9.4M blocks,
+   about 18 months, behind), then compare it with v6.2.0 at a common block.
+   Verify chain counts, existing parsed metadata, and async enrichment of new
+   legacy requests/deliveries; only then switch the `marketplace-gnosis` proxy.
+   Prediction-counter consumers must use the derived counts described above.
 
 Grafting does not retry metadata previously missed by the synchronous handler,
 discard existing pending sources, or cancel other deployments' polling. Update
