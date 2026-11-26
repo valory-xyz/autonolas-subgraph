@@ -9,8 +9,8 @@ Base, as corrected by studio #174 + #175. It is ported in slices
 |---|---|
 | 1 | Scaffold, service discovery, Safe/funding flows, token balances, token pricing (2a: brought up to #175) |
 | 2 | Aerodrome / Aero CL and v2 positions, gauges, LiFi swaps |
-| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC memos |
-| 3b | `DailyPopulationMetric`, parity script, k8s example |
+| 3a | Portfolio metrics, ROI/APR, 1800-block snapshot scheduler, `AgentPortfolioSnapshot`, block-hash RPC reads |
+| 3b | `DailyPopulationMetric`, parity script (`scripts/parity.mjs`), `deploy/k8s-example.yaml` |
 
 Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ServiceRegistry`, `AddressType`, `FundingBalance`, `TokenBalance`, `Token`,
@@ -18,10 +18,42 @@ Entities written today: `Service`, `ServiceRegistration`, `ServiceIndex`,
 `ProtocolPosition`, `NFTPositionMapping`, `UncollectedPrincipal`,
 `ClaimableRewardBeforeBlock`, `CreditedRewardClaim`, `PendingMintPosition`,
 `SwapTransaction`, `AgentSwapBuffer`, `AeroGauge` and `V2PoolVenue`, and
-from 3a `AgentPortfolioSnapshot`
+from 3 `AgentPortfolioSnapshot` and `DailyPopulationMetric`
 (`SwapToEntryAssociation` is never written by the subgraph and is left out).
-Consumers read only `dailyPopulationMetrics`, so nothing switches before
-the parity check against the subgraph.
+Consumers (olas-website, valory-apps kpis) read only `dailyPopulationMetrics`;
+they switch only after the parity check below passes against the corrected
+subgraph.
+Query dialect is OpenReader, not The Graph, so the consumers must rewrite
+their `dailyPopulationMetrics` query, not just swap the URL: `limit` /
+`offset` instead of `first` / `skip`, `orderBy: timestamp_DESC` instead of
+`orderBy` + `orderDirection`, and no `block:` argument.
+
+## Parity check (before any consumer switch)
+
+`scripts/parity.mjs` compares every `AgentPortfolio`, `AgentPortfolioSnapshot`
+and `DailyPopulationMetric` row with the subgraph at one block, field by
+field, as exact strings (relations by id, lists as JSON). The squid has no
+time travel, so it must stop exactly at that block:
+
+```sh
+# 1. pick H at or below the subgraph's head; index the squid to exactly H
+BABYDEGEN_TO_BLOCK=<H> npm run process        # exits once it reaches H
+npm run serve                                 # separate terminal
+# 2. compare (Node 18+, no dependencies)
+node scripts/parity.mjs --subgraph <olas-babydegen-base query URL> --block <H>
+#   [--squid http://localhost:4350/graphql] [--entity DailyPopulationMetric] [--max-diffs 50]
+```
+
+Exit 0 = all match, 1 = a difference (listed), 2 = no difference but an
+empty entity, 3 = setup error (squid not at H, subgraph behind H). The
+subgraph must be the corrected version (studio #174 + #175 + #182, i.e.
+`olas-babydegen-base` v0.0.6 or later); older deployments differ by design.
+
+## Deploying
+
+`deploy/k8s-example.yaml`: a migration Job, one processor Deployment (never
+more than one replica) and the GraphQL API with its Service. The image is
+built by the `build-squid-image` workflow with `squid: babydegen`.
 
 ## Running locally
 
@@ -104,7 +136,8 @@ key or RPC ingestion. `BABYDEGEN_TO_BLOCK` stops at a block for parity runs.
 
 `RPC_HTTP` must be an **archive** Base endpoint: every price is read at the
 event's block (Chainlink `latestRoundData`, Aerodrome `getReserves`), as is
-`ethereum.hasCode` for the EOA check. Reads are strict, like `squids/staking`:
+`ethereum.hasCode` for the EOA check, by block hash (EIP-1898), plus
+`eth_getBlockByNumber` for the scheduler's poll blocks. Reads are strict, like `squids/staking`:
 a revert is the subgraph's `.reverted`, any other failure fails the batch.
 There is no fallback to `latest`. Startup checks the registry's code at the
 start block. `mainnet.base.org` is archive but rate-limited; its `eth_getLogs`
@@ -172,9 +205,24 @@ is capped, which matters for RPC ingestion.
   poll block from the entities and runs it there. A day's first poll block
   is found by bisecting poll-block headers: Base's block time changed from
   2 s to 200 ms at block 53,556,128 (2026-11-05), so it is never derived
-  from block numbers (1800 blocks is now 6 minutes, not an hour). With `BABYDEGEN_TO_BLOCK` the end block is always streamed, so every poll
-  block up to it runs. At the live head a due poll block runs when the next
-  tracked block arrives (same values, later).
-- **RPC memos.** `eth_call` and `eth_getCode` answers are memoised per
-  block hash (`ChainReader.enterBlock`), so a hot-block fork replay of the
-  same height re-reads them.
+  from block numbers (1800 blocks is now 6 minutes, not an hour). With
+  `BABYDEGEN_TO_BLOCK` the end block is always streamed, so every poll
+  block up to it runs. From the chain head at the start of a run, every
+  block is streamed, so at the live head a poll block runs on time rather
+  than with the next tracked log (Basius logs can be an hour apart).
+- **Population metrics (3b).** After a poll block that took a snapshot,
+  `src/globalMetrics.ts` writes the day's `DailyPopulationMetric` from the
+  snapshots taken that UTC day, unless that day's row exists (it is
+  immutable: the first such poll block of the day wins). Medians and 7-day
+  SMAs use graph-node's division (`(a + b) / 2`, `sum / n`, 34 digits;
+  checked against a rational reference over 100k cases). The
+  `historicalMedian*` lists are `[String!]` here, `[BigDecimal!]` in the
+  subgraph: SQD cannot store decimal arrays, and both serve the values as
+  JSON strings, so the responses are identical; only the GraphQL type name
+  differs. `sma7d*WithRewards` stay null, as the subgraph never sets them.
+- **`once` order.** graph-node runs a `once` block handler before the
+  block's logs (a `Start` trigger), so the LpSugar bootstrap runs first.
+- **RPC reads.** `eth_call` and `eth_getCode` at the block being processed
+  are requested by its hash (EIP-1898) and memoised per hash
+  (`ChainReader.enterBlock`), so a hot-block fork replay re-reads them and a
+  node still on the old branch fails the batch instead of answering.

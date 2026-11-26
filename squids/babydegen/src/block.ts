@@ -24,7 +24,7 @@
 // same graph-node rule as Safe instances: their events in that block run
 // after the block's other events. The streamed transaction logs already
 // carry them, so nothing is fetched. The start block also runs the
-// subgraph's `once` block handler (the LpSugar bootstrap), after its logs.
+// subgraph's `once` block handler (the LpSugar bootstrap), before its logs.
 //
 // The PortfolioScheduler polling handler (scheduler.ts) runs on poll blocks
 // after the block's events and before the deferred template events; due
@@ -44,13 +44,19 @@ import {
 } from "./dispatch";
 import type { Ctx, ReceiptLog } from "./handlers";
 import type { ChainReader } from "./rpc";
-import { handleSchedulerBlock, isPollBlock, runDuePollsBefore } from "./scheduler";
+import { handleSchedulerBlock, isPollBlock, lastPollBefore, runDuePollsBefore } from "./scheduler";
 import { handleVeloV2Bootstrap } from "./v2";
 
 /** What the running stream subscribes to. Grows in memory as safes are added. */
 export interface StreamState {
   serviceSafes: Set<string>;
   safeHosts: Set<string>;
+  /**
+   * The last block processed in this run. Only a hint to skip the scheduler's
+   * search when no poll block lies between it and the next block; a lower or
+   * equal next block (rollback, restart) searches.
+   */
+  lastBlock?: number;
 }
 
 export interface BlockInput {
@@ -142,7 +148,9 @@ export async function processBlock(
     timestamp: BigInt(Math.floor(block.header.timestamp / 1000)),
   };
   const at = { blockNumber: header.number, blockTimestamp: header.timestamp };
-  await runDuePollsBefore(ctx, header);
+  const lastPoll = lastPollBefore(header.number);
+  const pollSince = stream.lastBlock === undefined || stream.lastBlock >= block.header.number || (lastPoll != null && lastPoll > BigInt(stream.lastBlock));
+  if (pollSince) await runDuePollsBefore(ctx, header);
   ctx.chain.enterBlock(header);
 
   attachReceipts(block.logs);
@@ -163,6 +171,15 @@ export async function processBlock(
       if (pools.includes(past.address) && isPoolTopic(past) && !deferred.includes(past)) deferred.push(past);
     }
   };
+
+  // graph-node sorts a `once` block trigger (`Start`) before the block's
+  // logs (chain/ethereum/src/trigger.rs). The data source always delivers
+  // the start block (processor.ts BOOTSTRAP_BLOCK), so it runs exactly
+  // there; the pools it creates have their events in this block deferred.
+  if (block.header.number === CHAIN.startBlock) {
+    await handleVeloV2Bootstrap(ctx, at);
+    drainPools(0);
+  }
 
   for (let i = 0; i < queue.length; i++) {
     const log = queue[i];
@@ -203,13 +220,7 @@ export async function processBlock(
     }
   }
 
-  // Block handlers run after the block's log triggers. The data source
-  // always delivers the start block (processor.ts BOOTSTRAP_BLOCK), so the
-  // `once` handler runs exactly there, as in the subgraph.
-  if (block.header.number === CHAIN.startBlock) {
-    await handleVeloV2Bootstrap(ctx, at);
-    drainPools(queue.length);
-  }
+  // The polling handler is an `End` block trigger: after the block's logs.
   if (isPollBlock(header.number)) {
     await handleSchedulerBlock(ctx, at);
     drainPools(queue.length);
@@ -217,4 +228,5 @@ export async function processBlock(
 
   deferred.sort((a, b) => a.logIndex - b.logIndex);
   for (const log of deferred) await dispatch(ctx, metaOf(log), log);
+  stream.lastBlock = block.header.number;
 }

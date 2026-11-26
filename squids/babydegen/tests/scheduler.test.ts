@@ -9,10 +9,11 @@ import * as registry from "../src/abi/ServiceRegistryL2/events";
 import { processBlock, type StreamState } from "../src/block";
 import { SERVICE_REGISTRY, USDC_NATIVE } from "../src/constants";
 import type { RawLog } from "../src/dispatch";
-import { AgentPortfolio, AgentPortfolioSnapshot, Service, ServiceRegistry } from "../src/model";
+import { AgentPortfolio, AgentPortfolioSnapshot, DailyPopulationMetric, Service, ServiceRegistry } from "../src/model";
+import { dailyPopulationMetricId } from "../src/globalMetrics";
+import { SERVICE_REGISTRY_ID } from "../src/ids";
 import { ensureAgentPortfolio, snapshotId } from "../src/portfolio";
 import { earliestDuePoll, firstPollAtOrAfter, isPollBlock, POLL_START } from "../src/scheduler";
-import { SERVICE_REGISTRY_ID } from "../src/ids";
 import { addr, hash, setup, tx } from "./helpers";
 
 
@@ -93,6 +94,16 @@ describe("the scheduler over a log-filtered stream", () => {
     expect(p.uninvestedValue.toFixed()).toBe("3007"); // it runs after the snapshot
   });
 
+  it("writes the day's DailyPopulationMetric after a poll block that took a snapshot", async () => {
+    const w = world();
+    await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
+    await w.run(poll(1) + 5n, []); // first snapshot at poll 1 (day 0)
+    const day0 = (ts(poll(1)) / 86400n) * 86400n;
+    const m = (await w.cache.get(DailyPopulationMetric, dailyPopulationMetricId(day0)))!;
+    expect(m).toBeDefined();
+    expect([m.block, m.totalAgents]).toEqual([poll(1), 1]);
+  });
+
   it("takes nothing on a streamed poll block when no service is due", async () => {
     const w = world();
     await w.run(poll(1), [registerInstance(1), createMultisig(2)]);
@@ -105,6 +116,23 @@ describe("the scheduler over a log-filtered stream", () => {
     await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
     await w.run(poll(14), []); // processor.ts includes the end block in the stream
     expect([...w.snapshots().keys()].sort()).toEqual([poll(1), poll(14)].map((n) => snapshotId(SAFE, ts(n))).sort());
+  });
+
+  it("skips the search when no poll block lies since the last processed block, and searches again after a rollback", async () => {
+    const w = world();
+    await w.run(POLL_START + 100n, [registerInstance(1), createMultisig(2)]);
+    await w.run(poll(1) + 5n, []); // first snapshot at poll 1
+    // Day 1 starts at block +24,800 (between polls 13 and 14): the last
+    // snapshot's day is over, but no poll block of day 1 precedes these.
+    const b1 = POLL_START + 24_900n;
+    await w.run(b1, []);
+    const reads = w.chain.headerReads.length;
+    expect(reads).toBeGreaterThan(0); // searched: poll 13 is new since poll 1 + 5
+    await w.run(b1 + 50n, []);
+    expect(w.chain.headerReads).toHaveLength(reads); // nothing new to search
+    await w.run(b1, []); // a hot-block rollback replays b1
+    expect(w.chain.headerReads.length).toBeGreaterThan(reads);
+    expect(w.cache.all(AgentPortfolioSnapshot)).toHaveLength(1);
   });
 
   it("runs several services' due poll blocks in block order: an earlier one found after a later one wins", async () => {

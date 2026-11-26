@@ -1,0 +1,82 @@
+# Babydegen (Basius) squid on Base.
+# Build from repo root: docker build -f squids/Dockerfile --build-arg SQUID=babydegen .
+# Replace registry.example/babydegen-squid:VERSION with the published image.
+# Secret babydegen-base-squid-db: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS.
+# Secret babydegen-base-squid-data: RPC_HTTP (Base archive REQUIRED: eth_call,
+# eth_getCode and eth_getBlockByNumber at historical blocks, EIP-1898 block hashes),
+# INGEST_SOURCE=portal|rpc, and SQD_PORTAL_URL / SQD_PORTAL_API_KEY for a private
+# base-mainnet portal. Leave BABYDEGEN_TO_BLOCK unset in production (parity runs only).
+# Run ONE processor: it restarts its stream in-process when a new Basius Safe registers.
+# Run the migration job successfully before starting the processor/API.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: babydegen-base-squid-migrate
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.example/babydegen-squid:VERSION
+          command: ["npx", "squid-typeorm-migration", "apply"]
+          envFrom: [{ secretRef: { name: babydegen-base-squid-db } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: babydegen-base-squid-processor
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: babydegen-base-squid-processor } }
+  template:
+    metadata:
+      labels: { app: babydegen-base-squid-processor }
+    spec:
+      containers:
+        - name: processor
+          image: registry.example/babydegen-squid:VERSION
+          command: ["node", "lib/main.js"]
+          envFrom:
+            - { secretRef: { name: babydegen-base-squid-db } }
+            - { secretRef: { name: babydegen-base-squid-data } }
+          env:
+            - { name: PROMETHEUS_PORT, value: "3000" }
+          ports: [{ name: metrics, containerPort: 3000 }]
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "2", memory: "1Gi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: babydegen-base-squid-api
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: babydegen-base-squid-api } }
+  template:
+    metadata:
+      labels: { app: babydegen-base-squid-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example/babydegen-squid:VERSION
+          command: ["npx", "squid-graphql-server"]
+          envFrom: [{ secretRef: { name: babydegen-base-squid-db } }]
+          env:
+            - { name: GQL_PORT, value: "4350" }
+          ports: [{ name: graphql, containerPort: 4350 }]
+          readinessProbe:
+            tcpSocket: { port: graphql }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: babydegen-base-squid-api
+spec:
+  selector: { app: babydegen-base-squid-api }
+  ports: [{ port: 4350, targetPort: graphql }]

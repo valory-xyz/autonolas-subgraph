@@ -39,8 +39,14 @@ type Range = { from: number; to?: number };
 export function addQueries<B extends { addLog(q: LogRequest & { range?: Range }): B; includeAllBlocks(range?: Range): B }>(
   builder: B,
   queries: LogQuery[],
+  liveFrom?: number,
 ): B {
   let b = builder.includeAllBlocks(BOOTSTRAP_BLOCK);
+  // From the chain head at start on, every block is delivered, so a due poll
+  // block runs on time at the live head instead of waiting for the next
+  // tracked log (scheduler.ts). Not for a pinned range: its end block is
+  // enough there.
+  if (liveFrom !== undefined && BLOCK_RANGE.to === undefined) b = b.includeAllBlocks({ from: Math.max(liveFrom, CHAIN.startBlock) });
   // A pinned end block always arrives, so the scheduler (block.ts) runs the
   // due poll blocks up to it even when it carries no tracked log.
   if (BLOCK_RANGE.to !== undefined) b = b.includeAllBlocks({ from: BLOCK_RANGE.to, to: BLOCK_RANGE.to });
@@ -54,17 +60,22 @@ export function addQueries<B extends { addLog(q: LogRequest & { range?: Range })
   return b;
 }
 
-/** A data source subscribed to the tracked safes (rebuilt at every restart). */
-export function buildDataSource(tracked: Tracked) {
+/**
+ * A data source subscribed to the tracked safes (rebuilt at every restart),
+ * delivering every block from `liveFrom` (the head when the run started).
+ */
+export function buildDataSource(tracked: Tracked, liveFrom?: number) {
   const queries = logQueries(tracked);
   if (INGEST_SOURCE === "portal") {
     return addQueries(
       new DataSourceBuilder().setPortal(ingestion.portal).setBlockRange(BLOCK_RANGE).setFields(fields),
       queries,
+      liveFrom,
     ).build();
   }
   return addQueries(
     new EvmRpcDataSourceBuilder().setRpc(ingestion.rpc).setBlockRange(BLOCK_RANGE).setFields(fields),
     queries,
+    liveFrom,
   ).build();
 }

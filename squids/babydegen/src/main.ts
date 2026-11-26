@@ -13,7 +13,7 @@ import { fetchMissingLogs, processBlock, type StreamState } from "./block";
 import { CHAIN, SERVICE_REGISTRY } from "./constants";
 import { EntityCache } from "./entityCache";
 import type { Ctx } from "./handlers";
-import { buildDataSource } from "./processor";
+import { BLOCK_RANGE, buildDataSource } from "./processor";
 import { assertArchiveRpc, ChainReader, transport } from "./rpc";
 import { cuttingSource, serviceIdFromKey, type CutState, type Tracked } from "./sources";
 
@@ -48,11 +48,11 @@ class TrackingDatabase extends TypeormDatabase {
 }
 
 /** A source built on first use, i.e. after the processor connected the database. */
-function lazySource(db: TrackingDatabase, cut: CutState) {
+function lazySource(db: TrackingDatabase, cut: CutState, liveFrom: number | undefined) {
   let src: ReturnType<typeof buildDataSource> | undefined;
   const get = () => {
     if (db.tracked == null) throw new Error("data source used before the database connected");
-    src ??= cuttingSource(buildDataSource(db.tracked), db.tracked, cut);
+    src ??= cuttingSource(buildDataSource(db.tracked, liveFrom), db.tracked, cut);
     return src;
   };
   return {
@@ -70,7 +70,7 @@ async function runOnce(): Promise<boolean> {
   const cut: CutState = { cut: false };
   const db = new TrackingDatabase({ supportHotBlocks: true, isolationLevel: "READ COMMITTED" });
   let stream: StreamState | undefined;
-  const processor = new Processor(lazySource(db, cut), db, async (ctx) => {
+  const processor = new Processor(lazySource(db, cut, BLOCK_RANGE.to === undefined ? Number(await chain.blockNumber()) : undefined), db, async (ctx) => {
     archiveChecked ??= assertArchiveRpc(chain, SERVICE_REGISTRY, CHAIN.startBlock);
     await archiveChecked;
     stream ??= { serviceSafes: new Set(db.tracked!.serviceSafes), safeHosts: new Set(db.tracked!.safeHosts) };
