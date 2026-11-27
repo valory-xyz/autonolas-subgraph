@@ -9,39 +9,39 @@
 # handle (e.g., @valory-xyz/<team>) once one is created.
 
 # Default owner: any unowned path falls back here.
-*                                @Tanya-atatakai
+*                                @atepem
 
 # Workflows, actions config, repository-level GitHub config.
-/.github/                        @Tanya-atatakai
+/.github/                        @atepem
 
 # Top-level package metadata + lockfile.
-/package.json                    @Tanya-atatakai
-/yarn.lock                       @Tanya-atatakai
+/package.json                    @atepem
+/yarn.lock                       @atepem
 
 # Node-version pin enforced by Corepack in CI.
-/.nvmrc                          @Tanya-atatakai
+/.nvmrc                          @atepem
 
 # Supply-chain controls: scripts that gate CI + allowlists they consult.
-/scripts/                        @Tanya-atatakai
-/.supply-chain/                  @Tanya-atatakai
+/scripts/                        @atepem
+/.supply-chain/                  @atepem
 
 # Disclosure + threat-model docs.
-/SECURITY.md                     @Tanya-atatakai
-/SUPPLY-CHAIN-SECURITY.md        @Tanya-atatakai
+/SECURITY.md                     @atepem
+/SUPPLY-CHAIN-SECURITY.md        @atepem
 
 # AI / contributor onboarding context — changes here shape future agent behavior.
-/CLAUDE.md                       @Tanya-atatakai
+/CLAUDE.md                       @atepem
 
 # Local-dev infra (postgres password lives here as env-var requirement).
-/docker-compose.yaml             @Tanya-atatakai
+/docker-compose.yaml             @atepem
 
 # Per-subgraph package metadata + lockfiles.
-/subgraphs/*/package.json        @Tanya-atatakai
-/subgraphs/*/yarn.lock           @Tanya-atatakai
+/subgraphs/*/package.json        @atepem
+/subgraphs/*/yarn.lock           @atepem
 
 # Per-subgraph manifests — contract addresses + start blocks live here.
 # These deserve security review because a malicious manifest edit could
 # index events from a malicious contract address with the same signature
 # as a legitimate one.
-/subgraphs/*/subgraph.yaml       @Tanya-atatakai
-/subgraphs/*/subgraph.*.yaml     @Tanya-atatakai
+/subgraphs/*/subgraph.yaml       @atepem
+/subgraphs/*/subgraph.*.yaml     @atepem
